@@ -1,20 +1,10 @@
-<!doctype html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8">
-  <title>Omaha — Dashboard</title>
-</head>
-<body>
-  <main>
-    {# T04 replaces this with the production dashboard layout. The
-       profile name is rendered into a dedicated element so the T03
-       test can assert it without coupling to copy that T04 will
-       rewrite. #}
-    <h1 data-testid="profile-name">Olá, {{ profile.name }}</h1>
-    <p>App vazio por enquanto — carteiras, posições e movimentos chegam nos próximos slices.</p>
-    <form method="post" action="/logout">
-      <button type="submit">Sair</button>
-    </form>
-  </main>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}Omaha — Dashboard{% endblock %}
+{% block content %}
+  <h2 data-testid="profile-name">Bem-vindo, {{ profile.name }}</h2>
+
+  <div class="empty-state" data-testid="empty-state">
+    <p><strong>Sem classes ainda.</strong></p>
+    <p>Em S02 você poderá criar suas classes de ativos.</p>
+  </div>
+{% endblock %}

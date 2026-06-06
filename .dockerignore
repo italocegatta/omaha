@@ -1,0 +1,38 @@
+# Files and directories that should not be sent to the Docker build
+# context. Smaller context = faster builds + less surface for accidentally
+# shipping secrets.
+
+# VCS / editor / OS junk
+.git
+.gitignore
+.gitattributes
+.idea
+.vscode
+.DS_Store
+
+# Python build / venv artefacts
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+htmlcov
+
+# Local data — the container has its own /app/data volume mount
+data/*
+!data/.gitkeep
+
+# Tests aren't shipped in the S01 dev image
+tests
+
+# Documentation other than the README (hatchling reads README.md for
+# the long_description, so it must be in the build context).
+CHANGELOG.md
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+SECURITY.md
+docs

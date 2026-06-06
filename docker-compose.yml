@@ -1,0 +1,17 @@
+# Single-service dev compose. S06 introduces nginx + a separate
+# production stage; this file is intentionally minimal so
+# `docker compose up --build` is the only command an operator needs.
+services:
+  web:
+    build: .
+    image: omaha:dev
+    ports:
+      - "8000:8000"
+    env_file: .env
+    working_dir: /app
+    volumes:
+      # Persist the SQLite database across container restarts. The
+      # bind-mount keeps the file on the host so `docker compose down`
+      # does not wipe the data.
+      - ./data:/app/data
+    restart: unless-stopped

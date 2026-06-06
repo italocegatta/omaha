@@ -1,0 +1,46 @@
+# Configuration file for `prek`, a Git hook framework written in Rust.
+# A drop-in replacement for pre-commit, used to enforce formatting and
+# hygiene on every commit. Run manually with `prek run --all-files`.
+# See https://prek.j178.dev for more information.
+#:schema https://www.schemastore.org/prek.json
+
+# Skip the agent-infrastructure directories: ``.agents/`` ships the
+# shared skill library used by the GSD agent (not project code), and
+# ``.gsd/`` is the GSD workspace metadata. Pre-commit's own docs
+# recommend a top-level ``exclude`` for vendored / generated content.
+exclude = '''
+(?x)^(
+    \.agents/.*
+  | \.gsd/.*
+  | data/.*
+)$
+'''
+
+# Standard hygiene hooks from the pre-commit-hooks repo.
+[[repos]]
+repo = "https://github.com/pre-commit/pre-commit-hooks"
+rev = "v5.0.0"
+hooks = [
+    { id = "trailing-whitespace" },
+    { id = "end-of-file-fixer" },
+    { id = "check-yaml" },
+    { id = "check-toml" },
+    { id = "check-added-large-files" },
+]
+
+# Ruff for Python — formatter + linter. Runs in --fix mode so the
+# commit message stays clean; the formatter is idempotent.
+[[repos]]
+repo = "https://github.com/astral-sh/ruff-pre-commit"
+rev = "v0.6.9"
+hooks = [
+    { id = "ruff", args = ["--fix"] },
+    { id = "ruff-format" },
+]
+
+# Built-in: catches accidentally-committed private keys (PEM blocks).
+[[repos]]
+repo = "builtin"
+hooks = [
+    { id = "detect-private-key" },
+]

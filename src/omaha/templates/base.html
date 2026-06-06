@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Omaha{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <h1>Omaha</h1>
+    <span class="current-profile">
+      {% if profile is defined and profile %}Perfil: {{ profile.name }}
+      {% else %}(sem perfil){% endif %}
+    </span>
+    {% if user is defined and user %}
+    <form class="profile-switcher" method="post" action="/logout">
+      <button type="submit">Sair</button>
+    </form>
+    {% endif %}
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
