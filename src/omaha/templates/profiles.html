@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Omaha — Escolher perfil</title>
+</head>
+<body>
+  <main>
+    <h1>Escolher perfil</h1>
+    {# T04 replaces this with the production profile picker. #}
+    <p>Olá, {{ user.username }}. Quem está usando o app agora?</p>
+    <ul>
+      {% for p in profiles %}
+        <li>
+          <form method="post" action="/profiles/{{ p.id }}/select">
+            <button type="submit">{{ p.name }}</button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+    <form method="post" action="/logout">
+      <button type="submit">Sair</button>
+    </form>
+  </main>
+</body>
+</html>

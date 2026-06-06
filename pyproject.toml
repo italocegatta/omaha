@@ -16,6 +16,7 @@ dependencies = [
     "pydantic>=2.7",
     "pydantic-settings>=2.4",
     "bcrypt>=4.2",
+    "itsdangerous>=2.1",
     "jinja2>=3.1",
     "python-multipart>=0.0.9",
 ]
@@ -47,6 +48,7 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["B011"]
+"src/omaha/**/*" = ["B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
