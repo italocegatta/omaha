@@ -1,0 +1,90 @@
+"""Idempotent database seed for the family account and starter profiles.
+
+The seed creates exactly one user (``family``) with the shared family
+password (from ``settings.ADMIN_PASSWORD``) and two profiles — *Italo*
+and *Ana Livia* — tied to that user. It is safe to call more than once:
+if any user already exists, the function exits without writing.
+
+Typical entry points:
+
+* ``uv run python -m omaha.seed`` — runs :func:`seed` against the
+  configured ``DATABASE_URL`` and prints a one-line status message.
+* ``alembic upgrade head && python -m omaha.seed`` — fresh database
+  bootstrap.
+* The T02 unit test calls :func:`seed` against a temporary SQLite file.
+"""
+
+from __future__ import annotations
+
+from sqlalchemy.orm import Session
+
+from omaha.auth import hash_password
+from omaha.config import settings
+from omaha.db import SessionLocal
+from omaha.models import Profile, User
+
+DEFAULT_USERNAME = "family"
+DEFAULT_PROFILES: tuple[tuple[str, int], ...] = (
+    ("Italo", 0),
+    ("Ana Livia", 1),
+)
+
+
+def _seed_with_session(db: Session) -> int:
+    """Idempotently create the family user + profiles.
+
+    Returns the number of users that existed *before* the call, which is
+    a convenient signal for callers (``0`` = we just seeded, ``1+`` =
+    already populated).
+    """
+    existing = db.query(User).count()
+    if existing > 0:
+        return existing
+
+    if not settings.ADMIN_PASSWORD:
+        raise RuntimeError(
+            "ADMIN_PASSWORD is not set; cannot seed. Configure it in .env "
+            "or export it in the environment."
+        )
+
+    user = User(
+        username=DEFAULT_USERNAME,
+        password_hash=hash_password(settings.ADMIN_PASSWORD),
+    )
+    db.add(user)
+    # Flush so the user.id is populated before we add profile rows.
+    db.flush()
+
+    for name, order in DEFAULT_PROFILES:
+        db.add(Profile(user_id=user.id, name=name, display_order=order))
+
+    db.commit()
+    return 0
+
+
+def seed() -> int:
+    """Idempotent seed entry point.
+
+    Opens a short-lived session, runs :func:`_seed_with_session`, and
+    prints a one-line status message. Returns the prior user count
+    (``0`` when we just created the seed data).
+    """
+    db = SessionLocal()
+    try:
+        prior = _seed_with_session(db)
+    finally:
+        db.close()
+
+    if prior == 0:
+        print(
+            f"seeded user {DEFAULT_USERNAME!r} with "
+            f"{len(DEFAULT_PROFILES)} profiles: "
+            f"{[name for name, _ in DEFAULT_PROFILES]}"
+        )
+    else:
+        print(f"seed skipped: {prior} user(s) already present")
+    return prior
+
+
+if __name__ == "__main__":  # pragma: no cover - manual entry point
+    seed()
