@@ -41,3 +41,9 @@ vendor/
 coverage/
 .cache/
 tmp/
+
+# Project: SQLite database lives under data/. Keep the directory tracked
+# (so docker compose volume mount works) but ignore the actual DB file.
+data/
+data/*
+!data/.gitkeep
