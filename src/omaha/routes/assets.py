@@ -60,8 +60,8 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, 
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.exc import IntegrityError
 
-from omaha.auth import DbSession, require_active_profile
-from omaha.models import Asset, AssetClass, Profile
+from omaha.auth import DbSession, require_active_profile, require_user
+from omaha.models import Asset, AssetClass, Profile, User
 
 router = APIRouter(tags=["assets"])
 
@@ -78,6 +78,7 @@ def _templates(request: Request):
 def get_assets(
     request: Request,
     db: DbSession,
+    user: User = Depends(require_user),
     profile: Profile = Depends(require_active_profile),
 ) -> Response:
     """Render the dedicated asset editor page.
@@ -94,13 +95,12 @@ def get_assets(
         .order_by(AssetClass.display_order)
         .all()
     )
-    assets_by_class: dict[int, list[Asset]] = {
-        cls.id: list(cls.assets) for cls in classes
-    }
+    assets_by_class: dict[int, list[Asset]] = {cls.id: list(cls.assets) for cls in classes}
     return _templates(request).TemplateResponse(
         request,
         "assets.html",
         {
+            "user": user,
             "profile": profile,
             "classes": classes,
             "assets_by_class": assets_by_class,
@@ -113,6 +113,7 @@ def get_assets(
 def post_assets(
     request: Request,
     db: DbSession,
+    user: User = Depends(require_user),
     profile: Profile = Depends(require_active_profile),
     name: Annotated[str, Form()] = "",  # noqa: B006
     asset_class_id: Annotated[int, Form()] = 0,  # noqa: B006
@@ -143,6 +144,7 @@ def post_assets(
     if not name_clean:
         return _render_assets_with_error(
             request,
+            user,
             profile,
             classes,
             error="O nome do ativo é obrigatório.",
@@ -150,6 +152,7 @@ def post_assets(
     if len(name_clean) > NAME_MAX_LEN:
         return _render_assets_with_error(
             request,
+            user,
             profile,
             classes,
             error=f"O nome do ativo deve ter no máximo {NAME_MAX_LEN} caracteres.",
@@ -171,6 +174,7 @@ def post_assets(
     if target_class is None:
         return _render_assets_with_error(
             request,
+            user,
             profile,
             classes,
             error="Selecione uma classe válida.",
@@ -200,6 +204,7 @@ def post_assets(
         db.rollback()
         return _render_assets_with_error(
             request,
+            user,
             profile,
             classes,
             error=f"Já existe um ativo com o nome {name_clean} nessa classe.",
@@ -232,6 +237,7 @@ def delete_asset(
 
 def _render_assets_with_error(
     request: Request,
+    user: User,
     profile: Profile,
     classes: list[AssetClass],
     *,
@@ -243,13 +249,12 @@ def _render_assets_with_error(
     classes list and per-class assets are reloaded so the page
     matches the GET view exactly.
     """
-    assets_by_class: dict[int, list[Asset]] = {
-        cls.id: list(cls.assets) for cls in classes
-    }
+    assets_by_class: dict[int, list[Asset]] = {cls.id: list(cls.assets) for cls in classes}
     return _templates(request).TemplateResponse(
         request,
         "assets.html",
         {
+            "user": user,
             "profile": profile,
             "classes": classes,
             "assets_by_class": assets_by_class,
