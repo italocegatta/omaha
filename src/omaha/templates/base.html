@@ -9,16 +9,27 @@
 </head>
 <body>
   <header class="app-header">
-    <h1>Omaha</h1>
-    <span class="current-profile">
-      {% if profile is defined and profile %}Perfil: {{ profile.name }}
-      {% else %}(sem perfil){% endif %}
-    </span>
-    {% if user is defined and user %}
-    <form class="profile-switcher" method="post" action="/logout">
-      <button type="submit">Sair</button>
-    </form>
-    {% endif %}
+    <div class="app-header-left">
+      <h1>Omaha</h1>
+      {% if user is defined and user %}
+      <nav class="main-nav" data-testid="main-nav">
+        <a href="/" data-testid="nav-dashboard">Dashboard</a>
+        <a href="/classes" data-testid="nav-classes">Classes</a>
+        <a href="/assets" data-testid="nav-assets">Ativos</a>
+      </nav>
+      {% endif %}
+    </div>
+    <div class="app-header-right">
+      <span class="current-profile">
+        {% if profile is defined and profile %}Perfil: {{ profile.name }}
+        {% else %}(sem perfil){% endif %}
+      </span>
+      {% if user is defined and user %}
+      <form class="profile-switcher" method="post" action="/logout">
+        <button type="submit">Sair</button>
+      </form>
+      {% endif %}
+    </div>
   </header>
 
   <main>

@@ -17,6 +17,16 @@ header.app-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 0.75rem 1.5rem; border-bottom: 1px solid var(--border); background: #fff;
 }
+header.app-header .app-header-left,
+header.app-header .app-header-right {
+  display: flex; align-items: center; gap: 1.5rem;
+}
+header.app-header .main-nav { display: flex; gap: 1rem; }
+header.app-header .main-nav a {
+  color: var(--fg); text-decoration: none; font-size: 0.9rem;
+  padding: 0.25rem 0;
+}
+header.app-header .main-nav a:hover { color: var(--accent); }
 header.app-header h1 { font-size: 1.1rem; margin: 0; }
 header.app-header .current-profile { color: var(--muted); font-size: 0.9rem; }
 header.app-header form.profile-switcher button {
