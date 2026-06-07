@@ -186,6 +186,12 @@ class Asset(Base):
     )
 
     asset_class: Mapped[AssetClass] = relationship("AssetClass", back_populates="assets")
+    positions: Mapped[list[Position]] = relationship(
+        "Position",
+        back_populates="asset",
+        cascade="all, delete-orphan",
+        order_by="Position.id",
+    )
 
     def __repr__(self) -> str:
         return (
@@ -193,4 +199,61 @@ class Asset(Base):
         )
 
 
-__all__ = ["User", "Profile", "AssetClass", "Asset"]
+class Position(Base):
+    """A broker-side holding of a specific :class:`Asset` for a profile.
+
+    Positions are the data the S04 CSV importer writes and the S05
+    dashboard reads. Each row is one (asset, broker_ticker) pair with
+    the quantity, average cost, and current price the broker reported
+    for that position. The ``(asset_id, broker_ticker)`` unique
+    constraint makes a re-import of the same broker ticker for the
+    same asset an idempotent upsert, not a duplicate row.
+
+    ``broker_ticker`` is the symbol the broker used (e.g. ``PETR4``,
+    ``IVVB11``, ``TESOURO_SELIC_2029``). It is stored verbatim from
+    the CSV row that produced it; the importer normalizes the asset
+    name *separately* for matching, so two CSVs from different
+    brokers can write to the same ``(asset_id, broker_ticker)`` row
+    as long as the tickers match. ``qty``, ``avg_price``, and
+    ``current_price`` are :class:`~decimal.Decimal` columns with
+    ``Numeric(18, 4)`` precision — enough headroom for Brazilian
+    broker positions and FX-aware totals without losing cents.
+
+    On asset deletion, the FK ``ON DELETE CASCADE`` removes all
+    child positions; the ORM relationship also declares
+    ``cascade="all, delete-orphan"`` so in-process
+    ``session.delete`` behaves the same. Combined with the S03
+    asset → class CASCADE and the S02 class → profile CASCADE,
+    deleting a profile removes every class, every asset, and every
+    position underneath it in a single operation.
+    """
+
+    __tablename__ = "positions"
+    __table_args__ = (
+        UniqueConstraint("asset_id", "broker_ticker", name="uq_position_asset_ticker"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    asset_id: Mapped[int] = mapped_column(
+        ForeignKey("assets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    qty: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
+    avg_price: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
+    current_price: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
+    broker_ticker: Mapped[str] = mapped_column(String(32), nullable=False)
+    imported_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+
+    asset: Mapped[Asset] = relationship("Asset", back_populates="positions")
+
+    def __repr__(self) -> str:
+        return (
+            f"Position(id={self.id!r}, asset_id={self.asset_id!r}, "
+            f"broker_ticker={self.broker_ticker!r})"
+        )
+
+
+__all__ = ["User", "Profile", "AssetClass", "Asset", "Position"]
