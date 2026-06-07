@@ -21,8 +21,6 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-import pytest
-
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
@@ -31,7 +29,7 @@ SELECTORS = {
     "login_user": 'input[name="username"]',
     "login_pass": 'input[name="password"]',
     "login_submit": 'button[type="submit"]',
-    "profile_picker": 'form.profile-picker button',
+    "profile_picker": "form.profile-picker button",
     "nav_dashboard": '[data-testid="nav-dashboard"]',
     "nav_classes": '[data-testid="nav-classes"]',
     "nav_assets": '[data-testid="nav-assets"]',
@@ -67,6 +65,7 @@ def _login_and_select_italo(page: Page, base_url: str) -> None:
 def _debug_dump(page: Page, tag: str) -> None:
     """Write a screenshot + main-text + URL to /tmp for post-mortem."""
     import os
+
     os.makedirs("/tmp/s03_e2e_debug", exist_ok=True)
     screenshot_path = f"/tmp/s03_e2e_debug/{tag}.png"
     page.screenshot(path=screenshot_path, full_page=True)
@@ -105,9 +104,7 @@ def _fill_class_row(page: Page, idx: int, name: str, pct: float) -> None:
 class TestS03UserJourney:
     """One class per test scenario so failures are isolated."""
 
-    def test_login_select_profile_renders_dashboard(
-        self, page: Page, live_url: str
-    ) -> None:
+    def test_login_select_profile_renders_dashboard(self, page: Page, live_url: str) -> None:
         """Smoke: login + select Italo lands on a dashboard with no classes yet."""
         _login_and_select_italo(page, live_url)
 
@@ -120,9 +117,7 @@ class TestS03UserJourney:
         page.wait_for_selector('[data-testid="empty-state"]', timeout=5000)
         assert page.locator(SELECTORS["class_summary_row"]).count() == 0
 
-    def test_full_crud_journey_classes_assets_delete(
-        self, page: Page, live_url: str
-    ) -> None:
+    def test_full_crud_journey_classes_assets_delete(self, page: Page, live_url: str) -> None:
         """Full S03 user journey: 3 classes, 3 assets, delete 1, verify dashboard.
 
         This is the regression test for the delete-button-outside-form
@@ -168,9 +163,7 @@ class TestS03UserJourney:
             )
         ):
             page.fill(SELECTORS["asset_editor_name"], asset_name)
-            page.select_option(
-                SELECTORS["asset_editor_class"], label=class_name
-            )
+            page.select_option(SELECTORS["asset_editor_class"], label=class_name)
             page.click(SELECTORS["asset_editor_add"])
             # Wait for the asset to appear in the rendered list
             # (the editor re-renders, the POST/303 round-trip is
@@ -178,7 +171,8 @@ class TestS03UserJourney:
             # starts at 0.
             try:
                 page.wait_for_function(
-                    f"() => document.querySelectorAll('{SELECTORS['asset_row']}').length === {i + 1}",
+                    "() => document.querySelectorAll("
+                    f"'{SELECTORS['asset_row']}').length === {i + 1}",
                     timeout=5000,
                 )
             except Exception:
@@ -189,9 +183,7 @@ class TestS03UserJourney:
 
         # --- 3. Delete the second asset (PETR4 / Acoes).
         # Locate the row whose name is "PETR4" and click its delete.
-        petr4_row = page.locator(SELECTORS["asset_row"]).filter(
-            has_text="PETR4"
-        )
+        petr4_row = page.locator(SELECTORS["asset_row"]).filter(has_text="PETR4")
         assert petr4_row.count() == 1, "PETR4 row should exist before delete"
         petr4_row.locator(SELECTORS["asset_row_delete"]).click()
 
@@ -226,9 +218,7 @@ class TestS03UserJourney:
         assert "IVVB11" in dashboard_text
         assert "PETR4" not in dashboard_text
 
-    def test_save_blocked_when_classes_dont_sum_to_100(
-        self, page: Page, live_url: str
-    ) -> None:
+    def test_save_blocked_when_classes_dont_sum_to_100(self, page: Page, live_url: str) -> None:
         """The Alpine save button is disabled until the total reaches 100.
 
         This is a UI contract that only a browser test can validate.

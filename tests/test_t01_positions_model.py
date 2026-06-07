@@ -186,7 +186,15 @@ def test_alembic_upgrade_creates_positions_table(omaha_db) -> None:
         # Columns — assert the exact column set is present and that
         # every non-id column is NOT NULL (matches the plan).
         positions_cols = {c["name"]: c for c in inspector.get_columns("positions")}
-        expected = {"id", "asset_id", "qty", "avg_price", "current_price", "broker_ticker", "imported_at"}
+        expected = {
+            "id",
+            "asset_id",
+            "qty",
+            "avg_price",
+            "current_price",
+            "broker_ticker",
+            "imported_at",
+        }
         assert expected.issubset(positions_cols.keys()), positions_cols
         for col_name in (
             "asset_id",
@@ -196,9 +204,9 @@ def test_alembic_upgrade_creates_positions_table(omaha_db) -> None:
             "broker_ticker",
             "imported_at",
         ):
-            assert positions_cols[col_name]["nullable"] is False, (
-                f"positions.{col_name} must be NOT NULL, got {positions_cols[col_name]!r}"
-            )
+            assert (
+                positions_cols[col_name]["nullable"] is False
+            ), f"positions.{col_name} must be NOT NULL, got {positions_cols[col_name]!r}"
 
         # Unique constraint on (asset_id, broker_ticker)
         unique_constraints = inspector.get_unique_constraints("positions")
@@ -287,9 +295,7 @@ def test_unique_constraint_rejects_duplicate_ticker_per_asset(omaha_db) -> None:
         # under the same class so we have a second FK target.
         klass_row = session.get(AssetClass, klass.id)
         assert klass_row is not None
-        other_asset = Asset(
-            asset_class_id=klass_row.id, name="IVVB11", display_order=1
-        )
+        other_asset = Asset(asset_class_id=klass_row.id, name="IVVB11", display_order=1)
         session.add(other_asset)
         session.flush()
 
@@ -383,12 +389,8 @@ def test_deleting_profile_cascades_to_positions(omaha_db) -> None:
         session.add_all([klass_a, klass_b])
         session.flush()
 
-        asset_rf_1 = Asset(
-            asset_class_id=klass_a.id, name="Tesouro Selic", display_order=0
-        )
-        asset_rf_2 = Asset(
-            asset_class_id=klass_a.id, name="CDB Banco X", display_order=1
-        )
+        asset_rf_1 = Asset(asset_class_id=klass_a.id, name="Tesouro Selic", display_order=0)
+        asset_rf_2 = Asset(asset_class_id=klass_a.id, name="CDB Banco X", display_order=1)
         asset_ac_1 = Asset(asset_class_id=klass_b.id, name="PETR4", display_order=0)
         asset_ac_2 = Asset(asset_class_id=klass_b.id, name="IVVB11", display_order=1)
         session.add_all([asset_rf_1, asset_rf_2, asset_ac_1, asset_ac_2])

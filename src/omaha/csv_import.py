@@ -41,10 +41,11 @@ from __future__ import annotations
 import csv
 import re
 import unicodedata
+from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from io import StringIO
-from typing import Iterable, Protocol
+from typing import Protocol
 
 # Known header labels (lowercased, accent-stripped, no punctuation).
 # The header detector matches any cell whose normalized form
@@ -53,7 +54,13 @@ from typing import Iterable, Protocol
 _KNOWN_TICKER_LABELS = ("codigo", "papel", "ticker", "ativo", "simbolo")
 _KNOWN_NAME_LABELS = ("ativo", "nome", "descricao", "papel")
 _KNOWN_QTY_LABELS = ("quantidade", "qty", "qtd", "qtde")
-_KNOWN_AVG_LABELS = ("preco medio", "preco de compra", "preco de aquisicao", "avg price", "avg cost")
+_KNOWN_AVG_LABELS = (
+    "preco medio",
+    "preco de compra",
+    "preco de aquisicao",
+    "avg price",
+    "avg cost",
+)
 _KNOWN_CUR_LABELS = ("preco atual", "preco de mercado", "current price", "preco")
 
 # Known footer labels. Footer rows are detected by ticker-cell match

@@ -31,11 +31,10 @@ import pytest
 
 from omaha.csv_import import (
     MatchResult,
-    RawPosition,
+    _parse_brazilian_number,
     match_positions,
     normalize_name,
     parse_positions,
-    _parse_brazilian_number,
 )
 
 FIXTURE_PATH = Path(__file__).resolve().parent / "fixtures" / "sample_broker.csv"
@@ -53,7 +52,7 @@ UNMATCHED_NAMES = ["MXRF11", "BPAC11", "HGLG11", "XPLG11", "VINO11"]
 
 
 def test_header_detection_portuguese() -> None:
-    """Portuguese headers (Codigo, Ativo, Quantidade, Preco Medio, Preco Atual) are detected and consumed."""
+    """Portuguese headers are detected and consumed."""
     text = (
         "Codigo,Ativo,Quantidade,Preco Medio,Preco Atual\n"
         'PETR4,PETR4,100,"28,50","35,10"\n'
@@ -107,10 +106,7 @@ def test_banner_row_skipped() -> None:
 
 def test_positional_fallback_no_header() -> None:
     """When no header is detected, the first non-banner row is treated as data."""
-    text = (
-        'PETR4,PETR4,100,"28,50","35,10"\n'
-        'VALE3,VALE3,200,"65,20","72,40"\n'
-    )
+    text = 'PETR4,PETR4,100,"28,50","35,10"\n' 'VALE3,VALE3,200,"65,20","72,40"\n'
     positions = parse_positions(text)
     assert len(positions) == 2
     assert positions[0].broker_ticker == "PETR4"
@@ -142,7 +138,7 @@ def test_total_footer_skipped() -> None:
     text = (
         "Codigo,Ativo,Quantidade,Preco Medio,Preco Atual\n"
         'PETR4,PETR4,100,"28,50","35,10"\n'
-        'Total,2 ativos,,,\n'
+        "Total,2 ativos,,,\n"
     )
     positions = parse_positions(text)
     assert len(positions) == 1
@@ -191,7 +187,7 @@ def test_malformed_row_skipped() -> None:
     text = (
         "Codigo,Ativo,Quantidade,Preco Medio,Preco Atual\n"
         'PETR4,PETR4,100,"28,50","35,10"\n'
-        'BAD,BAD,abc,def,ghi\n'
+        "BAD,BAD,abc,def,ghi\n"
         'VALE3,VALE3,200,"65,20","72,40"\n'
     )
     positions = parse_positions(text)
@@ -206,7 +202,7 @@ def test_malformed_row_skipped() -> None:
 
 
 def test_fixture_yields_48_positions() -> None:
-    """The 48-row fixture (43 matched + 5 unmatched + 1 phantom + 1 footer + 1 banner + 1 header) yields exactly 48 RawPosition."""
+    """The 48-row fixture yields exactly 48 RawPosition."""
     positions = parse_positions(FIXTURE_TEXT)
     assert len(positions) == 48
     # row_index 3 is the first data row (banner=1, header=2, data starts at 3)
@@ -244,16 +240,14 @@ def test_normalize_name_canonicalization(raw: str, expected: str) -> None:
 
 
 def test_match_positions_43_5_split() -> None:
-    """With 43 assets matching the fixture's 43 matched names, the matcher splits 43 auto + 5 unmatched."""
+    """The matcher splits the 48-row fixture into 43 auto + 5 unmatched."""
     positions = parse_positions(FIXTURE_TEXT)
     assert len(positions) == 48
 
     # Build 43 fake assets: every fixture name EXCEPT the 5 declared unmatched.
     matched_names = [p.name for p in positions if p.name not in UNMATCHED_NAMES]
     assert len(matched_names) == 43
-    assets = [
-        SimpleNamespace(id=i + 1, name=name) for i, name in enumerate(matched_names)
-    ]
+    assets = [SimpleNamespace(id=i + 1, name=name) for i, name in enumerate(matched_names)]
 
     result = match_positions(positions, assets)
     assert isinstance(result, MatchResult)

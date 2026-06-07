@@ -15,14 +15,11 @@ Covers the slice verification matrix:
 
 from __future__ import annotations
 
-import io
-import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import text
 
 from omaha.csv_import import parse_positions
 
@@ -69,14 +66,16 @@ def _profile_id_for(client: TestClient, name: str) -> int:
     return int(m.group(1))
 
 
-def _ensure_class_with_asset(client: TestClient, profile_id: int, class_name: str, asset_names: list[str]) -> int:
+def _ensure_class_with_asset(
+    client: TestClient, profile_id: int, class_name: str, asset_names: list[str]
+) -> int:
     """Create a class + assets for the active profile, return the class id.
 
     Uses the ORM directly so the test fixture is independent of the
     /classes and /assets route contracts (which are tested elsewhere).
     """
     from omaha.db import SessionLocal
-    from omaha.models import Asset, AssetClass, Profile
+    from omaha.models import Asset, AssetClass
 
     with SessionLocal() as db:
         existing = (
@@ -174,7 +173,7 @@ def test_review_shows_matched_and_unmatched(logged_in: TestClient) -> None:
 
 
 def test_confirm_commits_positions(logged_in: TestClient) -> None:
-    class_id = _ensure_class_with_asset(logged_in, 1, "Renda Fixa", ["PETR4"])
+    _ensure_class_with_asset(logged_in, 1, "Renda Fixa", ["PETR4"])
     logged_in.post(
         "/import",
         files={"file": ("broker.csv", SAMPLE_CSV.encode("utf-8"), "text/csv")},

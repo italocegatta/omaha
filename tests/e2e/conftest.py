@@ -117,7 +117,7 @@ def live_url() -> str:
             out = b"<unreadable>"
         raise RuntimeError(
             f"uvicorn did not start. output:\n{out.decode(errors='replace')}"
-        )
+        ) from None
 
     yield TEST_BASE_URL
 
@@ -129,21 +129,38 @@ def live_url() -> str:
 
 
 def _wipe_classes_for(profile_name: str) -> None:
-    """Delete every AssetClass (and cascading Asset) for ``profile_name``."""
+    """Delete every AssetClass (and cascading Asset) for ``profile_name``.
+
+    The assets table has ``ON DELETE CASCADE`` on its FK to
+    asset_classes (see 0003_assets), but SQLite does NOT enforce
+    FK constraints unless ``PRAGMA foreign_keys = ON`` is set on
+    the connection — and SQLAlchemy does not enable it by default.
+    A bare ``DELETE FROM asset_classes`` would leave orphan assets
+    behind, and the next test would see them because the editor
+    renders every asset in the table (not just the ones whose
+    class still exists). Wipe both tables explicitly. (L005 — the
+    S04 T04 happy-path test surfaced this latent bug. S03's
+    tests passed because each one re-creates its own assets and
+    the residue is never visible from inside a single test.)
+    """
     if not TEST_DB_PATH.exists():
         return
     conn = sqlite3.connect(TEST_DB_PATH)
     try:
-        row = conn.execute(
-            "SELECT id FROM profiles WHERE name = ?", (profile_name,)
-        ).fetchone()
+        row = conn.execute("SELECT id FROM profiles WHERE name = ?", (profile_name,)).fetchone()
         if row is None:
             return
         pid = row[0]
-        # assets table has a FK to asset_classes with ON DELETE
-        # CASCADE (see 0003_assets), so this single delete
-        # wipes both tables for the test profile.
+        conn.execute(
+            "DELETE FROM assets WHERE asset_class_id IN "
+            "(SELECT id FROM asset_classes WHERE profile_id = ?)",
+            (pid,),
+        )
         conn.execute("DELETE FROM asset_classes WHERE profile_id = ?", (pid,))
+        # Wipe import previews for this profile too — the S04 test
+        # backdates them via direct SQL and a previous test's
+        # preview could pollute the next one's session.
+        conn.execute("DELETE FROM import_previews WHERE profile_id = ?", (pid,))
         conn.commit()
     finally:
         conn.close()

@@ -22,16 +22,22 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timedelta
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Request,
+    Response,
+    UploadFile,
+)
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from omaha.auth import DbSession, require_active_profile, require_user
 from omaha.csv_import import RawPosition, match_positions, parse_positions
-from omaha.models import Asset, AssetClass, ImportPreview, Position, Profile, User
+from omaha.models import Asset, AssetClass, ImportPreview, Profile, User
 
 router = APIRouter(tags=["imports"])
 
@@ -130,30 +136,20 @@ async def post_import(
     """Parse the upload, persist a preview, redirect to /import/review."""
     blob = await file.read()
     if len(blob) > MAX_UPLOAD_BYTES:
-        return _render_import_error(
-            request, user, profile, "Arquivo excede 1 MB."
-        )
+        return _render_import_error(request, user, profile, "Arquivo excede 1 MB.")
     if not blob:
-        return _render_import_error(
-            request, user, profile, "Arquivo vazio."
-        )
+        return _render_import_error(request, user, profile, "Arquivo vazio.")
     try:
         text_data = blob.decode("utf-8")
     except UnicodeDecodeError:
-        return _render_import_error(
-            request, user, profile, "Arquivo precisa ser UTF-8."
-        )
+        return _render_import_error(request, user, profile, "Arquivo precisa ser UTF-8.")
     try:
         raw = parse_positions(text_data)
     except Exception as exc:  # pragma: no cover - safety net
         logger.exception("parse_positions crashed: %s", exc)
-        return _render_import_error(
-            request, user, profile, "Falha ao processar o CSV."
-        )
+        return _render_import_error(request, user, profile, "Falha ao processar o CSV.")
     if not raw:
-        return _render_import_error(
-            request, user, profile, "Nenhuma posição reconhecida no CSV."
-        )
+        return _render_import_error(request, user, profile, "Nenhuma posição reconhecida no CSV.")
 
     raw_dicts = [_raw_to_dict(rp) for rp in raw]
     preview = ImportPreview(
@@ -238,7 +234,6 @@ async def post_confirm(
     form = await request.form()
     class_ids = form.getlist("class_id[]")
     asset_names = form.getlist("asset_name[]")
-    broker_tickers = form.getlist("broker_ticker[]")
 
     raw = [_dict_to_raw(d) for d in json.loads(preview.raw_json)]
     existing_assets = _existing_assets_for_profile(db, profile.id)
@@ -250,15 +245,18 @@ async def post_confirm(
     # every (rp, asset_id) pair from match_positions() regardless
     # of the form payload — the hidden fields in the review form
     # are a UX affordance, not a security control.
+    upsert_sql = (
+        "INSERT INTO positions "
+        "(asset_id, qty, avg_price, current_price, broker_ticker, imported_at) "
+        "VALUES "
+        "(:asset_id, :qty, :avg_price, :current_price, :broker_ticker, CURRENT_TIMESTAMP) "
+        "ON CONFLICT(asset_id, broker_ticker) DO UPDATE SET "
+        "qty = excluded.qty, avg_price = excluded.avg_price, "
+        "current_price = excluded.current_price, imported_at = excluded.imported_at"
+    )
     for rp, asset_id in result.auto_matched:
         db.execute(
-            text(
-                "INSERT INTO positions (asset_id, qty, avg_price, current_price, broker_ticker, imported_at) "
-                "VALUES (:asset_id, :qty, :avg_price, :current_price, :broker_ticker, CURRENT_TIMESTAMP) "
-                "ON CONFLICT(asset_id, broker_ticker) DO UPDATE SET "
-                "qty = excluded.qty, avg_price = excluded.avg_price, "
-                "current_price = excluded.current_price, imported_at = excluded.imported_at"
-            ),
+            text(upsert_sql),
             {
                 "asset_id": asset_id,
                 "qty": str(rp.qty),
@@ -301,9 +299,7 @@ async def post_confirm(
         if existing is None:
             existing_assets_in_class = list(target_class.assets)
             next_order = (
-                (existing_assets_in_class[-1].display_order + 1)
-                if existing_assets_in_class
-                else 0
+                (existing_assets_in_class[-1].display_order + 1) if existing_assets_in_class else 0
             )
             new_asset = Asset(
                 asset_class_id=target_class.id,
@@ -321,13 +317,7 @@ async def post_confirm(
             asset_id = existing.id
 
         db.execute(
-            text(
-                "INSERT INTO positions (asset_id, qty, avg_price, current_price, broker_ticker, imported_at) "
-                "VALUES (:asset_id, :qty, :avg_price, :current_price, :broker_ticker, CURRENT_TIMESTAMP) "
-                "ON CONFLICT(asset_id, broker_ticker) DO UPDATE SET "
-                "qty = excluded.qty, avg_price = excluded.avg_price, "
-                "current_price = excluded.current_price, imported_at = excluded.imported_at"
-            ),
+            text(upsert_sql),
             {
                 "asset_id": asset_id,
                 "qty": str(rp.qty),

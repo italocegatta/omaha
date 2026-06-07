@@ -60,9 +60,7 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
-        "ix_import_previews_profile_id", "import_previews", ["profile_id"]
-    )
+    op.create_index("ix_import_previews_profile_id", "import_previews", ["profile_id"])
 
 
 def downgrade() -> None:

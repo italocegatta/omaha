@@ -34,7 +34,7 @@
         {% for a in c.assets %}
         <li data-testid="dashboard-asset-row" data-asset-id="{{ a.id }}">
           <span class="asset-row-name">{{ a.name }}</span>
-          <span class="asset-row-positions">{{ a.positions|length }} posicao(oes)</span>
+          <span class="asset-row-positions" data-testid="import-position-count" data-position-count="{{ a.positions|length }}">{{ a.positions|length }} posicao(oes)</span>
         </li>
         {% endfor %}
       </ul>
