@@ -129,6 +129,12 @@ class AssetClass(Base):
     )
 
     profile: Mapped[Profile] = relationship("Profile", back_populates="asset_classes")
+    assets: Mapped[list[Asset]] = relationship(
+        "Asset",
+        back_populates="asset_class",
+        cascade="all, delete-orphan",
+        order_by="Asset.display_order",
+    )
 
     def __repr__(self) -> str:
         return (
@@ -137,4 +143,59 @@ class AssetClass(Base):
         )
 
 
-__all__ = ["User", "Profile", "AssetClass"]
+class Asset(Base):
+    """A specific financial instrument belonging to an asset class.
+
+    Each :class:`AssetClass` owns zero or more :class:`Asset` rows
+    (e.g. "Renda Fixa" might own "Tesouro Selic 2029", "Tesouro IPCA
+    2035"). The S03 CRUD editor lets the user add, edit, and remove
+    assets inside the active profile's classes; the S04 CSV importer
+    uses the same table as the import target; the S05 dashboard
+    groups assets under their class for the distribution view.
+
+    The ``(asset_class_id, name)`` unique constraint prevents two
+    assets in the same class from sharing a name. ``display_order``
+    is a stable ordering hint used by the editor and the dashboard
+    distribution view; the relationship is
+    ``order_by="Asset.display_order"`` so iteration in Python
+    matches the user's saved order.
+
+    On asset-class deletion, the FK ``ON DELETE CASCADE`` removes all
+    child assets; the ORM relationship also declares
+    ``cascade="all, delete-orphan"`` so in-process
+    ``session.delete`` behaves the same. Combined with the S02
+    profile → class cascade, deleting a profile removes every class
+    and every asset underneath it in a single operation.
+    """
+
+    __tablename__ = "assets"
+    __table_args__ = (
+        UniqueConstraint("asset_class_id", "name", name="uq_asset_asset_class_name"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    asset_class_id: Mapped[int] = mapped_column(
+        ForeignKey("asset_classes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    display_order: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+
+    asset_class: Mapped[AssetClass] = relationship(
+        "AssetClass", back_populates="assets"
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"Asset(id={self.id!r}, asset_class_id={self.asset_class_id!r}, "
+            f"name={self.name!r})"
+        )
+
+
+__all__ = ["User", "Profile", "AssetClass", "Asset"]
