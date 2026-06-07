@@ -17,6 +17,7 @@
     <div class="dashboard-actions">
       <a href="/classes" class="btn btn-secondary" data-testid="class-summary-edit">Editar classes</a>
       <a href="/assets" class="btn btn-primary" data-testid="class-summary-add-assets">Adicionar ativos</a>
+      <a href="/import" class="btn btn-secondary" data-testid="class-summary-import">Importar</a>
     </div>
   </section>
 
@@ -33,6 +34,7 @@
         {% for a in c.assets %}
         <li data-testid="dashboard-asset-row" data-asset-id="{{ a.id }}">
           <span class="asset-row-name">{{ a.name }}</span>
+          <span class="asset-row-positions">{{ a.positions|length }} posicao(oes)</span>
         </li>
         {% endfor %}
       </ul>

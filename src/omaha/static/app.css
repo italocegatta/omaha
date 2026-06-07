@@ -174,5 +174,53 @@ p.error, .error {
 .dashboard-asset-list li {
   padding: 0.35rem 0; font-size: 0.95rem;
 }
+.dashboard-asset-list li {
+  display: flex; justify-content: space-between; align-items: baseline;
+}
+.asset-row-positions { color: var(--muted); font-size: 0.8rem; }
 .dashboard-asset-empty { color: var(--muted); font-size: 0.875rem; margin: 0.25rem 0; }
 .dashboard-asset-empty a { color: var(--accent); }
+
+/* Import page (S04) */
+.import-page { background: #fff; border-radius: 8px; padding: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.import-form {
+  display: flex; flex-direction: column; gap: 0.75rem;
+  margin: 1rem 0; padding: 1rem;
+  border: 1px solid var(--border); border-radius: 6px; background: #fcfcfb;
+}
+.import-form label { font-size: 0.9rem; color: var(--muted); }
+.import-form input[type="file"] {
+  padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px;
+  background: #fff; font-size: 0.9rem;
+}
+.import-form .btn { align-self: flex-start; }
+
+/* Review page (S04) */
+.import-review { background: #fff; border-radius: 8px; padding: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.import-review-header {
+  display: flex; gap: 1.5rem; margin: 1rem 0;
+  font-size: 0.9rem; color: var(--muted);
+}
+.import-review-header span { font-weight: 600; color: var(--fg); }
+.auto-matched { margin: 1.5rem 0; }
+.auto-matched-list { list-style: none; padding: 0; margin: 0; }
+.auto-matched-list li {
+  padding: 0.4rem 0; border-bottom: 1px solid #f0f0f0; font-size: 0.9rem;
+}
+.unmatched-table { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem 0; }
+.unmatched-table th {
+  text-align: left; font-size: 0.75rem; text-transform: uppercase;
+  color: #888; padding-bottom: 0.5rem; border-bottom: 2px solid #eee;
+}
+.unmatched-table td {
+  padding: 0.5rem 0.25rem; border-bottom: 1px solid #f0f0f0; vertical-align: middle;
+  font-size: 0.9rem;
+}
+.unmatched-table select, .unmatched-table input[type="text"] {
+  width: 100%; padding: 0.4rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem;
+}
+.import-review-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1rem; }
+.expired-state {
+  background: #fcfcfc; border: 1px dashed var(--border);
+  padding: 1.5rem; border-radius: 6px; text-align: center; margin: 1rem 0;
+}

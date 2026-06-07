@@ -256,4 +256,50 @@ class Position(Base):
         )
 
 
-__all__ = ["User", "Profile", "AssetClass", "Asset", "Position"]
+class ImportPreview(Base):
+    """A short-lived server-side snapshot of a parsed broker CSV.
+
+    The S04 importer parses the upload once, then persists the parsed
+    :class:`~omaha.csv_import.RawPosition` list (as JSON) so the
+    review screen can re-render after a navigation without forcing
+    the user to re-upload. The preview is deleted when the user
+    confirms (or when the 1h expiration window passes — the route
+    re-detects expiry on each access). The 1h window is the floor
+    for "reasonable review time"; a confirmation that arrives after
+    the window renders the "Expirado" state instead of silently
+    re-using stale data.
+
+    ``raw_json`` is the JSON-serialized list of RawPosition dicts
+    (the parser is pure, so re-serializing the dataclass-as-dict
+    list is enough; the S04 confirm handler re-hydrates it). Storing
+    the parsed rows in the DB instead of in the session means the
+    preview survives a server restart and is large-file-tolerant
+    (the session cookie is 4 KB, the preview can be 1 MB).
+
+    On profile deletion, the FK ``ON DELETE CASCADE`` removes the
+    preview; combined with the S02 profile → class CASCADE and the
+    S03 class → asset CASCADE, deleting a profile removes every
+    preview underneath it in a single operation.
+    """
+
+    __tablename__ = "import_previews"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    profile_id: Mapped[int] = mapped_column(
+        ForeignKey("profiles.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    raw_json: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return (
+            f"ImportPreview(id={self.id!r}, profile_id={self.profile_id!r}, "
+            f"created_at={self.created_at!r})"
+        )
+
+
+__all__ = ["User", "Profile", "AssetClass", "Asset", "Position", "ImportPreview"]

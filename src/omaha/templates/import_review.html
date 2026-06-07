@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Revisar importacao - Omaha{% endblock %}
+{% block content %}
+<div class="import-review">
+  <h1>Revisar importacao</h1>
+  <p class="profile-label">Perfil ativo: {{ profile.name }}</p>
+
+  {% if expired %}
+  <div class="expired-state" data-testid="import-review-expired">
+    <p>Expirado. Faca upload novamente.</p>
+    <a href="/import" class="btn btn-primary" data-testid="import-review-reupload">
+      Importar novamente
+    </a>
+  </div>
+  {% else %}
+  <header class="import-review-header">
+    <span data-testid="import-review-auto-count">Reconhecidos: {{ auto_count }}</span>
+    <span data-testid="import-review-unmatched-count">Revisao: {{ unmatched_count }}</span>
+  </header>
+
+  <form method="post" action="/import/confirm" data-testid="import-review-form">
+    <section class="auto-matched">
+      <h2>Reconhecidos automaticamente</h2>
+      {% if auto_matched %}
+      <ul class="auto-matched-list">
+        {% for rp, asset_id in auto_matched %}
+        <li data-testid="import-review-auto-row">
+          <span>{{ rp.name }} ({{ rp.broker_ticker }})</span>
+          <input type="hidden" name="asset_id[]" value="{{ asset_id }}">
+          <input type="hidden" name="auto_qty[]" value="{{ rp.qty }}">
+          <input type="hidden" name="auto_avg_price[]" value="{{ rp.avg_price }}">
+          <input type="hidden" name="auto_current_price[]" value="{{ rp.current_price }}">
+          <input type="hidden" name="auto_broker_ticker[]" value="{{ rp.broker_ticker }}">
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">Nenhuma posicao reconhecida.</p>
+      {% endif %}
+    </section>
+
+    <section class="unmatched">
+      <h2>Revisao manual</h2>
+      {% if unmatched %}
+      <table class="unmatched-table">
+        <thead>
+          <tr>
+            <th>Ativo do broker</th>
+            <th>Classe</th>
+            <th>Nome do ativo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for rp in unmatched %}
+          <tr data-testid="import-review-unmatched-row">
+            <td>{{ rp.name }} ({{ rp.broker_ticker }})</td>
+            <td>
+              <select name="class_id[]" data-testid="import-review-class-select">
+                <option value="">-- escolha --</option>
+                {% for c in asset_classes %}
+                <option value="{{ c.id }}">{{ c.name }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td>
+              <input
+                type="text"
+                name="asset_name[]"
+                value="{{ rp.name }}"
+                data-testid="import-review-name-input"
+                maxlength="64"
+              >
+              <input type="hidden" name="broker_ticker[]" value="{{ rp.broker_ticker }}">
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="muted">Todas as posicoes foram reconhecidas.</p>
+      {% endif %}
+    </section>
+
+    <div class="import-review-actions">
+      <button
+        type="submit"
+        class="btn btn-primary"
+        data-testid="import-review-confirm"
+      >
+        Confirmar importacao
+      </button>
+    </div>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
