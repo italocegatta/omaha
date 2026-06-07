@@ -3,6 +3,8 @@
 {% block content %}
   <h2 data-testid="profile-name">Bem-vindo, {{ profile.name }}</h2>
 
+  {% if error %}<p class="error" data-testid="class-editor-error">{{ error }}</p>{% endif %}
+
   <div class="empty-state" data-testid="empty-state">
     <p><strong>Sem classes ainda.</strong></p>
     <p>Em S02 você poderá criar suas classes de ativos.</p>

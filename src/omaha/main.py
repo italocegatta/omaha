@@ -39,6 +39,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from omaha.config import settings
 from omaha.routes import auth as auth_routes
+from omaha.routes import classes as classes_routes
 from omaha.routes import health as health_routes
 from omaha.routes import pages as pages_routes
 
@@ -97,6 +98,7 @@ def create_app() -> FastAPI:
     app.include_router(health_routes.router)
     app.include_router(auth_routes.router)
     app.include_router(pages_routes.router)
+    app.include_router(classes_routes.router)
 
     # ``/static`` is mounted at the package's static directory.
     # The directory must exist for the mount to succeed — the T03
