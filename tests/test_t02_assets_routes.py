@@ -160,9 +160,7 @@ def _count_assets(asset_class_id: int) -> int:
 
     db = SessionLocal()
     try:
-        return (
-            db.query(Asset).filter(Asset.asset_class_id == asset_class_id).count()
-        )
+        return db.query(Asset).filter(Asset.asset_class_id == asset_class_id).count()
     finally:
         db.close()
 
@@ -313,9 +311,7 @@ def test_post_assets_class_from_other_profile_rejected(client: TestClient) -> No
     # fixture only creates profile 1 + 2 via the seed, and the
     # per-test cleanup wipes assets; classes seeded here are
     # confined to the test DB.
-    [other_class_id] = _seed_classes(
-        profile_id=2, rows=[("Renda Fixa Ana", "100")]
-    )
+    [other_class_id] = _seed_classes(profile_id=2, rows=[("Renda Fixa Ana", "100")])
 
     _login_and_select(client, profile_id=1)
     # Italo has zero classes; the cross-profile rejection is
@@ -344,9 +340,7 @@ def test_post_assets_delete_removes_asset(client: TestClient) -> None:
 
 def test_post_assets_delete_cross_profile_is_404(client: TestClient) -> None:
     """Deleting another profile's asset is 404 (ownership check walks the FK)."""
-    [other_class_id] = _seed_classes(
-        profile_id=2, rows=[("Renda Fixa Ana", "100")]
-    )
+    [other_class_id] = _seed_classes(profile_id=2, rows=[("Renda Fixa Ana", "100")])
     # Pre-populate an asset under Ana Livia via a direct DB
     # write (we never log in as Ana to keep the test focused
     # on the cross-profile rejection).
@@ -369,9 +363,7 @@ def test_post_assets_delete_cross_profile_is_404(client: TestClient) -> None:
     # Switch to Italo (profile 1) and try to delete Ana's asset.
     _login_and_select(client, profile_id=1)
 
-    response = client.post(
-        f"/assets/{other_asset_id}/delete", follow_redirects=False
-    )
+    response = client.post(f"/assets/{other_asset_id}/delete", follow_redirects=False)
 
     assert response.status_code == 404
     # The asset must still be on disk — the 404 means the route

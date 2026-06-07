@@ -50,18 +50,14 @@ def _clean_assets() -> None:
 TEST_PASSWORD = "test-password"
 
 
-def _login_and_select_profile(
-    client: TestClient, profile_name: str = "Italo"
-) -> Profile:
+def _login_and_select_profile(client: TestClient, profile_name: str = "Italo") -> Profile:
     """Log in as ``family`` and select the named profile (defaults to Italo)."""
     client.post("/login", data={"username": "family", "password": TEST_PASSWORD})
     from omaha.db import SessionLocal
 
     db = SessionLocal()
     try:
-        profile = (
-            db.query(Profile).filter(Profile.name == profile_name).first()
-        )
+        profile = db.query(Profile).filter(Profile.name == profile_name).first()
     finally:
         db.close()
     client.post(f"/profiles/{profile.id}/select")
@@ -194,9 +190,7 @@ class TestAssetsE2E:
         # No asset was committed.
         assert len(_assets_for_class(cls_renda.id)) == 0
 
-    def test_add_assets_blocked_when_class_not_in_profile(
-        self, client: TestClient
-    ) -> None:
+    def test_add_assets_blocked_when_class_not_in_profile(self, client: TestClient) -> None:
         """Cross-profile class id is rejected — defensive against hand-crafted forms.
 
         Seed a class under Ana Livia, log in as Italo, POST with

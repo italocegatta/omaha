@@ -135,9 +135,7 @@ def _make_class(session, profile, name: str = "Renda Fixa", target_pct: int = 60
     """Create and persist a parent AssetClass row so assets have an FK target."""
     from omaha.models import AssetClass
 
-    klass = AssetClass(
-        profile_id=profile.id, name=name, target_pct=target_pct, display_order=0
-    )
+    klass = AssetClass(profile_id=profile.id, name=name, target_pct=target_pct, display_order=0)
     session.add(klass)
     session.flush()
     return klass
@@ -159,9 +157,7 @@ def test_alembic_upgrade_creates_assets_table(omaha_db) -> None:
     inspector = inspect(engine)
     try:
         table_names = set(inspector.get_table_names())
-        assert {"users", "profiles", "asset_classes", "assets"}.issubset(table_names), (
-            table_names
-        )
+        assert {"users", "profiles", "asset_classes", "assets"}.issubset(table_names), table_names
 
         # Columns
         asset_cols = {c["name"] for c in inspector.get_columns("assets")}
@@ -186,8 +182,7 @@ def test_alembic_upgrade_creates_assets_table(omaha_db) -> None:
         # Index on asset_class_id
         indexes = inspector.get_indexes("assets")
         assert any(
-            idx["name"] == "ix_assets_asset_class_id"
-            and idx["column_names"] == ["asset_class_id"]
+            idx["name"] == "ix_assets_asset_class_id" and idx["column_names"] == ["asset_class_id"]
             for idx in indexes
         ), indexes
     finally:
@@ -303,9 +298,7 @@ def test_deleting_profile_cascades_to_assets(omaha_db) -> None:
         klass_a = AssetClass(
             profile_id=profile.id, name="Renda Fixa", target_pct=60, display_order=0
         )
-        klass_b = AssetClass(
-            profile_id=profile.id, name="Acoes", target_pct=30, display_order=1
-        )
+        klass_b = AssetClass(profile_id=profile.id, name="Acoes", target_pct=30, display_order=1)
         session.add_all([klass_a, klass_b])
         session.flush()
 

@@ -43,6 +43,7 @@
           <span class="asset-row-name">{{ a.name }}</span>
           <button type="submit"
                   formaction="/assets/{{ a.id }}/delete"
+                  formnovalidate
                   class="asset-row-delete"
                   data-testid="asset-row-delete">x</button>
         </li>

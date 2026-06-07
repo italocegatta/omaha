@@ -169,9 +169,7 @@ class Asset(Base):
     """
 
     __tablename__ = "assets"
-    __table_args__ = (
-        UniqueConstraint("asset_class_id", "name", name="uq_asset_asset_class_name"),
-    )
+    __table_args__ = (UniqueConstraint("asset_class_id", "name", name="uq_asset_asset_class_name"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     asset_class_id: Mapped[int] = mapped_column(
@@ -187,14 +185,11 @@ class Asset(Base):
         DateTime, server_default=func.now(), nullable=False
     )
 
-    asset_class: Mapped[AssetClass] = relationship(
-        "AssetClass", back_populates="assets"
-    )
+    asset_class: Mapped[AssetClass] = relationship("AssetClass", back_populates="assets")
 
     def __repr__(self) -> str:
         return (
-            f"Asset(id={self.id!r}, asset_class_id={self.asset_class_id!r}, "
-            f"name={self.name!r})"
+            f"Asset(id={self.id!r}, asset_class_id={self.asset_class_id!r}, " f"name={self.name!r})"
         )
 
 
