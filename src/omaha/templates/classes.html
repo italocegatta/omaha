@@ -1,10 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
-{% set initial_rows = submitted_classes if submitted_classes is defined else classes if classes is defined else [] %}
-{% set initial_total = total if total is defined else 0 %}
 <div class="class-editor" data-testid="class-editor"
      x-data="classEditor()"
-     x-init="initFrom({{ initial_rows | tojson }})">
+     x-init="addRow()">
 
   <h1>Classes de ativos</h1>
   <p class="profile-label">Perfil: {{ profile.name }}</p>
@@ -14,8 +12,6 @@
   {% endif %}
 
   <form method="post" action="/classes">
-    <input type="hidden" name="deleted_ids" x-model="deletedIds">
-
     <table class="class-table">
       <thead>
         <tr>
@@ -28,7 +24,6 @@
         <template x-for="(row, idx) in rows" :key="row.id">
           <tr>
             <td>
-              <input type="hidden" :name="'class_id[]'" x-model="row.classId">
               <input type="text"
                      :name="'name[]'"
                      x-model="row.name"
@@ -83,7 +78,6 @@
 function classEditor() {
   return {
     rows: [],
-    deletedIds: '',
     get total() {
       var s = 0;
       for (var i = 0; i < this.rows.length; i++) {
@@ -98,33 +92,10 @@ function classEditor() {
       if (diff > 0) return 'Total: ' + this.total.toFixed(2) + '% -- faltam ' + diff.toFixed(2) + '%';
       return 'Total: ' + this.total.toFixed(2) + '% -- sobram ' + Math.abs(diff).toFixed(2) + '%';
     },
-    initFrom(data) {
-      if (data && data.length > 0) {
-        for (var i = 0; i < data.length; i++) {
-          this.rows.push(this._toRow(data[i]));
-        }
-      } else {
-        this.addRow();
-      }
-    },
-    _toRow(item) {
-      return {
-        id: item.id || -Date.now(),
-        classId: item.class_id !== undefined ? String(item.class_id) : (item.id ? String(item.id) : ''),
-        name: item.name || '',
-        targetPct: parseFloat(item.target_pct !== undefined ? item.target_pct : item.targetPct) || 0,
-      };
-    },
     addRow() {
-      this.rows.push({ id: -Date.now(), classId: '', name: '', targetPct: 0 });
+      this.rows.push({ id: -Date.now() - this.rows.length, name: '', targetPct: 0 });
     },
     removeRow(idx) {
-      var row = this.rows[idx];
-      if (row.classId) {
-        var ids = this.deletedIds ? this.deletedIds.split(',') : [];
-        ids.push(String(row.classId));
-        this.deletedIds = ids.join(',');
-      }
       this.rows.splice(idx, 1);
     },
   };

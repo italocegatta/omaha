@@ -25,7 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from omaha.auth import DbSession, get_active_profile, require_user
-from omaha.models import Profile, User
+from omaha.models import AssetClass, Profile, User
 
 router = APIRouter(tags=["pages"])
 
@@ -50,10 +50,16 @@ def index(
         request.session.pop("active_profile_id", None)
         return RedirectResponse("/profiles", status_code=303)
 
+    asset_classes = (
+        db.query(AssetClass)
+        .filter(AssetClass.profile_id == profile.id)
+        .order_by(AssetClass.display_order)
+        .all()
+    )
     return _templates(request).TemplateResponse(
         request,
         "dashboard.html",
-        {"user": user, "profile": profile},
+        {"user": user, "profile": profile, "asset_classes": asset_classes},
     )
 
 

@@ -1,24 +1,27 @@
-"""Macro-class CRUD routes.
+"""Macro-class CRUD routes (snapshot semantics).
 
 Each :class:`~omaha.models.Profile` owns a list of named asset
 classes (e.g. ``Renda Fixa 60%``) that drive the S03+ portfolio
-breakdown. The editor lives inside the dashboard template
-(``templates/dashboard.html``), but the form posts here.
+breakdown. The editor lives in ``templates/classes.html`` (linked
+from the dashboard) and always starts empty (D014); the user
+retypes the desired set on every visit.
 
 Endpoints
 ---------
-- ``GET /classes`` — URL contract for future direct links; the
-  editor is rendered inside the dashboard, so this currently 303s
-  to ``/``.
-- ``POST /classes`` — accepts ``class_id[]`` / ``name[]`` /
-  ``target_pct[]`` parallel arrays via :class:`Form`. Validates
-  per-row name + pct, in-form duplicate name, and the sum-to-100
-  invariant. On success, commits all rows in a single transaction
-  (insert new, update existing) and 303s to ``/``. On failure,
-  re-renders the dashboard with an ``error`` message and the
-  submitted rows echoed back, status 200.
+- ``GET /classes`` — renders the snapshot editor with one empty
+  row. No pre-population from the DB.
+- ``POST /classes`` — accepts ``name[]`` / ``target_pct[]``
+  parallel arrays via :class:`Form`. Validates per-row name + pct,
+  in-form duplicate name, and the sum-to-100 invariant. On
+  success, performs a delete-all-then-insert snapshot in one
+  transaction and 303s to ``/`` (dashboard). On failure, re-renders
+  the editor with an ``error`` message, status 200.
 - ``POST /classes/{class_id}/delete`` — removes a single class
   after asserting it belongs to the active profile. 303s to ``/``.
+
+The snapshot model (D016) is the only model: there is no
+partial-update path. ``class_id[]`` and ``deleted_ids`` form
+fields are not accepted.
 
 Validation invariants
 ---------------------
@@ -54,7 +57,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
 from omaha.auth import DbSession, require_active_profile
@@ -93,24 +95,22 @@ def _parse_pct(raw: str) -> Decimal | None:
 
 
 def _validate_rows(
-    class_ids: list[str],
     names: list[str],
     pcts: list[str],
 ) -> tuple[list[dict[str, object]] | None, str | None]:
     """Return ``(rows, None)`` on success or ``(None, error_message)``.
 
-    On success, ``rows`` is a list of dicts with normalised
-    ``class_id`` (``int`` for existing rows, ``None`` for new),
-    ``name`` (stripped), and ``pct`` (:class:`Decimal`). The dict
-    is the shape the dashboard template expects when echoing the
-    submission back to the user on a validation failure.
+    Snapshot model: every submitted row is treated as a new row
+    (no ``class_id`` in the payload). The route wipes the
+    profile's existing classes and inserts the validated set in
+    one transaction, so per-row identity is not part of the
+    contract.
     """
-    n = max(len(class_ids), len(names), len(pcts))
+    n = max(len(names), len(pcts))
     rows: list[dict[str, object]] = []
     seen_names: dict[str, int] = {}
 
     for i in range(n):
-        cid_raw = class_ids[i] if i < len(class_ids) else ""
         name_raw = names[i] if i < len(names) else ""
         pct_raw = pcts[i] if i < len(pcts) else ""
 
@@ -142,15 +142,7 @@ def _validate_rows(
                 f"A alocação da classe deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
             )
 
-        cid: int | None = None
-        cid_text = cid_raw.strip()
-        if cid_text:
-            try:
-                cid = int(cid_text)
-            except (TypeError, ValueError):
-                return None, "Identificador de classe inválido."
-
-        rows.append({"class_id": cid, "name": name, "pct": pct})
+        rows.append({"name": name, "pct": pct})
 
     # Sum invariant is the last per-form check — it's the most
     # expensive (it touches every row) and the message is the
@@ -169,41 +161,20 @@ def _validate_rows(
 @router.get("/classes", response_class=HTMLResponse, response_model=None)
 def get_classes(
     request: Request,
-    db: DbSession,
     profile: Profile = Depends(require_active_profile),
 ) -> Response:
     """Render the dedicated class editor page.
 
-    The S03 dashboard surfaces a "Gerenciar classes" shortcut that
-    links here, and the editor is the canonical view of a profile's
-    asset classes. The template seeds itself from the profile's
-    existing ``AssetClass`` rows so a user returning to the editor
-    sees what they previously saved.
+    The dashboard surfaces a "Gerenciar classes" shortcut that
+    links here. The editor always starts with one empty row
+    regardless of the profile's existing classes — the user must
+    re-type the desired set on every visit (``POST /classes``
+    performs a delete-all-then-insert snapshot).
     """
-    classes = (
-        db.query(AssetClass)
-        .filter(AssetClass.profile_id == profile.id)
-        .order_by(AssetClass.display_order)
-        .all()
-    )
-    # Coerce ORM rows to plain dicts so Jinja's ``tojson`` filter can
-    # serialise them in the Alpine ``x-init`` initial state. The
-    # editor's ``_toRow`` reads ``class_id`` (snake_case, matches the
-    # hidden form field name) and ``target_pct`` (matches the DB
-    # column) as the public keys.
-    class_rows = [
-        {
-            "id": c.id,
-            "class_id": c.id,
-            "name": c.name,
-            "target_pct": float(c.target_pct),
-        }
-        for c in classes
-    ]
     return _templates(request).TemplateResponse(
         request,
         "classes.html",
-        {"profile": profile, "classes": class_rows, "error": None},
+        {"profile": profile, "error": None},
     )
 
 
@@ -212,105 +183,65 @@ def post_classes(
     request: Request,
     db: DbSession,
     profile: Profile = Depends(require_active_profile),
-    class_id: Annotated[list[str], Form(alias="class_id[]")] = [],  # noqa: B006 — FastAPI form list
     name: Annotated[list[str], Form(alias="name[]")] = [],  # noqa: B006
     target_pct: Annotated[list[str], Form(alias="target_pct[]")] = [],  # noqa: B006
-    deleted_ids: Annotated[str, Form()] = "",
 ) -> Response:
-    """Validate, then upsert the profile's class rows in one transaction.
+    """Validate, then **snapshot-replace** the profile's class rows.
 
-    Empty form arrays are accepted (the user may have removed every
-    row) and are rejected by the sum check with ``"Falta 100"`` —
-    the same surface a deliberate-but-incomplete submission would
-    hit, so the error UX is uniform.
+    Model: the form is the source of truth. Whatever the user
+    submits replaces everything that was there before. Empty form
+    arrays are accepted as a "clear all classes" action — the
+    profile ends up with zero classes and the dashboard no
+    longer shows the summary.
 
     Returns
     -------
     - 303 → ``/`` on success.
-    - 200 with the dashboard re-rendered and ``error`` in the body
+    - 200 with the editor re-rendered and ``error`` in the body
       on validation failure.
-    - 200 with ``"Já existe uma classe com o nome X"`` if a name
-      collides with an existing row in the DB (the in-form
-      duplicate check above catches same-form collisions; this
-      catches cross-submission collisions when the user edits an
-      existing class to a name already used by a sibling).
     """
-    rows, error = _validate_rows(class_id, name, target_pct)
+    # Empty submission = clear all. The editor disables the save
+    # button on zero rows, so this branch only fires for the
+    # "wipe everything" use case (intentional or programmatic).
+    if not name:
+        db.query(AssetClass).filter(AssetClass.profile_id == profile.id).delete()
+        db.commit()
+        return RedirectResponse("/", status_code=303)
+
+    rows, error = _validate_rows(name, target_pct)
     if error is not None:
-        # Echo the raw submission back so the template can repopulate
-        # the form. The S03 classes.html re-renders the editor with
-        # the same rows the user submitted and surfaces the error.
-        echoed = _echoed_rows(class_id, name, target_pct)
-        return _render_classes_with_error(request, profile, error=error, rows=echoed)
+        return _render_classes_with_error(
+            request,
+            profile,
+            error=error,
+        )
 
-    # Lock the new-row display_order against a fresh max query so
-    # the assigned values are stable across the loop even if the
-    # caller mixed new and updated rows in any order.
-    max_order = (
-        db.query(func.max(AssetClass.display_order))
-        .filter(AssetClass.profile_id == profile.id)
-        .scalar()
-    )
-    next_order = (max_order + 1) if max_order is not None else 0
+    # Snapshot: wipe all existing rows for this profile, then insert
+    # the submitted set in the order they arrived. One transaction,
+    # so partial failures leave the DB untouched.
+    db.query(AssetClass).filter(AssetClass.profile_id == profile.id).delete()
 
-    for row in rows:
-        if row["class_id"] is None:
-            db.add(
-                AssetClass(
-                    profile_id=profile.id,
-                    name=row["name"],  # type: ignore[arg-type]
-                    target_pct=row["pct"],  # type: ignore[arg-type]
-                    display_order=next_order,
-                )
+    for idx, row in enumerate(rows):
+        db.add(
+            AssetClass(
+                profile_id=profile.id,
+                name=row["name"],  # type: ignore[arg-type]
+                target_pct=row["pct"],  # type: ignore[arg-type]
+                display_order=idx,
             )
-            next_order += 1
-        else:
-            existing = db.get(AssetClass, row["class_id"])
-            if existing is None or existing.profile_id != profile.id:
-                # Defensive: a hand-crafted form pointed at someone
-                # else's class. 404 keeps the surface honest.
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-            existing.name = row["name"]  # type: ignore[assignment]
-            existing.target_pct = row["pct"]  # type: ignore[assignment]
+        )
 
     try:
         db.commit()
     except IntegrityError:
-        # A name collided with a sibling row that the in-form
-        # duplicate check missed (e.g. the user edited row A to
-        # match row B's name in the same submission). Convert to
-        # a clean form re-render so the user can fix the
-        # collision and resubmit.
         db.rollback()
-        echoed = _echoed_rows(class_id, name, target_pct)
         return _render_classes_with_error(
             request,
             profile,
             error="Já existe uma classe com o nome duplicado.",
-            rows=echoed,
         )
 
-    # Process the soft-deleted ids (the Alpine editor records ids of
-    # rows the user removed client-side as a comma-separated list and
-    # submits them in a hidden field). We delete after the upsert so
-    # the response is the fresh view of the profile's classes, not a
-    # mid-transaction snapshot.
-    if deleted_ids:
-        ids_to_delete = [int(x) for x in deleted_ids.split(",") if x.strip().isdigit()]
-        if ids_to_delete:
-            victims = (
-                db.query(AssetClass)
-                .filter(
-                    AssetClass.id.in_(ids_to_delete),
-                    AssetClass.profile_id == profile.id,
-                )
-                .all()
-            )
-            for victim in victims:
-                db.delete(victim)
-            db.commit()
-
-    return RedirectResponse("/classes", status_code=303)
+    return RedirectResponse("/", status_code=303)
 
 
 @router.post("/classes/{class_id}/delete", response_model=None)
@@ -335,46 +266,24 @@ def delete_class(
     return RedirectResponse("/", status_code=303)
 
 
-def _echoed_rows(class_ids: list[str], names: list[str], pcts: list[str]) -> list[dict[str, str]]:
-    """Return the raw submission as strings, aligned row-by-row.
-
-    The dashboard template receives this list to repopulate the
-    editor inputs on a validation failure. We keep the values as
-    strings (not parsed) so the user sees exactly what they
-    submitted, including the bad pct that triggered the error.
-    """
-    n = max(len(class_ids), len(names), len(pcts))
-    return [
-        {
-            "class_id": class_ids[i] if i < len(class_ids) else "",
-            "name": names[i] if i < len(names) else "",
-            "target_pct": pcts[i] if i < len(pcts) else "",
-        }
-        for i in range(n)
-    ]
-
-
 def _render_classes_with_error(
     request: Request,
     profile: Profile,
     *,
     error: str,
-    rows: list[dict[str, str]],
 ) -> Response:
-    """Re-render ``classes.html`` with ``error`` + echoed ``rows``.
+    """Re-render ``classes.html`` with ``error``.
 
     The status is 200 (not 4xx) so the form is re-submittable —
     the same pattern :mod:`omaha.routes.auth` uses for bad
-    credentials. ``rows`` is the echoed user submission, which
-    the S03 editor seeds itself with so the user can fix and
-    resubmit. The editor's reactive total still surfaces the
-    "Falta/Sobra" message in addition to the server-rendered
-    one.
+    credentials. The snapshot editor always starts with one empty
+    row (D014), so the user's previous submission is not echoed
+    on error; they retype the corrected set.
     """
     return _templates(request).TemplateResponse(
         request,
         "classes.html",
-        {"profile": profile, "classes": rows, "error": error},
+        {"profile": profile, "error": error},
         status_code=200,
     )
 

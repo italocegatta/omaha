@@ -2,11 +2,27 @@
 {% block content %}
 <div class="dashboard">
   <h1 data-testid="profile-name">Bem-vindo, {{ profile.name }}</h1>
+
+  {% if asset_classes %}
+  <section class="class-summary" data-testid="class-summary">
+    <h2>Suas classes de ativos</h2>
+    <ul class="class-summary-list">
+      {% for c in asset_classes %}
+      <li data-testid="class-summary-row" data-class-id="{{ c.id }}">
+        <span class="class-summary-name">{{ c.name }}</span>
+        <span class="class-summary-pct">{{ "%.2f"|format(c.target_pct) }}%</span>
+      </li>
+      {% endfor %}
+    </ul>
+    <a href="/classes" class="btn btn-secondary" data-testid="class-summary-edit">Editar classes</a>
+  </section>
+  {% else %}
   <div class="empty-state" data-testid="empty-state">
     <p>Sem classes ainda.</p>
     <a href="/classes" class="btn btn-primary" style="margin-top:1rem;display:inline-block;width:auto">
       Gerenciar classes
     </a>
   </div>
+  {% endif %}
 </div>
 {% endblock %}

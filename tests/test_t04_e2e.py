@@ -15,7 +15,29 @@ compose into the demo the slice plan advertises.
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
+
+
+@pytest.fixture(autouse=True)
+def _clean_asset_classes() -> None:
+    """Wipe the ``asset_classes`` table so the dashboard renders the empty state.
+
+    The T04 flow asserts the empty-state copy, which only renders
+    when the active profile has zero classes. Without this fixture
+    the T03 snapshot tests would leave rows behind and T04 would
+    see the populated summary instead.
+    """
+    from omaha.db import SessionLocal
+    from omaha.models import AssetClass
+
+    db = SessionLocal()
+    try:
+        db.query(AssetClass).delete()
+        db.commit()
+    finally:
+        db.close()
+    yield
 
 
 def test_full_login_profile_dashboard_logout_flow(client: TestClient) -> None:

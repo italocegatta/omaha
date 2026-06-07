@@ -1,4 +1,4 @@
-"""T02: POST /classes server-side sum/pct/name validation.
+"""T02: POST /classes server-side sum/pct/name validation (snapshot model).
 
 Ten test cases, each backed by the session-scoped
 ``_omaha_test_env`` from ``tests/conftest.py`` (per-test
@@ -6,35 +6,41 @@ Ten test cases, each backed by the session-scoped
 file at the session level so the T01 ``asset_classes`` table is
 already present).
 
+Snapshot semantics (D016)
+-------------------------
+``POST /classes`` is delete-all-then-insert: the form payload
+replaces every existing row for the active profile in a single
+transaction. There is no ``class_id[]`` field — the route
+ignores identity, only the submitted ``(name, target_pct)``
+pairs matter. Empty form arrays mean "clear all".
+
 The flow exercised by every test:
 
 1. ``POST /login`` with the seed credentials.
 2. ``POST /profiles/{id}/select`` to bind ``active_profile_id``.
 3. ``POST /classes`` with the rows under test.
 
-The ``client`` fixture's session-scoped DB is the one T01 left
-behind: ``alembic upgrade head`` has already run inside
-``_omaha_test_env`` and the 0002 migration is in the chain
-(``alembic current`` reports ``0002_macro_classes (head)``).
-T02 does not run alembic again — it just reads/writes through
-the existing engine.
-
 Helper conventions
 ------------------
 - :func:`_login_and_select` performs the two-step cookie bootstrap.
 - :func:`_post_classes` builds the parallel-array form body the
-  same way a real browser would (multiple ``class_id[]``,
-  ``name[]``, ``target_pct[]`` fields) and POSTs it. The list
-  values in the dict make :class:`httpx.Client` emit
+  same way a real browser would (multiple ``name[]`` and
+  ``target_pct[]`` fields) and POSTs it. The list values in the
+  dict make :class:`httpx.Client` emit
   ``application/x-www-form-urlencoded`` with repeated keys —
   identical to a real form submission.
 - :func:`_count_classes` opens a fresh session and counts rows
   for the active profile so a test can assert that a rejected
   POST did not commit.
+- :func:`_seed_classes` inserts rows directly via SQLAlchemy so
+  a test can pre-populate the profile before exercising the
+  snapshot semantics (the "RED test of the bug" — pre-existing
+  rows must be wiped on save).
 """
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -92,20 +98,19 @@ def _login_and_select(client: TestClient, profile_id: int = 1) -> None:
 
 def _post_classes(
     client: TestClient,
-    rows: list[tuple[str, str, str]],
+    rows: list[tuple[str, str]],
     *,
     follow_redirects: bool = False,
 ) -> Any:
-    """POST ``/classes`` with one form row per ``(class_id, name, target_pct)``.
+    """POST ``/classes`` with one form row per ``(name, target_pct)``.
 
     Mirrors the wire format a real browser produces for parallel
-    arrays: repeated ``class_id[]`` / ``name[]`` / ``target_pct[]``
-    keys, urlencoded body. ``class_id`` of ``""`` is the "new row"
-    sentinel — the route treats it as a fresh insert.
+    arrays: repeated ``name[]`` and ``target_pct[]`` keys,
+    urlencoded body. Snapshot model: no ``class_id[]`` field is
+    sent (the route would ignore it if we did).
     """
-    data: dict[str, list[str]] = {"class_id[]": [], "name[]": [], "target_pct[]": []}
-    for cid, name, pct in rows:
-        data["class_id[]"].append(cid)
+    data: dict[str, list[str]] = {"name[]": [], "target_pct[]": []}
+    for name, pct in rows:
         data["name[]"].append(name)
         data["target_pct[]"].append(pct)
     return client.post("/classes", data=data, follow_redirects=follow_redirects)
@@ -151,6 +156,31 @@ def _classes_for_profile(profile_id: int) -> list[tuple[str, float]]:
         db.close()
 
 
+def _seed_classes(profile_id: int, rows: list[tuple[str, str]]) -> None:
+    """Insert ``(name, target_pct)`` rows directly via SQLAlchemy.
+
+    Used by the snapshot-replaces-pre-existing test to set up a
+    non-empty starting state. The route does the wipe.
+    """
+    from omaha.db import SessionLocal
+    from omaha.models import AssetClass
+
+    db: Session = SessionLocal()
+    try:
+        for idx, (name, pct) in enumerate(rows):
+            db.add(
+                AssetClass(
+                    profile_id=profile_id,
+                    name=name,
+                    target_pct=Decimal(pct),
+                    display_order=idx,
+                )
+            )
+        db.commit()
+    finally:
+        db.close()
+
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
@@ -172,14 +202,14 @@ def test_post_classes_sum_100_commits_with_display_order(
     response = _post_classes(
         client,
         [
-            ("", "Renda Fixa", "60"),
-            ("", "Acoes", "30"),
-            ("", "Reserva", "10"),
+            ("Renda Fixa", "60"),
+            ("Acoes", "30"),
+            ("Reserva", "10"),
         ],
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/classes"
+    assert response.headers["location"] == "/"
 
     rows = _classes_for_profile(profile_id=1)
     assert rows == [
@@ -214,9 +244,9 @@ def test_post_classes_sum_90_rejected_with_falta(client: TestClient) -> None:
     response = _post_classes(
         client,
         [
-            ("", "Renda Fixa", "60"),
-            ("", "Acoes", "20"),
-            ("", "Reserva", "10"),
+            ("Renda Fixa", "60"),
+            ("Acoes", "20"),
+            ("Reserva", "10"),
         ],
     )
 
@@ -235,9 +265,9 @@ def test_post_classes_sum_110_rejected_with_sobra(client: TestClient) -> None:
     response = _post_classes(
         client,
         [
-            ("", "Renda Fixa", "70"),
-            ("", "Acoes", "30"),
-            ("", "Reserva", "10"),
+            ("Renda Fixa", "70"),
+            ("Acoes", "30"),
+            ("Reserva", "10"),
         ],
     )
 
@@ -254,9 +284,9 @@ def test_post_classes_empty_name_rejected(client: TestClient) -> None:
     response = _post_classes(
         client,
         [
-            ("", "Renda Fixa", "60"),
-            ("", "", "30"),
-            ("", "Reserva", "10"),
+            ("Renda Fixa", "60"),
+            ("", "30"),
+            ("Reserva", "10"),
         ],
     )
 
@@ -280,9 +310,9 @@ def test_post_classes_name_too_long_rejected(client: TestClient) -> None:
     response = _post_classes(
         client,
         [
-            ("", "Renda Fixa", "60"),
-            ("", long_name, "30"),
-            ("", "Reserva", "10"),
+            ("Renda Fixa", "60"),
+            (long_name, "30"),
+            ("Reserva", "10"),
         ],
     )
 
@@ -299,9 +329,9 @@ def test_post_classes_negative_pct_rejected(client: TestClient) -> None:
     response = _post_classes(
         client,
         [
-            ("", "Renda Fixa", "60"),
-            ("", "Acoes", "40"),
-            ("", "Reserva", "-1"),
+            ("Renda Fixa", "60"),
+            ("Acoes", "40"),
+            ("Reserva", "-1"),
         ],
     )
 
@@ -318,9 +348,9 @@ def test_post_classes_pct_above_100_rejected(client: TestClient) -> None:
     response = _post_classes(
         client,
         [
-            ("", "Renda Fixa", "60"),
-            ("", "Acoes", "30"),
-            ("", "Reserva", "101"),
+            ("Renda Fixa", "60"),
+            ("Acoes", "30"),
+            ("Reserva", "101"),
         ],
     )
 
@@ -339,9 +369,9 @@ def test_post_classes_duplicate_name_in_form_rejected(
     response = _post_classes(
         client,
         [
-            ("", "Renda Fixa", "60"),
-            ("", "Acoes", "30"),
-            ("", "Renda Fixa", "10"),  # duplicate of row 0
+            ("Renda Fixa", "60"),
+            ("Acoes", "30"),
+            ("Renda Fixa", "10"),  # duplicate of row 0
         ],
     )
 
@@ -364,9 +394,9 @@ def test_post_classes_cross_profile_isolation(client: TestClient) -> None:
     _post_classes(
         client,
         [
-            ("", "Renda Fixa", "60"),
-            ("", "Acoes", "30"),
-            ("", "Reserva", "10"),
+            ("Renda Fixa", "60"),
+            ("Acoes", "30"),
+            ("Reserva", "10"),
         ],
     )
     assert _classes_for_profile(profile_id=1) == [
@@ -382,8 +412,8 @@ def test_post_classes_cross_profile_isolation(client: TestClient) -> None:
     _post_classes(
         client,
         [
-            ("", "Stocks", "70"),
-            ("", "Bonds", "30"),
+            ("Stocks", "70"),
+            ("Bonds", "30"),
         ],
     )
     assert _classes_for_profile(profile_id=1) == [
@@ -406,9 +436,9 @@ def test_post_classes_delete_removes_class(client: TestClient) -> None:
     _post_classes(
         client,
         [
-            ("", "Renda Fixa", "60"),
-            ("", "Acoes", "30"),
-            ("", "Reserva", "10"),
+            ("Renda Fixa", "60"),
+            ("Acoes", "30"),
+            ("Reserva", "10"),
         ],
     )
 
@@ -452,90 +482,81 @@ def test_get_classes_renders_editor(client: TestClient) -> None:
     assert 'data-testid="class-editor"' in response.text
 
 
-def test_post_classes_update_existing_row(client: TestClient) -> None:
-    """Submitting rows that reference existing class_ids updates them in place.
+def test_post_classes_snapshot_replaces_pre_existing(
+    client: TestClient,
+) -> None:
+    """RED test for BUG-002: a POST wipes pre-existing rows for the profile.
 
-    The first POST creates three rows; the second POST sends
-    ``class_id`` values for all three (one updated name/pct,
-    one updated pct, one unchanged) plus one new row. The route
-    must: (a) update the existing rows in place rather than
-    insert duplicates, (b) preserve all three existing ids, and
-    (c) set ``display_order`` on the new row to ``max + 1``
-    (i.e. 3, since 0, 1, 2 are taken).
+    Scenario: profile already has 2 classes (Acoes 50, Bonds 50).
+    The user opens the editor (D014 = empty) and submits 3
+    different classes summing to 100. The DB must end up with
+    exactly the 3 new rows — not 5 (which would be the partial-
+    update bug the route used to have).
+
+    Also covers: ``display_order`` is reassigned 0, 1, 2 for
+    the new set; the snapshot runs in a single transaction
+    (IntegrityError on duplicate name rolls back, not commits).
     """
-    from omaha.db import SessionLocal
-    from omaha.models import AssetClass
-
     _login_and_select(client, profile_id=1)
-    _post_classes(
-        client,
-        [
-            ("", "Renda Fixa", "60"),
-            ("", "Acoes", "30"),
-            ("", "Reserva", "10"),
-        ],
+    _seed_classes(
+        profile_id=1,
+        rows=[("Acoes", "50"), ("Bonds", "50")],
     )
-
-    db = SessionLocal()
-    try:
-        renda = (
-            db.query(AssetClass)
-            .filter(AssetClass.profile_id == 1, AssetClass.name == "Renda Fixa")
-            .one()
-        )
-        acoes = (
-            db.query(AssetClass)
-            .filter(AssetClass.profile_id == 1, AssetClass.name == "Acoes")
-            .one()
-        )
-        reserva = (
-            db.query(AssetClass)
-            .filter(AssetClass.profile_id == 1, AssetClass.name == "Reserva")
-            .one()
-        )
-        renda_id, acoes_id, reserva_id = renda.id, acoes.id, reserva.id
-    finally:
-        db.close()
+    assert _count_classes(profile_id=1) == 2
 
     response = _post_classes(
         client,
         [
-            (str(renda_id), "Renda Fixa Plus", "50"),  # updated
-            (str(acoes_id), "Acoes", "30"),  # unchanged
-            (str(reserva_id), "Reserva", "10"),  # updated pct only
-            ("", "Crypto", "10"),  # new row
+            ("Renda Fixa", "60"),
+            ("Acoes", "30"),
+            ("Reserva", "10"),
         ],
     )
     assert response.status_code == 303
-    assert response.headers["location"] == "/classes"
+    assert response.headers["location"] == "/"
 
-    # The existing IDs must still exist (updates, not delete+insert),
-    # and the new row must be present with the next display_order.
+    # Snapshot semantics: exactly 3 rows, the new set, with
+    # display_order reset to 0/1/2.
+    assert _count_classes(profile_id=1) == 3
+    assert _classes_for_profile(profile_id=1) == [
+        ("Renda Fixa", 60.0),
+        ("Acoes", 30.0),
+        ("Reserva", 10.0),
+    ]
+    from omaha.db import SessionLocal
+    from omaha.models import AssetClass
+
     db = SessionLocal()
     try:
-        all_rows = (
-            db.query(AssetClass)
+        orders = [
+            r.display_order
+            for r in db.query(AssetClass)
             .filter(AssetClass.profile_id == 1)
             .order_by(AssetClass.display_order)
             .all()
-        )
+        ]
     finally:
         db.close()
+    assert orders == [0, 1, 2]
 
-    assert len(all_rows) == 4
-    by_id = {r.id: r for r in all_rows}
-    assert renda_id in by_id
-    assert acoes_id in by_id
-    assert reserva_id in by_id
-    assert by_id[renda_id].name == "Renda Fixa Plus"
-    assert float(by_id[renda_id].target_pct) == 50.0
-    assert by_id[acoes_id].name == "Acoes"
-    assert float(by_id[acoes_id].target_pct) == 30.0
-    assert by_id[reserva_id].name == "Reserva"
-    assert float(by_id[reserva_id].target_pct) == 10.0
 
-    # The new row's display_order is 3 (max existing 2 + 1).
-    new_row = next(r for r in all_rows if r.id not in (renda_id, acoes_id, reserva_id))
-    assert new_row.name == "Crypto"
-    assert float(new_row.target_pct) == 10.0
-    assert new_row.display_order == 3
+def test_post_classes_empty_form_clears_all(client: TestClient) -> None:
+    """Submitting an empty form array deletes every class for the profile.
+
+    The "clear all" use case. The editor's save button is
+    disabled on zero rows, so a browser user cannot trigger
+    this — only programmatic submissions reach the route. We
+    treat empty as intentional (D014 = no UX guard against
+    intentional wipe).
+    """
+    _login_and_select(client, profile_id=1)
+    _seed_classes(
+        profile_id=1,
+        rows=[("Acoes", "50"), ("Bonds", "50")],
+    )
+    assert _count_classes(profile_id=1) == 2
+
+    response = _post_classes(client, [])
+    assert response.status_code == 303
+    assert response.headers["location"] == "/"
+    assert _count_classes(profile_id=1) == 0
