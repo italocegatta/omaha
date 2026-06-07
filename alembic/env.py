@@ -19,8 +19,9 @@ import sys
 from logging.config import fileConfig
 from pathlib import Path
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
+
+from alembic import context
 
 # Ensure ``src/`` is on sys.path so ``import omaha...`` works when alembic
 # is invoked from a different working directory.
@@ -28,13 +29,12 @@ _SRC = Path(__file__).resolve().parent.parent / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from omaha.config import settings  # noqa: E402
-from omaha.db import Base  # noqa: E402
-
 # Importing the models module registers every mapped class on ``Base``.
 # Future slices: add their new model module imports here so autogenerate
 # picks up new tables.
 import omaha.models  # noqa: E402, F401
+from omaha.config import settings  # noqa: E402
+from omaha.db import Base  # noqa: E402
 
 config = context.config
 
