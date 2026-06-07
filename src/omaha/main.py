@@ -61,7 +61,7 @@ def _run_startup_migrations_and_seed() -> None:
     subprocess.run(
         ["alembic", "upgrade", "head"],
         check=True,
-        cwd=Path(__file__).resolve().parent.parent,
+        cwd=Path(__file__).resolve().parent.parent.parent,
     )
     # Importing seed inside the function defers the database import
     # until startup; tests that opt out of the startup event never
