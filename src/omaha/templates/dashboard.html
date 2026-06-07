@@ -14,7 +14,36 @@
       </li>
       {% endfor %}
     </ul>
-    <a href="/classes" class="btn btn-secondary" data-testid="class-summary-edit">Editar classes</a>
+    <div class="dashboard-actions">
+      <a href="/classes" class="btn btn-secondary" data-testid="class-summary-edit">Editar classes</a>
+      <a href="/assets" class="btn btn-primary" data-testid="class-summary-add-assets">Adicionar ativos</a>
+    </div>
+  </section>
+
+  <section class="dashboard-distribution" data-testid="dashboard-distribution">
+    <h2>Distribuicao</h2>
+    {% for c in asset_classes %}
+    <section class="class-section" data-testid="dashboard-class-section" data-class-id="{{ c.id }}">
+      <header class="class-section-header">
+        <span class="class-section-name">{{ c.name }}</span>
+        <span class="class-section-pct">{{ "%.2f"|format(c.target_pct) }}%</span>
+      </header>
+      {% if c.assets %}
+      <ul class="dashboard-asset-list">
+        {% for a in c.assets %}
+        <li data-testid="dashboard-asset-row" data-asset-id="{{ a.id }}">
+          <span class="asset-row-name">{{ a.name }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="dashboard-asset-empty">
+        Nenhum ativo nesta classe.
+        <a href="/assets" data-testid="dashboard-add-assets-link">Adicionar ativos</a>
+      </p>
+      {% endif %}
+    </section>
+    {% endfor %}
   </section>
   {% else %}
   <div class="empty-state" data-testid="empty-state">
