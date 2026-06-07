@@ -123,9 +123,7 @@ def _count_classes(profile_id: int) -> int:
 
     db: Session = SessionLocal()
     try:
-        return (
-            db.query(AssetClass).filter(AssetClass.profile_id == profile_id).count()
-        )
+        return db.query(AssetClass).filter(AssetClass.profile_id == profile_id).count()
     finally:
         db.close()
 
@@ -181,7 +179,7 @@ def test_post_classes_sum_100_commits_with_display_order(
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/"
+    assert response.headers["location"] == "/classes"
 
     rows = _classes_for_profile(profile_id=1)
     assert rows == [
@@ -439,17 +437,19 @@ def test_post_classes_delete_removes_class(client: TestClient) -> None:
     ]
 
 
-def test_get_classes_redirects_to_dashboard(client: TestClient) -> None:
-    """`GET /classes` 303s to / for now (the editor lives in the dashboard).
+def test_get_classes_renders_editor(client: TestClient) -> None:
+    """`GET /classes` renders the S03 class editor template.
 
-    The route exists as the URL contract for future direct links;
-    the canonical view is `GET /` with an active profile.
+    The route is the canonical view of a profile's asset classes.
+    The dashboard surfaces a "Gerenciar classes" shortcut that
+    links here.
     """
     _login_and_select(client, profile_id=1)
     response = client.get("/classes", follow_redirects=False)
 
-    assert response.status_code == 303
-    assert response.headers["location"] == "/"
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert 'data-testid="class-editor"' in response.text
 
 
 def test_post_classes_update_existing_row(client: TestClient) -> None:
@@ -507,7 +507,7 @@ def test_post_classes_update_existing_row(client: TestClient) -> None:
         ],
     )
     assert response.status_code == 303
-    assert response.headers["location"] == "/"
+    assert response.headers["location"] == "/classes"
 
     # The existing IDs must still exist (updates, not delete+insert),
     # and the new row must be present with the next display_order.

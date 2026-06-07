@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block content %}
+{% set initial_rows = submitted_classes if submitted_classes is defined else classes if classes is defined else [] %}
+{% set initial_total = total if total is defined else 0 %}
+<div class="class-editor" data-testid="class-editor"
+     x-data="classEditor()"
+     x-init="initFrom({{ initial_rows | tojson }})">
+
+  <h1>Classes de ativos</h1>
+  <p class="profile-label">Perfil: {{ profile.name }}</p>
+
+  {% if error %}
+  <div class="error" data-testid="class-editor-error">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/classes">
+    <input type="hidden" name="deleted_ids" x-model="deletedIds">
+
+    <table class="class-table">
+      <thead>
+        <tr>
+          <th class="col-name">Nome</th>
+          <th class="col-pct">% Target</th>
+          <th class="col-action"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="(row, idx) in rows" :key="row.id">
+          <tr>
+            <td>
+              <input type="hidden" :name="'class_id[]'" x-model="row.classId">
+              <input type="text"
+                     :name="'name[]'"
+                     x-model="row.name"
+                     placeholder="Nome da classe"
+                     maxlength="64"
+                     class="input-name"
+                     data-testid="class-editor-name"
+                     required>
+            </td>
+            <td>
+              <input type="number"
+                     :name="'target_pct[]'"
+                     x-model.number="row.targetPct"
+                     step="0.01"
+                     min="0"
+                     max="100"
+                     class="input-pct"
+                     data-testid="class-editor-pct">
+            </td>
+            <td>
+              <button type="button"
+                      class="btn-remove"
+                      x-on:click="removeRow(idx)"
+                      data-testid="class-editor-remove"
+                      :disabled="rows.length <= 1">&#x2715;</button>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+
+    <div class="class-total"
+         :class="Math.abs(total - 100) < 0.01 ? 'total-ok' : 'total-bad'"
+         data-testid="class-editor-total">
+      <span x-text="totalText"></span>
+    </div>
+
+    <div class="class-actions">
+      <button type="button"
+              class="btn btn-secondary"
+              x-on:click="addRow()"
+              data-testid="class-editor-add">Adicionar classe</button>
+      <button type="submit"
+              class="btn btn-primary"
+              :disabled="Math.abs(total - 100) >= 0.01 || rows.length === 0"
+              data-testid="class-editor-save">Salvar classes</button>
+    </div>
+  </form>
+</div>
+
+<script>
+function classEditor() {
+  return {
+    rows: [],
+    deletedIds: '',
+    get total() {
+      var s = 0;
+      for (var i = 0; i < this.rows.length; i++) {
+        s += parseFloat(this.rows[i].targetPct) || 0;
+      }
+      return Math.round(s * 100) / 100;
+    },
+    get totalText() {
+      if (this.rows.length === 0) return 'Nenhuma classe';
+      if (Math.abs(this.total - 100) < 0.01) return 'Total: ' + this.total.toFixed(2) + '% \u2713';
+      var diff = 100 - this.total;
+      if (diff > 0) return 'Total: ' + this.total.toFixed(2) + '% -- faltam ' + diff.toFixed(2) + '%';
+      return 'Total: ' + this.total.toFixed(2) + '% -- sobram ' + Math.abs(diff).toFixed(2) + '%';
+    },
+    initFrom(data) {
+      if (data && data.length > 0) {
+        for (var i = 0; i < data.length; i++) {
+          this.rows.push(this._toRow(data[i]));
+        }
+      } else {
+        this.addRow();
+      }
+    },
+    _toRow(item) {
+      return {
+        id: item.id || -Date.now(),
+        classId: item.class_id !== undefined ? String(item.class_id) : (item.id ? String(item.id) : ''),
+        name: item.name || '',
+        targetPct: parseFloat(item.target_pct !== undefined ? item.target_pct : item.targetPct) || 0,
+      };
+    },
+    addRow() {
+      this.rows.push({ id: -Date.now(), classId: '', name: '', targetPct: 0 });
+    },
+    removeRow(idx) {
+      var row = this.rows[idx];
+      if (row.classId) {
+        var ids = this.deletedIds ? this.deletedIds.split(',') : [];
+        ids.push(String(row.classId));
+        this.deletedIds = ids.join(',');
+      }
+      this.rows.splice(idx, 1);
+    },
+  };
+}
+</script>
+{% endblock %}

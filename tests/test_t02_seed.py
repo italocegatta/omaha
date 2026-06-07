@@ -31,6 +31,20 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 ALEMBIC_INI = REPO_ROOT / "alembic.ini"
 
 
+def _restore_omaha_modules(saved: dict[str, object]) -> None:
+    """Re-populate ``sys.modules`` with the omaha.* modules saved before the fixture.
+
+    Drop any modules that the fixture re-imported (so we don't keep
+    stale env-bound copies in ``sys.modules``), then restore the
+    pre-fixture snapshot.
+    """
+    for name in list(sys.modules):
+        if (name == "omaha" or name.startswith("omaha.")) and name not in saved:
+            del sys.modules[name]
+    for name, mod in saved.items():
+        sys.modules[name] = mod
+
+
 def _tmp_db_url(tmp_path: Path) -> str:
     """Return a ``sqlite:///`` URL pointing to a fresh file in ``tmp_path``."""
     db_file = tmp_path / "portfolio.db"
@@ -38,16 +52,28 @@ def _tmp_db_url(tmp_path: Path) -> str:
 
 
 @pytest.fixture()
-def seeded_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def seeded_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest):
     """Configure a temporary SQLite DB, run alembic, then seed.
 
     Yields the :class:`pathlib.Path` to the database file. Restores the
-    original environment on teardown.
+    original environment and ``sys.modules`` on teardown so the
+    conftest's session-scoped ``omaha.*`` modules stay consistent for
+    tests that share them (T03 auth, T04 e2e, S03 e2e).
     """
     db_url = _tmp_db_url(tmp_path)
     monkeypatch.setenv("DATABASE_URL", db_url)
     monkeypatch.setenv("ADMIN_PASSWORD", "test-family-password")
     monkeypatch.setenv("SECRET_KEY", "test-secret-key-for-t02")
+
+    # Snapshot the omaha.* modules so we can restore them on teardown.
+    # Without this, the re-imported (env-bound) modules leak into
+    # later tests and break the conftest's session-scoped DB/engine.
+    saved_omaha_modules = {
+        name: mod
+        for name, mod in sys.modules.items()
+        if name == "omaha" or name.startswith("omaha.")
+    }
+    request.addfinalizer(lambda: _restore_omaha_modules(saved_omaha_modules))
 
     # Re-import omaha modules so they pick up the new DATABASE_URL.
     # ``omaha.config.settings`` is read at import time, so we have to

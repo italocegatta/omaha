@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Omaha — Dashboard{% endblock %}
 {% block content %}
-  <h2 data-testid="profile-name">Bem-vindo, {{ profile.name }}</h2>
-
-  {% if error %}<p class="error" data-testid="class-editor-error">{{ error }}</p>{% endif %}
-
+<div class="dashboard">
+  <h1 data-testid="profile-name">Bem-vindo, {{ profile.name }}</h1>
   <div class="empty-state" data-testid="empty-state">
-    <p><strong>Sem classes ainda.</strong></p>
-    <p>Em S02 você poderá criar suas classes de ativos.</p>
+    <p>Sem classes ainda.</p>
+    <a href="/classes" class="btn btn-primary" style="margin-top:1rem;display:inline-block;width:auto">
+      Gerenciar classes
+    </a>
   </div>
+</div>
 {% endblock %}

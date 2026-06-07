@@ -49,7 +49,7 @@ matches the user's input order on the first save.
 
 from __future__ import annotations
 
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
@@ -172,14 +172,39 @@ def get_classes(
     db: DbSession,
     profile: Profile = Depends(require_active_profile),
 ) -> Response:
-    """Redirect to ``/`` because the editor is rendered in the dashboard.
+    """Render the dedicated class editor page.
 
-    The route exists as the URL contract for future direct links
-    (e.g. a "Manage classes" shortcut on a future page) — the
-    dashboard template embeds the form, so the canonical view is
-    ``GET /`` with an active profile.
+    The S03 dashboard surfaces a "Gerenciar classes" shortcut that
+    links here, and the editor is the canonical view of a profile's
+    asset classes. The template seeds itself from the profile's
+    existing ``AssetClass`` rows so a user returning to the editor
+    sees what they previously saved.
     """
-    return RedirectResponse("/", status_code=303)
+    classes = (
+        db.query(AssetClass)
+        .filter(AssetClass.profile_id == profile.id)
+        .order_by(AssetClass.display_order)
+        .all()
+    )
+    # Coerce ORM rows to plain dicts so Jinja's ``tojson`` filter can
+    # serialise them in the Alpine ``x-init`` initial state. The
+    # editor's ``_toRow`` reads ``class_id`` (snake_case, matches the
+    # hidden form field name) and ``target_pct`` (matches the DB
+    # column) as the public keys.
+    class_rows = [
+        {
+            "id": c.id,
+            "class_id": c.id,
+            "name": c.name,
+            "target_pct": float(c.target_pct),
+        }
+        for c in classes
+    ]
+    return _templates(request).TemplateResponse(
+        request,
+        "classes.html",
+        {"profile": profile, "classes": class_rows, "error": None},
+    )
 
 
 @router.post("/classes", response_class=HTMLResponse, response_model=None)
@@ -190,6 +215,7 @@ def post_classes(
     class_id: Annotated[list[str], Form(alias="class_id[]")] = [],  # noqa: B006 — FastAPI form list
     name: Annotated[list[str], Form(alias="name[]")] = [],  # noqa: B006
     target_pct: Annotated[list[str], Form(alias="target_pct[]")] = [],  # noqa: B006
+    deleted_ids: Annotated[str, Form()] = "",
 ) -> Response:
     """Validate, then upsert the profile's class rows in one transaction.
 
@@ -212,12 +238,10 @@ def post_classes(
     rows, error = _validate_rows(class_id, name, target_pct)
     if error is not None:
         # Echo the raw submission back so the template can repopulate
-        # the form (T03 will render the editor; the T02 test only
-        # asserts the error message is in the body).
+        # the form. The S03 classes.html re-renders the editor with
+        # the same rows the user submitted and surfaces the error.
         echoed = _echoed_rows(class_id, name, target_pct)
-        return _render_dashboard_with_error(
-            request, profile, error=error, rows=echoed
-        )
+        return _render_classes_with_error(request, profile, error=error, rows=echoed)
 
     # Lock the new-row display_order against a fresh max query so
     # the assigned values are stable across the loop even if the
@@ -259,14 +283,34 @@ def post_classes(
         # collision and resubmit.
         db.rollback()
         echoed = _echoed_rows(class_id, name, target_pct)
-        return _render_dashboard_with_error(
+        return _render_classes_with_error(
             request,
             profile,
             error="Já existe uma classe com o nome duplicado.",
             rows=echoed,
         )
 
-    return RedirectResponse("/", status_code=303)
+    # Process the soft-deleted ids (the Alpine editor records ids of
+    # rows the user removed client-side as a comma-separated list and
+    # submits them in a hidden field). We delete after the upsert so
+    # the response is the fresh view of the profile's classes, not a
+    # mid-transaction snapshot.
+    if deleted_ids:
+        ids_to_delete = [int(x) for x in deleted_ids.split(",") if x.strip().isdigit()]
+        if ids_to_delete:
+            victims = (
+                db.query(AssetClass)
+                .filter(
+                    AssetClass.id.in_(ids_to_delete),
+                    AssetClass.profile_id == profile.id,
+                )
+                .all()
+            )
+            for victim in victims:
+                db.delete(victim)
+            db.commit()
+
+    return RedirectResponse("/classes", status_code=303)
 
 
 @router.post("/classes/{class_id}/delete", response_model=None)
@@ -291,9 +335,7 @@ def delete_class(
     return RedirectResponse("/", status_code=303)
 
 
-def _echoed_rows(
-    class_ids: list[str], names: list[str], pcts: list[str]
-) -> list[dict[str, str]]:
+def _echoed_rows(class_ids: list[str], names: list[str], pcts: list[str]) -> list[dict[str, str]]:
     """Return the raw submission as strings, aligned row-by-row.
 
     The dashboard template receives this list to repopulate the
@@ -312,26 +354,27 @@ def _echoed_rows(
     ]
 
 
-def _render_dashboard_with_error(
+def _render_classes_with_error(
     request: Request,
     profile: Profile,
     *,
     error: str,
     rows: list[dict[str, str]],
 ) -> Response:
-    """Re-render ``dashboard.html`` with ``error`` + echoed ``rows``.
+    """Re-render ``classes.html`` with ``error`` + echoed ``rows``.
 
     The status is 200 (not 4xx) so the form is re-submittable —
     the same pattern :mod:`omaha.routes.auth` uses for bad
-    credentials. ``rows`` is a list of dicts the T03 editor
-    consumes; T02 tests only assert the ``error`` substring is
-    in the body, which the dashboard template renders via
-    ``{% if error %}``.
+    credentials. ``rows`` is the echoed user submission, which
+    the S03 editor seeds itself with so the user can fix and
+    resubmit. The editor's reactive total still surfaces the
+    "Falta/Sobra" message in addition to the server-rendered
+    one.
     """
     return _templates(request).TemplateResponse(
         request,
-        "dashboard.html",
-        {"profile": profile, "error": error, "rows": rows},
+        "classes.html",
+        {"profile": profile, "classes": rows, "error": error},
         status_code=200,
     )
 
