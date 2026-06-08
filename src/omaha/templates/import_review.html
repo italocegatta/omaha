@@ -52,13 +52,25 @@
         </thead>
         <tbody>
           {% for rp in unmatched %}
+          {% set suggested_id = class_suggestions.get(rp.broker_ticker) %}
           <tr data-testid="import-review-unmatched-row">
-            <td>{{ rp.name }} ({{ rp.broker_ticker }})</td>
+            <td>
+              {{ rp.name }} ({{ rp.broker_ticker }})
+              {% if rp.suggested_category %}
+              <small
+                class="import-review-file-category"
+                data-testid="import-review-file-category"
+              >Arquivo: {{ rp.suggested_category }}</small>
+              {% endif %}
+            </td>
             <td>
               <select name="class_id[]" data-testid="import-review-class-select">
-                <option value="">-- escolha --</option>
+                <option value="" {% if not suggested_id %}selected{% endif %}>-- escolha --</option>
                 {% for c in asset_classes %}
-                <option value="{{ c.id }}">{{ c.name }}</option>
+                <option
+                  value="{{ c.id }}"
+                  {% if c.id == suggested_id %}selected{% endif %}
+                >{{ c.name }}</option>
                 {% endfor %}
               </select>
             </td>

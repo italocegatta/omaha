@@ -36,7 +36,12 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from omaha.auth import DbSession, require_active_profile, require_user
-from omaha.csv_import import RawPosition, match_positions, parse_positions
+from omaha.csv_import import (
+    RawPosition,
+    match_positions,
+    parse_positions,
+    suggest_class_id,
+)
 from omaha.models import Asset, AssetClass, ImportPreview, Profile, User
 
 router = APIRouter(tags=["imports"])
@@ -69,6 +74,7 @@ def _raw_to_dict(rp: RawPosition) -> dict:
         "avg_price": str(rp.avg_price),
         "current_price": str(rp.current_price),
         "row_index": rp.row_index,
+        "suggested_category": rp.suggested_category,
     }
 
 
@@ -82,6 +88,7 @@ def _dict_to_raw(d: dict) -> RawPosition:
         avg_price=Decimal(d["avg_price"]),
         current_price=Decimal(d["current_price"]),
         row_index=int(d["row_index"]),
+        suggested_category=d.get("suggested_category"),
     )
 
 
@@ -188,6 +195,7 @@ def get_review(
                 "auto_count": 0,
                 "unmatched_count": 0,
                 "asset_classes": [],
+                "class_suggestions": {},
             },
         )
 
@@ -202,6 +210,15 @@ def get_review(
         .all()
     )
 
+    # Pre-select a class for each unmatched row based on the file's
+    # "Minha Categoria" column. The user can still override via the
+    # dropdown; the suggestion is a starting point, not a constraint.
+    class_suggestions: dict[str, int] = {}
+    for rp in result.unmatched:
+        suggested = suggest_class_id(rp.suggested_category, asset_classes)
+        if suggested is not None:
+            class_suggestions[rp.broker_ticker] = suggested
+
     return _templates(request).TemplateResponse(
         request,
         "import_review.html",
@@ -214,6 +231,7 @@ def get_review(
             "auto_count": len(result.auto_matched),
             "unmatched_count": len(result.unmatched),
             "asset_classes": asset_classes,
+            "class_suggestions": class_suggestions,
         },
     )
 

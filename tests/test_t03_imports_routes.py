@@ -172,6 +172,101 @@ def test_review_shows_matched_and_unmatched(logged_in: TestClient) -> None:
     assert 'data-testid="import-review-unmatched-count"' in r.text
 
 
+def test_review_preselects_class_from_suggested_category(
+    logged_in: TestClient,
+) -> None:
+    """The 'Minha Categoria' column from the broker file pre-selects the
+    class dropdown on the review screen. The user can still override, but
+    a confident match (e.g. 'RF Pós' → 'Renda Fixa') lands the right
+    option selected so the user just has to confirm.
+
+    Fixture categories on the 5 unmatched rows:
+      MXRF11 → 'RF Pós'         → matches 'Renda Fixa' (Renda Fixa class)
+      XPLG11 → 'Ações'          → matches 'Acoes'     (Acoes class)
+      BPAC11 → '(Não configurado)' → no class → '-- escolha --' stays selected
+      HGLG11 → '(Não configurado)' → no class → '-- escolha --' stays selected
+      VINO11 → '(Não configurado)' → no class → '-- escolha --' stays selected
+    """
+    import re
+
+    class_renda = _ensure_class_with_asset(logged_in, 1, "Renda Fixa", ["PETR4"])
+    class_acoes = _ensure_class_with_asset(logged_in, 1, "Acoes", ["VALE3"])
+    logged_in.post(
+        "/import",
+        files={"file": ("broker.csv", SAMPLE_CSV.encode("utf-8"), "text/csv")},
+        follow_redirects=False,
+    )
+    r = logged_in.get("/import/review")
+    assert r.status_code == 200
+
+    # Pull every <tr data-testid="import-review-unmatched-row">…</tr> block
+    # and inspect its <select> for the option that carries `selected`.
+    row_re = re.compile(
+        r'<tr data-testid="import-review-unmatched-row">(.*?)</tr>',
+        re.DOTALL,
+    )
+    select_re = re.compile(
+        r'<select name="class_id\[\]"[^>]*>(.*?)</select>',
+        re.DOTALL,
+    )
+    option_re = re.compile(
+        r"<option\b([^>]*)>",
+    )
+    # Each attribute is either `name="value"` (with optional quotes) or
+    # a bare `name` (HTML boolean attribute like `selected`). Match
+    # both forms so we can detect pre-selected options regardless of
+    # how Jinja rendered the boolean.
+    attr_re = re.compile(
+        r'(?:^|\s)(value|selected)(?:="([^"]*)")?',
+    )
+    ticker_re = re.compile(r"\(([A-Z0-9]+)\)")
+
+    by_ticker: dict[str, str] = {}
+    for row_html in row_re.findall(r.text):
+        # Extract broker_ticker from the first <td>...</td> of this row.
+        first_td = re.search(r"<td>(.*?)</td>", row_html, re.DOTALL)
+        if not first_td:
+            continue
+        m_tk = ticker_re.search(first_td.group(1))
+        if not m_tk:
+            continue
+        ticker = m_tk.group(1)
+        # Find the select, then the option carrying `selected`.
+        sel = select_re.search(row_html)
+        if not sel:
+            continue
+        selected_value = ""
+        for opt_attrs in option_re.findall(sel.group(1)):
+            attrs: dict[str, str] = {}
+            for name, val in attr_re.findall(opt_attrs):
+                # Bare attribute (no =) → boolean True marker. The
+                # match is present iff the attribute was on the tag.
+                attrs[name] = val
+            if "selected" in attrs:
+                selected_value = attrs.get("value", "")
+                break
+        by_ticker[ticker] = selected_value
+
+    # The 5 unmatched names from the fixture:
+    assert "MXRF11" in by_ticker, f"missing MXRF11 in {list(by_ticker)}"
+    assert "XPLG11" in by_ticker
+    assert "BPAC11" in by_ticker
+    assert "HGLG11" in by_ticker
+    assert "VINO11" in by_ticker
+
+    # MXRF11 → 'RF Pós' → matches the 'Renda Fixa' class.
+    assert by_ticker["MXRF11"] == str(
+        class_renda
+    ), f"MXRF11 expected Renda Fixa pre-selected (id={class_renda}), got {by_ticker['MXRF11']!r}"
+    # XPLG11 → 'Ações' → matches the 'Acoes' class.
+    assert by_ticker["XPLG11"] == str(
+        class_acoes
+    ), f"XPLG11 expected Acoes pre-selected (id={class_acoes}), got {by_ticker['XPLG11']!r}"
+    # The 3 '(Não configurado)' rows stay on '-- escolha --' (empty value).
+    for tk in ("BPAC11", "HGLG11", "VINO11"):
+        assert by_ticker[tk] == "", f"{tk} expected '-- escolha --' (empty), got {by_ticker[tk]!r}"
+
+
 def test_confirm_commits_positions(logged_in: TestClient) -> None:
     _ensure_class_with_asset(logged_in, 1, "Renda Fixa", ["PETR4"])
     logged_in.post(

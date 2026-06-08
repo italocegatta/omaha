@@ -59,14 +59,49 @@ UNMATCHED_NAMES = ["MXRF11", "BPAC11", "HGLG11", "XPLG11", "VINO11"]
 # auto-matcher picks them up. The list is the exact order they
 # appear in the fixture (col 1 of each data row).
 MATCHED_NAMES: list[str] = [
-    "PETR4", "VALE3", "ITUB4", "BBDC4", "ABEV3", "MGLU3", "BBAS3",
-    "WEGE3", "RENT3", "LREN3", "B3SA3", "SUZB3", "CSAN3", "PETR3",
-    "VBBR3", "PRIO3", "IVVB11",
-    "IVV", "VOO", "QQQ", "SMH", "SOXX", "VTI", "SPY", "VT",
-    "HASH11", "BTLG11", "KNCR11", "IRDM11", "XPML11", "VISC11",
-    "BRCR11", "TORD11", "MALL11", "DEVA11", "RBVA11", "VRTA11",
-    "BPRP11", "PVBI11", "HCTR11", "XPIN11",
-    "Tesouro Selic 2029", "Tesouro IPCA+ 2035",
+    "PETR4",
+    "VALE3",
+    "ITUB4",
+    "BBDC4",
+    "ABEV3",
+    "MGLU3",
+    "BBAS3",
+    "WEGE3",
+    "RENT3",
+    "LREN3",
+    "B3SA3",
+    "SUZB3",
+    "CSAN3",
+    "PETR3",
+    "VBBR3",
+    "PRIO3",
+    "IVVB11",
+    "IVV",
+    "VOO",
+    "QQQ",
+    "SMH",
+    "SOXX",
+    "VTI",
+    "SPY",
+    "VT",
+    "HASH11",
+    "BTLG11",
+    "KNCR11",
+    "IRDM11",
+    "XPML11",
+    "VISC11",
+    "BRCR11",
+    "TORD11",
+    "MALL11",
+    "DEVA11",
+    "RBVA11",
+    "VRTA11",
+    "BPRP11",
+    "PVBI11",
+    "HCTR11",
+    "XPIN11",
+    "Tesouro Selic 2029",
+    "Tesouro IPCA+ 2035",
 ]
 assert len(MATCHED_NAMES) == 43, f"expected 43 matched names, got {len(MATCHED_NAMES)}"
 
@@ -74,18 +109,53 @@ assert len(MATCHED_NAMES) == 43, f"expected 43 matched names, got {len(MATCHED_N
 # (60/30/10) are the S04 demo target but the test does not assert
 # on them — only on the import flow succeeding.
 RENDA_FIXA_NAMES = {
-    "HASH11", "BTLG11", "KNCR11", "IRDM11", "XPML11", "VISC11",
-    "BRCR11", "TORD11", "MALL11", "DEVA11", "RBVA11", "VRTA11",
-    "BPRP11", "PVBI11", "HCTR11", "XPIN11",
-    "Tesouro Selic 2029", "Tesouro IPCA+ 2035",
+    "HASH11",
+    "BTLG11",
+    "KNCR11",
+    "IRDM11",
+    "XPML11",
+    "VISC11",
+    "BRCR11",
+    "TORD11",
+    "MALL11",
+    "DEVA11",
+    "RBVA11",
+    "VRTA11",
+    "BPRP11",
+    "PVBI11",
+    "HCTR11",
+    "XPIN11",
+    "Tesouro Selic 2029",
+    "Tesouro IPCA+ 2035",
 }
 ACOES_NAMES = {
-    "PETR4", "VALE3", "ITUB4", "BBDC4", "ABEV3", "MGLU3", "BBAS3",
-    "WEGE3", "RENT3", "LREN3", "B3SA3", "SUZB3", "CSAN3", "PETR3",
-    "VBBR3", "PRIO3", "IVVB11",
+    "PETR4",
+    "VALE3",
+    "ITUB4",
+    "BBDC4",
+    "ABEV3",
+    "MGLU3",
+    "BBAS3",
+    "WEGE3",
+    "RENT3",
+    "LREN3",
+    "B3SA3",
+    "SUZB3",
+    "CSAN3",
+    "PETR3",
+    "VBBR3",
+    "PRIO3",
+    "IVVB11",
 }
 RESERVA_NAMES = {
-    "IVV", "VOO", "QQQ", "SMH", "SOXX", "VTI", "SPY", "VT",
+    "IVV",
+    "VOO",
+    "QQQ",
+    "SMH",
+    "SOXX",
+    "VTI",
+    "SPY",
+    "VT",
 }
 assert len(RENDA_FIXA_NAMES) + len(ACOES_NAMES) + len(RESERVA_NAMES) == 43
 
@@ -94,7 +164,7 @@ SELECTORS = {
     "login_user": 'input[name="username"]',
     "login_pass": 'input[name="password"]',
     "login_submit": 'button[type="submit"]',
-    "profile_picker": 'form.profile-picker button',
+    "profile_picker": "form.profile-picker button",
     "nav_dashboard": '[data-testid="nav-dashboard"]',
     "nav_classes": '[data-testid="nav-classes"]',
     "nav_assets": '[data-testid="nav-assets"]',
@@ -193,6 +263,7 @@ def _seed_43_assets(page: Page) -> None:
 def _debug_dump(page: Page, tag: str) -> None:
     """Write a screenshot + main-text + URL to /tmp for post-mortem."""
     import os
+
     os.makedirs("/tmp/s04_e2e_debug", exist_ok=True)
     page.screenshot(path=f"/tmp/s04_e2e_debug/{tag}.png", full_page=True)
     with open(f"/tmp/s04_e2e_debug/{tag}.txt", "w") as f:
@@ -232,13 +303,9 @@ class TestS04ImportJourney:
 
         # --- 2. Review screen shows 43 auto + 5 unmatched.
         auto_count_text = page.locator(SELECTORS["import_review_auto_count"]).inner_text()
-        unmatched_count_text = page.locator(
-            SELECTORS["import_review_unmatched_count"]
-        ).inner_text()
+        unmatched_count_text = page.locator(SELECTORS["import_review_unmatched_count"]).inner_text()
         assert "43" in auto_count_text, f"expected 43 auto, got {auto_count_text!r}"
-        assert "5" in unmatched_count_text, (
-            f"expected 5 unmatched, got {unmatched_count_text!r}"
-        )
+        assert "5" in unmatched_count_text, f"expected 5 unmatched, got {unmatched_count_text!r}"
 
         # Spot-check the auto and unmatched row counts in the DOM.
         assert page.locator(SELECTORS["import_review_auto_row"]).count() == 43
@@ -246,23 +313,69 @@ class TestS04ImportJourney:
 
         # The 5 unmatched names match the T02 unit-test contract.
         unmatched_names = {
-            page.locator(SELECTORS["import_review_unmatched_row"]).nth(i).locator(
-                "td"
-            ).nth(0).inner_text()
+            page.locator(SELECTORS["import_review_unmatched_row"])
+            .nth(i)
+            .locator("td")
+            .nth(0)
+            .inner_text()
             for i in range(5)
         }
         for expected in UNMATCHED_NAMES:
-            assert any(expected in text for text in unmatched_names), (
-                f"missing unmatched {expected!r} in {unmatched_names!r}"
-            )
+            assert any(
+                expected in text for text in unmatched_names
+            ), f"missing unmatched {expected!r} in {unmatched_names!r}"
 
-        # --- 3. Assign a class to each of the 5 unmatched rows.
-        # Use the first available class ("Renda Fixa") for all 5
-        # to keep the test simple — the import route's only class
-        # contract is "belongs to this profile".
+        # --- 3. The 'Minha Categoria' column pre-selects the class for
+        # rows whose category matches an existing class. The fixture
+        # carries: MXRF11 → 'RF Pós' (Renda Fixa), XPLG11 → 'Ações' (Acoes),
+        # BPAC11/HGLG11/VINO11 → '(Não configurado)' (no class). Verify the
+        # pre-selected values are correct, then override the 3 un-selected
+        # rows to 'Renda Fixa' so the import commits.
+
+        # Map unmatched rows to their pre-selected option value.
+        # The HTML uses Jinja-rendered `selected` boolean attributes; we
+        # read each <select> inside an unmatched row and look at which
+        # <option> carries `selected`.
+        preselect = page.evaluate(
+            """() => {
+                const rows = document.querySelectorAll(
+                    '[data-testid="import-review-unmatched-row"]'
+                );
+                const result = {};
+                for (const row of rows) {
+                    const firstTd = row.querySelector('td');
+                    const m = (firstTd?.textContent || '').match(/\\(([A-Z0-9]+)\\)/);
+                    if (!m) continue;
+                    const ticker = m[1];
+                    const select = row.querySelector('select');
+                    if (!select) continue;
+                    const sel = select.querySelector('option[selected]');
+                    result[ticker] = sel ? (sel.value || '') : '';
+                }
+                return result;
+            }"""
+        )
+        # MXRF11 → 'RF Pós' → 'Renda Fixa' (class id is the option value).
+        assert preselect.get(
+            "MXRF11"
+        ), f"MXRF11 expected pre-selected to a class, got {preselect.get('MXRF11')!r}"
+        # XPLG11 → 'Ações' → 'Acoes'.
+        assert preselect.get(
+            "XPLG11"
+        ), f"XPLG11 expected pre-selected to a class, got {preselect.get('XPLG11')!r}"
+        # The 3 '(Não configurado)' rows stay on '-- escolha --' (empty value).
+        for tk in ("BPAC11", "HGLG11", "VINO11"):
+            assert (
+                preselect.get(tk) == ""
+            ), f"{tk} expected '-- escolha --' (empty), got {preselect.get(tk)!r}"
+
+        # Fill the 3 un-selected rows with 'Renda Fixa' to keep the test
+        # contract (all 5 unmatched get a class).
         for i in range(5):
             select = page.locator(SELECTORS["import_review_class_select"]).nth(i)
-            select.select_option(label="Renda Fixa")
+            current = select.evaluate("el => el.options[el.selectedIndex].value")
+            if not current:
+                select.select_option(label="Renda Fixa")
 
         # --- 4. Confirm the import.
         page.click(SELECTORS["import_review_confirm"])
@@ -287,22 +400,18 @@ class TestS04ImportJourney:
         # machine-readable form of the count.
         for i in range(48):
             row = dashboard_rows.nth(i)
-            count = int(row.locator(SELECTORS["position_count"]).get_attribute(
-                "data-position-count"
-            ))
+            count = int(
+                row.locator(SELECTORS["position_count"]).get_attribute("data-position-count")
+            )
             assert count >= 1, f"row {i} has {count} positions, expected >= 1"
 
         # The 5 new assets must have the unmatched names. They were
         # all created in "Renda Fixa" (the class we picked for them).
         dashboard_text = page.locator("main").inner_text()
         for name in UNMATCHED_NAMES:
-            assert name in dashboard_text, (
-                f"new asset {name!r} not on dashboard after confirm"
-            )
+            assert name in dashboard_text, f"new asset {name!r} not on dashboard after confirm"
 
-    def test_expired_preview_shows_expirado(
-        self, page: Page, live_url: str
-    ) -> None:
+    def test_expired_preview_shows_expirado(self, page: Page, live_url: str) -> None:
         """A preview whose created_at is older than PREVIEW_TTL renders
         the Expirado state on /import/review.
 
@@ -327,9 +436,7 @@ class TestS04ImportJourney:
         # Connect to the test DB the e2e conftest started.
         conn = sqlite3.connect(TEST_DB_PATH)
         try:
-            conn.execute(
-                "UPDATE import_previews SET created_at = datetime('now', '-2 hours')"
-            )
+            conn.execute("UPDATE import_previews SET created_at = datetime('now', '-2 hours')")
             conn.commit()
         finally:
             conn.close()
