@@ -21,11 +21,15 @@ contracts here don't change.
 
 from __future__ import annotations
 
+from decimal import Decimal
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy.orm import selectinload
 
 from omaha.auth import DbSession, get_active_profile, require_user
-from omaha.models import AssetClass, Profile, User
+from omaha.models import Asset, AssetClass, Profile, User
 
 router = APIRouter(tags=["pages"])
 
@@ -52,14 +56,24 @@ def index(
 
     asset_classes = (
         db.query(AssetClass)
+        .options(
+            selectinload(AssetClass.assets).selectinload(Asset.positions),
+        )
         .filter(AssetClass.profile_id == profile.id)
         .order_by(AssetClass.display_order)
         .all()
     )
+    aggregates = portfolio_aggregates(asset_classes)
     return _templates(request).TemplateResponse(
         request,
         "dashboard.html",
-        {"user": user, "profile": profile, "asset_classes": asset_classes},
+        {
+            "user": user,
+            "profile": profile,
+            "asset_classes": asset_classes,
+            "portfolio": aggregates["portfolio"],
+            "class_aggregates": aggregates["classes"],
+        },
     )
 
 
@@ -99,4 +113,121 @@ def select_profile(
     return RedirectResponse("/", status_code=303)
 
 
-__all__ = ["router"]
+__all__ = ["router", "portfolio_aggregates"]
+
+
+def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
+    """Compute portfolio-level + per-class + per-asset aggregates for the dashboard.
+
+    Pure function — operates on already-loaded ORM objects. The caller
+    is responsible for eager-loading ``AssetClass.assets[*].positions``
+    (the dashboard route uses ``selectinload`` to avoid N+1).
+
+    Returns a dict with two top-level keys:
+
+    * ``portfolio``: portfolio-wide ``total_invested``, ``current_value``,
+      ``gain``, and ``gain_pct`` (``None`` when ``total_invested == 0``
+      so the template can render a neutral dash).
+    * ``classes``: list of per-class dicts in the same order as
+      ``asset_classes``. Each dict carries ``id``, ``name``,
+      ``target_pct``, the class's own ``total_invested`` /
+      ``current_value``, the class's ``current_pct`` of the whole
+      portfolio (0.0 when the portfolio is empty), and the list of
+      ``assets`` with their ``qty``, ``current_value``, and
+      ``asset_pct`` (share of the *class's* current_value, 0.0 when
+      the class is empty).
+
+    All percentages are stored as ``Decimal`` values in the 0-100
+    range so the template can format them with Jinja's ``|round(2)``.
+    """
+    ZERO = Decimal("0")
+    HUNDRED = Decimal("100")
+
+    # First pass: per-asset totals and per-class totals, in one walk.
+    class_rows: list[dict[str, Any]] = []
+    portfolio_invested = ZERO
+    portfolio_current = ZERO
+
+    for klass in asset_classes:
+        class_invested = ZERO
+        class_current = ZERO
+        asset_rows: list[dict[str, Any]] = []
+        for asset in klass.assets:
+            asset_invested = ZERO
+            asset_current = ZERO
+            asset_qty = ZERO
+            for pos in asset.positions:
+                qty = pos.qty or ZERO
+                avg = pos.avg_price or ZERO
+                cur = pos.current_price or ZERO
+                asset_qty += qty
+                asset_invested += qty * avg
+                asset_current += qty * cur
+            class_invested += asset_invested
+            class_current += asset_current
+            asset_rows.append(
+                {
+                    "id": asset.id,
+                    "name": asset.name,
+                    "qty": asset_qty,
+                    "invested": asset_invested,
+                    "current_value": asset_current,
+                }
+            )
+        portfolio_invested += class_invested
+        portfolio_current += class_current
+        class_rows.append(
+            {
+                "id": klass.id,
+                "name": klass.name,
+                "target_pct": klass.target_pct,
+                "invested": class_invested,
+                "current_value": class_current,
+                "_assets": asset_rows,
+            }
+        )
+
+    portfolio_gain = portfolio_current - portfolio_invested
+    if portfolio_invested == ZERO:
+        # Empty portfolio: surface a neutral None for gain_pct so the
+        # template renders a dash, and force current_pcts to 0.0 so
+        # the progress bars are empty (not 100% from div-by-zero).
+        portfolio_gain_pct: Decimal | None = None
+        for row in class_rows:
+            row["current_pct"] = ZERO
+            for asset in row["_assets"]:
+                asset["asset_pct"] = ZERO
+    else:
+        portfolio_gain_pct = (portfolio_gain / portfolio_invested) * HUNDRED
+        for row in class_rows:
+            row["current_pct"] = (
+                (row["current_value"] / portfolio_current) * HUNDRED
+                if portfolio_current > ZERO
+                else ZERO
+            )
+            class_current = row["current_value"]
+            for asset in row["_assets"]:
+                asset["asset_pct"] = (
+                    (asset["current_value"] / class_current) * HUNDRED
+                    if class_current > ZERO
+                    else ZERO
+                )
+
+    # Flatten: drop the temporary ``_assets`` underscore and move
+    # ``assets`` to the final position, in the order expected by the
+    # template.
+    classes_out: list[dict[str, Any]] = []
+    for row in class_rows:
+        assets = row.pop("_assets")
+        row["assets"] = assets
+        classes_out.append(row)
+
+    return {
+        "portfolio": {
+            "total_invested": portfolio_invested,
+            "current_value": portfolio_current,
+            "gain": portfolio_gain,
+            "gain_pct": portfolio_gain_pct,
+        },
+        "classes": classes_out,
+    }
