@@ -5,47 +5,70 @@
 
   {% if asset_classes %}
   <section class="class-summary" data-testid="class-summary">
-    <h2>Suas classes de ativos</h2>
-    <ul class="class-summary-list">
-      {% for c in asset_classes %}
-      <li data-testid="class-summary-row" data-class-id="{{ c.id }}">
-        <span class="class-summary-name">{{ c.name }}</span>
-        <span class="class-summary-pct">{{ "%.2f"|format(c.target_pct) }}%</span>
-      </li>
-      {% endfor %}
-    </ul>
-    <div class="dashboard-actions">
-      <a href="/classes" class="btn btn-secondary" data-testid="class-summary-edit">Editar classes</a>
-      <a href="/assets" class="btn btn-primary" data-testid="class-summary-add-assets">Adicionar ativos</a>
-      <a href="/import" class="btn btn-secondary" data-testid="class-summary-import">Importar</a>
-    </div>
-  </section>
-
-  <section class="dashboard-distribution" data-testid="dashboard-distribution">
-    <h2>Distribuicao</h2>
-    {% for c in asset_classes %}
-    <section class="class-section" data-testid="dashboard-class-section" data-class-id="{{ c.id }}">
-      <header class="class-section-header">
-        <span class="class-section-name">{{ c.name }}</span>
-        <span class="class-section-pct">{{ "%.2f"|format(c.target_pct) }}%</span>
-      </header>
-      {% if c.assets %}
-      <ul class="dashboard-asset-list">
-        {% for a in c.assets %}
-        <li data-testid="dashboard-asset-row" data-asset-id="{{ a.id }}">
-          <span class="asset-row-name">{{ a.name }}</span>
-          <span class="asset-row-positions" data-testid="import-position-count" data-position-count="{{ a.positions|length }}">{{ a.positions|length }} posicao(oes)</span>
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p class="dashboard-asset-empty">
-        Nenhum ativo nesta classe.
-        <a href="/assets" data-testid="dashboard-add-assets-link">Adicionar ativos</a>
-      </p>
-      {% endif %}
+    {% if portfolio.current_value %}
+    <section class="portfolio-header" data-testid="portfolio-header">
+      <div class="portfolio-stat" data-testid="portfolio-invested">
+        <span class="portfolio-stat-label">Investido</span>
+        <span class="portfolio-stat-value">{{ portfolio.total_invested | brl }}</span>
+      </div>
+      <div class="portfolio-stat" data-testid="portfolio-total">
+        <span class="portfolio-stat-label">Valor atual</span>
+        <span class="portfolio-stat-value">{{ portfolio.current_value | brl }}</span>
+      </div>
+      <div class="portfolio-stat {% if portfolio.gain >= 0 %}portfolio-gain-positive{% else %}portfolio-gain-negative{% endif %}"
+           data-testid="portfolio-gain"
+           data-gain-sign="{% if portfolio.gain >= 0 %}positive{% else %}negative{% endif %}">
+        <span class="portfolio-stat-label">Ganho</span>
+        <span class="portfolio-stat-value">{{ portfolio.gain | brl }} ({{ portfolio.gain_pct | round(2) }}%)</span>
+      </div>
     </section>
-    {% endfor %}
+    {% endif %}
+
+    <section class="dashboard-distribution" data-testid="dashboard-distribution">
+      <h2>Distribuicao</h2>
+      {% for c in class_aggregates %}
+      <article class="class-section" data-testid="class-summary-row" data-class-id="{{ c.id }}">
+        <header class="class-section-header" data-testid="dashboard-class-section">
+          <span class="class-color-swatch" data-testid="class-color-swatch" style="background:{{ c.color }}"></span>
+          <span class="class-section-name" data-testid="class-section-name">{{ c.name }}</span>
+          <span class="class-section-stats">
+            <span class="pct-target" data-testid="class-target-pct">Alvo {{ c.target_pct }}%</span>
+            <span class="pct-current" data-testid="class-current-pct">Atual {{ c.current_pct | round(2) }}%</span>
+          </span>
+        </header>
+        <div class="compare-bar" data-testid="class-compare-bar">
+          <div class="compare-bar-track compare-bar-target-track">
+            <div class="compare-bar-fill compare-bar-target-fill" style="width:{{ c.target_pct }}%"></div>
+          </div>
+          <div class="compare-bar-track compare-bar-current-track">
+            <div class="compare-bar-fill compare-bar-current-fill" style="width:{{ c.current_pct }}%"></div>
+          </div>
+        </div>
+        {% if c.assets %}
+        <ul class="dashboard-asset-list">
+          {% for a in c.assets %}
+          <li data-testid="dashboard-asset-row" data-asset-id="{{ a.id }}">
+            <div class="asset-row-line">
+              <span class="asset-row-name" data-testid="asset-row-name">{{ a.name }}</span>
+              <span class="asset-row-positions" data-testid="asset-position-count" data-position-count="{{ a.position_count }}">{{ a.position_count }} posicao(oes)</span>
+              <span class="asset-row-value" data-testid="asset-current-value">{{ a.current_value | brl }}</span>
+              <span class="asset-row-pct" data-testid="asset-pct">{{ a.asset_pct | round(2) }}%</span>
+            </div>
+            <div class="asset-progress-bar" data-testid="asset-progress-bar">
+              <div class="asset-progress-fill" style="width:{{ a.asset_pct }}%"></div>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="dashboard-asset-empty">
+          Nenhum ativo nesta classe.
+          <a href="/assets" data-testid="dashboard-add-assets-link">Adicionar ativos</a>
+        </p>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </section>
   </section>
   {% else %}
   <div class="empty-state" data-testid="empty-state">

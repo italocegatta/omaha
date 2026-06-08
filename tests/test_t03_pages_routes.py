@@ -318,3 +318,97 @@ def test_dashboard_renders_portfolio_totals(client: TestClient) -> None:
     assert "TESOURO" in body, body
     # The position-count line proves the positions relationship loaded.
     assert "1 posicao" in body, body
+
+
+def test_dashboard_renders_distribution_layout(client: TestClient) -> None:
+    """S05/T02: dashboard renders the new distribution layout.
+
+    Verifies the data-testid markers the new template uses for the
+    portfolio header, per-class sections, color swatches, target-vs-current
+    compare bars, per-asset rows, progress bars, and BRL-formatted totals.
+    """
+    profile_id = _login_and_select(client, profile_name="Italo")
+    _seed_class_with_position(
+        profile_id=profile_id,
+        class_name="Renda Fixa",
+        target_pct="60.00",
+        asset_name="TESOURO",
+        qty="10",
+        avg="100",
+        cur="110",
+        broker_ticker="TESOURO_2029",
+    )
+
+    r = client.get("/")
+    assert r.status_code == 200, r.text
+    body = r.text
+
+    # Portfolio header (3-stat: invested, current, gain)
+    assert 'data-testid="portfolio-header"' in body, body
+    assert 'data-testid="portfolio-invested"' in body, body
+    assert 'data-testid="portfolio-total"' in body, body
+    assert 'data-testid="portfolio-gain"' in body, body
+    assert 'data-gain-sign="positive"' in body, body  # 110 > 100 → positive
+
+    # BRL formatting appears somewhere in the dashboard
+    assert "R$" in body, body
+    # 10 * 110 = 1100.00 → R$ 1.100,00
+    assert "R$ 1.100,00" in body, body
+    # 10 * 100 = 1000.00 → R$ 1.000,00
+    assert "R$ 1.000,00" in body, body
+    # 1100 - 1000 = 100 → R$ 100,00
+    assert "R$ 100,00" in body, body
+
+    # Per-class section markers
+    assert 'data-testid="dashboard-class-section"' in body, body
+    assert 'data-testid="class-color-swatch"' in body, body
+    assert 'data-testid="class-section-name"' in body, body
+    assert 'data-testid="class-target-pct"' in body, body
+    assert 'data-testid="class-current-pct"' in body, body
+    assert 'data-testid="class-compare-bar"' in body, body
+
+    # Per-asset row markers
+    assert 'data-testid="dashboard-asset-row"' in body, body
+    assert 'data-testid="asset-row-name"' in body, body
+    assert 'data-testid="asset-position-count"' in body, body
+    assert 'data-testid="asset-current-value"' in body, body
+    assert 'data-testid="asset-pct"' in body, body
+    assert 'data-testid="asset-progress-bar"' in body, body
+
+    # Target vs current comparison — both bars present
+    assert "compare-bar-target-fill" in body, body
+    assert "compare-bar-current-fill" in body, body
+
+
+def test_dashboard_renders_class_summary_with_no_positions(client: TestClient) -> None:
+    """S05/T02: when classes exist but have no positions, the class-summary
+    block and per-class sections are still rendered (only the portfolio
+    header is hidden). The S03 'class-summary' wrapper is preserved for
+    backward compat with the S04 e2e journey selectors.
+    """
+    profile_id = _login_and_select(client, profile_name="Italo")
+    from omaha.db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        klass = AssetClass(
+            profile_id=profile_id,
+            name="Renda Fixa",
+            target_pct=Decimal("60.00"),
+            display_order=0,
+        )
+        db.add(klass)
+        db.commit()
+    finally:
+        db.close()
+
+    r = client.get("/")
+    assert r.status_code == 200, r.text
+    body = r.text
+
+    # The S03 'class-summary' wrapper and per-class row are still there.
+    assert 'data-testid="class-summary"' in body, body
+    assert 'data-testid="class-summary-row"' in body, body
+    assert "Renda Fixa" in body, body
+    # The portfolio header is hidden when current_value is 0.
+    assert 'data-testid="portfolio-header"' not in body, body

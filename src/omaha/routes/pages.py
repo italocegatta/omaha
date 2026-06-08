@@ -116,6 +116,23 @@ def select_profile(
 __all__ = ["router", "portfolio_aggregates"]
 
 
+# Eight visually-distinct hex colors assigned to classes in
+# insertion order (class index in the loop, not the DB id, so
+# reordering via display_order reshuffles colors predictably). More
+# than 8 classes wraps around. AssetClass has no ``color`` column;
+# this is the dashboard's deterministic-per-position palette.
+_CLASS_COLORS: tuple[str, ...] = (
+    "#0a66c2",  # blue
+    "#2e7d32",  # green
+    "#c62828",  # red
+    "#ef6c00",  # orange
+    "#6a1b9a",  # purple
+    "#00838f",  # teal
+    "#5d4037",  # brown
+    "#455a64",  # slate
+)
+
+
 def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
     """Compute portfolio-level + per-class + per-asset aggregates for the dashboard.
 
@@ -130,7 +147,8 @@ def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
       so the template can render a neutral dash).
     * ``classes``: list of per-class dicts in the same order as
       ``asset_classes``. Each dict carries ``id``, ``name``,
-      ``target_pct``, the class's own ``total_invested`` /
+      ``target_pct``, a deterministic ``color`` hex string from the
+      module-level palette, the class's own ``invested`` /
       ``current_value``, the class's ``current_pct`` of the whole
       portfolio (0.0 when the portfolio is empty), and the list of
       ``assets`` with their ``qty``, ``current_value``, and
@@ -148,7 +166,7 @@ def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
     portfolio_invested = ZERO
     portfolio_current = ZERO
 
-    for klass in asset_classes:
+    for index, klass in enumerate(asset_classes):
         class_invested = ZERO
         class_current = ZERO
         asset_rows: list[dict[str, Any]] = []
@@ -169,6 +187,7 @@ def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
                 {
                     "id": asset.id,
                     "name": asset.name,
+                    "position_count": len(asset.positions),
                     "qty": asset_qty,
                     "invested": asset_invested,
                     "current_value": asset_current,
@@ -181,6 +200,7 @@ def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
                 "id": klass.id,
                 "name": klass.name,
                 "target_pct": klass.target_pct,
+                "color": _CLASS_COLORS[index % len(_CLASS_COLORS)],
                 "invested": class_invested,
                 "current_value": class_current,
                 "_assets": asset_rows,

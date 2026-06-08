@@ -30,6 +30,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+from decimal import Decimal
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -73,6 +74,42 @@ def _run_startup_migrations_and_seed() -> None:
     seed()
 
 
+def _brl(value: object) -> str:
+    """Format a numeric value as Brazilian Real (R$ X.XXX,XX).
+
+    Used by the dashboard's portfolio + per-asset rows. Negative
+    values are emitted as ``-R$ X.XXX,XX`` so the dashboard's
+    color-coding can pivot on the sign without re-parsing. ``None``
+    renders as a neutral dash (``—``) so an empty portfolio shows
+    a placeholder rather than ``R$ 0,00`` (which would be visually
+    identical to a real 0.00 total).
+    """
+    if value is None:
+        return "—"
+    if isinstance(value, Decimal):
+        quantized = value
+    else:
+        quantized = Decimal(str(value))
+    sign = "-" if quantized < 0 else ""
+    abs_value = abs(quantized)
+    # ``f"{abs_value:.2f}"`` is locale-independent (always '.') and
+    # matches the rest of the project's formatting style; the final
+    # swap converts the decimal point to a comma for the BR locale.
+    formatted = f"{abs_value:.2f}".replace(".", ",")
+    # Thousands separator: walk backwards from the decimal and insert
+    # '.' every 3 digits. ``formatted`` always ends in ",dd" so we
+    # split off the fractional part first.
+    int_part, _, frac_part = formatted.partition(",")
+    grouped: list[str] = []
+    while len(int_part) > 3:
+        grouped.append(int_part[-3:])
+        int_part = int_part[:-3]
+    grouped.append(int_part)
+    grouped.reverse()
+    int_grouped = ".".join(grouped)
+    return f"{sign}R$ {int_grouped},{frac_part}"
+
+
 def create_app() -> FastAPI:
     """Build and return a fully-configured :class:`FastAPI` instance."""
     app = FastAPI(title="Omaha", version="0.1.0")
@@ -95,7 +132,12 @@ def create_app() -> FastAPI:
     # reach it via ``request.app.state.templates``. Sharing one
     # instance is also what makes ``TemplateResponse(request, ...)``
     # pick up our context processors later (T04 will add them).
-    app.state.templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
+    templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
+    # Register the BRL currency filter on the shared templates
+    # instance — the dashboard (S05) is the only consumer for now,
+    # but a future reports slice will reuse the same formatter.
+    templates.env.filters["brl"] = _brl
+    app.state.templates = templates
 
     app.include_router(health_routes.router)
     app.include_router(auth_routes.router)
