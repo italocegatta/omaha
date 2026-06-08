@@ -71,9 +71,7 @@ def _build_class(
     return klass
 
 
-def _build_asset(
-    asset_id: int, name: str, positions: list[Position]
-) -> Asset:
+def _build_asset(asset_id: int, name: str, positions: list[Position]) -> Asset:
     asset = Asset(id=asset_id, asset_class_id=0, name=name, display_order=0)
     asset.positions = list(positions)
     for pos in positions:
@@ -126,15 +124,9 @@ def test_aggregates_sums_invested_current_gain_pct() -> None:
     Portfolio:                                invested 1200, current 1340
     Gain:      140, gain_pct ≈ 11.6667
     """
-    asset_a = _build_asset(
-        1, "AAA", [_build_pos(1, Decimal("10"), Decimal("100"), Decimal("110"))]
-    )
-    asset_b = _build_asset(
-        2, "BBB", [_build_pos(2, Decimal("4"), Decimal("50"), Decimal("60"))]
-    )
-    klass = _build_class(
-        1, "Acoes", Decimal("100.00"), assets=[asset_a, asset_b]
-    )
+    asset_a = _build_asset(1, "AAA", [_build_pos(1, Decimal("10"), Decimal("100"), Decimal("110"))])
+    asset_b = _build_asset(2, "BBB", [_build_pos(2, Decimal("4"), Decimal("50"), Decimal("60"))])
+    klass = _build_class(1, "Acoes", Decimal("100.00"), assets=[asset_a, asset_b])
 
     result = portfolio_aggregates([klass])
 
@@ -143,40 +135,30 @@ def test_aggregates_sums_invested_current_gain_pct() -> None:
     assert result["portfolio"]["gain"] == Decimal("140")
     # gain_pct = 140 / 1200 * 100 = 11.6666… (12.5 + 20 = 32.5? no, see math above)
     # 140 / 1200 = 0.11666…; *100 = 11.6666…
-    assert result["portfolio"]["gain_pct"] == pytest.approx(Decimal("11.6666"), rel=Decimal("0.001"))
+    assert result["portfolio"]["gain_pct"] == pytest.approx(
+        Decimal("11.6666"), rel=Decimal("0.001")
+    )
 
 
 def test_aggregates_per_asset_pct_is_share_of_class() -> None:
     """Asset pct is the share of the *class's* current_value, not the portfolio."""
-    asset_a = _build_asset(
-        1, "AAA", [_build_pos(1, Decimal("10"), Decimal("100"), Decimal("110"))]
-    )
-    asset_b = _build_asset(
-        2, "BBB", [_build_pos(2, Decimal("4"), Decimal("50"), Decimal("60"))]
-    )
+    asset_a = _build_asset(1, "AAA", [_build_pos(1, Decimal("10"), Decimal("100"), Decimal("110"))])
+    asset_b = _build_asset(2, "BBB", [_build_pos(2, Decimal("4"), Decimal("50"), Decimal("60"))])
     klass = _build_class(1, "Acoes", Decimal("100.00"), assets=[asset_a, asset_b])
 
     result = portfolio_aggregates([klass])
 
     assets_by_id = {a["id"]: a for a in result["classes"][0]["assets"]}
     # asset_a: 1100 / 1340 = 82.0895…
-    assert assets_by_id[1]["asset_pct"] == pytest.approx(
-        Decimal("82.0895"), rel=Decimal("0.001")
-    )
+    assert assets_by_id[1]["asset_pct"] == pytest.approx(Decimal("82.0895"), rel=Decimal("0.001"))
     # asset_b: 240 / 1340 = 17.9104…
-    assert assets_by_id[2]["asset_pct"] == pytest.approx(
-        Decimal("17.9104"), rel=Decimal("0.001")
-    )
+    assert assets_by_id[2]["asset_pct"] == pytest.approx(Decimal("17.9104"), rel=Decimal("0.001"))
 
 
 def test_aggregates_per_class_current_pct_is_share_of_portfolio() -> None:
     """With two classes, each class's current_pct = its current_value / total."""
-    asset_a = _build_asset(
-        1, "AAA", [_build_pos(1, Decimal("10"), Decimal("100"), Decimal("110"))]
-    )
-    asset_b = _build_asset(
-        2, "BBB", [_build_pos(2, Decimal("4"), Decimal("50"), Decimal("60"))]
-    )
+    asset_a = _build_asset(1, "AAA", [_build_pos(1, Decimal("10"), Decimal("100"), Decimal("110"))])
+    asset_b = _build_asset(2, "BBB", [_build_pos(2, Decimal("4"), Decimal("50"), Decimal("60"))])
     fixed = _build_class(1, "Renda Fixa", Decimal("40.00"), assets=[asset_a])
     equities = _build_class(2, "Acoes", Decimal("60.00"), assets=[asset_b])
 
@@ -184,29 +166,21 @@ def test_aggregates_per_class_current_pct_is_share_of_portfolio() -> None:
 
     by_id = {c["id"]: c for c in result["classes"]}
     # fixed: 1100 / 1340 = 82.0895…%
-    assert by_id[1]["current_pct"] == pytest.approx(
-        Decimal("82.0895"), rel=Decimal("0.001")
-    )
+    assert by_id[1]["current_pct"] == pytest.approx(Decimal("82.0895"), rel=Decimal("0.001"))
     # equities: 240 / 1340 = 17.9104…%
-    assert by_id[2]["current_pct"] == pytest.approx(
-        Decimal("17.9104"), rel=Decimal("0.001")
-    )
+    assert by_id[2]["current_pct"] == pytest.approx(Decimal("17.9104"), rel=Decimal("0.001"))
 
 
 def test_aggregates_handles_negative_gain() -> None:
     """When current < invested, gain is negative and gain_pct is negative."""
-    asset = _build_asset(
-        1, "AAA", [_build_pos(1, Decimal("10"), Decimal("100"), Decimal("80"))]
-    )
+    asset = _build_asset(1, "AAA", [_build_pos(1, Decimal("10"), Decimal("100"), Decimal("80"))])
     klass = _build_class(1, "Acoes", Decimal("100.00"), assets=[asset])
 
     result = portfolio_aggregates([klass])
 
     assert result["portfolio"]["gain"] == Decimal("-200")
     # -200 / 1000 * 100 = -20
-    assert result["portfolio"]["gain_pct"] == pytest.approx(
-        Decimal("-20"), rel=Decimal("0.001")
-    )
+    assert result["portfolio"]["gain_pct"] == pytest.approx(Decimal("-20"), rel=Decimal("0.001"))
 
 
 # ---------------------------------------------------------------------------

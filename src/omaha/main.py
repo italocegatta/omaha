@@ -86,10 +86,7 @@ def _brl(value: object) -> str:
     """
     if value is None:
         return "—"
-    if isinstance(value, Decimal):
-        quantized = value
-    else:
-        quantized = Decimal(str(value))
+    quantized = value if isinstance(value, Decimal) else Decimal(str(value))
     sign = "-" if quantized < 0 else ""
     abs_value = abs(quantized)
     # ``f"{abs_value:.2f}"`` is locale-independent (always '.') and

@@ -5,6 +5,56 @@
   --bg: #fafaf7; --fg: #1a1a1a; --muted: #6b6b6b;
   --accent: #0a66c2; --border: #d8d8d3;
   --error-bg: #fde8e8; --error-fg: #8a1f1f;
+
+  /* Class color tokens (S05 T03) — must stay in sync with
+     _CLASS_COLORS in src/omaha/routes/pages.py (the first 6 of
+     the 8-color server-side palette). Used by .class-color-swatch
+     and the per-class progress fills. The 7th+ class section
+     reuses tokens 1-6 via the nth-of-type cycling rules below. */
+  --class-1: #0a66c2; /* blue   */
+  --class-2: #2e7d32; /* green  */
+  --class-3: #c62828; /* red    */
+  --class-4: #ef6c00; /* orange */
+  --class-5: #6a1b9a; /* purple */
+  --class-6: #00838f; /* teal   */
+}
+
+/* Cycle beyond 6 classes: nth-of-type selectors reuse tokens 1-6.
+   The 7th class section takes --class-1 again, the 8th gets --class-2,
+   etc. The inline style="background:{{ c.color }}" on .class-color-swatch
+   (set server-side from _CLASS_COLORS) takes precedence for the swatch
+   itself; these rules are the fallback when the inline style is absent
+   (e.g. empty / null c.color) and the source for any element that
+   should follow the class index instead of the server-supplied color. */
+.dashboard-distribution .class-section:nth-of-type(6n+1) .class-color-swatch,
+.dashboard-distribution .class-section:nth-of-type(6n+1) .compare-bar-current-fill,
+.dashboard-distribution .class-section:nth-of-type(6n+1) .asset-progress-fill {
+  --class-color: var(--class-1);
+}
+.dashboard-distribution .class-section:nth-of-type(6n+2) .class-color-swatch,
+.dashboard-distribution .class-section:nth-of-type(6n+2) .compare-bar-current-fill,
+.dashboard-distribution .class-section:nth-of-type(6n+2) .asset-progress-fill {
+  --class-color: var(--class-2);
+}
+.dashboard-distribution .class-section:nth-of-type(6n+3) .class-color-swatch,
+.dashboard-distribution .class-section:nth-of-type(6n+3) .compare-bar-current-fill,
+.dashboard-distribution .class-section:nth-of-type(6n+3) .asset-progress-fill {
+  --class-color: var(--class-3);
+}
+.dashboard-distribution .class-section:nth-of-type(6n+4) .class-color-swatch,
+.dashboard-distribution .class-section:nth-of-type(6n+4) .compare-bar-current-fill,
+.dashboard-distribution .class-section:nth-of-type(6n+4) .asset-progress-fill {
+  --class-color: var(--class-4);
+}
+.dashboard-distribution .class-section:nth-of-type(6n+5) .class-color-swatch,
+.dashboard-distribution .class-section:nth-of-type(6n+5) .compare-bar-current-fill,
+.dashboard-distribution .class-section:nth-of-type(6n+5) .asset-progress-fill {
+  --class-color: var(--class-5);
+}
+.dashboard-distribution .class-section:nth-of-type(6n+6) .class-color-swatch,
+.dashboard-distribution .class-section:nth-of-type(6n+6) .compare-bar-current-fill,
+.dashboard-distribution .class-section:nth-of-type(6n+6) .asset-progress-fill {
+  --class-color: var(--class-6);
 }
 
 * { box-sizing: border-box; }
