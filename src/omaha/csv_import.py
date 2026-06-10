@@ -606,35 +606,6 @@ def match_positions(
     return MatchResult(auto_matched=auto_matched, unmatched=unmatched)
 
 
-# Mapping from a broker-file category string (normalized) to a
-# substring that must appear (also normalized) in the class name.
-# Order matters: the FIRST matching key wins. This is a curated
-# list, not a generic translator — the user's broker speaks a
-# fixed set of categories ("RF Pós", "Ações", "FII", "Cripto",
-# "Internacional", "(Não configurado)") and the user's class
-# names follow the same vocabulary ("Renda Fixa", "Acoes",
-# "FIIs", "Cripto", "Internacional"). Keys are checked in
-# declaration order, so longer / more specific forms (e.g.
-# "acoes") are placed before their prefixes ("acao") — otherwise
-# the prefix would match first and the class-substring lookup
-# would target the wrong stem.
-_CATEGORY_KEYWORD_MAP: tuple[tuple[str, str], ...] = (
-    ("renda fixa", "fixa"),
-    ("renda", "fixa"),
-    ("rf", "fixa"),
-    ("acoes", "acoes"),
-    ("acao", "acoes"),
-    ("dividend", "fii"),
-    ("fiagro", "fii"),
-    ("fii", "fii"),
-    ("criptomoeda", "cripto"),
-    ("cripto", "cripto"),
-    ("internacional", "internacional"),
-    ("exterior", "internacional"),
-    ("global", "internacional"),
-)
-
-
 class _ClassLike(Protocol):
     """Anything with an id and a name is enough for the suggester."""
 
@@ -649,34 +620,55 @@ def suggest_class_id(
     """Pick a class that best matches the file's "Minha Categoria" hint.
 
     The user uploads a broker file whose "Minha Categoria" column
-    carries a label like "RF Pós", "Ações", "FII", "Cripto". This
-    function maps that label to one of the user's configured
-    classes (e.g. "RF Pós" → "Renda Fixa") and returns the
-    matching class id, or ``None`` when no class is a confident
-    match. The S04 review screen uses the returned id to
-    pre-select the dropdown — the user can always override.
+    carries a label that may match a user-defined class name exactly
+    (e.g. broker says "RF Dinâmica" and the user has a class called
+    "RF Dinâmica") or partially (e.g. broker says "RF Pós" and the
+    class is "Renda Fixa"). This function returns the matching
+    class id, or ``None`` when no class is a confident match — the
+    S04 review screen then leaves the dropdown on "-- escolha --"
+    so the user picks manually.
 
-    The match is substring-based on the normalized category
-    string and the normalized class name, with a curated
-    :data:`_CATEGORY_KEYWORD_MAP` translating the broker's
-    vocabulary to the user's class vocabulary. For example, the
-    category "BR Dividendos" maps to the keyword "fii" (a
-    Fiagro) which is then located in the class name "FIIs 10%".
+    Match strategy, in strict priority order:
+
+    1. **Exact match** — the normalized category string equals the
+       normalized class name. Case- and accent-insensitive via
+       :func:`normalize_name` ("RF dinâmica" == "rf dinamica"),
+       but no stem or synonym expansion.
+    2. **One-way substring** — the normalized category is a
+       substring of the normalized class name ("RF" inside "Renda
+       Fixa Brasil"). One direction only: the category must be
+       the shorter / contained string, never the container. This
+       prevents a short class name like "Cripto" from matching a
+       long broker category like "Criptoativos Internacionais
+       Liquidados em USD" when the user has multiple classes.
+
+    The order of ``classes`` is preserved (first match wins), so
+    the dropdown reflects the same order the user sees in their
+    portfolio.
+
+    No category-keyword map. The class names are user-defined, the
+    importer makes no assumptions about the user's vocabulary —
+    if a match can't be found by exact or substring comparison,
+    the user picks manually.
     """
     if not suggested_category:
         return None
     cat_norm = normalize_name(suggested_category)
     if not cat_norm:
         return None
-    target_keyword: str | None = None
-    for keyword, class_substring in _CATEGORY_KEYWORD_MAP:
-        if keyword in cat_norm:
-            target_keyword = class_substring
-            break
-    if not target_keyword:
-        return None
-    for cls in classes:
-        cls_norm = normalize_name(cls.name)
-        if target_keyword in cls_norm:
+
+    normalized: list[tuple[_ClassLike, str]] = [
+        (cls, normalize_name(cls.name)) for cls in classes
+    ]
+
+    # Tier 1: exact normalized match.
+    for cls, cls_norm in normalized:
+        if cls_norm == cat_norm:
             return cls.id
+
+    # Tier 2: category is a substring of the class name (one-way).
+    for cls, cls_norm in normalized:
+        if cat_norm in cls_norm:
+            return cls.id
+
     return None

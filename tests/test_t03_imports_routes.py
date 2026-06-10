@@ -177,19 +177,26 @@ def test_review_preselects_class_from_suggested_category(
 ) -> None:
     """The 'Minha Categoria' column from the broker file pre-selects the
     class dropdown on the review screen. The user can still override, but
-    a confident match (e.g. 'RF Pós' → 'Renda Fixa') lands the right
-    option selected so the user just has to confirm.
+    a confident match (e.g. broker's 'RF Pós' → user class 'RF Pós')
+    lands the right option selected so the user just has to confirm.
+
+    The importer does NOT translate vocabulary. It uses a strict
+    2-tier strategy on normalized strings: (1) exact match, then
+    (2) one-way substring ('cat' in 'class_name'). So the test
+    classes are named to match the fixture's category strings
+    directly — 'RF Pós' (exact) and 'Acoes' (substring, accent
+    stripped from broker's 'Ações').
 
     Fixture categories on the 5 unmatched rows:
-      MXRF11 → 'RF Pós'         → matches 'Renda Fixa' (Renda Fixa class)
-      XPLG11 → 'Ações'          → matches 'Acoes'     (Acoes class)
+      MXRF11 → 'RF Pós'            → matches 'RF Pós' (exact, normalized)
+      XPLG11 → 'Ações'             → matches 'Acoes' (substring, accent-stripped)
       BPAC11 → '(Não configurado)' → no class → '-- escolha --' stays selected
       HGLG11 → '(Não configurado)' → no class → '-- escolha --' stays selected
       VINO11 → '(Não configurado)' → no class → '-- escolha --' stays selected
     """
     import re
 
-    class_renda = _ensure_class_with_asset(logged_in, 1, "Renda Fixa", ["PETR4"])
+    class_renda = _ensure_class_with_asset(logged_in, 1, "RF Pós", ["PETR4"])
     class_acoes = _ensure_class_with_asset(logged_in, 1, "Acoes", ["VALE3"])
     logged_in.post(
         "/import",
@@ -254,10 +261,10 @@ def test_review_preselects_class_from_suggested_category(
     assert "HGLG11" in by_ticker
     assert "VINO11" in by_ticker
 
-    # MXRF11 → 'RF Pós' → matches the 'Renda Fixa' class.
+    # MXRF11 → 'RF Pós' → matches the 'RF Pós' class (exact match).
     assert by_ticker["MXRF11"] == str(
         class_renda
-    ), f"MXRF11 expected Renda Fixa pre-selected (id={class_renda}), got {by_ticker['MXRF11']!r}"
+    ), f"MXRF11 expected RF Pós pre-selected (id={class_renda}), got {by_ticker['MXRF11']!r}"
     # XPLG11 → 'Ações' → matches the 'Acoes' class.
     assert by_ticker["XPLG11"] == str(
         class_acoes

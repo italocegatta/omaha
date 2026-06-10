@@ -344,14 +344,32 @@ def demo_classes() -> list[SimpleNamespace]:
 @pytest.mark.parametrize(
     "category,expected_id",
     [
-        ("RF Pós", 1),
-        ("RF Dinâmica", 1),
-        ("Ações", 2),
-        ("Ação", 2),
+        # Tier 1: exact match (the case the user reported — broker sends
+        # the exact class name, with the % stripped by normalize_name).
+        ("Renda Fixa 60%", 1),
+        # Tier 1: case- and accent-insensitive (normalize_name lowercases
+        # and strips diacritics before the comparison).
+        ("renda fixa 60%", 1),
+        ("RENDA FIXA 60%", 1),
+        # Tier 1: accent-stripped exact match.
+        ("Acoes 30%", 2),
+        ("acoes 30%", 2),
+        # Tier 2: category is a substring of the class name (one-way).
+        # "Renda fixa" lives inside "Renda Fixa 60%"; "Acoes" inside
+        # "Acoes 30%"; "FII" inside "FIIs 10%".
+        ("Renda fixa", 1),
+        ("Acoes", 2),
+        ("Ações", 2),  # accent stripped by normalize, then substring
         ("FII", 3),
-        ("BR Dividendos", 3),  # Fiagro → FIIs
-        ("Cripto", None),  # no Cripto class in the demo
-        ("Internacional", None),  # no Internacional class in the demo
+        # Stem mismatch: "acao" (singular) is not a substring of
+        # "acoes 30%" (plural). With the keyword map gone, the user
+        # has to override this case manually in the dropdown.
+        ("Ação", None),
+        ("BR Dividendos", None),  # was Fiagro → FIIs via keyword map; now no match
+        # No class configured for the category → None.
+        ("Cripto", None),
+        ("Internacional", None),
+        # D019: empty / "(Não configurado)" stays on "-- escolha --".
         ("(Não configurado)", None),
         (None, None),
         ("", None),
@@ -360,24 +378,42 @@ def demo_classes() -> list[SimpleNamespace]:
 def test_suggest_class_id_mapping(
     demo_classes: list[SimpleNamespace], category: str | None, expected_id: int | None
 ) -> None:
-    """The suggester maps the broker's category vocabulary to the user's
-    class ids. None means 'no confident match' — the dropdown stays on
-    '-- escolha --' so the user picks manually."""
+    """The suggester matches the broker's category against the user's
+    class names with a strict 2-tier strategy: exact normalized match
+    first, then one-way substring. None means 'no confident match' —
+    the dropdown stays on '-- escolha --' so the user picks manually."""
     assert suggest_class_id(category, demo_classes) == expected_id
 
 
 def test_suggest_class_id_first_match_wins() -> None:
     """When two class names could match, the FIRST one in the class list wins.
     This matters because the user might have two classes whose names
-    both contain 'fixa' (e.g. 'Renda Fixa Brasil' and 'Renda Fixa Exterior');
-    the order they're listed in the DB is the order they're rendered."""
+    share a stem (e.g. 'Renda Fixa Brasil' and 'Renda Fixa Exterior');
+    the order they're listed in the DB is the order they're rendered
+    in the dropdown."""
     classes = [
         SimpleNamespace(id=10, name="Renda Fixa Brasil"),
         SimpleNamespace(id=11, name="Renda Fixa Exterior"),
     ]
-    assert suggest_class_id("RF Pós", classes) == 10
+    # Substring tier: "renda fixa" appears in both class names; the
+    # first one in iteration order wins.
+    assert suggest_class_id("Renda fixa", classes) == 10
+
+
+def test_suggest_class_id_one_way_substring() -> None:
+    """Substring match is one-way: the category must be contained in
+    the class name, never the other way around. Otherwise a short
+    class name like 'Cripto' would match any long broker category
+    that happens to contain the word 'cripto'."""
+    classes = [
+        SimpleNamespace(id=1, name="Cripto"),
+    ]
+    # "Criptoativos Internacionais" contains "cripto" but the class
+    # "Cripto" does NOT contain "criptoativos internacionais". The
+    # one-way rule means this returns None.
+    assert suggest_class_id("Criptoativos Internacionais", classes) is None
 
 
 def test_suggest_class_id_no_classes() -> None:
     """An empty class list returns None — no confident match is possible."""
-    assert suggest_class_id("RF Pós", []) is None
+    assert suggest_class_id("Renda fixa", []) is None
