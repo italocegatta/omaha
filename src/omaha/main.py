@@ -39,6 +39,8 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
 from omaha.config import settings
+from omaha.logging_config import configure_logging
+from omaha.middleware import AccessLogMiddleware
 from omaha.routes import assets as assets_routes
 from omaha.routes import auth as auth_routes
 from omaha.routes import classes as classes_routes
@@ -112,18 +114,25 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Omaha", version="0.1.0")
 
     # SessionMiddleware signs the ``omaha_session`` cookie with
-    # ``settings.SECRET_KEY``. ``https_only`` is False in dev so the
-    # cookie is sent over plain HTTP; the deploy slice flips it on.
-    # Starlette accepts ``same_site`` (snake-case) here, not
-    # ``samesite`` — the camelCase spelling from older docs is no
-    # longer supported.
+    # ``settings.SECRET_KEY``. ``https_only`` follows ``OMAHA_ENV``:
+    # True in production (TLS terminates at nginx), False in dev so
+    # the cookie is sent over plain HTTP. Starlette accepts
+    # ``same_site`` (snake-case) here, not ``samesite`` — the
+    # camelCase spelling from older docs is no longer supported.
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.SECRET_KEY,
         session_cookie="omaha_session",
-        https_only=False,
+        https_only=os.environ.get("OMAHA_ENV") == "production",
         same_site="lax",
     )
+    # AccessLogMiddleware is added AFTER SessionMiddleware so it ends
+    # up OUTERMOST in Starlette's LIFO middleware stack — the access
+    # log wraps the request, then Session runs, then the app. The
+    # 303 redirect that SessionMiddleware issues for an
+    # unauthenticated GET / therefore flows through wrapped_send and
+    # shows up as a single ``status=303`` line in the access log.
+    app.add_middleware(AccessLogMiddleware)
 
     # Bind a single Jinja2Templates to app.state so every route can
     # reach it via ``request.app.state.templates``. Sharing one
@@ -157,6 +166,16 @@ def create_app() -> FastAPI:
 
     return app
 
+
+# Configure structured logging at module load. We skip this in
+# pytest (the ``pytest`` entry is in ``sys.modules`` because pytest
+# has already imported its own machinery by the time it imports
+# ``omaha.main``) so the test client and ``caplog`` keep their
+# default handlers; the dedicated logging tests in
+# ``tests/test_t06_logging.py`` call :func:`configure_logging`
+# explicitly with the format they want to assert against.
+if "pytest" not in sys.modules:
+    configure_logging(level=settings.LOG_LEVEL, fmt=settings.effective_log_format)
 
 # Module-level singleton for ``uvicorn omaha.main:app`` and for the
 # convenience ``omaha`` console script defined in ``pyproject.toml``.

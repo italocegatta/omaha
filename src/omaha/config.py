@@ -23,6 +23,32 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./data/portfolio.db"
     ADMIN_PASSWORD: str | None = None
 
+    # S06: production-readiness knobs. All four are read at import
+    # time (Settings is instantiated eagerly) and feed both the
+    # logging config (LOG_LEVEL / LOG_FORMAT) and the secure-cookie
+    # flip in main.py (OMAHA_ENV).
+    LOG_LEVEL: str = "INFO"
+    # ``None`` means "derive from OMAHA_ENV" via ``effective_log_format``.
+    # Set to ``"json"`` or ``"text"`` to force one specific format
+    # regardless of environment.
+    LOG_FORMAT: str | None = None
+    OMAHA_ENV: str = "development"
+    APP_VERSION: str = "0.1.0"
+
+    @property
+    def effective_log_format(self) -> str:
+        """Resolve the log format the runtime should actually use.
+
+        Precedence: an explicit ``LOG_FORMAT`` (``"json"`` or ``"text"``)
+        wins; otherwise the format follows ``OMAHA_ENV`` — ``"json"``
+        in production, ``"text"`` everywhere else. The smart default
+        keeps local dev logs readable without forcing operators to
+        set an env var.
+        """
+        if self.LOG_FORMAT in ("json", "text"):
+            return self.LOG_FORMAT
+        return "json" if self.OMAHA_ENV == "production" else "text"
+
 
 def _is_test_mode() -> bool:
     """Return True when the config module is being imported under pytest.
