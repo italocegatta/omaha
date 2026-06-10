@@ -44,10 +44,7 @@ class JsonFormatter(logging.Formatter):
         # is the POSIX timestamp the logging module sets at emission
         # time, so this gives every record a wall-clock identifier
         # independent of the host's local timezone.
-        ts = (
-            datetime.datetime.fromtimestamp(record.created, tz=datetime.timezone.utc)
-            .isoformat()
-        )
+        ts = datetime.datetime.fromtimestamp(record.created, tz=datetime.UTC).isoformat()
         # ``getMessage()`` applies %-formatting with ``record.args``;
         # application code is expected to use ``logger.info("template %s", arg)``
         # so the formatter gets a stable template plus the live values.

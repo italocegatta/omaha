@@ -119,9 +119,7 @@ def test_json_formatter_includes_formatted_traceback_when_exc_info_set() -> None
     assert "boom" in parsed["exc_info"]
 
 
-def test_access_log_middleware_emits_http_request_line_for_get_healthz(
-    client, caplog
-) -> None:
+def test_access_log_middleware_emits_http_request_line_for_get_healthz(client, caplog) -> None:
     """A GET /healthz triggers exactly one ``http_request`` line on the
     ``omaha.access`` logger, with the four required fields plus the
     client IP.

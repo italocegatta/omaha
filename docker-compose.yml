@@ -1,6 +1,4 @@
-# Single-service dev compose. S06 introduces nginx + a separate
-# production stage; this file is intentionally minimal so
-# `docker compose up --build` is the only command an operator needs.
+# Dev single-service compose. For production, see prod.yml.
 services:
   web:
     build: .

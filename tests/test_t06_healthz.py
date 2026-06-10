@@ -60,9 +60,7 @@ def test_healthz_returns_503_with_db_down_when_engine_raises(
 
     def _failing_get_db() -> Any:
         session = MagicMock()
-        session.execute.side_effect = OperationalError(
-            "SELECT 1", {}, Exception("connection lost")
-        )
+        session.execute.side_effect = OperationalError("SELECT 1", {}, Exception("connection lost"))
         try:
             yield session
         finally:
