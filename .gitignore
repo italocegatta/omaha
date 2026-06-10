@@ -47,3 +47,22 @@ tmp/
 data/
 data/*
 !data/.gitkeep
+
+# S06 production deploy artifacts.
+# - backups/ holds SQLite snapshots produced by the 'backup' service in
+#   prod.yml; the directory is bind-mounted in, the .db files are
+#   generated.
+# - certs/ holds the TLS cert chain (fullchain.pem + privkey.pem) that
+#   nginx serves. The .gitkeep keeps the directory tracked.
+# - nginx/ holds the nginx.conf that gets bind-mounted into the nginx
+#   container. The .gitkeep is defensive: the actual conf is committed
+#   alongside, but if someone deletes it locally the .gitkeep stops
+#   `docker compose -f prod.yml up` from silently mounting an empty
+#   directory.
+backups/*
+!backups/.gitkeep
+certs/*
+!certs/.gitkeep
+nginx/*
+!nginx/.gitkeep
+!nginx/nginx.conf

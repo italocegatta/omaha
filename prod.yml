@@ -1,0 +1,132 @@
+# Omaha production deploy (S06/T04).
+#
+# Three services + one named volume:
+# - web:    FastAPI behind a non-root container, listens on 127.0.0.1
+#           inside the container's own namespace. No host port
+#           publish \u2014 the operator reaches the app through nginx
+#           on 443.
+# - nginx:  TLS terminator + HTTPS redirect. Publishes 80 and 443
+#           on the host. Healthchecks the upstream directly
+#           (http://web:8000/healthz) so the operator sees the
+#           DB-aware probe, not just "TLS is up".
+# - backup: opt-in one-shot. `profiles: [backup]` keeps it out of
+#           `docker compose -f prod.yml up`. Invoked manually with
+#           `docker compose -f prod.yml run --rm backup`. Writes a
+#           timestamped SQLite snapshot to the bind-mounted
+#           ./backups directory.
+#
+# Top-level `volumes: omaha-data` is a NAMED volume (not a bind
+# mount) so `docker compose -f prod.yml down` does not wipe the
+# database. `docker compose -f prod.yml down -v` does, and is the
+# escape hatch for a clean rebuild.
+#
+# Usage:
+#   docker compose -f prod.yml build         # one-off, or first deploy
+#   docker compose -f prod.yml up -d         # start web + nginx
+#   docker compose -f prod.yml run --rm backup  # one-off backup
+#   docker compose -f prod.yml logs -f web   # tail JSON logs
+#
+# The web image must already exist locally as `omaha:prod`. Build
+# it with T03's `docker build -t omaha:prod .` first.
+
+services:
+  web:
+    image: omaha:prod
+    # No `build:` key \u2014 prod.yml assumes the image was built
+    # out-of-band (T03's Dockerfile + `docker build -t omaha:prod .`).
+    # The dev compose file (docker-compose.yml) is the one that
+    # knows how to build from source.
+    restart: unless-stopped
+    env_file: .env
+    # No `ports:` \u2014 the container listens on 127.0.0.1:8000 and is
+    # only reachable from the `omaha-prod` docker network where
+    # nginx sits. This is the second layer of the public/private
+    # split: the prod image binds 127.0.0.1 (no LAN exposure even
+    # within the docker network), and nginx is the only thing
+    # that can reach it.
+    expose:
+      - "8000"
+    volumes:
+      # Named volume, not a bind mount. Persists across
+      # `docker compose -f prod.yml down` (the volume is only
+      # removed with explicit `down -v`).
+      - omaha-data:/app/data
+    # No healthcheck here \u2014 the prod image already has a
+    # HEALTHCHECK baked in (T03). Docker reads that one.
+    # depends_on is intentionally absent: nginx's healthcheck
+    # polls /healthz and tolerates a 5xx during web's startup,
+    # and the only "ordering" requirement is "web may not be
+    # ready when nginx starts", which is already handled.
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      # 443 is the public port. 80 is for the http\u2192https redirect
+      # and for the ACME http-01 challenge path (the certbot
+      # sidecar serves /.well-known/acme-challenge/ from
+      # /var/www/certbot).
+      - "443:443"
+      - "80:80"
+    volumes:
+      # Operator-supplied TLS cert chain. Mounted read-only;
+      # the operator is responsible for keeping the files
+      # up-to-date (certbot run from a sidecar is the recommended
+      # renewal path, not an in-container certbot container
+      # that would need write access to the certs).
+      - ./certs:/etc/nginx/certs:ro
+      # The nginx config committed alongside this file.
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - web
+    # Self-test: hit the upstream directly over the internal
+    # network. Using http://web:8000/healthz (not
+    # https://localhost/healthz) means nginx's healthcheck
+    # does not need the cert chain to be valid; the cert
+    # validity is a separate concern (certbot + nginx -s reload
+    # is the operational answer when a cert ages out).
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://web:8000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  backup:
+    # Same image as `web` so the backup command has the alembic
+    # env + python in the venv on PATH. Only the COMMAND differs.
+    image: omaha:prod
+    profiles: ["backup"]
+    # ``profiles: [backup]`` keeps this service out of
+    # `docker compose -f prod.yml up`; it only runs when invoked
+    # explicitly with `run --rm backup`.
+    command:
+      - python
+      - -m
+      - scripts.backup
+      # Filename pattern: portfolio-YYYYMMDDTHHMMSSZ.db. The
+      # trailing `Z` and the date format make the filename
+      # lexically sortable in UTC. ``exec`` here would not work
+      # because the entrypoint is the bash chain that runs
+      # alembic + fastapi; the `command` override replaces CMD
+      # cleanly (the entrypoint is empty in the prod image).
+      - /backups/portfolio-$(date -u +%Y%m%dT%H%M%SZ).db
+    volumes:
+      # The data volume is mounted READ-ONLY (:ro) so a backup
+      # script bug cannot corrupt the live database.
+      - omaha-data:/app/data:ro
+      # Bind mount so the snapshot lands in the host's
+      # ./backups directory (rsync'd off-host by the operator's
+      # backup-of-backups policy).
+      - ./backups:/backups
+    # No `restart:` \u2014 the backup is a one-shot. The container
+    # exits with the script's exit code and `run --rm` removes
+    # it. A non-zero exit code surfaces as a failed backup in
+    # the operator's monitoring.
+
+volumes:
+  omaha-data:
+    # Empty named volume. Docker creates it on first `up`. The
+    # volume name is namespaced to this compose project
+    # (``omaha-prod_omaha-data``) so multiple deploys on the
+    # same host do not collide.
