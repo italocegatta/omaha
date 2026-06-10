@@ -76,9 +76,9 @@ def test_backup_copies_rows_to_destination(tmp_path: Path) -> None:
     dest = tmp_path / "dest.db"
     result = _run_backup("--source", str(source), str(dest))
 
-    assert result.returncode == 0, (
-        f"backup exited {result.returncode}: stdout={result.stdout!r} stderr={result.stderr!r}"
-    )
+    assert (
+        result.returncode == 0
+    ), f"backup exited {result.returncode}: stdout={result.stdout!r} stderr={result.stderr!r}"
     assert dest.exists(), "destination file was not created"
 
     # Strong check: open the destination and confirm the row count.
@@ -120,9 +120,9 @@ def test_backup_exits_nonzero_with_stderr_when_source_missing(
         f"backup should have failed for missing source; "
         f"stdout={result.stdout!r} stderr={result.stderr!r}"
     )
-    assert "source not found" in result.stderr, (
-        f"stderr should mention the missing source path; got: {result.stderr!r}"
-    )
+    assert (
+        "source not found" in result.stderr
+    ), f"stderr should mention the missing source path; got: {result.stderr!r}"
     # The destination must not have been created \u2014 a backup that
     # silently succeeds against a missing source is worse than a
     # loud failure.
@@ -155,13 +155,13 @@ def test_backup_works_against_real_dev_db(tmp_path: Path) -> None:
     dest = tmp_path / "dev-backup.db"
     result = _run_backup("--source", str(dev_db), str(dest))
 
-    assert result.returncode == 0, (
-        f"backup of dev DB failed: stdout={result.stdout!r} stderr={result.stderr!r}"
-    )
+    assert (
+        result.returncode == 0
+    ), f"backup of dev DB failed: stdout={result.stdout!r} stderr={result.stderr!r}"
     with sqlite3.connect(str(dest)) as dst:
         dst_tables = {
             row[0] for row in dst.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
         }
-    assert src_tables == dst_tables, (
-        f"table list differs: source={src_tables!r} dest={dst_tables!r}"
-    )
+    assert (
+        src_tables == dst_tables
+    ), f"table list differs: source={src_tables!r} dest={dst_tables!r}"
