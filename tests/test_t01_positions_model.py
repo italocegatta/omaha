@@ -369,10 +369,9 @@ def test_deleting_asset_cascades_to_positions(omaha_db) -> None:
         from omaha.models import Position
 
         remaining = session.query(Position).filter(Position.asset_id == asset_id).count()
-        assert remaining == 0, (
-            f"deleting asset {asset_id} should cascade to positions, "
-            f"but {remaining} rows remain"
-        )
+        assert (
+            remaining == 0
+        ), f"deleting asset {asset_id} should cascade to positions, but {remaining} rows remain"
 
 
 def test_deleting_profile_cascades_to_positions(omaha_db) -> None:

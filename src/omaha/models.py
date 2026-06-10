@@ -194,9 +194,7 @@ class Asset(Base):
     )
 
     def __repr__(self) -> str:
-        return (
-            f"Asset(id={self.id!r}, asset_class_id={self.asset_class_id!r}, " f"name={self.name!r})"
-        )
+        return f"Asset(id={self.id!r}, asset_class_id={self.asset_class_id!r}, name={self.name!r})"
 
 
 class Position(Base):

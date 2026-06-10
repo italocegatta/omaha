@@ -111,7 +111,7 @@ def test_banner_row_skipped() -> None:
 
 def test_positional_fallback_no_header() -> None:
     """When no header is detected, the first non-banner row is treated as data."""
-    text = 'PETR4,PETR4,100,"28,50","35,10"\n' 'VALE3,VALE3,200,"65,20","72,40"\n'
+    text = 'PETR4,PETR4,100,"28,50","35,10"\nVALE3,VALE3,200,"65,20","72,40"\n'
     positions = parse_positions(text)
     assert len(positions) == 2
     assert positions[0].broker_ticker == "PETR4"

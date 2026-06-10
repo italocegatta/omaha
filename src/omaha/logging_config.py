@@ -53,11 +53,7 @@ class JsonFormatter(logging.Formatter):
         # ``None`` when no exception is in flight. The ternary keeps
         # the JSON value as ``null`` in the no-exception case so log
         # shippers can rely on the key always being present.
-        exc_info: str | None
-        if record.exc_info:
-            exc_info = self.formatException(record.exc_info)
-        else:
-            exc_info = None
+        exc_info: str | None = self.formatException(record.exc_info) if record.exc_info else None
         payload: dict[str, Any] = {
             "ts": ts,
             "level": record.levelname,

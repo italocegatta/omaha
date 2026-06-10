@@ -35,6 +35,111 @@ uv run python -m omaha.seed
 
 ---
 
+## Production deploy
+
+The production stack is `docker compose -f prod.yml`: a FastAPI
+container behind an nginx TLS terminator, with a SQLite database
+that lives in a **named volume** so a `docker compose down` does not
+wipe it. A one-shot `backup` service (on a profile, not started by
+`up`) is the documented snapshot path.
+
+```bash
+# 1. Build the prod image once. The T03 Dockerfile is multi-stage
+#    (slim runtime, non-root, baked-in HEALTHCHECK against /healthz).
+docker build -t omaha:prod .
+
+# 2. Get a TLS cert. The recommended path is the certbot standalone
+#    challenge against the public DNS name you point at the host.
+#    (Replace omaha.example.com with your real hostname.)
+sudo certbot certonly --standalone -d omaha.example.com
+
+# 3. Copy the cert chain into the ./certs bind mount that prod.yml
+#    wires into the nginx container. nginx reads fullchain.pem +
+#    privkey.pem from /etc/nginx/certs.
+sudo cp /etc/letsencrypt/live/omaha.example.com/fullchain.pem ./certs/
+sudo cp /etc/letsencrypt/live/omaha.example.com/privkey.pem   ./certs/
+sudo chown $USER:$USER ./certs/*.pem
+chmod 600 ./certs/privkey.pem
+
+# 4. Bring the stack up. nginx publishes 80 + 443; web listens on
+#    127.0.0.1 inside its container and is reachable only via the
+#    internal docker network.
+docker compose -f prod.yml up -d
+```
+
+**Verify the deploy is live:**
+
+```bash
+# TLS-terminated healthz: should be 200 OK with the JSON probe.
+curl -kI https://localhost/healthz
+# Body should be: {"status":"ok","db":"ok","service":"omaha","version":"0.1.0"}
+
+# Plain HTTP should 301 to https.
+curl -I http://localhost/
+# Headers: HTTP/1.1 301 Moved Permanently
+#          Location: https://localhost/
+```
+
+**Named-volume warning:** the SQLite database lives in the named
+volume `omaha-data`, not in a bind mount. `docker compose -f prod.yml down`
+**preserves** the volume; only `docker compose -f prod.yml down -v` wipes
+it. If you want to nuke the DB, be explicit: `down -v`.
+
+A certbot sidecar is the recommended renewal path (not an in-container
+certbot that would need write access to `./certs/`). The nginx config
+serves `/.well-known/acme-challenge/` from `/var/www/certbot` so a
+sidecar can answer the http-01 challenge without touching the running
+nginx.
+
+---
+
+## Backup & restore
+
+The `backup` service in `prod.yml` is on `profiles: [backup]`, so it
+does **not** start with `up`. Invoke it manually:
+
+```bash
+# One-off backup. The container exits with the script's exit code
+# and `run --rm` removes it. The snapshot lands in ./backups/ on
+# the host (bind mount from prod.yml).
+docker compose -f prod.yml run --rm backup
+# expected:
+#   backup OK: /app/data/portfolio.db -> /backups/portfolio-YYYYMMDDTHHMMSSZ.db (complete)
+```
+
+**Schedule it with host cron** (the container does not run cron
+itself; the prod image is a one-process model):
+
+```cron
+# /etc/cron.d/omaha-backup — nightly at 03:00 host time.
+0 3 * * * www-data cd /srv/omaha && /usr/bin/docker compose -f prod.yml run --rm backup >> /var/log/omaha-backup.log 2>&1
+```
+
+**Restore (prod, named volume):**
+
+```bash
+# 1. Stop the stack so the web container is not writing to the DB.
+docker compose -f prod.yml down
+
+# 2. Copy the snapshot INTO the named volume. The cleanest path is
+#    `docker compose cp` (docker compose v2) — it puts the file
+#    straight into the web container's filesystem; restart then
+#    moves the volume mount over it.
+docker compose -f prod.yml cp ./backups/portfolio-20260101T030000Z.db web:/app/data/portfolio.db.new
+docker compose -f prod.yml run --rm --entrypoint sh web -c 'mv /app/data/portfolio.db.new /app/data/portfolio.db'
+
+# 3. Bring the stack back up. /healthz reports 200 with the
+#    restored data; the dashboard renders the restored positions.
+docker compose -f prod.yml up -d
+```
+
+**Restore (dev, bind mount):** `cp` straight into `./data/` because
+`docker-compose.yml` bind-mounts the host directory into the web
+container. Stop the dev server first, then `cp ./backups/<file>.db
+./data/portfolio.db`, then `uv run uvicorn ...` again.
+
+---
+
 ## Network access
 
 > **Always start the server with `--host 0.0.0.0`.** The default

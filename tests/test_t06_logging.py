@@ -46,7 +46,8 @@ _EXPECTED_KEYS = {"ts", "level", "logger", "msg", "module", "line", "exc_info"}
 
 # Stable regex pieces for the http_request access log message. The
 # values are interpolated by the logging module from ``record.args``,
-# so the literal template (``"http_request method=%s path=%s status=%d duration_ms=%.1f client_ip=%s"``)
+# so the literal template
+# (``"http_request method=%s path=%s status=%d duration_ms=%.1f client_ip=%s"``)
 # is the part operators search on.
 _ACCESS_LOG_RE = re.compile(
     r"http_request method=(?P<method>\S+) path=(?P<path>\S+) "

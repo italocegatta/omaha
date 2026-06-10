@@ -19,7 +19,6 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -35,9 +34,10 @@ def _docker_available() -> bool:
     without the daemon) is the right behaviour; pytest's own
     collection should not fail just because docker is missing.
     """
-    return shutil.which("docker") is not None and subprocess.run(
-        ["docker", "info"], capture_output=True, check=False
-    ).returncode == 0
+    return (
+        shutil.which("docker") is not None
+        and subprocess.run(["docker", "info"], capture_output=True, check=False).returncode == 0
+    )
 
 
 def _run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
@@ -63,9 +63,7 @@ def _run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
 _RUN_DOCKER_E2E = os.environ.get("RUN_DOCKER_E2E") == "1"
 
 
-@pytest.mark.skipif(
-    not _RUN_DOCKER_E2E, reason="set RUN_DOCKER_E2E=1 to enable docker e2e checks"
-)
+@pytest.mark.skipif(not _RUN_DOCKER_E2E, reason="set RUN_DOCKER_E2E=1 to enable docker e2e checks")
 def test_docker_build_pro_image_succeeds() -> None:
     """``docker build -t omaha:prod-test .`` returns exit code 0.
 
@@ -85,9 +83,7 @@ def test_docker_build_pro_image_succeeds() -> None:
     )
 
 
-@pytest.mark.skipif(
-    not _RUN_DOCKER_E2E, reason="set RUN_DOCKER_E2E=1 to enable docker e2e checks"
-)
+@pytest.mark.skipif(not _RUN_DOCKER_E2E, reason="set RUN_DOCKER_E2E=1 to enable docker e2e checks")
 def test_docker_run_pro_image_runs_as_omaha_user() -> None:
     """``docker run --rm omaha:prod-test id`` reports uid 1000(omaha).
 
@@ -102,16 +98,16 @@ def test_docker_run_pro_image_runs_as_omaha_user() -> None:
     assert build.returncode == 0, f"docker build failed: {build.stderr!r}"
 
     result = _run(["docker", "run", "--rm", DOCKER_IMAGE, "id"], timeout=30)
-    assert result.returncode == 0, (
-        f"docker run id failed: stdout={result.stdout!r} stderr={result.stderr!r}"
-    )
+    assert (
+        result.returncode == 0
+    ), f"docker run id failed: stdout={result.stdout!r} stderr={result.stderr!r}"
     # ``id`` in the runtime image writes ``uid=1000(omaha) gid=1000(omaha) groups=1000(omaha)``
     # to stdout. The substring check is exact enough to catch
     # either a wrong UID (e.g. still 0 from a missed USER) or a
     # wrong username (e.g. ``app`` instead of ``omaha``).
-    assert "uid=1000(omaha)" in result.stdout, (
-        f"expected uid=1000(omaha) in id output, got: {result.stdout!r}"
-    )
+    assert (
+        "uid=1000(omaha)" in result.stdout
+    ), f"expected uid=1000(omaha) in id output, got: {result.stdout!r}"
 
 
 def test_prod_yml_is_valid_yaml() -> None:
@@ -152,9 +148,7 @@ def test_prod_yml_is_valid_yaml() -> None:
     services = data.get("services")
     assert isinstance(services, dict), "prod.yml is missing the `services` mapping"
     for name in ("web", "nginx", "backup"):
-        assert name in services, (
-            f"prod.yml is missing the {name!r} service under `services`"
-        )
+        assert name in services, f"prod.yml is missing the {name!r} service under `services`"
     # The backup service must be on a profile \u2014 otherwise it
     # would start with `up` and race the web container for the
     # same named volume mount.
@@ -164,9 +158,9 @@ def test_prod_yml_is_valid_yaml() -> None:
         "start with `docker compose -f prod.yml up -d`"
     )
     # The named volume is the persistent DB.
-    assert "omaha-data" in data.get("volumes", {}), (
-        "prod.yml: top-level `volumes: omaha-data:` is required for SQLite persistence"
-    )
+    assert "omaha-data" in data.get(
+        "volumes", {}
+    ), "prod.yml: top-level `volumes: omaha-data:` is required for SQLite persistence"
     # Sanity: the web service must NOT publish ports. The
     # public/private split is the whole point of nginx in
     # front; an accidental `ports: [\"8000:8000\"]` would
