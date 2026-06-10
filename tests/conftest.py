@@ -82,6 +82,10 @@ def _omaha_test_env(tmp_path_factory: pytest.TempPathFactory) -> dict[str, str]:
     os.environ["ADMIN_PASSWORD"] = TEST_ADMIN_PASSWORD
     os.environ["SECRET_KEY"] = TEST_SECRET_KEY
     os.environ["OMAHA_SKIP_STARTUP"] = "1"
+    # Default to non-prod so the (T02) https_only flip stays False
+    # and the Starlette TestClient can still authenticate over plain
+    # HTTP without the secure-cookie check rejecting the cookie.
+    os.environ.setdefault("OMAHA_ENV", "development")
 
     # Drop any cached omaha modules so the import below re-runs the
     # config + engine + session-factory wiring against the new env.
