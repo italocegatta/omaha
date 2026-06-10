@@ -113,9 +113,7 @@ def _capture_dashboard_screenshot(page: Page, tag: str) -> Path:
 class TestS05DashboardJourney:
     """Real-browser assertions on the S05 visualization polish."""
 
-    def test_dashboard_full_journey_renders_s05_polish(
-        self, page: Page, live_url: str
-    ) -> None:
+    def test_dashboard_full_journey_renders_s05_polish(self, page: Page, live_url: str) -> None:
         """Full S05 user journey: import flow → dashboard with S05 polish.
 
         Asserts:
@@ -155,9 +153,7 @@ class TestS05DashboardJourney:
 
         # The fixture's current prices are higher than avg prices, so
         # the gain is positive.
-        gain_sign = page.locator(S05_SELECTORS["portfolio_gain"]).get_attribute(
-            "data-gain-sign"
-        )
+        gain_sign = page.locator(S05_SELECTORS["portfolio_gain"]).get_attribute("data-gain-sign")
         assert gain_sign == "positive", f"fixture has gains; expected positive, got {gain_sign!r}"
 
         # --- 2. 3 class sections each with name + target/current pct +
@@ -190,16 +186,16 @@ class TestS05DashboardJourney:
             assert "%" in current_text, f"current line missing %: {current_text!r}"
 
             # Color swatch has a non-empty inline background.
-            swatch_style = section.locator(
-                S05_SELECTORS["class_color_swatch"]
-            ).get_attribute("style")
+            swatch_style = section.locator(S05_SELECTORS["class_color_swatch"]).get_attribute(
+                "style"
+            )
             assert swatch_style, f"class {i} swatch has no inline style"
-            assert "background" in swatch_style, (
-                f"class {i} swatch missing background: {swatch_style!r}"
-            )
-            assert "transparent" not in swatch_style, (
-                f"class {i} swatch transparent: {swatch_style!r}"
-            )
+            assert (
+                "background" in swatch_style
+            ), f"class {i} swatch missing background: {swatch_style!r}"
+            assert (
+                "transparent" not in swatch_style
+            ), f"class {i} swatch transparent: {swatch_style!r}"
 
         # --- 3. Compare-bar target widths render as 60%/30%/10%.
         compare_widths = page.evaluate(
@@ -210,9 +206,11 @@ class TestS05DashboardJourney:
                 return Array.from(targets).map(el => el.style.width);
             }"""
         )
-        assert compare_widths == ["60%", "30%", "10%"], (
-            f"target compare-bar widths wrong: {compare_widths!r}"
-        )
+        assert compare_widths == [
+            "60%",
+            "30%",
+            "10%",
+        ], f"target compare-bar widths wrong: {compare_widths!r}"
 
         # --- 4. 48 asset rows each with name, position count, BRL value,
         # pct, and a non-zero progress bar.
@@ -244,9 +242,7 @@ class TestS05DashboardJourney:
         assert "%" in pct_text, f"asset pct missing %: {pct_text!r}"
 
         pos_count = int(
-            row.locator(S05_SELECTORS["asset_position_count"]).get_attribute(
-                "data-position-count"
-            )
+            row.locator(S05_SELECTORS["asset_position_count"]).get_attribute("data-position-count")
         )
         assert pos_count >= 1, f"asset row 0 has {pos_count} positions, expected >= 1"
 

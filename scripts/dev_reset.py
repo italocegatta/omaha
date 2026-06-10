@@ -24,22 +24,48 @@ from omaha.models import Asset, AssetClass, Profile, User
 SEED_ASSETS: list[tuple[str, str]] = [
     # Acoes BR — 17 names from fixture, no IVVB11 mismatch (IVVB11 is a
     # Brazilian ETF that the matcher treats as "Acoes").
-    ("PETR4", "Acoes"), ("VALE3", "Acoes"), ("ITUB4", "Acoes"),
-    ("BBDC4", "Acoes"), ("ABEV3", "Acoes"), ("MGLU3", "Acoes"),
-    ("BBAS3", "Acoes"), ("WEGE3", "Acoes"), ("RENT3", "Acoes"),
-    ("LREN3", "Acoes"), ("B3SA3", "Acoes"), ("SUZB3", "Acoes"),
-    ("CSAN3", "Acoes"), ("PETR3", "Acoes"), ("VBBR3", "Acoes"),
-    ("PRIO3", "Acoes"), ("IVVB11", "Acoes"),
+    ("PETR4", "Acoes"),
+    ("VALE3", "Acoes"),
+    ("ITUB4", "Acoes"),
+    ("BBDC4", "Acoes"),
+    ("ABEV3", "Acoes"),
+    ("MGLU3", "Acoes"),
+    ("BBAS3", "Acoes"),
+    ("WEGE3", "Acoes"),
+    ("RENT3", "Acoes"),
+    ("LREN3", "Acoes"),
+    ("B3SA3", "Acoes"),
+    ("SUZB3", "Acoes"),
+    ("CSAN3", "Acoes"),
+    ("PETR3", "Acoes"),
+    ("VBBR3", "Acoes"),
+    ("PRIO3", "Acoes"),
+    ("IVVB11", "Acoes"),
     # ETFs US — 8 names from fixture.
-    ("IVV", "Acoes"), ("VOO", "Acoes"), ("QQQ", "Acoes"),
-    ("SMH", "Acoes"), ("SOXX", "Acoes"), ("VTI", "Acoes"),
-    ("SPY", "Acoes"), ("VT", "Acoes"),
+    ("IVV", "Acoes"),
+    ("VOO", "Acoes"),
+    ("QQQ", "Acoes"),
+    ("SMH", "Acoes"),
+    ("SOXX", "Acoes"),
+    ("VTI", "Acoes"),
+    ("SPY", "Acoes"),
+    ("VT", "Acoes"),
     # FIIs — 16 names from fixture.
-    ("HASH11", "FIIs"), ("BTLG11", "FIIs"), ("KNCR11", "FIIs"),
-    ("IRDM11", "FIIs"), ("XPML11", "FIIs"), ("VISC11", "FIIs"),
-    ("BRCR11", "FIIs"), ("TORD11", "FIIs"), ("MALL11", "FIIs"),
-    ("DEVA11", "FIIs"), ("RBVA11", "FIIs"), ("VRTA11", "FIIs"),
-    ("BPRP11", "FIIs"), ("PVBI11", "FIIs"), ("HCTR11", "FIIs"),
+    ("HASH11", "FIIs"),
+    ("BTLG11", "FIIs"),
+    ("KNCR11", "FIIs"),
+    ("IRDM11", "FIIs"),
+    ("XPML11", "FIIs"),
+    ("VISC11", "FIIs"),
+    ("BRCR11", "FIIs"),
+    ("TORD11", "FIIs"),
+    ("MALL11", "FIIs"),
+    ("DEVA11", "FIIs"),
+    ("RBVA11", "FIIs"),
+    ("VRTA11", "FIIs"),
+    ("BPRP11", "FIIs"),
+    ("PVBI11", "FIIs"),
+    ("HCTR11", "FIIs"),
     ("XPIN11", "FIIs"),
     # Renda Fixa — 2 names from fixture.
     ("Tesouro Selic 2029", "Renda Fixa"),
@@ -58,11 +84,7 @@ def reset_for_italo() -> None:
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.username == "family").one()
-        italo = (
-            db.query(Profile)
-            .filter(Profile.user_id == user.id, Profile.name == "Italo")
-            .one()
-        )
+        italo = db.query(Profile).filter(Profile.user_id == user.id, Profile.name == "Italo").one()
         profile_id = italo.id
 
         # Cascade-friendly wipe: positions + import_previews first (they
