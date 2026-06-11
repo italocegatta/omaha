@@ -317,7 +317,7 @@ def generate_markdown(benchmark: dict) -> str:
     a_pr = a_summary.get("pass_rate", {})
     b_pr = b_summary.get("pass_rate", {})
     lines.append(
-        f"| Pass Rate | {a_pr.get('mean', 0)*100:.0f}% ± {a_pr.get('stddev', 0)*100:.0f}% | {b_pr.get('mean', 0)*100:.0f}% ± {b_pr.get('stddev', 0)*100:.0f}% | {delta.get('pass_rate', '—')} |"
+        f"| Pass Rate | {a_pr.get('mean', 0) * 100:.0f}% ± {a_pr.get('stddev', 0) * 100:.0f}% | {b_pr.get('mean', 0) * 100:.0f}% ± {b_pr.get('stddev', 0) * 100:.0f}% | {delta.get('pass_rate', '—')} |"
     )
 
     # Format time
@@ -390,7 +390,7 @@ def main():
     for config in configs:
         pr = run_summary[config]["pass_rate"]["mean"]
         label = config.replace("_", " ").title()
-        print(f"  {label}: {pr*100:.1f}% pass rate")
+        print(f"  {label}: {pr * 100:.1f}% pass rate")
     print(f"  Delta:         {delta.get('pass_rate', '—')}")
 
 

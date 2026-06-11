@@ -59,8 +59,8 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, 
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.exc import IntegrityError
 
-from omaha.auth import DbSession, require_active_profile
-from omaha.models import AssetClass, Profile
+from omaha.auth import DbSession, require_active_profile, require_user
+from omaha.models import AssetClass, Profile, User
 
 router = APIRouter(tags=["classes"])
 
@@ -161,6 +161,7 @@ def _validate_rows(
 @router.get("/classes", response_class=HTMLResponse, response_model=None)
 def get_classes(
     request: Request,
+    user: User = Depends(require_user),
     profile: Profile = Depends(require_active_profile),
 ) -> Response:
     """Render the dedicated class editor page.
@@ -174,7 +175,7 @@ def get_classes(
     return _templates(request).TemplateResponse(
         request,
         "classes.html",
-        {"profile": profile, "error": None},
+        {"user": user, "profile": profile, "error": None},
     )
 
 
@@ -182,6 +183,7 @@ def get_classes(
 def post_classes(
     request: Request,
     db: DbSession,
+    user: User = Depends(require_user),
     profile: Profile = Depends(require_active_profile),
     name: Annotated[list[str], Form(alias="name[]")] = [],  # noqa: B006
     target_pct: Annotated[list[str], Form(alias="target_pct[]")] = [],  # noqa: B006
@@ -212,6 +214,7 @@ def post_classes(
     if error is not None:
         return _render_classes_with_error(
             request,
+            user,
             profile,
             error=error,
         )
@@ -237,6 +240,7 @@ def post_classes(
         db.rollback()
         return _render_classes_with_error(
             request,
+            user,
             profile,
             error="Já existe uma classe com o nome duplicado.",
         )
@@ -268,6 +272,7 @@ def delete_class(
 
 def _render_classes_with_error(
     request: Request,
+    user: User,
     profile: Profile,
     *,
     error: str,
@@ -283,7 +288,7 @@ def _render_classes_with_error(
     return _templates(request).TemplateResponse(
         request,
         "classes.html",
-        {"profile": profile, "error": error},
+        {"user": user, "profile": profile, "error": error},
         status_code=200,
     )
 

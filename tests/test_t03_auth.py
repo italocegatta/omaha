@@ -32,12 +32,22 @@ from fastapi.testclient import TestClient
 
 
 def test_healthz_returns_ok(client: TestClient) -> None:
-    """`/healthz` returns 200 JSON with the documented payload."""
+    """`/healthz` returns 200 JSON with the documented payload.
+
+    S06 extended the contract with ``db`` and ``version`` so the
+    endpoint can drive a Dockerfile HEALTHCHECK + an orchestrator
+    readiness probe. The auth-relevant keys (status, service) are
+    preserved.
+    """
     response = client.get("/healthz")
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("application/json")
-    assert response.json() == {"status": "ok", "service": "omaha"}
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["db"] == "ok"
+    assert body["service"] == "omaha"
+    assert body["version"] == "0.1.0"
 
 
 def test_index_unauthenticated_redirects_to_login(client: TestClient) -> None:

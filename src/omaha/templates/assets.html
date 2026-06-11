@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="asset-editor" data-testid="asset-editor">
+
+  <h1>Ativos</h1>
+  <p class="profile-label">Perfil: {{ profile.name }}</p>
+
+  {% if error %}
+  <div class="error" data-testid="asset-editor-error">{{ error }}</div>
+  {% endif %}
+
+  {% if classes %}
+  {# Single form wraps the add controls AND the per-row delete buttons.
+     Add submits to the form's default action (/assets); each delete
+     button uses formaction="/assets/{id}/delete" so clicking it
+     overrides the action. The button MUST live inside a <form> for
+     formaction to take effect. #}
+  <form id="asset-form" action="/assets" method="post">
+    <div class="asset-form">
+      <input type="text"
+             name="name"
+             placeholder="Nome do ativo"
+             maxlength="64"
+             required
+             data-testid="asset-editor-name">
+      <select name="asset_class_id" data-testid="asset-editor-class" required>
+        {% for c in classes %}
+        <option value="{{ c.id }}">{{ c.name }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit"
+              class="btn btn-primary"
+              data-testid="asset-editor-add">Adicionar ativo</button>
+    </div>
+
+    {% for c in classes %}
+    <section class="asset-section" data-testid="asset-section" data-class-id="{{ c.id }}">
+      <h2 class="asset-section-name">{{ c.name }}</h2>
+      {% if assets_by_class[c.id] %}
+      <ul class="asset-rows">
+        {% for a in assets_by_class[c.id] %}
+        <li class="asset-row" data-testid="asset-row" data-asset-id="{{ a.id }}">
+          <span class="asset-row-name">{{ a.name }}</span>
+          <button type="submit"
+                  formaction="/assets/{{ a.id }}/delete"
+                  formnovalidate
+                  class="asset-row-delete"
+                  data-testid="asset-row-delete">x</button>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="asset-section-empty">Nenhum ativo nesta classe.</p>
+      {% endif %}
+    </section>
+    {% endfor %}
+  </form>
+  {% else %}
+  <div class="asset-empty-state" data-testid="asset-empty-state">
+    <p>Crie classes antes de adicionar ativos.</p>
+    <a href="/classes" class="btn btn-primary">Gerenciar classes</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

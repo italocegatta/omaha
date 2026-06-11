@@ -129,6 +129,12 @@ class AssetClass(Base):
     )
 
     profile: Mapped[Profile] = relationship("Profile", back_populates="asset_classes")
+    assets: Mapped[list[Asset]] = relationship(
+        "Asset",
+        back_populates="asset_class",
+        cascade="all, delete-orphan",
+        order_by="Asset.display_order",
+    )
 
     def __repr__(self) -> str:
         return (
@@ -137,4 +143,161 @@ class AssetClass(Base):
         )
 
 
-__all__ = ["User", "Profile", "AssetClass"]
+class Asset(Base):
+    """A specific financial instrument belonging to an asset class.
+
+    Each :class:`AssetClass` owns zero or more :class:`Asset` rows
+    (e.g. "Renda Fixa" might own "Tesouro Selic 2029", "Tesouro IPCA
+    2035"). The S03 CRUD editor lets the user add, edit, and remove
+    assets inside the active profile's classes; the S04 CSV importer
+    uses the same table as the import target; the S05 dashboard
+    groups assets under their class for the distribution view.
+
+    The ``(asset_class_id, name)`` unique constraint prevents two
+    assets in the same class from sharing a name. ``display_order``
+    is a stable ordering hint used by the editor and the dashboard
+    distribution view; the relationship is
+    ``order_by="Asset.display_order"`` so iteration in Python
+    matches the user's saved order.
+
+    On asset-class deletion, the FK ``ON DELETE CASCADE`` removes all
+    child assets; the ORM relationship also declares
+    ``cascade="all, delete-orphan"`` so in-process
+    ``session.delete`` behaves the same. Combined with the S02
+    profile → class cascade, deleting a profile removes every class
+    and every asset underneath it in a single operation.
+    """
+
+    __tablename__ = "assets"
+    __table_args__ = (UniqueConstraint("asset_class_id", "name", name="uq_asset_asset_class_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    asset_class_id: Mapped[int] = mapped_column(
+        ForeignKey("asset_classes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    display_order: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+
+    asset_class: Mapped[AssetClass] = relationship("AssetClass", back_populates="assets")
+    positions: Mapped[list[Position]] = relationship(
+        "Position",
+        back_populates="asset",
+        cascade="all, delete-orphan",
+        order_by="Position.id",
+    )
+
+    def __repr__(self) -> str:
+        return f"Asset(id={self.id!r}, asset_class_id={self.asset_class_id!r}, name={self.name!r})"
+
+
+class Position(Base):
+    """A broker-side holding of a specific :class:`Asset` for a profile.
+
+    Positions are the data the S04 CSV importer writes and the S05
+    dashboard reads. Each row is one (asset, broker_ticker) pair with
+    the quantity, average cost, and current price the broker reported
+    for that position. The ``(asset_id, broker_ticker)`` unique
+    constraint makes a re-import of the same broker ticker for the
+    same asset an idempotent upsert, not a duplicate row.
+
+    ``broker_ticker`` is the symbol the broker used (e.g. ``PETR4``,
+    ``IVVB11``, ``TESOURO_SELIC_2029``). It is stored verbatim from
+    the CSV row that produced it; the importer normalizes the asset
+    name *separately* for matching, so two CSVs from different
+    brokers can write to the same ``(asset_id, broker_ticker)`` row
+    as long as the tickers match. ``qty``, ``avg_price``, and
+    ``current_price`` are :class:`~decimal.Decimal` columns with
+    ``Numeric(18, 4)`` precision — enough headroom for Brazilian
+    broker positions and FX-aware totals without losing cents.
+
+    On asset deletion, the FK ``ON DELETE CASCADE`` removes all
+    child positions; the ORM relationship also declares
+    ``cascade="all, delete-orphan"`` so in-process
+    ``session.delete`` behaves the same. Combined with the S03
+    asset → class CASCADE and the S02 class → profile CASCADE,
+    deleting a profile removes every class, every asset, and every
+    position underneath it in a single operation.
+    """
+
+    __tablename__ = "positions"
+    __table_args__ = (
+        UniqueConstraint("asset_id", "broker_ticker", name="uq_position_asset_ticker"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    asset_id: Mapped[int] = mapped_column(
+        ForeignKey("assets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    qty: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
+    avg_price: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
+    current_price: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
+    broker_ticker: Mapped[str] = mapped_column(String(32), nullable=False)
+    imported_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+
+    asset: Mapped[Asset] = relationship("Asset", back_populates="positions")
+
+    def __repr__(self) -> str:
+        return (
+            f"Position(id={self.id!r}, asset_id={self.asset_id!r}, "
+            f"broker_ticker={self.broker_ticker!r})"
+        )
+
+
+class ImportPreview(Base):
+    """A short-lived server-side snapshot of a parsed broker CSV.
+
+    The S04 importer parses the upload once, then persists the parsed
+    :class:`~omaha.csv_import.RawPosition` list (as JSON) so the
+    review screen can re-render after a navigation without forcing
+    the user to re-upload. The preview is deleted when the user
+    confirms (or when the 1h expiration window passes — the route
+    re-detects expiry on each access). The 1h window is the floor
+    for "reasonable review time"; a confirmation that arrives after
+    the window renders the "Expirado" state instead of silently
+    re-using stale data.
+
+    ``raw_json`` is the JSON-serialized list of RawPosition dicts
+    (the parser is pure, so re-serializing the dataclass-as-dict
+    list is enough; the S04 confirm handler re-hydrates it). Storing
+    the parsed rows in the DB instead of in the session means the
+    preview survives a server restart and is large-file-tolerant
+    (the session cookie is 4 KB, the preview can be 1 MB).
+
+    On profile deletion, the FK ``ON DELETE CASCADE`` removes the
+    preview; combined with the S02 profile → class CASCADE and the
+    S03 class → asset CASCADE, deleting a profile removes every
+    preview underneath it in a single operation.
+    """
+
+    __tablename__ = "import_previews"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    profile_id: Mapped[int] = mapped_column(
+        ForeignKey("profiles.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    raw_json: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return (
+            f"ImportPreview(id={self.id!r}, profile_id={self.profile_id!r}, "
+            f"created_at={self.created_at!r})"
+        )
+
+
+__all__ = ["User", "Profile", "AssetClass", "Asset", "Position", "ImportPreview"]

@@ -5,20 +5,41 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Omaha{% endblock %}</title>
   <link rel="stylesheet" href="/static/app.css">
+  <!-- Display serif + UI sans from Google Fonts. Preconnect to avoid
+       the font handshake stalling the first paint; display=swap gives
+       us a font fallback during the load window so text is readable
+       from frame 1. Source Serif 4 is scoped in CSS to .portfolio-
+       header values and the dashboard profile name only (per DESIGN.md
+       typography section). Inter is the UI sans. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:wght@600&display=swap">
   <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
   <header class="app-header">
-    <h1>Omaha</h1>
-    <span class="current-profile">
-      {% if profile is defined and profile %}Perfil: {{ profile.name }}
-      {% else %}(sem perfil){% endif %}
-    </span>
-    {% if user is defined and user %}
-    <form class="profile-switcher" method="post" action="/logout">
-      <button type="submit">Sair</button>
-    </form>
-    {% endif %}
+    <div class="app-header-left">
+      <h1>Omaha</h1>
+      {% if user is defined and user %}
+      <nav class="main-nav" data-testid="main-nav">
+        <a href="/" data-testid="nav-dashboard">Dashboard</a>
+        <a href="/classes" data-testid="nav-classes">Classes</a>
+        <a href="/assets" data-testid="nav-assets">Ativos</a>
+        <a href="/import" data-testid="nav-import">Importar</a>
+      </nav>
+      {% endif %}
+    </div>
+    <div class="app-header-right">
+      <span class="current-profile">
+        {% if profile is defined and profile %}Perfil: {{ profile.name }}
+        {% else %}(sem perfil){% endif %}
+      </span>
+      {% if user is defined and user %}
+      <form class="profile-switcher" method="post" action="/logout">
+        <button type="submit">Sair</button>
+      </form>
+      {% endif %}
+    </div>
   </header>
 
   <main>
