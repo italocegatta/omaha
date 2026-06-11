@@ -49,6 +49,17 @@ def validate_target_pct_sum(values: list[Decimal]) -> tuple[bool, str | None]:
     string in ``{"detail": "..."}`` so the editor can render the
     message without translation.
 
+    Empty input
+    -----------
+    An empty list returns ``(False, "Defina a alocação")`` — the
+    class has no assets at all, so the editor's "Sobra/Falta"
+    message (which would say ``Falta 100%``) is misleading. The
+    T02 PATCH route is unlikely to ever pass an empty list (it
+    always supplies the new value), but the T03 Alpine preview
+    can: when the user clears the input, the live preview is
+    "the class has 0% allocated" — better wording is "set the
+    allocation".
+
     Tolerance
     ---------
     A 1-cent tolerance (``abs(sum - 100) <= 0.01``) means a sum
@@ -71,6 +82,10 @@ def validate_target_pct_sum(values: list[Decimal]) -> tuple[bool, str | None]:
     -------
     (True, None)
         Sum is within 0.01 of 100.
+    (False, "Defina a alocação")
+        Input is an empty list. Distinct from the "Falta 100%"
+        case so the editor can show an actionable "please set
+        a target" hint instead of "you owe 100%".
     (False, "Sobra X%")
         Sum is over 100 by more than 0.01. ``X`` is the
         integer-rounded absolute delta (``ROUND_HALF_UP`` to
@@ -79,6 +94,8 @@ def validate_target_pct_sum(values: list[Decimal]) -> tuple[bool, str | None]:
         Sum is under 100 by more than 0.01. ``X`` is the
         integer-rounded absolute delta.
     """
+    if not values:
+        return False, "Defina a alocação"
     total = sum(values, Decimal("0"))
     delta = SUM_TARGET - total
     if abs(delta) <= SUM_TOLERANCE:

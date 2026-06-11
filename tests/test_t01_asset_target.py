@@ -46,3 +46,36 @@ def test_sum_validator_100pct() -> None:
 
     assert ok is True, f"expected ok=True, got ok={ok!r} error={error!r}"
     assert error is None, f"expected error=None, got error={error!r}"
+
+
+def test_sum_validator_under_100() -> None:
+    """A list summing to 110 returns ``(False, "Sobra 10%")``.
+
+    Locks the over-100 branch of the per-class validator at the
+    cheapest layer (no DB, no HTTP). The T02 PATCH route re-emits
+    this exact string in ``{"detail": "..."}`` and the T03 Alpine
+    editor surfaces it in the class-delta badge, so the operator
+    sees the same wording whether the check ran locally or
+    server-side.
+    """
+    values = [Decimal(30), Decimal(30), Decimal(50)]
+    ok, error = validate_target_pct_sum(values)
+
+    assert ok is False, f"expected ok=False, got ok={ok!r} error={error!r}"
+    assert error == "Sobra 10%", f"expected 'Sobra 10%', got {error!r}"
+
+
+def test_sum_validator_empty() -> None:
+    """An empty list returns ``(False, "Defina a alocação")``.
+
+    Distinct from the "Falta 100%" case so the T03 Alpine preview
+    can show an actionable "set the allocation" hint instead of
+    "you owe 100%". The T02 PATCH route is unlikely to ever pass
+    an empty list (it always supplies the new value), but the
+    T03 preview can: when the user clears the input, the live
+    preview must surface a friendly empty-state message.
+    """
+    ok, error = validate_target_pct_sum([])
+
+    assert ok is False, f"expected ok=False, got ok={ok!r} error={error!r}"
+    assert error == "Defina a alocação", f"expected 'Defina a alocação', got {error!r}"

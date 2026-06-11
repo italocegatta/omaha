@@ -54,19 +54,27 @@ Failure modes
 
 from __future__ import annotations
 
-from typing import Annotated
+from decimal import Decimal
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
+from fastapi import APIRouter, Body, Depends, Form, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.exc import IntegrityError
 
 from omaha.auth import DbSession, require_active_profile, require_user
 from omaha.models import Asset, AssetClass, Profile, User
+from omaha.validators import validate_target_pct_sum
 
 router = APIRouter(tags=["assets"])
 
 # Column width mirrors the schema in 0003_assets.
 NAME_MAX_LEN = 64
+
+# Per-asset target range mirrors the schema in 0006_asset_target_pct
+# (Numeric(5, 2)) — the validator additionally enforces the
+# per-class sum-to-100 invariant on top of this per-row cap.
+PCT_MIN = Decimal("0")
+PCT_MAX = Decimal("100")
 
 
 def _templates(request: Request):
@@ -211,6 +219,103 @@ def post_assets(
         )
 
     return RedirectResponse("/assets", status_code=303)
+
+
+@router.patch("/api/assets/{asset_id}", response_model=None)
+def patch_asset(
+    asset_id: int,
+    db: DbSession,
+    profile: Profile = Depends(require_active_profile),
+    body: Annotated[dict[str, Any], Body()] = {},  # noqa: B006
+) -> dict[str, Any]:
+    """Update one asset's ``target_pct`` and validate the per-class sum.
+
+    The route is the server-side source of truth for the T03
+    Alpine inline editor: PATCH 200 returns ``{"id", "target_pct"}``
+    so the editor can refresh the row without a full page reload;
+    PATCH 422 returns ``{"detail": "<Sobra/Falta X%>"}`` so the
+    editor can paint the input red and surface the class-delta
+    badge. The 422 vs 404 split lets the UI differentiate "bad
+    input" from "stale URL".
+
+    Body
+    ----
+    JSON object ``{"target_pct": "40"}`` — a *string* value so the
+    editor can post ``"40"`` or ``"40.5"`` without a JSON-number
+    round-trip. The same ``_parse_pct`` style as the S02 classes
+    route is used (the value is a ``Decimal``, the field is text).
+
+    Ownership check
+    ---------------
+    The asset id is resolved with a single ``db.get`` and the
+    ownership check walks the FK back to the active profile —
+    cross-profile is 404, never silent. The T03 editor only
+    targets the active profile's own assets, so a 404 here means
+    a stale URL or a hand-crafted id.
+
+    Validation
+    ----------
+    The per-class sum is recomputed as ``[other_assets.target_pct] + [new_value]``
+    and passed to :func:`omaha.validators.validate_target_pct_sum`.
+    The validator is the single source of truth for the error
+    message; the route re-emits it verbatim so the T03 preview
+    and the T02 commit show identical wording.
+
+    Returns
+    -------
+    - 200 with ``{"id": asset.id, "target_pct": "<new_value>"}`` on success.
+    - 404 if the asset doesn't exist or doesn't belong to the active profile.
+    - 422 with ``{"detail": "<validator error>"}`` on a per-class
+      sum violation or a per-row range/out-of-range violation.
+    """
+    asset = db.get(Asset, asset_id)
+    if asset is None or asset.asset_class.profile_id != profile.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    raw = body.get("target_pct", "") if isinstance(body, dict) else ""
+    parsed = _parse_pct(raw)
+    if parsed is None or parsed < PCT_MIN or parsed > PCT_MAX:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"A alocação do ativo deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
+        )
+
+    # Per-class sum: take every OTHER asset's current target_pct
+    # plus the new value, and ask the validator. The validator
+    # is the single source of truth for the message — the route
+    # never re-formats it, so the T03 preview and the T02 commit
+    # display identical wording.
+    other_pcts = [a.target_pct for a in asset.asset_class.assets if a.id != asset.id]
+    candidate = other_pcts + [parsed]
+    ok, error = validate_target_pct_sum(candidate)
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=error,
+        )
+
+    asset.target_pct = parsed
+    db.commit()
+    return {"id": asset.id, "target_pct": str(parsed)}
+
+
+def _parse_pct(raw: str) -> Decimal | None:
+    """Return ``raw`` parsed as a :class:`Decimal`, or ``None`` on failure.
+
+    Mirrors the S02 ``classes`` route's ``_parse_pct`` so the
+    editor can post ``"40"`` or ``"40.5"`` with the same
+    forgiving parse. A percent sign is stripped if present; an
+    empty / whitespace / non-numeric string is rejected.
+    """
+    if not isinstance(raw, str):
+        return None
+    cleaned = raw.strip().rstrip("%").strip()
+    if not cleaned:
+        return None
+    try:
+        return Decimal(cleaned)
+    except (ArithmeticError, ValueError, TypeError):  # pragma: no cover - Decimal edge cases
+        return None
 
 
 @router.post("/assets/{asset_id}/delete", response_model=None)
