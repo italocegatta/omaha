@@ -83,8 +83,10 @@ def _do_import(page: Page) -> None:
     """Drive the S04 import flow up to the dashboard.
 
     Reused from S04: upload the broker CSV, assign 3 un-selected
-    unmatched rows to 'Renda Fixa' so the confirm succeeds, then
-    wait for the redirect back to /.
+    unmatched rows to 'RF Pós' (the post-D011 class name that
+    matches the broker file's "Minha Categoria" column via exact
+    normalized name) so the confirm succeeds, then wait for the
+    redirect back to /.
     """
     page.click(SELECTORS["nav_import"])
     page.wait_for_url(re.compile(r"/import$"))
@@ -96,7 +98,7 @@ def _do_import(page: Page) -> None:
         select = page.locator(SELECTORS["import_review_class_select"]).nth(i)
         current = select.evaluate("el => el.options[el.selectedIndex].value")
         if not current:
-            select.select_option(label="Renda Fixa")
+            select.select_option(label="RF Pós")
 
     page.click(SELECTORS["import_review_confirm"])
     page.wait_for_url(re.compile(r"/$"))
@@ -198,18 +200,27 @@ class TestS05DashboardJourney:
             ), f"class {i} swatch transparent: {swatch_style!r}"
 
         # --- 3. Compare-bar target widths render as 60%/30%/10%.
+        # The widths are carried as the --final-width CSS custom property
+        # (the keyframe animates from 0 to var(--final-width)); read the
+        # property, not the resolved style.width, to assert the seeded
+        # values thread through to the markup. The template formats the
+        # percentage with two decimals (e.g. "60.00%"), so compare the
+        # parsed numeric values.
         compare_widths = page.evaluate(
             """() => {
                 const targets = document.querySelectorAll(
                     '[data-testid="class-compare-bar"] .compare-bar-target-fill'
                 );
-                return Array.from(targets).map(el => el.style.width);
+                return Array.from(targets).map(el => {
+                    const v = el.style.getPropertyValue('--final-width');
+                    return parseFloat(v);
+                });
             }"""
         )
         assert compare_widths == [
-            "60%",
-            "30%",
-            "10%",
+            60.0,
+            30.0,
+            10.0,
         ], f"target compare-bar widths wrong: {compare_widths!r}"
 
         # --- 4. 48 asset rows each with name, position count, BRL value,
@@ -246,16 +257,20 @@ class TestS05DashboardJourney:
         )
         assert pos_count >= 1, f"asset row 0 has {pos_count} positions, expected >= 1"
 
-        # Progress bar width is a positive percentage.
+        # Progress bar width is a positive percentage. The fill carries
+        # its target width as the --final-width CSS custom property
+        # (the keyframe animates from 0 to var(--final-width)); read the
+        # property, not style.width, since the inline style is empty by
+        # design (the CSS sets width: 0 as the keyframe origin).
         width_pct = page.evaluate(
             """() => {
                 const bar = document.querySelector(
                     '[data-testid="dashboard-asset-row"] [data-testid="asset-progress-bar"] > div'
                 );
-                return bar ? bar.style.width : null;
+                return bar ? bar.style.getPropertyValue('--final-width') : null;
             }"""
         )
-        assert width_pct, "first progress bar has no inline width"
+        assert width_pct, "first progress bar has no --final-width"
         assert width_pct.endswith("%"), f"progress bar width not in %: {width_pct!r}"
         width_num = float(width_pct.rstrip("%"))
         assert 0 < width_num <= 100, f"progress bar width out of range: {width_pct!r}"

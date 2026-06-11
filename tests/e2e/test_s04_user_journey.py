@@ -105,10 +105,17 @@ MATCHED_NAMES: list[str] = [
 ]
 assert len(MATCHED_NAMES) == 43, f"expected 43 matched names, got {len(MATCHED_NAMES)}"
 
-# Class assignment map for the 43 matched assets. The percentages
-# (60/30/10) are the S04 demo target but the test does not assert
-# on them — only on the import flow succeeding.
-RENDA_FIXA_NAMES = {
+# Class assignment map for the 43 matched assets. The class labels
+# below ("RF Pós", "Acoes", "Reserva") reflect the post-D011
+# contract: the S04 suggester does exact + one-way substring match
+# on normalized class names, no keyword map. "RF Pós" is the exact
+# class name that the broker file's "Minha Categoria" column
+# (e.g. MXRF11 → "RF Pós") pre-selects in the review screen, and
+# "Acoes" matches the broker's "Ações" via normalize_name's
+# accent-strip + lower. The percentages (60/30/10) are the S04
+# demo target but the test does not assert on them — only on the
+# import flow succeeding.
+RF_POS_NAMES = {
     "HASH11",
     "BTLG11",
     "KNCR11",
@@ -128,7 +135,7 @@ RENDA_FIXA_NAMES = {
     "Tesouro Selic 2029",
     "Tesouro IPCA+ 2035",
 }
-ACOES_NAMES = {
+ACOES_NAMES = {  # noqa: E305 — needs to follow RF_POS_NAMES
     "PETR4",
     "VALE3",
     "ITUB4",
@@ -157,7 +164,7 @@ RESERVA_NAMES = {
     "SPY",
     "VT",
 }
-assert len(RENDA_FIXA_NAMES) + len(ACOES_NAMES) + len(RESERVA_NAMES) == 43
+assert len(RF_POS_NAMES) + len(ACOES_NAMES) + len(RESERVA_NAMES) == 43
 
 
 SELECTORS = {
@@ -192,7 +199,15 @@ SELECTORS = {
     "import_review_name_input": '[data-testid="import-review-name-input"]',
     "import_review_confirm": '[data-testid="import-review-confirm"]',
     "import_review_expired": '[data-testid="import-review-expired"]',
-    "position_count": '[data-testid="import-position-count"]',
+    # The dashboard renders per-asset rows with data-testid="asset-position-count"
+    # (carrying the data-position-count attribute, see
+    # src/omaha/templates/dashboard.html:53). S05's polish slice renamed
+    # the S03 placeholder testid; the S04 e2e was missed in that rename
+    # and was still pointing at the S04 review-screen testid
+    # "import-position-count", which never appears on the dashboard —
+    # so row.locator(...).get_attribute("data-position-count") waited
+    # 30s (Playwright default) for a non-existent element and timed out.
+    "position_count": '[data-testid="asset-position-count"]',
 }
 
 
@@ -217,7 +232,12 @@ def _create_three_classes(page: Page) -> None:
     page.click(SELECTORS["class_editor_add"])
     name_inputs = page.locator(SELECTORS["class_editor_name"])
     pct_inputs = page.locator(SELECTORS["class_editor_pct"])
-    name_inputs.nth(0).fill("Renda Fixa")
+    # "RF Pós" is the post-D011 class name: the broker file's
+    # "Minha Categoria" column carries "RF Pós" for the fixed-income
+    # rows and "Ações" for the equity rows, so the import review
+    # pre-selects these exact class names (no keyword map translates
+    # "RF Pós" → "Renda Fixa" any more).
+    name_inputs.nth(0).fill("RF Pós")
     pct_inputs.nth(0).fill("60")
     name_inputs.nth(1).fill("Acoes")
     pct_inputs.nth(1).fill("30")
@@ -238,8 +258,8 @@ def _seed_43_assets(page: Page) -> None:
     page.wait_for_url(re.compile(r"/assets$"))
 
     for i, asset_name in enumerate(MATCHED_NAMES):
-        if asset_name in RENDA_FIXA_NAMES:
-            class_label = "Renda Fixa"
+        if asset_name in RF_POS_NAMES:
+            class_label = "RF Pós"
         elif asset_name in ACOES_NAMES:
             class_label = "Acoes"
         else:
@@ -327,10 +347,15 @@ class TestS04ImportJourney:
 
         # --- 3. The 'Minha Categoria' column pre-selects the class for
         # rows whose category matches an existing class. The fixture
-        # carries: MXRF11 → 'RF Pós' (Renda Fixa), XPLG11 → 'Ações' (Acoes),
-        # BPAC11/HGLG11/VINO11 → '(Não configurado)' (no class). Verify the
-        # pre-selected values are correct, then override the 3 un-selected
-        # rows to 'Renda Fixa' so the import commits.
+        # carries: MXRF11 → 'RF Pós' (matches the "RF Pós" class by
+        # exact normalized name), XPLG11 → 'Ações' (matches the
+        # "Acoes" class after normalize_name strips the accent on
+        # "Ações" → "acoes" which equals "acoes"), and
+        # BPAC11/HGLG11/VINO11 → '(Não configurado)' (normalize_name
+        # yields "nao configurado" which matches no class, so the
+        # dropdown stays on "-- escolha --"). Verify the
+        # pre-selected values are correct, then override the 3
+        # un-selected rows to "RF Pós" so the import commits.
 
         # Map unmatched rows to their pre-selected option value.
         # The HTML uses Jinja-rendered `selected` boolean attributes; we
@@ -355,11 +380,11 @@ class TestS04ImportJourney:
                 return result;
             }"""
         )
-        # MXRF11 → 'RF Pós' → 'Renda Fixa' (class id is the option value).
+        # MXRF11 → 'RF Pós' → 'RF Pós' (class id is the option value).
         assert preselect.get(
             "MXRF11"
         ), f"MXRF11 expected pre-selected to a class, got {preselect.get('MXRF11')!r}"
-        # XPLG11 → 'Ações' → 'Acoes'.
+        # XPLG11 → 'Ações' → 'Acoes' (exact match after normalize_name).
         assert preselect.get(
             "XPLG11"
         ), f"XPLG11 expected pre-selected to a class, got {preselect.get('XPLG11')!r}"
@@ -369,13 +394,13 @@ class TestS04ImportJourney:
                 preselect.get(tk) == ""
             ), f"{tk} expected '-- escolha --' (empty), got {preselect.get(tk)!r}"
 
-        # Fill the 3 un-selected rows with 'Renda Fixa' to keep the test
+        # Fill the 3 un-selected rows with 'RF Pós' to keep the test
         # contract (all 5 unmatched get a class).
         for i in range(5):
             select = page.locator(SELECTORS["import_review_class_select"]).nth(i)
             current = select.evaluate("el => el.options[el.selectedIndex].value")
             if not current:
-                select.select_option(label="Renda Fixa")
+                select.select_option(label="RF Pós")
 
         # --- 4. Confirm the import.
         page.click(SELECTORS["import_review_confirm"])
@@ -406,7 +431,7 @@ class TestS04ImportJourney:
             assert count >= 1, f"row {i} has {count} positions, expected >= 1"
 
         # The 5 new assets must have the unmatched names. They were
-        # all created in "Renda Fixa" (the class we picked for them).
+        # all created in "RF Pós" (the class we picked for them).
         dashboard_text = page.locator("main").inner_text()
         for name in UNMATCHED_NAMES:
             assert name in dashboard_text, f"new asset {name!r} not on dashboard after confirm"
