@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="dashboard">
-  <h1 data-testid="profile-name">Bem-vindo, {{ profile.name }}</h1>
+  <h1 class="profile-name" data-testid="profile-name">Bem-vindo, {{ profile.name }}</h1>
 
   {% if asset_classes %}
   <section class="class-summary" data-testid="class-summary">
@@ -38,16 +38,16 @@
         </header>
         <div class="compare-bar" data-testid="class-compare-bar">
           <div class="compare-bar-track compare-bar-target-track">
-            <div class="compare-bar-fill compare-bar-target-fill" style="width:{{ c.target_pct }}%"></div>
+            <div class="compare-bar-fill compare-bar-target-fill" style="--final-width:{{ c.target_pct }}%"></div>
           </div>
           <div class="compare-bar-track compare-bar-current-track">
-            <div class="compare-bar-fill compare-bar-current-fill" style="width:{{ c.current_pct }}%"></div>
+            <div class="compare-bar-fill compare-bar-current-fill" style="--final-width:{{ c.current_pct }}%"></div>
           </div>
         </div>
         {% if c.assets %}
         <ul class="dashboard-asset-list">
           {% for a in c.assets %}
-          <li data-testid="dashboard-asset-row" data-asset-id="{{ a.id }}">
+          <li data-testid="dashboard-asset-row" data-asset-id="{{ a.id }}" style="--i:{{ loop.index0 }}">
             <div class="asset-row-line">
               <span class="asset-row-name" data-testid="asset-row-name">{{ a.name }}</span>
               <span class="asset-row-positions" data-testid="asset-position-count" data-position-count="{{ a.position_count }}">{{ a.position_count }} posicao(oes)</span>
@@ -55,7 +55,7 @@
               <span class="asset-row-pct" data-testid="asset-pct">{{ a.asset_pct | round(2) }}%</span>
             </div>
             <div class="asset-progress-bar" data-testid="asset-progress-bar">
-              <div class="asset-progress-fill" style="width:{{ a.asset_pct }}%"></div>
+              <div class="asset-progress-fill" style="--final-width:{{ a.asset_pct }}%"></div>
             </div>
           </li>
           {% endfor %}

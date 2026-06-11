@@ -657,9 +657,7 @@ def suggest_class_id(
     if not cat_norm:
         return None
 
-    normalized: list[tuple[_ClassLike, str]] = [
-        (cls, normalize_name(cls.name)) for cls in classes
-    ]
+    normalized: list[tuple[_ClassLike, str]] = [(cls, normalize_name(cls.name)) for cls in classes]
 
     # Tier 1: exact normalized match.
     for cls, cls_norm in normalized:

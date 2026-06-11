@@ -48,6 +48,9 @@ data/
 data/*
 !data/.gitkeep
 
+# Impeccable skill working dir (design polish session scratchpad).
+.impeccable/
+
 # S06 production deploy artifacts.
 # - backups/ holds SQLite snapshots produced by the 'backup' service in
 #   prod.yml; the directory is bind-mounted in, the .db files are
