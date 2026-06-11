@@ -1,0 +1,19 @@
+{
+  "name": "omaha",
+  "version": "1.0.0",
+  "description": "Self-hosted family investment portfolio tracker for two profiles (Italo and Ana Livia). FastAPI + SQLAlchemy 2 + SQLite + Jinja2 + Alpine.js.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@playwright/test": "^1.60.0"
+  }
+}
