@@ -408,7 +408,14 @@ def test_malformed_csv_returns_inline_error(logged_in: TestClient) -> None:
 
 
 def test_dashboard_shows_position_counts(logged_in: TestClient) -> None:
-    """After a confirm, the dashboard renders the position count per asset."""
+    """After a confirm, the dashboard surfaces the per-asset position count.
+
+    M002 S01/T03: the visible "N posicao(oes)" line is removed (D015
+    — the 4-percentage grid replaces the position-count text). The
+    count is still carried on the ``<li>`` as ``data-position-count``
+    so downstream e2e selectors and future copy edits can find it
+    without re-introducing the visible text.
+    """
     _ensure_class_with_asset(logged_in, 1, "Renda Fixa", ["PETR4"])
     logged_in.post(
         "/import",
@@ -418,8 +425,16 @@ def test_dashboard_shows_position_counts(logged_in: TestClient) -> None:
     logged_in.post("/import/confirm", data={}, follow_redirects=False)
     r = logged_in.get("/")
     assert r.status_code == 200
-    # The dashboard should render a position count for at least one asset.
-    assert "posicao(oes)" in r.text
+    # The visible "posicao(oes)" text is gone (D015).
+    assert "posicao(oes)" not in r.text
+    # The count is still on the <li> as an attribute, so any
+    # downstream selector that wants it can read it.
+    assert 'data-position-count="' in r.text
+    # And at least one row has a count > 0.
+    import re
+
+    counts = [int(m) for m in re.findall(r'data-position-count="(\d+)"', r.text)]
+    assert any(c > 0 for c in counts), f"no positive position counts: {counts}"
 
 
 def test_nav_link_to_import(logged_in: TestClient) -> None:

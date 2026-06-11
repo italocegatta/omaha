@@ -473,3 +473,156 @@ main { max-width: 760px; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* =============================================================
+   M002 / S01 / T03 — 4-percentage grid + inline target editor
+   (D012, D015). The grid replaces the old single
+   ``asset-row-pct`` span; the inline editor PATCHes
+   /api/assets/{id} with the new per-asset target_pct.
+   ============================================================= */
+
+.asset-pct-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.25rem 0.5rem;
+  margin-top: 0.25rem;
+  align-items: stretch;
+}
+
+.asset-pct-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.05rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.03);
+  font-size: 0.75rem;
+  max-width: 8rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.asset-pct-cell-label {
+  font-size: 0.65rem;
+  color: var(--color-text-muted, #666);
+  text-transform: lowercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.asset-pct-cell-value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.asset-pct-cell--editable {
+  background: rgba(10, 102, 194, 0.08);
+  border: 1px dashed rgba(10, 102, 194, 0.3);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+.asset-pct-cell--editable:hover {
+  background: rgba(10, 102, 194, 0.15);
+  border-color: rgba(10, 102, 194, 0.6);
+}
+
+.asset-pct-cell--editing {
+  background: #fff;
+  border: 1px solid rgba(10, 102, 194, 0.4);
+  box-shadow: 0 0 0 2px rgba(10, 102, 194, 0.1);
+}
+
+.asset-inline-edit-input {
+  width: 100%;
+  font: inherit;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 0.15rem 0.3rem;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  background: #fff;
+  color: inherit;
+}
+
+.asset-inline-edit-input--error {
+  border-color: #c62828;
+  background: #fff5f5;
+}
+
+.asset-inline-edit-actions {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.2rem;
+  width: 100%;
+}
+
+.asset-inline-edit-commit,
+.asset-inline-edit-cancel {
+  flex: 1;
+  font: inherit;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.3rem;
+  border-radius: 3px;
+  border: 1px solid #ccc;
+  background: #f5f5f5;
+  cursor: pointer;
+}
+
+.asset-inline-edit-commit {
+  background: #0a66c2;
+  color: #fff;
+  border-color: #0a66c2;
+}
+
+.asset-inline-edit-commit:disabled {
+  background: #999;
+  border-color: #999;
+  cursor: not-allowed;
+}
+
+.asset-inline-edit-cancel {
+  background: #fff;
+}
+
+.class-delta-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  margin-left: 0.4rem;
+  background: #fff3e0;
+  color: #c62828;
+  border: 1px solid #ffcdd2;
+}
+
+.class-delta-badge--short {
+  background: #fff3e0;
+  color: #c62828;
+}
+
+.class-delta-badge--long {
+  background: #e3f2fd;
+  color: #0a66c2;
+}
+
+[x-cloak] { display: none !important; }
+
+@media (max-width: 480px) {
+  .asset-pct-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .asset-pct-cell {
+    max-width: 100%;
+  }
+}

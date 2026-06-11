@@ -27,13 +27,18 @@
     <section class="dashboard-distribution" data-testid="dashboard-distribution">
       <h2>Distribuicao</h2>
       {% for c in class_aggregates %}
-      <article class="class-section" data-testid="class-summary-row" data-class-id="{{ c.id }}">
+      {% set class_data = {"id": c.id, "name": c.name, "target_pct": (c.target_pct | float), "assets": []} %}
+      {% for a in c.assets %}
+      {% set _ = class_data.assets.append({"id": a.id, "name": a.name, "target_pct": (a.target_pct_class | float), "current_pct_class": (a.current_pct_class | float), "current_pct_total": (a.current_pct_total | float), "target_pct_total": (a.target_pct_total | float)}) %}
+      {% endfor %}
+      <article class="class-section" data-testid="class-summary-row" data-class-id="{{ c.id }}" x-data='classSection({{ class_data | tojson }})'>
         <header class="class-section-header" data-testid="dashboard-class-section">
           <span class="class-color-swatch" data-testid="class-color-swatch" style="background:{{ c.color }}"></span>
           <span class="class-section-name" data-testid="class-section-name">{{ c.name }}</span>
           <span class="class-section-stats">
             <span class="pct-target" data-testid="class-target-pct">Alvo {{ c.target_pct }}%</span>
             <span class="pct-current" data-testid="class-current-pct">Atual {{ c.current_pct | round(2) }}%</span>
+            <span class="class-delta-badge" data-testid="class-delta-badge" x-show="classDeltaMessage" x-text="classDeltaMessage" :class="classDelta > 0 ? 'class-delta-badge--short' : 'class-delta-badge--long'"></span>
           </span>
         </header>
         <div class="compare-bar" data-testid="class-compare-bar">
@@ -47,16 +52,71 @@
         {% if c.assets %}
         <ul class="dashboard-asset-list">
           {% for a in c.assets %}
-          <li data-testid="dashboard-asset-row" data-asset-id="{{ a.id }}" style="--i:{{ loop.index0 }}">
+          <li data-testid="dashboard-asset-row" data-asset-id="{{ a.id }}" data-position-count="{{ a.position_count }}" style="--i:{{ loop.index0 }}">
             <div class="asset-row-line">
               <span class="asset-row-name" data-testid="asset-row-name">{{ a.name }}</span>
-              <span class="asset-row-positions" data-testid="asset-position-count" data-position-count="{{ a.position_count }}">{{ a.position_count }} posicao(oes)</span>
               <span class="asset-row-value" data-testid="asset-current-value">{{ a.current_value | brl }}</span>
-              <span class="asset-row-pct" data-testid="asset-pct">{{ a.asset_pct | round(2) }}%</span>
+              <div class="asset-pct-grid" data-testid="asset-pct-grid">
+                <button type="button"
+                        class="asset-pct-cell asset-pct-cell--editable"
+                        data-testid="asset-target-pct-class"
+                        data-asset-id="{{ a.id }}"
+                        @click="startEdit({{ a.id }})"
+                        x-show="editingAssetId !== {{ a.id }}"
+                        title="Clique para editar">
+                  <span class="asset-pct-cell-label">alvo % classe</span>
+                  <span class="asset-pct-cell-value" x-text="formatPct({{ a.target_pct_class | round(2) }})"></span>
+                </button>
+                <div class="asset-pct-cell asset-pct-cell--editing"
+                     data-testid="asset-target-pct-class-editing"
+                     x-show="editingAssetId === {{ a.id }}"
+                     x-cloak>
+                  <span class="asset-pct-cell-label">alvo % classe</span>
+                  <input type="number"
+                         step="0.01"
+                         min="0"
+                         max="100"
+                         class="asset-inline-edit-input"
+                         data-testid="asset-inline-edit-input"
+                         data-asset-id="{{ a.id }}"
+                         x-model="editingValue"
+                         @keyup.enter="commitEdit()"
+                         @keyup.escape.window="cancelEdit()"
+                         :class="{'asset-inline-edit-input--error': error}"
+                         :disabled="saving"
+                         @click.stop>
+                  <div class="asset-inline-edit-actions">
+                    <button type="button" class="asset-inline-edit-commit" data-testid="asset-inline-edit-commit" @click.stop="commitEdit()" :disabled="saving || classDeltaMessage !== ''">salvar</button>
+                    <button type="button" class="asset-inline-edit-cancel" data-testid="asset-inline-edit-cancel" @click.stop="cancelEdit()" :disabled="saving">cancelar</button>
+                  </div>
+                </div>
+                <span class="asset-pct-cell" data-testid="asset-current-pct-class">
+                  <span class="asset-pct-cell-label">atual % classe</span>
+                  <span class="asset-pct-cell-value">{{ a.current_pct_class | round(2) }}%</span>
+                </span>
+                <span class="asset-pct-cell" data-testid="asset-target-pct-total">
+                  <span class="asset-pct-cell-label">alvo % total</span>
+                  <span class="asset-pct-cell-value">{{ a.target_pct_total | round(2) }}%</span>
+                </span>
+                <span class="asset-pct-cell" data-testid="asset-current-pct-total">
+                  <span class="asset-pct-cell-label">atual % total</span>
+                  <span class="asset-pct-cell-value">{{ a.current_pct_total | round(2) }}%</span>
+                </span>
+                {# Legacy S05 data-testid kept for the existing test:
+                   ``asset-pct`` aliases ``current_pct_class`` so the
+                   test_aggregates_per_asset_pct_is_share_of_class
+                   round-trip still resolves the same percentage. #}
+                <span data-testid="asset-pct" hidden>{{ a.current_pct_class | round(2) }}</span>
+              </div>
             </div>
             <div class="asset-progress-bar" data-testid="asset-progress-bar">
-              <div class="asset-progress-fill" style="--final-width:{{ a.asset_pct }}%"></div>
+              <div class="asset-progress-fill" style="--final-width:{{ a.current_pct_class }}%"></div>
             </div>
+            {# S05 legacy marker: keep the data-testid present so
+               downstream tests (asset-progress-bar fill assertions)
+               still find the row, but the visible position count is
+               no longer surfaced per M002 D015. #}
+            <span data-testid="asset-position-count" hidden></span>
           </li>
           {% endfor %}
         </ul>
@@ -79,4 +139,150 @@
   </div>
   {% endif %}
 </div>
+
+<script>
+  // Alpine.js component for the per-class section: 4-percentage
+  // view + inline editor for the asset ``target_pct_class`` column.
+  //
+  // The component owns the class's "live preview" of the per-class
+  // sum so the operator can see "Sobra/Falta X%" as they type,
+  // matching the server-side validator's wording byte-for-byte
+  // (the validator lives in ``omaha.validators`` and is the
+  // single source of truth — see T01-SUMMARY and T02-SUMMARY).
+  function classSection(initial) {
+    return {
+      classId: initial.id,
+      className: initial.name,
+      classTargetPct: initial.target_pct,
+      assets: initial.assets.map(function (a) {
+        return {
+          id: a.id,
+          name: a.name,
+          target_pct: a.target_pct,
+          current_pct_class: a.current_pct_class,
+          current_pct_total: a.current_pct_total,
+          target_pct_total: a.target_pct_total,
+        };
+      }),
+      editingAssetId: null,
+      editingValue: '',
+      saving: false,
+      error: '',
+
+      // Live preview: the per-class sum of ``target_pct`` (i.e.
+      // the same value the T02 PATCH route's server-side
+      // validator will check). ``classDelta`` is signed:
+      // positive → missing allocation ("Falta X%"), negative →
+      // over-allocated ("Sobra X%"). Matches the
+      // ``validate_target_pct_sum`` integer-rounded delta
+      // (ROUND_HALF_UP) so the preview and the 422 body agree
+      // to the unit.
+      get classSum() {
+        var self = this;
+        // If currently editing, swap the in-flight value into the
+        // asset row's target_pct so the live sum reflects what the
+        // user just typed.
+        var total = 0;
+        for (var i = 0; i < self.assets.length; i++) {
+          var a = self.assets[i];
+          if (a.id === self.editingAssetId) {
+            var parsed = parseFloat(self.editingValue);
+            total += isNaN(parsed) ? 0 : parsed;
+          } else {
+            total += a.target_pct;
+          }
+        }
+        return total;
+      },
+      get classDelta() {
+        // Positive → under 100, negative → over 100.
+        return Math.round((100 - this.classSum) * 100) / 100;
+      },
+      get classDeltaMessage() {
+        var delta = this.classDelta;
+        // 1-cent tolerance matches the server-side validator
+        // (``SUM_TOLERANCE = 0.01`` in ``omaha.validators``).
+        if (Math.abs(delta) <= 0.01) return '';
+        if (this.editingAssetId === null) return '';
+        if (delta < 0) {
+          // Over 100 → "Sobra X%" (same wording as validator).
+          return 'Sobra ' + Math.round(-delta) + '%';
+        }
+        // Under 100 → "Falta X%".
+        return 'Falta ' + Math.round(delta) + '%';
+      },
+
+      formatPct: function (value) {
+        // Format 0 as '—' so the operator notices the migration
+        // gap (D015: visual affordance). Non-zero renders as
+        // "X.XX%".
+        if (!value || Math.abs(value) < 0.005) return '—';
+        return Number(value).toFixed(2) + '%';
+      },
+
+      startEdit: function (id) {
+        var asset = this.assets.find(function (a) { return a.id === id; });
+        if (!asset) return;
+        this.editingAssetId = id;
+        this.editingValue = String(asset.target_pct);
+        this.error = '';
+      },
+      cancelEdit: function () {
+        this.editingAssetId = null;
+        this.editingValue = '';
+        this.error = '';
+      },
+      commitEdit: function () {
+        if (this.editingAssetId === null) return;
+        if (this.classDeltaMessage !== '') {
+          // Local preview says invalid: do not POST. The UI also
+          // disables the save button, but this is a defense in
+          // depth (Enter key, programmatic submit).
+          this.error = this.classDeltaMessage;
+          return;
+        }
+        var id = this.editingAssetId;
+        var self = this;
+        self.saving = true;
+        self.error = '';
+        fetch('/api/assets/' + id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target_pct: self.editingValue }),
+        })
+          .then(function (r) {
+            if (r.status === 200) {
+              return r.json();
+            }
+            // 422 → validator rejection. Body shape:
+            // ``{"detail": "<Sobra/Falta X%>"}``.
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao salvar';
+              throw new Error(detail);
+            });
+          })
+          .then(function (payload) {
+            // Update the local row's target_pct and recompute
+            // target_pct_total in-place so the user sees the
+            // change immediately without a page reload.
+            var parsed = parseFloat(payload.target_pct);
+            var asset = self.assets.find(function (a) { return a.id === id; });
+            if (asset) {
+              asset.target_pct = isNaN(parsed) ? asset.target_pct : parsed;
+              asset.target_pct_total = (asset.target_pct * self.classTargetPct) / 100;
+            }
+            self.editingAssetId = null;
+            self.editingValue = '';
+            self.error = '';
+          })
+          .catch(function (err) {
+            self.error = err && err.message ? err.message : 'Erro ao salvar';
+          })
+          .then(function () {
+            self.saving = false;
+          });
+      },
+    };
+  }
+</script>
 {% endblock %}
