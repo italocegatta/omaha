@@ -35,6 +35,53 @@ uv run python -m omaha.seed
 
 ---
 
+## Development tasks
+
+Routine dev work is wrapped in [taskipy](https://github.com/taskipy/taskipy)
+shortcuts, declared in `pyproject.toml` under `[tool.taskipy.tasks]`.
+The canonical invocation is `uv run task <name>` (which activates the
+venv and runs the `task` console script); the same works as plain
+`task <name>` once the venv is on `$PATH`.
+
+Discover them any time with `uv run task --list`.
+
+| Task            | What it does                                                                    |
+|-----------------|---------------------------------------------------------------------------------|
+| `serve`         | Start the dev server on `0.0.0.0:8000` with auto-reload.                        |
+| `serve-prod`    | Start the server without auto-reload (production-shaped).                      |
+| `test`          | Run the full test suite (unit + integration + e2e).                             |
+| `test-unit`     | Run unit and integration tests only (skip e2e).                                 |
+| `test-e2e`      | Run end-to-end (Playwright) tests.                                              |
+| `test-file`     | Run a specific test file: `task test-file tests/test_X.py`.                     |
+| `test-pattern`  | Run tests matching a name substring: `task test-pattern "smoke"`.                |
+| `test-one`      | Run a single test by node id: `task test-one tests/test_X.py::test_y`.          |
+| `lint`          | Run prek hooks: ruff format check, ruff --fix, hygiene.                         |
+| `format`        | Auto-format the codebase with ruff.                                              |
+| `check`         | CI-style gate: `lint` + `test-unit`.                                            |
+| `db-migrate`    | Apply pending Alembic migrations.                                               |
+| `db-revision`   | Create a new Alembic revision: `task db-revision -m "add foo column"`.          |
+| `db-seed`       | Run the idempotent family + profiles seed.                                      |
+| `db-reset`      | Wipe + reseed Italo's profile for manual import-flow testing.                   |
+| `install`       | `uv sync` — install / sync locked dependencies into `.venv`.                    |
+| `install-e2e`   | One-time download of the Playwright Chromium browser.                           |
+| `backup`        | Snapshot the prod DB to `./backups/` (one-off container from `prod.yml`).       |
+| `clean`         | Remove Python bytecode and tool caches (keeps `.venv` and `node_modules`).      |
+
+A few things worth knowing:
+
+- `test-file`, `test-pattern`, and `test-one` accept the target as a
+  positional arg appended to the command — taskipy just appends
+  whatever follows the task name.
+- `serve` binds `0.0.0.0` so the app is reachable from other machines
+  on the LAN. See **Network access** below for the LAN IP to use.
+- `clean` only touches `__pycache__`, `.pytest_cache`, and
+  `.ruff_cache`. It is safe to run any time; the SQLite DB and your
+  `.env` are untouched.
+- `db-reset` is the canonical reset for a manual import-flow test
+  (see **Testing the app** below).
+
+---
+
 ## Production deploy
 
 The production stack is `docker compose -f prod.yml`: a FastAPI
@@ -169,7 +216,7 @@ profile and re-seeds the same state the e2e suite uses. Run it before
 any manual import-flow test:
 
 ```bash
-uv run python -m scripts.dev_reset
+uv run task db-reset
 # expected:
 #   reset OK — Italo now has 3 classes (Renda Fixa@60%, Acoes@30%, FIIs@10%)
 #   and 43 assets. 5 unmatched on import: MXRF11, BPAC11, HGLG11, XPLG11, VINO11
@@ -206,15 +253,21 @@ Health check: `curl http://192.168.1.7:8000/healthz` returns
 
 ## Tests
 
+The shortcut manager (see **Development tasks** above) wraps the
+canonical test commands:
+
 ```bash
-uv run pytest                       # full suite (unit + integration + e2e)
-uv run pytest tests/test_X.py -v    # single file
-uv run pytest tests/e2e/ -v         # Playwright browser tests (S03–S05)
-uv run prek run --all-files         # ruff-format + ruff-check
+uv run task test           # full suite (unit + integration + e2e)
+uv run task test-unit      # unit + integration only (faster, no browser)
+uv run task test-e2e       # Playwright browser tests
+uv run task test-file tests/test_X.py   # single file
+uv run task test-pattern "smoke"          # name-substring match
+uv run task lint           # ruff + format check + hygiene
 ```
 
-The e2e suite needs Playwright + a one-time `playwright install chromium`
-(see `pyproject.toml` dev deps).
+The e2e suite needs Playwright + a one-time `uv run task install-e2e`
+(or `playwright install chromium` directly — see `pyproject.toml` dev
+deps).
 
 ---
 

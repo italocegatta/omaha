@@ -334,9 +334,7 @@ class TestS01InlineEdit:
         # classDelta = 0, message = ''.
         commit = target_row.locator(S01_SELECTORS["asset_inline_edit_commit"]).first
         _js_commit_enabled = (
-            "() => !document.querySelector('"
-            f"{S01_SELECTORS['asset_inline_edit_commit']}"
-            "').disabled"
+            f"() => !document.querySelector('{S01_SELECTORS['asset_inline_edit_commit']}').disabled"
         )
         page.wait_for_function(_js_commit_enabled, timeout=2000)
         commit.click()
@@ -494,10 +492,9 @@ class TestS01InlineEdit:
             _debug_dump(page, "post_block_no_ativo_b")
             raise AssertionError("Ativo B missing after reload")
 
-        assert _read_target_pct("Italo", "Ativo B") == 30, (
-            "DB should still have target_pct=30 — the blocked PATCH "
-            "must not have mutated the row"
-        )
+        assert (
+            _read_target_pct("Italo", "Ativo B") == 30
+        ), "DB should still have target_pct=30 — the blocked PATCH must not have mutated the row"
 
     def test_dashboard_displays_four_percentages_per_asset(self, page: Page, live_url: str) -> None:
         """The dashboard renders 4 percentages per asset + the "1 posicao" line is gone.

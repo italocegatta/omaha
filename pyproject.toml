@@ -28,6 +28,7 @@ dev = [
     "ruff>=0.6",
     "prek>=0.2",
     "playwright>=1.60.0",
+    "taskipy>=1.13",
 ]
 
 [project.scripts]
@@ -57,3 +58,66 @@ addopts = "-q"
 
 [tool.uv]
 package = true
+
+# ---------------------------------------------------------------------------
+# taskipy — dev shortcut manager.
+#
+# Run a task with:    uv run task <name>      (canonical)
+# or with the venv active:  task <name>
+#
+# List all tasks:     uv run task --list     (or: uv run task -l)
+# Show help text:     uv run task --list -v  (newer taskipy)
+# ---------------------------------------------------------------------------
+
+[tool.taskipy.settings]
+# Always run from the project root, regardless of the caller's cwd.
+cwd = "."
+# Enable {var} substitution in task commands. Required so {app_target}
+# (and any future variables) get expanded. Note: literal braces in task
+# commands (e.g. find -exec {} +) must be written as {{}} to survive
+# the format() call.
+use_vars = true
+
+[tool.taskipy.variables]
+app_target = "omaha.main:app"
+
+[tool.taskipy.tasks]
+
+# ── Development server ──────────────────────────────────────────────────────
+# Bind to 0.0.0.0 — `localhost` does not work from a separate client machine
+# on the LAN. See README "Network access" for the rationale.
+serve       = { cmd = "uv run uvicorn {app_target} --host 0.0.0.0 --port 8000 --reload", help = "Start the dev server on 0.0.0.0:8000 with auto-reload" }
+serve-prod  = { cmd = "uv run uvicorn {app_target} --host 0.0.0.0 --port 8000",          help = "Start the server without auto-reload (production-shaped)" }
+
+# ── Tests ───────────────────────────────────────────────────────────────────
+test         = { cmd = "uv run pytest",                                       help = "Run the full test suite (unit + integration + e2e)" }
+test-unit    = { cmd = "uv run pytest tests --ignore=tests/e2e",             help = "Run unit and integration tests only (skip e2e)" }
+test-e2e     = { cmd = "uv run pytest tests/e2e -v",                         help = "Run end-to-end (Playwright) tests" }
+test-file    = { cmd = "uv run pytest -v",                                    help = "Run a specific test file:  task test-file tests/test_X.py" }
+test-pattern = { cmd = "uv run pytest -v -k",                                 help = "Run tests matching a name substring:  task test-pattern \"smoke\"" }
+test-one     = { cmd = "uv run pytest -v",                                    help = "Run a single test by node id:  task test-one tests/test_X.py::test_y" }
+
+# ── Lint / format ───────────────────────────────────────────────────────────
+lint    = { cmd = "uv run prek run --all-files",  help = "Run prek hooks: ruff format check, ruff --fix, hygiene" }
+format  = { cmd = "uv run ruff format .",          help = "Auto-format the codebase with ruff" }
+check   = { cmd = "task lint && task test-unit",   help = "CI-style gate: lint + unit/integration tests" }
+
+# ── Database ────────────────────────────────────────────────────────────────
+# Alembic migrations are run automatically on startup, but having an explicit
+# task is useful for ops hand-off and for the `db-revision` authoring loop.
+db-migrate  = { cmd = "uv run alembic upgrade head",                                 help = "Apply pending Alembic migrations" }
+db-revision = { cmd = "uv run alembic revision --autogenerate",                      help = "Create a new Alembic revision:  task db-revision -m \"add foo column\"" }
+db-seed     = { cmd = "uv run python -m omaha.seed",                                 help = "Run the idempotent family + profiles seed" }
+db-reset    = { cmd = "uv run python -m scripts.dev_reset",                          help = "Wipe + reseed Italo's profile for manual import-flow testing" }
+
+# ── Install / setup ─────────────────────────────────────────────────────────
+install     = { cmd = "uv sync",                                       help = "Install / sync locked dependencies into .venv" }
+install-e2e = { cmd = "uv run playwright install chromium",            help = "Download the Playwright Chromium browser (one-time)" }
+
+# ── Backup ──────────────────────────────────────────────────────────────────
+backup      = { cmd = "docker compose -f prod.yml run --rm backup",    help = "Snapshot the prod DB to ./backups/ (one-off container)" }
+
+# ── Maintenance ─────────────────────────────────────────────────────────────
+# Wipes Python bytecode caches + the ruff/pytest caches. Excludes .venv
+# and node_modules — those caches are owned by the toolchain, not by us.
+clean       = { cmd = "find . -type d -name __pycache__ -not -path './.venv/*' -not -path './node_modules/*' -exec rm -rf {{}} + 2>/dev/null; rm -rf .pytest_cache .ruff_cache", help = "Remove Python bytecode and tool caches (keeps .venv and node_modules)" }
