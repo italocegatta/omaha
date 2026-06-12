@@ -728,3 +728,100 @@ main { max-width: 760px; }
   font-size: 0.8rem;
   color: var(--negative);
 }
+
+/* =============================================================
+   M002 / S02 / T06 — X delete button with confirm dialog
+   ============================================================= */
+
+.class-section-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.class-section-delete-btn:hover {
+  color: var(--negative);
+  background: var(--error-bg);
+  border-color: rgba(193, 40, 40, 0.3);
+}
+
+.class-delete-confirm {
+  margin: 0.5rem 0 0.75rem 0;
+  padding: 0.75rem;
+  background: #fef6f6;
+  border: 1px solid #f5c6c6;
+  border-radius: 6px;
+}
+
+.class-delete-confirm-text {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.class-delete-confirm-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.class-delete-confirm-yes {
+  font-size: 0.8rem;
+  padding: 0.35rem 0.7rem;
+  background: var(--negative);
+  color: #fff;
+  border: 1px solid var(--negative);
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.class-delete-confirm-yes:hover:not(:disabled) {
+  background: #b71c1c;
+  border-color: #b71c1c;
+}
+
+.class-delete-confirm-yes:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.class-delete-confirm-no {
+  font-size: 0.8rem;
+  padding: 0.35rem 0.7rem;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.class-delete-confirm-no:hover:not(:disabled) {
+  background: #f5f5f5;
+}
+
+.class-delete-confirm-no:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.class-delete-confirm-error {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.8rem;
+  color: var(--negative);
+}

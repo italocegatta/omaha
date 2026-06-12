@@ -35,12 +35,44 @@
         <header class="class-section-header" data-testid="dashboard-class-section">
           <span class="class-color-swatch" data-testid="class-color-swatch" style="background:{{ c.color }}"></span>
           <span class="class-section-name" data-testid="class-section-name">{{ c.name }}</span>
+          <button type="button"
+                  class="class-section-delete-btn"
+                  data-testid="class-delete-btn"
+                  @click="showDeleteConfirm = true"
+                  x-show="!showDeleteConfirm && !deleting"
+                  title="Remover classe">×</button>
           <span class="class-section-stats">
             <span class="pct-target" data-testid="class-target-pct">Alvo {{ c.target_pct }}%</span>
             <span class="pct-current" data-testid="class-current-pct">Atual {{ c.current_pct | round(2) }}%</span>
             <span class="class-delta-badge" data-testid="class-delta-badge" x-show="classDeltaMessage" x-text="classDeltaMessage" :class="classDelta > 0 ? 'class-delta-badge--short' : 'class-delta-badge--long'"></span>
           </span>
         </header>
+        <div class="class-delete-confirm"
+             data-testid="class-delete-confirm"
+             x-show="showDeleteConfirm"
+             x-cloak>
+          <p class="class-delete-confirm-text">Remover classe <strong>{{ c.name }}</strong>?</p>
+          <div class="class-delete-confirm-actions">
+            <button type="button"
+                    class="btn class-delete-confirm-yes"
+                    data-testid="class-delete-confirm-yes"
+                    @click="confirmDelete()"
+                    :disabled="deleting">
+              <span x-show="!deleting">Sim, remover</span>
+              <span x-show="deleting">Removendo...</span>
+            </button>
+            <button type="button"
+                    class="btn class-delete-confirm-no"
+                    data-testid="class-delete-confirm-no"
+                    @click="cancelDelete()"
+                    :disabled="deleting">Cancelar</button>
+          </div>
+          <p class="class-delete-confirm-error"
+             data-testid="class-delete-confirm-error"
+             x-show="deleteError"
+             x-text="deleteError"
+             x-cloak></p>
+        </div>
         <div class="compare-bar" data-testid="class-compare-bar">
           <div class="compare-bar-track compare-bar-target-track">
             <div class="compare-bar-fill compare-bar-target-fill" style="--final-width:{{ c.target_pct }}%"></div>
@@ -232,6 +264,14 @@
       saving: false,
       error: '',
 
+      // Delete button state — confirm dialog visibility, in-flight
+      // flag, and server error message (409 when class has assets).
+      // Each class-section instance owns its own copy so operators
+      // can delete independently.
+      showDeleteConfirm: false,
+      deleting: false,
+      deleteError: '',
+
       // Live preview: the per-class sum of ``target_pct`` (i.e.
       // the same value the T02 PATCH route's server-side
       // validator will check). ``classDelta`` is signed:
@@ -344,6 +384,48 @@
           .then(function () {
             self.saving = false;
           });
+      },
+
+      // ── Delete class ──────────────────────────────────────────
+      //
+      // Shows confirm dialog; on confirm, DELETE /api/classes/{id}.
+      // 204 → page reload (class removed server-side).
+      // 409 → display server error (class has assets).
+      // Other errors → generic message.
+
+      confirmDelete: function () {
+        var self = this;
+        self.deleting = true;
+        self.deleteError = '';
+        fetch('/api/classes/' + self.classId, {
+          method: 'DELETE',
+        })
+          .then(function (r) {
+            if (r.status === 204) {
+              // Success — reload the page so the class section is removed
+              // and server-side aggregates re-render.
+              window.location.reload();
+              return;
+            }
+            // 409 (class has assets) or other error. Body shape:
+            // {"detail": "Classe tem N ativo(s); remova-os antes."}
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao remover classe';
+              throw new Error(detail);
+            });
+          })
+          .catch(function (err) {
+            self.deleteError = err && err.message ? err.message : 'Erro ao remover classe';
+          })
+          .then(function () {
+            self.deleting = false;
+          });
+      },
+
+      cancelDelete: function () {
+        this.showDeleteConfirm = false;
+        this.deleteError = '';
+        this.deleting = false;
       },
     };
   }
