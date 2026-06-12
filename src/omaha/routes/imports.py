@@ -44,7 +44,6 @@ from omaha.csv_import import (
     RawPosition,
     match_positions,
     parse_positions,
-    suggest_class_id,
 )
 from omaha.models import Asset, AssetClass, ImportPreview, Profile, User
 
@@ -123,15 +122,12 @@ def get_import(
     user: User = Depends(require_user),
     profile: Profile = Depends(require_active_profile),
 ) -> Response:
-    """Render the upload form.
+    """Redirect to dashboard — the standalone upload form is retired.
 
-    The form posts back to the same URL with ``multipart/form-data``.
+    Import now lives in the dashboard modal (S04). Any direct request
+    to /import bounces to the dashboard.
     """
-    return _templates(request).TemplateResponse(
-        request,
-        "import.html",
-        {"user": user, "profile": profile, "error": None},
-    )
+    return RedirectResponse("/", status_code=302)
 
 
 @router.post("/import", response_class=HTMLResponse, response_model=None)
@@ -180,62 +176,13 @@ def get_review(
     user: User = Depends(require_user),
     profile: Profile = Depends(require_active_profile),
 ) -> Response:
-    """Render the matched/unmatched split. Re-runs the matcher against
-    current assets (the preview may be slightly stale)."""
-    preview_id = request.session.get(SESSION_PREVIEW_KEY)
-    preview = _load_preview(db, profile.id, preview_id)
-    if preview is None or _is_expired(preview):
-        return _templates(request).TemplateResponse(
-            request,
-            "import_review.html",
-            {
-                "user": user,
-                "profile": profile,
-                "expired": True,
-                "auto_matched": [],
-                "unmatched": [],
-                "auto_count": 0,
-                "unmatched_count": 0,
-                "asset_classes": [],
-                "class_suggestions": {},
-            },
-        )
+    """Redirect to dashboard — the standalone review page is retired.
 
-    raw = [_dict_to_raw(d) for d in json.loads(preview.raw_json)]
-    existing_assets = _existing_assets_for_profile(db, profile.id)
-    result = match_positions(raw, existing_assets)
-
-    asset_classes = (
-        db.query(AssetClass)
-        .filter(AssetClass.profile_id == profile.id)
-        .order_by(AssetClass.display_order)
-        .all()
-    )
-
-    # Pre-select a class for each unmatched row based on the file's
-    # "Minha Categoria" column. The user can still override via the
-    # dropdown; the suggestion is a starting point, not a constraint.
-    class_suggestions: dict[str, int] = {}
-    for rp in result.unmatched:
-        suggested = suggest_class_id(rp.suggested_category, asset_classes)
-        if suggested is not None:
-            class_suggestions[rp.broker_ticker] = suggested
-
-    return _templates(request).TemplateResponse(
-        request,
-        "import_review.html",
-        {
-            "user": user,
-            "profile": profile,
-            "expired": False,
-            "auto_matched": result.auto_matched,
-            "unmatched": result.unmatched,
-            "auto_count": len(result.auto_matched),
-            "unmatched_count": len(result.unmatched),
-            "asset_classes": asset_classes,
-            "class_suggestions": class_suggestions,
-        },
-    )
+    Import review now lives in the dashboard modal (S04). Any direct
+    request to /import/review bounces to the dashboard.
+    """
+    _ = (db, user, profile)  # keep the dependencies wired
+    return RedirectResponse("/", status_code=302)
 
 
 @router.post("/import/confirm", response_model=None)
