@@ -471,6 +471,53 @@ def patch_asset(
     return {"id": asset.id, "target_pct": str(parsed)}
 
 
+@router.delete(
+    "/api/assets/{asset_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None
+)
+def delete_api_asset(
+    asset_id: int,
+    db: DbSession,
+    profile: Profile = Depends(require_active_profile),
+) -> Response:
+    """Delete a single asset; positions cascade.
+
+    The dashboard's Alpine ``×`` button (S03/T04) calls this
+    endpoint. Unlike the S02 class delete (which 409s when the
+    class has assets), the asset delete has no 409 guard — the
+    ``Position`` FK declares ``ondelete=CASCADE`` and the ORM
+    relationship declares ``cascade="all, delete-orphan"``, so
+    deleting an asset always succeeds for the active profile's
+    own assets. The T05 dashboard will see the row disappear
+    and the position total update on the next render.
+
+    Ownership check
+    ---------------
+    The asset id is resolved with a single ``db.get`` and the
+    ownership check walks the FK to the class and then to the
+    profile. Cross-profile is 404, never silent. The T04
+    inline ``×`` button only targets the active profile's own
+    assets, so a 404 here means a stale URL or a hand-crafted
+    id.
+
+    Returns
+    -------
+    - 204 with no body on success. Position rows for the
+      asset are removed in the same transaction (FK
+      ``ON DELETE CASCADE`` + ORM ``cascade="all, delete-orphan"``
+      on ``Asset.positions``).
+    - 404 if the asset does not exist or belongs to another
+      profile. The 404 body is empty (no detail) so a
+      hand-crafted probe can't distinguish "doesn't exist"
+      from "wrong profile".
+    """
+    asset = db.get(Asset, asset_id)
+    if asset is None or asset.asset_class.profile_id != profile.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    db.delete(asset)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 def _parse_pct(raw: str) -> Decimal | None:
     """Return ``raw`` parsed as a :class:`Decimal`, or ``None`` on failure.
 
