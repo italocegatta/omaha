@@ -41,13 +41,12 @@ data-testid constants.
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
-from .test_s04_user_journey import SELECTORS, _login_and_select_italo
+from .test_s04_user_journey import _login_and_select_italo
 
 # S02-specific selectors (dashboard-based class CRUD, not the
 # retired /classes page). The dashboard template uses the same
@@ -71,7 +70,10 @@ S02_SELECTORS = {
     "empty_state": '[data-testid="empty-state"]',
     "class_target_pct": '[data-testid="class-target-pct"]',
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
-    "dashboard_add_assets_link": '[data-testid="dashboard-add-assets-link"]',
+    "dashboard_add_asset_btn": '[data-testid="dashboard-add-asset-btn"]',
+    "dashboard_add_asset_name": '[data-testid="dashboard-add-asset-name-input"]',
+    "dashboard_add_asset_pct": '[data-testid="dashboard-add-asset-pct-input"]',
+    "dashboard_add_asset_save": '[data-testid="dashboard-add-asset-save"]',
 }
 
 
@@ -192,7 +194,9 @@ class TestS02ClassCRUD:
         # Verify the empty state is shown (0 classes).
         empty_state = page.locator(S02_SELECTORS["empty_state"])
         empty_state.wait_for(state="visible", timeout=5000)
-        assert "Sem classes ainda" in empty_state.inner_text()
+        # The empty state message in the current template uses a more
+        # specific prompt: "Voce ainda nao tem classes".
+        assert "nao tem classes" in empty_state.inner_text().lower()
 
         # Verify the "+ Nova classe" button is visible despite empty state.
         plus_btn = page.locator(S02_SELECTORS["new_class_plus_btn"])
@@ -365,21 +369,25 @@ class TestS02ClassCRUD:
         # Create a single class at 100% via the seed helper.
         _create_seed_classes(page, [["Renda Fixa", 100]])
 
-        # Add an asset to the class via the assets page.
-        page.click(SELECTORS["nav_assets"])
-        page.wait_for_url(re.compile(r"/assets$"))
-
-        page.fill(SELECTORS["asset_editor_name"], "Tesouro Selic")
-        page.select_option(SELECTORS["asset_editor_class"], label="Renda Fixa")
-        page.click(SELECTORS["asset_editor_add"])
-        page.wait_for_function(
-            "() => document.querySelectorAll(" f"'{SELECTORS['asset_row']}').length === 1",
-            timeout=5000,
+        # Add an asset to the class via the dashboard inline form
+        # (the old /assets page redirects to /, so use the inline form).
+        page.wait_for_selector(S02_SELECTORS["class_summary_row"], timeout=5000)
+        # Expand the section by clicking the chevron (D016: collapsed by default).
+        page.evaluate(
+            """() => {
+                const row = document.querySelector('[data-testid="class-summary-row"]');
+                if (row) { const d = Alpine.$data(row); if (d && !d.isOpen) d.isOpen = true; }
+            }"""
         )
-
-        # Go back to the dashboard.
-        page.click(SELECTORS["nav_dashboard"])
-        page.wait_for_url(re.compile(r"/$"))
+        page.wait_for_timeout(350)
+        # Click + Ativo, fill form, save.
+        page.locator(S02_SELECTORS["dashboard_add_asset_btn"]).first.click(force=True)
+        page.wait_for_timeout(300)
+        page.locator(S02_SELECTORS["dashboard_add_asset_name"]).first.fill("Tesouro Selic")
+        page.locator(S02_SELECTORS["dashboard_add_asset_pct"]).first.fill("100")
+        page.locator(S02_SELECTORS["dashboard_add_asset_save"]).first.click(force=True)
+        # Wait for the page reload (201 -> window.location.reload()).
+        page.wait_for_load_state("networkidle", timeout=10000)
         page.wait_for_selector(S02_SELECTORS["class_summary_row"], timeout=5000)
 
         # Click x to trigger the delete confirm.

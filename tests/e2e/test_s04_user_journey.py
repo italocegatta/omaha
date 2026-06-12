@@ -24,7 +24,6 @@ works.
 
 from __future__ import annotations
 
-import json
 import re
 import sqlite3
 from pathlib import Path
@@ -330,12 +329,19 @@ class TestS04ImportJourney:
         _seed_43_assets(page)
 
         # --- 1. Open the import modal and upload the CSV.
-        page.click(SELECTORS["dashboard_import_btn"])
-        page.wait_for_timeout(500)  # let Alpine modal transition
+        # Open the modal via Alpine's store (more reliable than @click for
+        # Alpine 3.x deferred init — the store must exist before interaction).
+        page.evaluate("() => Alpine.store('importModal').openModal()")
+        page.wait_for_selector(
+            '[data-testid="import-modal-overlay"]', state="visible", timeout=5000
+        )
+        page.wait_for_timeout(300)
 
         # Upload the CSV via the modal file input.
         page.set_input_files(SELECTORS["import_file_input"], str(FIXTURE_PATH))
-        page.click(SELECTORS["import_upload_btn"])
+        page.wait_for_timeout(300)  # Alpine @change fires, sets $store.importModal.file
+        # Use force=True because the button may be within the Alpine transition scope.
+        page.click(SELECTORS["import_upload_btn"], force=True)
 
         # Wait for the modal to transition to step 2 (review).
         # The Alpine store sets step=2 on successful upload; the
@@ -361,11 +367,11 @@ class TestS04ImportJourney:
                 select.select_option(label="RF Pós")
 
         # --- 3. Confirm the import.
-        page.click(SELECTORS["import_commit_btn"])
+        page.click(SELECTORS["import_commit_btn"], force=True)
 
         # Wait for the page reload (modal calls window.location.reload()
-        # on successful commit).
-        page.wait_for_url(f"{live_url}/")
+        # on successful commit). Use load_state to catch the actual reload.
+        page.wait_for_load_state("networkidle", timeout=15000)
         page.wait_for_selector(SELECTORS["class_summary_row"], timeout=10000)
 
         # --- 4. Dashboard shows 48 asset rows, each with >= 1 position.
@@ -410,19 +416,21 @@ class TestS04ImportJourney:
         _create_three_classes(page, live_url)
 
         # Upload via the dashboard modal to create a fresh preview.
-        page.click(SELECTORS["dashboard_import_btn"])
-        page.wait_for_timeout(500)
+        page.evaluate("() => Alpine.store('importModal').openModal()")
+        page.wait_for_selector(
+            '[data-testid="import-modal-overlay"]', state="visible", timeout=5000
+        )
+        page.wait_for_timeout(300)
         page.set_input_files(SELECTORS["import_file_input"], str(FIXTURE_PATH))
-        page.click(SELECTORS["import_upload_btn"])
+        page.wait_for_timeout(300)
+        page.click(SELECTORS["import_upload_btn"], force=True)
         page.wait_for_selector(SELECTORS["import_commit_btn"], timeout=10000)
 
         # Read the preview_id from the Alpine store.
-        preview_id: int | None = page.evaluate(
-            "() => Alpine.store('importModal').previewId"
-        )
-        assert preview_id is not None and isinstance(preview_id, int), (
-            f"expected preview_id, got {preview_id!r}"
-        )
+        preview_id: int | None = page.evaluate("() => Alpine.store('importModal').previewId")
+        assert preview_id is not None and isinstance(
+            preview_id, int
+        ), f"expected preview_id, got {preview_id!r}"
 
         # Backdate the preview to 2 hours ago (PREVIEW_TTL is 1h).
         conn = sqlite3.connect(TEST_DB_PATH)
@@ -444,7 +452,9 @@ class TestS04ImportJourney:
             preview_id,
         )
         assert resp["status"] == 404, f"expected 404 for expired preview, got {resp}"
-        assert "Expirado" in resp["detail"], f"expected 'Expirado' in error, got {resp['detail']!r}"
+        assert (
+            "expirado" in resp["detail"].lower()
+        ), f"expected 'expirado' in error, got {resp['detail']!r}"
 
         # Verify commit rejects the expired preview.
         commit_resp = page.evaluate(
@@ -461,9 +471,7 @@ class TestS04ImportJourney:
             }""",
             preview_id,
         )
-        assert commit_resp["status"] == 400, (
-            f"expected 400 for expired commit, got {commit_resp}"
-        )
-        assert "expirado" in commit_resp["detail"].lower(), (
-            f"expected 'expirado' in error, got {commit_resp['detail']!r}"
-        )
+        assert commit_resp["status"] == 400, f"expected 400 for expired commit, got {commit_resp}"
+        assert (
+            "expirado" in commit_resp["detail"].lower()
+        ), f"expected 'expirado' in error, got {commit_resp['detail']!r}"

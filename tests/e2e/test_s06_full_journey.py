@@ -99,7 +99,7 @@ SELECTORS = {
     "portfolio_total": '[data-testid="portfolio-total"]',
     "portfolio_gain": '[data-testid="portfolio-gain"]',
     # Logout
-    "logout_form": 'form.profile-switcher',
+    "logout_form": "form.profile-switcher",
 }
 
 # The 48-row fixture produces 48 RawPositions. Of those, 43 are
@@ -273,8 +273,9 @@ def _expand_section(page: Page, class_name: str) -> None:
     page.wait_for_timeout(350)  # CSS transition: 200ms ease-out + buffer
 
 
-def _add_asset_via_dashboard(page: Page, class_name: str,
-                              asset_name: str, target_pct: str = "0") -> None:
+def _add_asset_via_dashboard(
+    page: Page, class_name: str, asset_name: str, target_pct: str = "0"
+) -> None:
     """Add an asset to a class via the dashboard inline form.
 
     Expands the section first, clicks + Ativo, fills name and pct,
@@ -339,9 +340,7 @@ def _edit_asset_target_inline(page: Page, asset_name: str, new_value: str) -> No
     # The commit button should be enabled when classDeltaMessage is empty.
     commit = target_row.locator(SELECTORS["asset_inline_edit_commit"]).first
     _js_commit_enabled = (
-        "() => !document.querySelector('"
-        f"{SELECTORS['asset_inline_edit_commit']}"
-        "').disabled"
+        "() => !document.querySelector('" f"{SELECTORS['asset_inline_edit_commit']}" "').disabled"
     )
     page.wait_for_function(_js_commit_enabled, timeout=2000)
     commit.click()
@@ -424,9 +423,7 @@ def _do_import(page: Page) -> None:
     page.wait_for_selector(SELECTORS["import_matched_summary"], timeout=5000)
 
     # Assign classes to unmatched rows that have no selection.
-    unmatched_rows = page.locator(
-        '[data-testid="import-unmatched-table"] tbody tr'
-    )
+    unmatched_rows = page.locator('[data-testid="import-unmatched-table"] tbody tr')
     unmatched_count = unmatched_rows.count()
     assert unmatched_count == 5, f"expected 5 unmatched rows, got {unmatched_count}"
 
@@ -465,9 +462,7 @@ def _debug_dump(page: Page, tag: str) -> None:
 class TestS06FullJourney:
     """A single Playwright test walks the full M002 user journey."""
 
-    def test_full_journey_login_to_logout(
-        self, page: Page, live_url: str, browser_context
-    ) -> None:
+    def test_full_journey_login_to_logout(self, page: Page, live_url: str, browser_context) -> None:
         """Full M002 user journey end to end.
 
         The test exercises every M002 slice surface in sequence:
@@ -544,9 +539,7 @@ class TestS06FullJourney:
         except Exception:
             _debug_dump(page, "post_import_sections")
             raise
-        assert sections.count() == 3, (
-            f"expected 3 class sections, got {sections.count()}"
-        )
+        assert sections.count() == 3, f"expected 3 class sections, got {sections.count()}"
 
         # Each section must have a name, target pct, and current pct.
         for i in range(3):
@@ -578,9 +571,7 @@ class TestS06FullJourney:
         except Exception:
             _debug_dump(page, "post_import_asset_rows")
             raise
-        assert asset_rows.count() == 49, (
-            f"expected 49 asset rows, got {asset_rows.count()}"
-        )
+        assert asset_rows.count() == 49, f"expected 49 asset rows, got {asset_rows.count()}"
 
         # Portfolio header is present.
         assert page.locator(SELECTORS["portfolio_header"]).count() == 1
@@ -601,9 +592,9 @@ class TestS06FullJourney:
         for i in range(asset_rows.count()):
             all_names.add(asset_rows.nth(i).locator(SELECTORS["asset_row_name"]).inner_text())
         for name in UNMATCHED_NAMES:
-            assert any(name in n for n in all_names), (
-                f"missing imported asset {name!r} on dashboard"
-            )
+            assert any(
+                name in n for n in all_names
+            ), f"missing imported asset {name!r} on dashboard"
 
         # ==================================================================
         # Step 9: Logout via the "Sair" button in the profile switcher.
@@ -614,6 +605,6 @@ class TestS06FullJourney:
 
         # After logout, the user should be on /login.
         page.wait_for_url(re.compile(r"/login"), timeout=5000)
-        assert page.locator(SELECTORS["login_user"]).count() == 1, (
-            "expected login page after logout"
-        )
+        assert (
+            page.locator(SELECTORS["login_user"]).count() == 1
+        ), "expected login page after logout"

@@ -78,26 +78,19 @@ def _create_three_classes(page: Page, base_url: str) -> None:
 
 
 def _expand_section(page: Page, class_name: str) -> None:
-    """Expand a class section programmatically via Alpine.$data.
+    """Expand a class section by clicking its chevron.
 
-    Sections collapse on every page reload (D016). Use Alpine's internal
-    data to toggle isOpen=true instead of clicking the chevron, which
-    can trigger pointer-event interception in the stacked layout.
+    Sections collapse on every page reload (D016). Use force=True to
+    bypass pointer-event interception checks in the stacked layout.
     """
-    page.evaluate(
-        """(className) => {
-            const rows = document.querySelectorAll('[data-testid="class-summary-row"]');
-            for (const row of rows) {
-                const name = row.querySelector('[data-testid="class-section-name"]');
-                if (name && name.textContent.trim() === className) {
-                    const data = Alpine.$data(row);
-                    if (data && !data.isOpen) data.isOpen = true;
-                    break;
-                }
-            }
-        }""",
-        class_name,
-    )
+    page.wait_for_function("() => typeof Alpine !== 'undefined'", timeout=5000)
+    page.wait_for_timeout(300)
+    class_sections = page.locator(SELECTORS["class_summary_row"])
+    for i in range(class_sections.count()):
+        name_el = class_sections.nth(i).locator('[data-testid="class-section-name"]')
+        if name_el.inner_text().strip() == class_name:
+            class_sections.nth(i).locator('[data-testid="class-chevron"]').click(force=True)
+            break
     page.wait_for_timeout(350)
 
 
@@ -123,8 +116,9 @@ def _debug_dump(page: Page, tag: str) -> None:
             f.write(f"main inner_html failed: {exc}\n")
 
 
-def _add_asset_via_dashboard(page: Page, base_url: str, class_name: str,
-                              asset_name: str, target_pct: str = "10") -> None:
+def _add_asset_via_dashboard(
+    page: Page, base_url: str, class_name: str, asset_name: str, target_pct: str = "10"
+) -> None:
     """Add an asset to a class via the dashboard inline form.
 
     Uses the ``+ Ativo`` button inside the class section, fills
@@ -145,8 +139,10 @@ def _add_asset_via_dashboard(page: Page, base_url: str, class_name: str,
             break
     assert section is not None, f"Class section '{class_name}' not found"
 
-    # Expand the section by clicking the chevron with force=True
-    # (bypasses pointer-event interception checks in the stacked layout).
+    # Wait for Alpine to initialize after page reload, then expand
+    # the section by clicking the chevron with force=True.
+    page.wait_for_function("() => typeof Alpine !== 'undefined'", timeout=5000)
+    page.wait_for_timeout(300)
     section.locator('[data-testid="class-chevron"]').click(force=True)
     page.wait_for_timeout(350)  # transition: 200ms ease-out + buffer
 
@@ -163,10 +159,10 @@ def _add_asset_via_dashboard(page: Page, base_url: str, class_name: str,
     section.locator(SELECTORS["dashboard_add_asset_save"]).click()
 
     # Wait for the page to reload (the addAsset() function calls
-    # window.location.reload() on 201).
-    page.wait_for_url(f"{base_url}/")
-    page.wait_for_selector(SELECTORS["class_summary_row"], timeout=5000)
-    page.wait_for_load_state("networkidle", timeout=5000)
+    # window.location.reload() on 201). wait_for_url returns
+    # immediately when the URL was already /, so use load_state
+    # to wait for the actual reload to complete.
+    page.wait_for_load_state("networkidle", timeout=10000)
 
 
 class TestS03UserJourney:
@@ -207,11 +203,14 @@ class TestS03UserJourney:
 
         # Verify all 3 assets appear on the dashboard.
         # Sections collapse on reload (D016); rows exist but are not visible.
-        page.wait_for_selector(
-            SELECTORS["dashboard_asset_row"], state="attached", timeout=5000
+        # Wait for exactly 3 asset rows to avoid race between page rendering
+        # and the count assertion (the 3rd inline save reload races with Alpine).
+        page.wait_for_function(
+            "() => document.querySelectorAll("
+            f"'{SELECTORS['dashboard_asset_row']}').length === 3",
+            timeout=8000,
         )
         asset_rows = page.locator(SELECTORS["dashboard_asset_row"])
-        assert asset_rows.count() == 3, f"expected 3 asset rows, got {asset_rows.count()}"
 
         # --- 3. Delete the second asset (PETR4 in Acoes).
         # Expand the Acoes section first (collapsed after page reload, D016).
@@ -228,17 +227,18 @@ class TestS03UserJourney:
         petr4_row.locator(SELECTORS["dashboard_asset_delete_confirm_yes"]).click()
 
         # Wait for the page reload (confirmDeleteAsset() calls
-        # window.location.reload() on 204).
-        page.wait_for_url(f"{live_url}/")
+        # window.location.reload() on 204). Use load_state to wait
+        # for the actual navigation, not just URL match.
+        page.wait_for_load_state("networkidle", timeout=10000)
         page.wait_for_selector(SELECTORS["class_summary_row"], timeout=5000)
 
         # --- 4. Verify dashboard shows 3 class sections, 2 assets.
-        # Sections collapsed again after reload; expand them to count visible rows.
+        page.wait_for_timeout(300)
         sections = page.locator(SELECTORS["dashboard_class_section"])
         assert sections.count() == 3
 
-        # The remaining assets are inside collapsed sections. Expand to
-        # confirm the correct count via DOM presence (not visibility).
+        # The remaining assets are inside collapsed sections. Count via
+        # DOM presence (not visibility).
         asset_rows = page.locator(SELECTORS["dashboard_asset_row"])
         assert asset_rows.count() == 2, f"expected 2 asset rows, got {asset_rows.count()}"
         dashboard_text = page.locator("main").inner_text()

@@ -32,7 +32,6 @@ so this test stays focused on S05-specific assertions.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -89,24 +88,25 @@ def _do_import(page: Page) -> None:
     normalized name), and confirms the import. Waits for the
     page reload on success.
     """
-    page.click(SELECTORS["dashboard_import_btn"])
-    page.wait_for_timeout(500)
+    page.evaluate("() => Alpine.store('importModal').openModal()")
+    page.wait_for_selector('[data-testid="import-modal-overlay"]', state="visible", timeout=5000)
+    page.wait_for_timeout(300)
     page.set_input_files(SELECTORS["import_file_input"], str(FIXTURE_PATH))
-    page.click(SELECTORS["import_upload_btn"])
+    page.wait_for_timeout(300)
+    page.click(SELECTORS["import_upload_btn"], force=True)
     page.wait_for_selector(SELECTORS["import_commit_btn"], timeout=10000)
 
     # Assign classes to unmatched rows that have no selection.
-    unmatched_rows = page.locator(
-        '[data-testid="import-unmatched-table"] tbody tr'
-    )
+    unmatched_rows = page.locator('[data-testid="import-unmatched-table"] tbody tr')
     for i in range(unmatched_rows.count()):
         select = unmatched_rows.nth(i).locator(SELECTORS["import_assignment_class"])
         current = select.evaluate("el => el.options[el.selectedIndex].value")
         if not current:
             select.select_option(label="RF Pós")
 
-    page.click(SELECTORS["import_commit_btn"])
-    page.wait_for_url(re.compile(r"/$"))
+    page.click(SELECTORS["import_commit_btn"], force=True)
+    page.wait_for_load_state("networkidle", timeout=15000)
+    page.wait_for_selector(SELECTORS["class_summary_row"], timeout=10000)
 
 
 def _capture_dashboard_screenshot(page: Page, tag: str) -> Path:

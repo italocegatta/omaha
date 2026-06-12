@@ -14,13 +14,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import pytest
-
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
 from .test_s04_user_journey import (
-    FIXTURE_PATH,
     _login_and_select_italo,
 )
 
@@ -90,9 +87,7 @@ def _create_seeded_classes(page: Page, live_url: str) -> None:
 class TestS05VisualGate:
     """Screenshot-based visual gate for S05 dashboard polish."""
 
-    def test_capture_dashboard_polish_screenshot(
-        self, page: Page, live_url: str
-    ) -> None:
+    def test_capture_dashboard_polish_screenshot(self, page: Page, live_url: str) -> None:
         """Capture a full-page screenshot of the polished dashboard.
 
         The dashboard has 3 classes (one expanded with 2 assets, one

@@ -49,7 +49,6 @@ resolves) — same pattern as ``test_s05_user_journey.py``.
 
 from __future__ import annotations
 
-import re
 import sqlite3
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -165,9 +164,7 @@ def _create_n_assets(page: Page, names: list[str]) -> None:
         assert renda_fixa_section is not None, f"Renda Fixa section not found (iter {i})"
 
         # Expand the section by clicking its header (D016: collapsed by default).
-        section_header = renda_fixa_section.locator(
-            '[data-testid="dashboard-class-section"]'
-        )
+        section_header = renda_fixa_section.locator('[data-testid="dashboard-class-section"]')
         section_header.click()
         page.wait_for_timeout(300)
 
@@ -272,9 +269,7 @@ def _expand_renda_fixa(page: Page) -> None:
     for j in range(sections.count()):
         name_el = sections.nth(j).locator(S05_SELECTORS["class_section_name"])
         if name_el.inner_text().strip() == "Renda Fixa":
-            sections.nth(j).locator(
-                '[data-testid="class-chevron"]'
-            ).click()
+            sections.nth(j).locator('[data-testid="class-chevron"]').click()
             page.wait_for_timeout(350)  # transition: 200ms ease-out + buffer
             return
     raise AssertionError("Renda Fixa section not found")
@@ -362,9 +357,7 @@ class TestS01InlineEdit:
         # Reload the dashboard so the new state is rendered.
         page.goto(f"{live_url}/")
         # Asset rows exist in DOM but section collapses on reload (D016).
-        page.wait_for_selector(
-            S01_SELECTORS["dashboard_asset_row"], state="attached", timeout=5000
-        )
+        page.wait_for_selector(S01_SELECTORS["dashboard_asset_row"], state="attached", timeout=5000)
         _expand_renda_fixa(page)
 
         # Locate Ativo A's row by its name cell.
@@ -419,9 +412,7 @@ class TestS01InlineEdit:
         # pre-commit value. A reload forces Jinja to re-render
         # with the new ``target_pct_class`` from the DB.
         page.goto(f"{live_url}/")
-        page.wait_for_selector(
-            S01_SELECTORS["dashboard_asset_row"], state="attached", timeout=5000
-        )
+        page.wait_for_selector(S01_SELECTORS["dashboard_asset_row"], state="attached", timeout=5000)
         _expand_renda_fixa(page)
         rows = page.locator(S01_SELECTORS["dashboard_asset_row"])
         updated_row = None
@@ -483,9 +474,7 @@ class TestS01InlineEdit:
         _seed_target_pct("Italo", {"Ativo A": 30, "Ativo B": 30, "Ativo C": 30})
 
         page.goto(f"{live_url}/")
-        page.wait_for_selector(
-            S01_SELECTORS["dashboard_asset_row"], state="attached", timeout=5000
-        )
+        page.wait_for_selector(S01_SELECTORS["dashboard_asset_row"], state="attached", timeout=5000)
         _expand_renda_fixa(page)
 
         # Locate Ativo B's row.
@@ -547,9 +536,7 @@ class TestS01InlineEdit:
         # Reload and verify the DB still has target_pct=30 for
         # Ativo B (the attempted PATCH was blocked).
         page.goto(f"{live_url}/")
-        page.wait_for_selector(
-            S01_SELECTORS["dashboard_asset_row"], state="attached", timeout=5000
-        )
+        page.wait_for_selector(S01_SELECTORS["dashboard_asset_row"], state="attached", timeout=5000)
         _expand_renda_fixa(page)
         rows = page.locator(S01_SELECTORS["dashboard_asset_row"])
         for i in range(rows.count()):
@@ -594,9 +581,7 @@ class TestS01InlineEdit:
         _seed_one_position_for_asset(page, live_url, "Ativo A")
 
         page.goto(f"{live_url}/")
-        page.wait_for_selector(
-            S01_SELECTORS["dashboard_asset_row"], state="attached", timeout=5000
-        )
+        page.wait_for_selector(S01_SELECTORS["dashboard_asset_row"], state="attached", timeout=5000)
         _expand_renda_fixa(page)
 
         # The row exists.
