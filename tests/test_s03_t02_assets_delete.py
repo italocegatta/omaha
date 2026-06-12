@@ -28,7 +28,6 @@ from decimal import Decimal
 import pytest
 from fastapi.testclient import TestClient
 
-
 # ---------------------------------------------------------------------------
 # Per-test cleanup
 # ---------------------------------------------------------------------------
@@ -126,9 +125,7 @@ def _seed_assets(asset_class_id: int, names: list[str]) -> list[int]:
         db.close()
 
 
-def _seed_positions(
-    asset_id: int, rows: list[tuple[str, str, str, str]]
-) -> list[int]:
+def _seed_positions(asset_id: int, rows: list[tuple[str, str, str, str]]) -> list[int]:
     """Insert Position rows for ``asset_id``.
 
     ``rows`` is a list of ``(broker_ticker, qty, avg_price, current_price)``
