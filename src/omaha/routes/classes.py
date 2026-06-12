@@ -58,11 +58,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.exc import IntegrityError
-
 from sqlalchemy.orm import selectinload
 
 from omaha.auth import DbSession, require_active_profile, require_user
-from omaha.models import Asset, AssetClass, Profile, User
+from omaha.models import AssetClass, Profile, User
 from omaha.validators import validate_target_pct_sum
 
 router = APIRouter(tags=["classes"])
@@ -167,19 +166,13 @@ def get_classes(
     user: User = Depends(require_user),
     profile: Profile = Depends(require_active_profile),
 ) -> Response:
-    """Render the dedicated class editor page.
+    """Redirect to the dashboard.
 
-    The dashboard surfaces a "Gerenciar classes" shortcut that
-    links here. The editor always starts with one empty row
-    regardless of the profile's existing classes — the user must
-    re-type the desired set on every visit (``POST /classes``
-    performs a delete-all-then-insert snapshot).
+    Retired by S02/T07 — 302 to /. The /classes GET is the only
+    path that mattered for the user. The POST handler and per-class
+    form routes remain for now (see S02 scope).
     """
-    return _templates(request).TemplateResponse(
-        request,
-        "classes.html",
-        {"user": user, "profile": profile, "error": None},
-    )
+    return RedirectResponse("/", status_code=302)
 
 
 @router.post("/classes", response_class=HTMLResponse, response_model=None)
@@ -273,7 +266,9 @@ def delete_class(
     return RedirectResponse("/", status_code=303)
 
 
-@router.delete("/api/classes/{class_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
+@router.delete(
+    "/api/classes/{class_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None
+)
 def delete_class_api(
     class_id: int,
     request: Request,
