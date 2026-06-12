@@ -271,6 +271,112 @@ def delete_class(
     return RedirectResponse("/", status_code=303)
 
 
+@router.post("/api/classes", status_code=status.HTTP_201_CREATED, response_model=None)
+def post_class(
+    request: Request,
+    db: DbSession,
+    user: User = Depends(require_user),
+    profile: Profile = Depends(require_active_profile),
+    payload: dict = None,
+) -> Response:
+    """Create a single class with per-profile sum validation and duplicate-name detection.
+
+    The dashboard's Alpine component renders a "+" button that opens
+    an inline form and POSTs JSON ``{"name": "...", "target_pct": "..."}``.
+    ``display_order`` is optional and defaults to ``len(existing_classes)``
+    (appending after the last row).
+
+    Returns
+    -------
+    - 201 with ``{"id": ..., "name": "...", "target_pct": "..."}`` on success.
+    - 409 with ``{"detail": "..."}`` if the name already exists in this profile.
+    - 422 with ``{"detail": "..."}`` if validation fails (empty/long name,
+      invalid target_pct, or per-profile sum exceeds 100).
+    """
+    if payload is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    # --- Validate name ---
+    name_raw = payload.get("name", "")
+    name = name_raw.strip() if isinstance(name_raw, str) else ""
+    if not name:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="O nome da classe é obrigatório.",
+        )
+    if len(name) > NAME_MAX_LEN:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"O nome da classe deve ter no máximo {NAME_MAX_LEN} caracteres.",
+        )
+
+    # --- Duplicate name check ---
+    existing = (
+        db.query(AssetClass)
+        .filter(
+            AssetClass.profile_id == profile.id,
+            AssetClass.name == name,
+        )
+        .first()
+    )
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Já existe uma classe com o nome {name}.",
+        )
+
+    # --- Validate target_pct ---
+    raw_pct = payload.get("target_pct")
+    if raw_pct is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    new_pct = _parse_pct(str(raw_pct))
+    if new_pct is None or new_pct < PCT_MIN or new_pct > PCT_MAX:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"A alocação da classe deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
+        )
+
+    # --- Gather existing classes and validate per-profile sum ---
+    existing_classes = (
+        db.query(AssetClass)
+        .filter(AssetClass.profile_id == profile.id)
+        .order_by(AssetClass.display_order)
+        .all()
+    )
+    all_pcts = [c.target_pct for c in existing_classes] + [new_pct]
+
+    ok, error = validate_target_pct_sum(all_pcts)
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=error,
+        )
+
+    # --- Compute display_order ---
+    display_order = payload.get("display_order", len(existing_classes))
+
+    # --- Insert ---
+    cls = AssetClass(
+        profile_id=profile.id,
+        name=name,
+        target_pct=new_pct,
+        display_order=display_order,
+    )
+    db.add(cls)
+    try:
+        db.commit()
+        db.refresh(cls)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Já existe uma classe com o nome {name}.",
+        )
+
+    return {"id": cls.id, "name": cls.name, "target_pct": str(cls.target_pct)}
+
+
 @router.patch("/api/classes/{class_id}", response_model=None)
 def patch_class(
     class_id: int,
