@@ -177,9 +177,7 @@ def _seed_target_pct(profile_name: str, asset_name_to_pct: dict[str, int]) -> No
         return
     conn = sqlite3.connect(TEST_DB_PATH)
     try:
-        row = conn.execute(
-            "SELECT id FROM profiles WHERE name = ?", (profile_name,)
-        ).fetchone()
+        row = conn.execute("SELECT id FROM profiles WHERE name = ?", (profile_name,)).fetchone()
         if row is None:
             return
         pid = row[0]
@@ -335,19 +333,23 @@ class TestS01InlineEdit:
         # empty. classSum after the fill = 0 + 30 + 40 = 100,
         # classDelta = 0, message = ''.
         commit = target_row.locator(S01_SELECTORS["asset_inline_edit_commit"]).first
-        page.wait_for_function(
-            f"() => !document.querySelector('{S01_SELECTORS['asset_inline_edit_commit']}').disabled",
-            timeout=2000,
+        _js_commit_enabled = (
+            "() => !document.querySelector('"
+            f"{S01_SELECTORS['asset_inline_edit_commit']}"
+            "').disabled"
         )
+        page.wait_for_function(_js_commit_enabled, timeout=2000)
         commit.click()
 
         # Wait for the PATCH to complete and the input to hide
         # (the editing div's x-show toggles off when
         # editingAssetId becomes null after a successful commit).
-        page.wait_for_function(
-            f"() => {{ const el = document.querySelector('{S01_SELECTORS['asset_inline_edit_input']}'); return !el || el.offsetParent === null; }}",
-            timeout=3000,
+        _js_input_hidden = (
+            "() => { const el = document.querySelector('"
+            f"{S01_SELECTORS['asset_inline_edit_input']}"
+            "'); return !el || el.offsetParent === null; }"
         )
+        page.wait_for_function(_js_input_hidden, timeout=3000)
 
         # Reload the dashboard to pick up the server-side state.
         # The cell's ``x-text`` is a Jinja-rendered literal (not
@@ -371,24 +373,20 @@ class TestS01InlineEdit:
         target_class_text = updated_row.locator(
             S01_SELECTORS["asset_target_pct_class"]
         ).first.inner_text()
-        assert "40.00" in target_class_text, (
-            f"expected '40.00% classe', got {target_class_text!r}"
-        )
-        assert "%" in target_class_text, (
-            f"target class cell missing %: {target_class_text!r}"
-        )
+        assert "40.00" in target_class_text, f"expected '40.00% classe', got {target_class_text!r}"
+        assert "%" in target_class_text, f"target class cell missing %: {target_class_text!r}"
 
         target_total_text = updated_row.locator(
             S01_SELECTORS["asset_target_pct_total"]
         ).first.inner_text()
-        assert "24.00" in target_total_text, (
-            f"expected '24.00% total' (60%% × 40 / 100), got {target_total_text!r}"
-        )
+        assert (
+            "24.00" in target_total_text
+        ), f"expected '24.00% total' (60%% × 40 / 100), got {target_total_text!r}"
 
         # Server-side state: the DB has target_pct=40.
-        assert _read_target_pct("Italo", "Ativo A") == 40, (
-            "DB did not persist target_pct=40 after the 200 PATCH"
-        )
+        assert (
+            _read_target_pct("Italo", "Ativo A") == 40
+        ), "DB did not persist target_pct=40 after the 200 PATCH"
 
     def test_inline_edit_blocks_when_sum_neq_100(self, page: Page, live_url: str) -> None:
         """Editing one asset to push the per-class sum over 100 must block.
@@ -449,12 +447,10 @@ class TestS01InlineEdit:
         badge = page.locator(S01_SELECTORS["class_delta_badge"]).first
         badge.wait_for(state="visible", timeout=2000)
         badge_text = badge.inner_text()
-        assert "Sobra" in badge_text, (
-            f"expected 'Sobra 10%' in class-delta badge, got {badge_text!r}"
-        )
-        assert "10%" in badge_text, (
-            f"expected '10%' in class-delta badge, got {badge_text!r}"
-        )
+        assert (
+            "Sobra" in badge_text
+        ), f"expected 'Sobra 10%' in class-delta badge, got {badge_text!r}"
+        assert "10%" in badge_text, f"expected '10%' in class-delta badge, got {badge_text!r}"
 
         # The commit button must be disabled. Alpine
         # ``:disabled="saving || classDeltaMessage !== ''"``
@@ -475,10 +471,12 @@ class TestS01InlineEdit:
         # editingAssetId=null and clears the error.
         cancel = target_row.locator(S01_SELECTORS["asset_inline_edit_cancel"]).first
         cancel.click()
-        page.wait_for_function(
-            f"() => {{ const el = document.querySelector('{S01_SELECTORS['asset_inline_edit_input']}'); return !el || el.offsetParent === null; }}",
-            timeout=2000,
+        _js_input_hidden = (
+            "() => { const el = document.querySelector('"
+            f"{S01_SELECTORS['asset_inline_edit_input']}"
+            "'); return !el || el.offsetParent === null; }"
         )
+        page.wait_for_function(_js_input_hidden, timeout=2000)
 
         # Reload and verify the DB still has target_pct=30 for
         # Ativo B (the attempted PATCH was blocked).
@@ -490,9 +488,7 @@ class TestS01InlineEdit:
             name_text = row.locator(S05_SELECTORS["asset_row_name"]).inner_text()
             if name_text.strip() == "Ativo B":
                 text = row.locator(S01_SELECTORS["asset_target_pct_class"]).first.inner_text()
-                assert "30.00" in text, (
-                    f"after reload expected '30.00% classe', got {text!r}"
-                )
+                assert "30.00" in text, f"after reload expected '30.00% classe', got {text!r}"
                 break
         else:
             _debug_dump(page, "post_block_no_ativo_b")
@@ -557,9 +553,7 @@ class TestS01InlineEdit:
         # text in ``<main>`` does not include the old
         # "1 posicao(oes)" line.
         main_text = page.locator("main").inner_text()
-        assert "posicao(oes)" not in main_text, (
-            f"old 'posicao(oes)' text still visible: {main_text!r}"
-        )
-        assert "1 posicao" not in main_text, (
-            f"old '1 posicao' text still visible: {main_text!r}"
-        )
+        assert (
+            "posicao(oes)" not in main_text
+        ), f"old 'posicao(oes)' text still visible: {main_text!r}"
+        assert "1 posicao" not in main_text, f"old '1 posicao' text still visible: {main_text!r}"

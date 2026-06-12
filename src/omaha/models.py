@@ -189,9 +189,7 @@ class Asset(Base):
     # class-level and asset-level percentages without precision
     # mismatches. Existing rows backfill to 0 via the
     # ``server_default="0"`` in the 0006 migration.
-    target_pct: Mapped[Decimal] = mapped_column(
-        Numeric(5, 2), nullable=False, server_default="0"
-    )
+    target_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, server_default="0")
     display_order: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )

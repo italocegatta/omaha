@@ -61,6 +61,7 @@ from sqlalchemy.exc import IntegrityError
 
 from omaha.auth import DbSession, require_active_profile, require_user
 from omaha.models import AssetClass, Profile, User
+from omaha.validators import validate_target_pct_sum
 
 router = APIRouter(tags=["classes"])
 
@@ -268,6 +269,70 @@ def delete_class(
     db.delete(cls)
     db.commit()
     return RedirectResponse("/", status_code=303)
+
+
+@router.patch("/api/classes/{class_id}", response_model=None)
+def patch_class(
+    class_id: int,
+    request: Request,
+    db: DbSession,
+    profile: Profile = Depends(require_active_profile),
+    payload: dict = None,
+) -> Response:
+    """Update a single class's ``target_pct" inline with per-profile sum validation.
+
+    The dashboard's Alpine component clicks the % cell, turns it into an
+    input, and on blur sends a PATCH with ``{"target_pct": "<new>"}``.
+    Only the ``target_pct`` field is accepted — name changes and other
+    mutations go through the snapshot ``POST /classes`` editor.
+
+    Returns
+    -------
+    - 200 with ``{"id": class_id, "target_pct": "<new>"}" on success.
+    - 404 if the class does not exist or belongs to another profile.
+    - 422 with ``{"detail": <error>}" if the new value breaks the
+      per-profile 100-sum invariant (message matches the class editor's
+      "Sobra X%" / "Falta X%" wording).
+    """
+    cls = db.get(AssetClass, class_id)
+    if cls is None or cls.profile_id != profile.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    if payload is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    raw_pct = payload.get("target_pct")
+    if raw_pct is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    new_pct = _parse_pct(str(raw_pct))
+    if new_pct is None or new_pct < PCT_MIN or new_pct > PCT_MAX:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"A alocação da classe deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
+        )
+
+    # Gather all other classes in the profile + the new value for this one.
+    other_classes = (
+        db.query(AssetClass)
+        .filter(
+            AssetClass.profile_id == profile.id,
+            AssetClass.id != class_id,
+        )
+        .all()
+    )
+    all_pcts = [c.target_pct for c in other_classes] + [new_pct]
+
+    ok, error = validate_target_pct_sum(all_pcts)
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=error,
+        )
+
+    cls.target_pct = new_pct
+    db.commit()
+    return {"id": cls.id, "target_pct": str(new_pct)}
 
 
 def _render_classes_with_error(

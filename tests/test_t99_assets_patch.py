@@ -234,9 +234,7 @@ def test_patch_asset_updates_target_pct(
     without a Decimal round-trip.
     """
     _login_and_select(client, profile_id=1)
-    class_id, asset_ids = _seed_class_with_assets(
-        1, "Renda Fixa", ["0"], _omaha_test_env
-    )
+    class_id, asset_ids = _seed_class_with_assets(1, "Renda Fixa", ["0"], _omaha_test_env)
     (asset_id,) = asset_ids
     assert _read_asset_target_pct(asset_id, _omaha_test_env) == Decimal("0")
 
@@ -280,9 +278,7 @@ def test_patch_asset_invalid_sum_returns_422(
         assert _read_asset_target_pct(aid, _omaha_test_env) == Decimal("30")
 
 
-def test_patch_asset_cross_profile_404(
-    client: TestClient, _omaha_test_env: dict[str, str]
-) -> None:
+def test_patch_asset_cross_profile_404(client: TestClient, _omaha_test_env: dict[str, str]) -> None:
     """A PATCH against another profile's asset is 404 (ownership check walks the FK).
 
     Seeds an asset under Ana Livia (profile 2). Logs in as Italo
