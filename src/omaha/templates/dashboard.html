@@ -3,6 +3,15 @@
 <div class="dashboard">
   <h1 class="profile-name" data-testid="profile-name">Bem-vindo, {{ profile.name }}</h1>
 
+  <div class="dashboard-actions" data-testid="dashboard-actions">
+    <button type="button"
+            class="import-btn import-btn-primary"
+            data-testid="dashboard-import-btn"
+            @click="$store.importModal.openModal()">
+      Importar CSV
+    </button>
+  </div>
+
   {% if asset_classes %}
   <section class="class-summary" data-testid="class-summary">
     {% if portfolio.current_value %}
@@ -344,6 +353,159 @@
          x-show="error"
          x-text="error"
          x-cloak></p>
+    </div>
+  </div>
+</div>
+
+<!-- S04/T03: Import modal overlay. x-data is on the overlay so the
+     backdrop click handler fires correctly. State lives in a global
+     Alpine store ($store.importModal) so the trigger button above
+     (in a different x-data scope) can open it without nesting. The
+     store is initialized in the script below. -->
+<div class="import-modal-overlay"
+     x-data
+     x-show="$store.importModal.open"
+     x-cloak
+     x-transition.opacity.duration.200ms
+     @click.self="$store.importModal.closeModal()"
+     data-testid="import-modal-overlay">
+  <div class="import-modal-panel" @click.stop>
+    <div class="import-modal-header">
+      <h2>Importar posicoes</h2>
+      <button type="button" class="import-modal-close" @click="$store.importModal.closeModal()">&times;</button>
+    </div>
+
+    <!-- Step 1: File upload -->
+    <div class="import-modal-step"
+         x-show="$store.importModal.step === 1"
+         x-transition:enter.duration.200ms>
+      <div class="import-modal-upload-area">
+        <p style="font-size:0.85rem;color:var(--muted);margin:0;">
+          Selecione um arquivo CSV com as posicoes do seu corretor
+        </p>
+        <input type="file"
+               accept=".csv"
+               data-testid="import-file-input"
+               @change="$store.importModal.file = $event.target.files[0]; $store.importModal.error = ''"
+               :disabled="$store.importModal.uploading">
+        <button type="button"
+                class="import-btn import-btn-primary"
+                data-testid="import-upload-btn"
+                @click="$store.importModal.uploadFile()"
+                :disabled="!$store.importModal.file || $store.importModal.uploading">
+          <span x-show="!$store.importModal.uploading">Enviar</span>
+          <span x-show="$store.importModal.uploading">Enviando...</span>
+        </button>
+      </div>
+      <p class="import-modal-error"
+         x-show="$store.importModal.step1Error"
+         x-text="$store.importModal.step1Error"
+         x-cloak
+         data-testid="import-upload-error"></p>
+    </div>
+
+    <!-- Step 2: Review + commit -->
+    <div class="import-modal-step"
+         x-show="$store.importModal.step === 2"
+         x-transition:enter.duration.200ms>
+
+      <!-- Expired preview -->
+      <div class="import-expired-message"
+           x-show="$store.importModal.previewError"
+           data-testid="import-expired-message">
+        <p>Sessao expirada. Reenvie o arquivo.</p>
+        <button type="button"
+                class="import-btn import-btn-primary"
+                @click="$store.importModal.goBackToStep1()">
+          Reenviar
+        </button>
+      </div>
+
+      <template x-if="!$store.importModal.previewError">
+        <div>
+          <!-- Auto-matched summary -->
+          <div class="import-matched-summary"
+               x-show="$store.importModal.autoMatched.length > 0"
+               data-testid="import-matched-summary">
+            <p><strong x-text="$store.importModal.autoMatched.length"></strong> posicoes ja encontradas automaticamente.</p>
+            <button type="button"
+                    class="import-btn"
+                    @click="$store.importModal.showAutoMatched = !$store.importModal.showAutoMatched"
+                    x-text="$store.importModal.showAutoMatched ? 'Ocultar' : 'Ver detalhes'"></button>
+            <ul class="import-matched-list"
+                x-show="$store.importModal.showAutoMatched"
+                x-cloak>
+              <template x-for="item in $store.importModal.autoMatched" :key="item.broker_ticker">
+                <li x-text="item.broker_ticker + ' - ' + item.name"></li>
+              </template>
+            </ul>
+          </div>
+
+          <!-- Unmatched rows -->
+          <div class="import-review-section" x-show="$store.importModal.unmatched.length > 0">
+            <h3 x-text="$store.importModal.unmatched.length + ' posicoes nao encontradas'"></h3>
+            <table class="import-review-table" data-testid="import-unmatched-table">
+              <thead>
+                <tr>
+                  <th>Ticker</th>
+                  <th>Nome</th>
+                  <th>Qtde</th>
+                  <th>P. Medio</th>
+                  <th>Classe</th>
+                  <th>Nome do ativo</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="(row, i) in $store.importModal.unmatched" :key="row.broker_ticker">
+                  <tr data-testid="import-unmatched-row">
+                    <td x-text="row.broker_ticker"></td>
+                    <td x-text="row.name"></td>
+                    <td x-text="row.qty"></td>
+                    <td x-text="row.avg_price"></td>
+                    <td>
+                      <select x-model="$store.importModal.assignments[row.broker_ticker].class_id"
+                              data-testid="import-assignment-class">
+                        <option value="">Selecione...</option>
+                        <template x-for="ac in $store.importModal.assetClasses" :key="ac.id">
+                          <option :value="ac.id" x-text="ac.name"></option>
+                        </template>
+                      </select>
+                    </td>
+                    <td>
+                      <input type="text"
+                             x-model="$store.importModal.assignments[row.broker_ticker].asset_name"
+                             placeholder="Nome do ativo"
+                             data-testid="import-assignment-name">
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Commit error -->
+          <p class="import-modal-error"
+             x-show="$store.importModal.error"
+             x-text="$store.importModal.error"
+             x-cloak
+             data-testid="import-commit-error"></p>
+
+          <!-- Actions -->
+          <div class="import-modal-actions">
+            <button type="button"
+                    class="import-btn"
+                    @click="$store.importModal.closeModal()">Cancelar</button>
+            <button type="button"
+                    class="import-btn import-btn-primary"
+                    data-testid="import-commit-btn"
+                    @click="$store.importModal.commit()"
+                    :disabled="$store.importModal.committing">
+              <span x-show="!$store.importModal.committing">Confirmar</span>
+              <span x-show="$store.importModal.committing">Salvando...</span>
+            </button>
+          </div>
+        </div>
+      </template>
     </div>
   </div>
 </div>
@@ -731,5 +893,147 @@
       },
     };
   }
+
+  // S04/T03: Global Alpine store for the import modal. A store
+  // (not a component function) so the trigger button in the
+  // dashboard-actions div (which has no x-data of its own) can
+  // open it via $store.importModal.openModal().
+  document.addEventListener('alpine:init', function () {
+    Alpine.store('importModal', {
+      open: false,
+      step: 1,
+      file: null,
+      previewId: null,
+      autoMatched: [],
+      unmatched: [],
+      assetClasses: [],
+      uploading: false,
+      committing: false,
+      error: '',
+      step1Error: '',
+      previewError: false,
+      showAutoMatched: false,
+      assignments: {},
+
+      openModal: function () {
+        this.resetState();
+        this.open = true;
+      },
+
+      closeModal: function () {
+        this.open = false;
+        this.resetState();
+      },
+
+      resetState: function () {
+        this.step = 1;
+        this.file = null;
+        this.previewId = null;
+        this.autoMatched = [];
+        this.unmatched = [];
+        this.assetClasses = [];
+        this.uploading = false;
+        this.committing = false;
+        this.error = '';
+        this.step1Error = '';
+        this.previewError = false;
+        this.showAutoMatched = false;
+        this.assignments = {};
+      },
+
+      uploadFile: function () {
+        if (!this.file) return;
+        var self = this;
+        self.uploading = true;
+        self.step1Error = '';
+        self.error = '';
+        var fd = new FormData();
+        fd.append('file', self.file);
+        fetch('/api/import/preview', { method: 'POST', body: fd })
+          .then(function (r) {
+            if (r.ok) return r.json();
+            return r.json().then(function (body) {
+              throw new Error(body && body.detail ? body.detail : 'Erro ao enviar');
+            });
+          })
+          .then(function (data) {
+            self.previewId = data.preview_id;
+            self.autoMatched = data.auto_matched || [];
+            self.unmatched = data.unmatched || [];
+            self.assetClasses = data.asset_classes || [];
+
+            // Build default assignments for unmatched rows.
+            var assigns = {};
+            var unmatched = data.unmatched || [];
+            var classes = data.asset_classes || [];
+            for (var i = 0; i < unmatched.length; i++) {
+              var row = unmatched[i];
+              var firstId = classes.length > 0 ? classes[0].id : '';
+              assigns[row.broker_ticker] = {
+                class_id: firstId,
+                asset_name: row.name,
+              };
+            }
+            self.assignments = assigns;
+            self.step = 2;
+          })
+          .catch(function (err) {
+            self.step1Error = err && err.message ? err.message : 'Erro ao processar arquivo';
+          })
+          .then(function () {
+            self.uploading = false;
+          });
+      },
+
+      commit: function () {
+        var self = this;
+        self.committing = true;
+        self.error = '';
+
+        // Build the assignments list from the assignments object.
+        var list = [];
+        for (var ticker in self.assignments) {
+          if (self.assignments.hasOwnProperty(ticker)) {
+            list.push({
+              broker_ticker: ticker,
+              class_id: self.assignments[ticker].class_id,
+              asset_name: self.assignments[ticker].asset_name,
+            });
+          }
+        }
+
+        fetch('/api/import/commit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            preview_id: self.previewId,
+            assignments: list,
+          }),
+        })
+          .then(function (r) {
+            if (r.ok) {
+              window.location.reload();
+              return;
+            }
+            return r.json().then(function (body) {
+              throw new Error(body && body.detail ? body.detail : 'Erro ao confirmar');
+            });
+          })
+          .catch(function (err) {
+            self.error = err && err.message ? err.message : 'Erro ao confirmar importacao';
+          })
+          .then(function () {
+            self.committing = false;
+          });
+      },
+
+      goBackToStep1: function () {
+        this.step = 1;
+        this.previewError = false;
+        this.error = '';
+        this.step1Error = '';
+      },
+    });
+  });
 </script>
 {% endblock %}

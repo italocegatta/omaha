@@ -437,8 +437,10 @@ def test_dashboard_shows_position_counts(logged_in: TestClient) -> None:
     assert any(c > 0 for c in counts), f"no positive position counts: {counts}"
 
 
-def test_nav_link_to_import(logged_in: TestClient) -> None:
+def test_nav_link_to_import_removed(logged_in: TestClient) -> None:
+    """The Importar nav link was removed per M002/S04. The import
+    modal trigger button is in the dashboard body, not the nav."""
     r = logged_in.get("/")
     assert r.status_code == 200
-    assert 'data-testid="nav-import"' in r.text
-    assert 'href="/import"' in r.text
+    assert 'data-testid="nav-import"' not in r.text
+    assert 'data-testid="dashboard-import-btn"' in r.text
