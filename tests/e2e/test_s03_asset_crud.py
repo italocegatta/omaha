@@ -19,7 +19,6 @@ form (T03) and the per-asset × delete button (T04).
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -122,9 +121,7 @@ def _create_seed_assets(page: Page, assets: list[tuple[str, str, float | int]]) 
 class TestS03AssetCRUD:
     """4 e2e tests for the S03 dashboard-based asset CRUD surface."""
 
-    def test_assets_route_redirects_to_dashboard(
-        self, page: Page, live_url: str
-    ) -> None:
+    def test_assets_route_redirects_to_dashboard(self, page: Page, live_url: str) -> None:
         """GET /assets redirects to / with 302 (S03/T05).
 
         Setup: login + select Italo.
