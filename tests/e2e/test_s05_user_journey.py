@@ -80,27 +80,32 @@ S05_SELECTORS = {
 
 
 def _do_import(page: Page) -> None:
-    """Drive the S04 import flow up to the dashboard.
+    """Drive the S04 import flow up to the dashboard via the modal.
 
-    Reused from S04: upload the broker CSV, assign 3 un-selected
-    unmatched rows to 'RF Pós' (the post-D011 class name that
+    Opens the dashboard import modal, uploads the broker CSV,
+    assigns classes for unmatched rows (BPAC11, HGLG11, VINO11
+    start on "-- escolha --" with the post-D011 class name that
     matches the broker file's "Minha Categoria" column via exact
-    normalized name) so the confirm succeeds, then wait for the
-    redirect back to /.
+    normalized name), and confirms the import. Waits for the
+    page reload on success.
     """
-    page.click(SELECTORS["nav_import"])
-    page.wait_for_url(re.compile(r"/import$"))
-    page.set_input_files(SELECTORS["import_file"], str(FIXTURE_PATH))
-    page.click(SELECTORS["import_submit"])
-    page.wait_for_url(re.compile(r"/import/review$"))
+    page.click(SELECTORS["dashboard_import_btn"])
+    page.wait_for_timeout(500)
+    page.set_input_files(SELECTORS["import_file_input"], str(FIXTURE_PATH))
+    page.click(SELECTORS["import_upload_btn"])
+    page.wait_for_selector(SELECTORS["import_commit_btn"], timeout=10000)
 
-    for i in range(5):
-        select = page.locator(SELECTORS["import_review_class_select"]).nth(i)
+    # Assign classes to unmatched rows that have no selection.
+    unmatched_rows = page.locator(
+        '[data-testid="import-unmatched-table"] tbody tr'
+    )
+    for i in range(unmatched_rows.count()):
+        select = unmatched_rows.nth(i).locator(SELECTORS["import_assignment_class"])
         current = select.evaluate("el => el.options[el.selectedIndex].value")
         if not current:
             select.select_option(label="RF Pós")
 
-    page.click(SELECTORS["import_review_confirm"])
+    page.click(SELECTORS["import_commit_btn"])
     page.wait_for_url(re.compile(r"/$"))
 
 

@@ -98,7 +98,7 @@ def test_full_login_profile_dashboard_logout_flow(client: TestClient) -> None:
     assert "Bem-vindo, Italo" in dashboard.text
     # The empty-state copy is also rendered on this slice's dashboard
     # so an operator who reaches the page knows where to look next.
-    assert "Sem classes ainda" in dashboard.text
+    assert "Voce ainda nao tem classes" in dashboard.text
 
     # 6. Logout clears the session and 303s back to the login form.
     logout_response = client.post("/logout", follow_redirects=False)

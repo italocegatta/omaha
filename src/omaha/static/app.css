@@ -50,6 +50,11 @@
   --class-4: #ef6c00; /* orange */
   --class-5: #6a1b9a; /* purple */
   --class-6: #00838f; /* teal   */
+
+  /* Focus ring color (S05 T04). Matches the accent used for input
+     focus borders. Override by setting --color-focus on a container
+     (e.g. a dark backdrop). */
+  --color-focus: #2563eb;
 }
 
 /* Cycle beyond 6 classes: nth-of-type selectors reuse tokens 1-6.
@@ -99,6 +104,25 @@ body {
      display numerics (e.g. .portfolio-stat-value) get an explicit
      letter-spacing tweak below. */
   font-feature-settings: "tnum";
+}
+
+/* Accessible focus rings (S05 T04). 2px outline + 2px offset is
+   the WCAG-recommended pattern — visible without being garish.
+   The blue matches the accent color used for input focus borders
+   elsewhere in the app. */
+input:focus,
+select:focus,
+button:focus,
+[tabindex]:focus {
+  outline: 2px solid var(--color-focus, #2563eb);
+  outline-offset: 2px;
+}
+input:focus-visible,
+select:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--color-focus, #2563eb);
+  outline-offset: 2px;
 }
 
 /* Display serif — per DESIGN.md typography section. Scoped to the
@@ -168,6 +192,30 @@ p.error, .error {
 .empty-state {
   margin-top: 2rem; padding: 1.5rem; border: 1px dashed var(--border);
   border-radius: 8px; text-align: center; color: var(--muted);
+}
+.empty-state h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.empty-state p {
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+}
+.empty-state .new-class-plus-btn {
+  margin: 0 auto;
+}
+
+/* Inline empty state for per-class no-assets case (S05 T03).
+   Smaller padding than the root empty-state, no top margin
+   (the class-section already has padding). */
+.empty-state--inline {
+  margin-top: 0;
+  padding: 0.75rem 1rem;
+}
+.empty-state--inline p {
+  margin: 0 0 0.5rem 0;
 }
 
 /* Class Editor (S03) */
@@ -378,12 +426,56 @@ main { max-width: 760px; }
 .class-section-header {
   display: flex; align-items: center; gap: 0.6rem;
   margin-bottom: 0.5rem;
+  cursor: pointer;
+  user-select: none;
 }
 .class-color-swatch {
   display: inline-block; width: 14px; height: 14px;
   border-radius: 3px; flex-shrink: 0;
 }
 .class-section-name { font-weight: 600; font-size: 0.95rem; flex: 1; }
+
+/* Collapse chevron (S05 T01). Points right by default (collapsed),
+   rotates 90deg when isOpen. The 200ms ease-out matches the body
+   collapse duration so chevron and body animate together. */
+.class-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--muted);
+  transition: transform 200ms ease-out, color 200ms ease-out;
+  flex-shrink: 0;
+}
+.class-chevron:hover {
+  color: var(--ink);
+  background: var(--surface-sunk);
+}
+.class-chevron.is-open {
+  transform: rotate(90deg);
+}
+
+/* Class section body collapse animation (S05 T01). Uses
+   max-height transition with a generous upper bound so the
+   content animates in/out smoothly. The collapsed state
+   clips to 0 with overflow hidden; the open state lets
+   the content determine its natural height. */
+.class-section-body {
+  max-height: 1000px;
+  overflow: hidden;
+  transition: max-height 200ms ease-out, opacity 200ms ease-out;
+  opacity: 1;
+}
+.class-section-body--collapsed {
+  max-height: 0;
+  opacity: 0;
+}
 .class-section-stats {
   display: flex; flex-direction: column; align-items: flex-end;
   font-size: 0.72rem; gap: 0.1rem; line-height: 1.2;
@@ -619,10 +711,84 @@ main { max-width: 760px; }
 [x-cloak] { display: none !important; }
 
 @media (max-width: 480px) {
+  /* Smaller padding on main content for narrow screens */
+  main {
+    padding: 0 0.75rem;
+    margin-top: 1rem;
+  }
+
+  /* Compact portfolio header — stack vertically */
+  .portfolio-header {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+
+  /* Class section — compact padding */
+  .class-section {
+    padding: 0.75rem;
+  }
+
+  /* Class header: stack stats below name on small screens */
+  .class-section-header {
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+  .class-section-name {
+    min-width: 0;
+    font-size: 0.9rem;
+  }
+  .class-section-stats {
+    width: 100%;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 0.75rem;
+    margin-left: calc(22px + 1.8rem); /* offset past chevron + swatch */
+  }
+
+  /* Collapsed body still works — the stats are in the header,
+     the body content collapses independently. */
+
   .asset-pct-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .asset-pct-cell {
+    max-width: 100%;
+  }
+
+  /* Import modal fills viewport on small screens */
+  .import-modal-panel {
+    max-width: 100%;
+    max-height: 100vh;
+    height: 100vh;
+    border-radius: 0;
+    padding: 1rem;
+  }
+
+  /* Compact app header */
+  header.app-header {
+    padding: 0.5rem 0.75rem;
+  }
+  header.app-header .main-nav a {
+    font-size: 0.82rem;
+  }
+
+  /* Action buttons stack on small screens */
+  .dashboard-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .dashboard-actions .import-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* New class/asset forms — full width on mobile */
+  .new-class-form-body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .new-class-input--pct {
     max-width: 100%;
   }
 }

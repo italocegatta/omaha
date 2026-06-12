@@ -41,13 +41,23 @@
       {% set _ = class_data.assets.append({"id": a.id, "name": a.name, "target_pct": (a.target_pct_class | float), "current_pct_class": (a.current_pct_class | float), "current_pct_total": (a.current_pct_total | float), "target_pct_total": (a.target_pct_total | float)}) %}
       {% endfor %}
       <article class="class-section" data-testid="class-summary-row" data-class-id="{{ c.id }}" x-data='classSection({{ class_data | tojson }})'>
-        <header class="class-section-header" data-testid="dashboard-class-section">
+        <header class="class-section-header" data-testid="dashboard-class-section" @click="isOpen = !isOpen">
           <span class="class-color-swatch" data-testid="class-color-swatch" style="background:{{ c.color }}"></span>
+          <button type="button"
+                  class="class-chevron"
+                  data-testid="class-chevron"
+                  :class="{'is-open': isOpen}"
+                  title="Expandir/recolher"
+                  @click.stop="isOpen = !isOpen">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M4 2L8 6L4 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
           <span class="class-section-name" data-testid="class-section-name">{{ c.name }}</span>
           <button type="button"
                   class="class-section-delete-btn"
                   data-testid="class-delete-btn"
-                  @click="showDeleteConfirm = true"
+                  @click.stop="showDeleteConfirm = true"
                   x-show="!showDeleteConfirm && !deleting"
                   title="Remover classe">×</button>
           <span class="class-section-stats">
@@ -82,6 +92,7 @@
              x-text="deleteError"
              x-cloak></p>
         </div>
+        <div class="class-section-body" :class="{'class-section-body--collapsed': !isOpen}">
         <div class="compare-bar" data-testid="class-compare-bar">
           <div class="compare-bar-track compare-bar-target-track">
             <div class="compare-bar-fill compare-bar-target-fill" style="--final-width:{{ c.target_pct }}%"></div>
@@ -205,10 +216,15 @@
           {% endfor %}
         </ul>
         {% else %}
-        <p class="dashboard-asset-empty">
-          Nenhum ativo nesta classe.
-          <a href="/assets" data-testid="dashboard-add-assets-link">Adicionar ativos</a>
-        </p>
+        <div class="empty-state empty-state--inline" data-testid="empty-assets">
+          <p>Nenhum ativo nesta classe.</p>
+          <button type="button"
+                  class="new-class-plus-btn"
+                  data-testid="empty-state-create-asset"
+                  @click="showAddAsset = true">
+            + Ativo
+          </button>
+        </div>
         {% endif %}
 
         {# S03/T03: inline "+ Ativo" toggle button + create form. The
@@ -277,6 +293,7 @@
              x-text="addAssetError"
              x-cloak></p>
         </div>
+        </div><!-- /.class-section-body -->
       </article>
       {% endfor %}
 
@@ -284,7 +301,14 @@
   </section>
   {% else %}
   <div class="empty-state" data-testid="empty-state">
-    <p>Sem classes ainda. Crie sua primeira classe abaixo.</p>
+    <h2>Voce ainda nao tem classes</h2>
+    <p>Classes organizam seus ativos por categoria (ex.: Acoes, FIIs, Cripto).</p>
+    <button type="button"
+            class="new-class-plus-btn"
+            data-testid="empty-state-create-class"
+            @click="document.querySelector('[data-testid=new-class-plus-btn]')?.click()">
+      + Nova classe
+    </button>
   </div>
   {% endif %}
 
@@ -538,6 +562,9 @@
       editingValue: '',
       saving: false,
       error: '',
+
+      // Collapse/expand state (D016: default closed on every load).
+      isOpen: false,
 
       // Delete button state — confirm dialog visibility, in-flight
       // flag, and server error message (409 when class has assets).

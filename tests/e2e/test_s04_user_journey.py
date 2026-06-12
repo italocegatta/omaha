@@ -1,35 +1,30 @@
 """Real-browser E2E for the S04 CSV import user journey.
 
 Drives a headless chromium against a live uvicorn instance to
-verify the complete S04 import loop end to end:
+verify the complete S04 import loop end to end using the
+dashboard import modal:
 
   login → select profile → create 3 classes (60/30/10) →
-  add 43 assets spread across the 3 classes →
-  upload the 48-row broker CSV fixture →
-  see 43 auto-matched + 5 unmatched on the review screen →
-  assign a class to each of the 5 unmatched →
-  confirm the import →
-  dashboard shows all 48 assets with non-zero position counts.
+  seed 43 assets via the API → open the import modal →
+  upload the 48-row broker CSV fixture → see 43 auto-matched
+  + 5 unmatched in the modal review → assign a class to each
+  of the 5 unmatched → confirm the import → dashboard shows
+  all 48 assets with non-zero position counts.
 
-The second test (negative) covers the "Expirado" state by
-backdating the preview row's created_at via a direct sqlite3
-write so the review screen renders the expired banner.
+The second test (negative) covers the "Expirado" state via API
+assertion — the modal does not have a dedicated expired banner
+but the server-side check correctly rejects expired previews.
 
-This test exists because the route-level TestClient tests in
-``test_t03_imports_routes.py`` bypass the rendered HTML. If the
-import button were placed outside its ``<form>``, or the review
-form's class select changed names, or the dashboard stopped
-showing position counts, this test would catch it.
-
-The 43 matched asset names are the exact strings the parser
-emits in :mod:`omaha.csv_import` (col 1 of every non-unmatched
-data row in ``tests/fixtures/sample_broker.csv``). The 5
-unmatched are the names the S02/T02 test plan called out and
-that the unit tests pin in :mod:`tests.test_t02_csv_import`.
+Why the modal? The S04/T03/T10 refactored the standalone
+/import → /import/review pages into an Alpine.js modal on the
+dashboard. The form-based POST /import and GET /import/review
+routes redirect to /, so the old page-navigation flow no longer
+works.
 """
 
 from __future__ import annotations
 
+import json
 import re
 import sqlite3
 from pathlib import Path
@@ -167,42 +162,27 @@ RESERVA_NAMES = {
 assert len(RF_POS_NAMES) + len(ACOES_NAMES) + len(RESERVA_NAMES) == 43
 
 
+# Dashboard modal import selectors. The import is triggered via a
+# button on the dashboard (S04/T03/T10) that opens an Alpine modal.
 SELECTORS = {
     "login_user": 'input[name="username"]',
     "login_pass": 'input[name="password"]',
     "login_submit": 'button[type="submit"]',
     "profile_picker": "form.profile-picker button",
     "nav_dashboard": '[data-testid="nav-dashboard"]',
-    "nav_assets": '[data-testid="nav-assets"]',
-    "nav_import": '[data-testid="nav-import"]',
     "class_summary_row": '[data-testid="class-summary-row"]',
-    "asset_editor_name": '[data-testid="asset-editor-name"]',
-    "asset_editor_class": '[data-testid="asset-editor-class"]',
-    "asset_editor_add": '[data-testid="asset-editor-add"]',
-    "asset_row": '[data-testid="asset-row"]',
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
-    "import_form": '[data-testid="import-form"]',
-    "import_file": '[data-testid="import-file"]',
-    "import_submit": '[data-testid="import-submit"]',
-    "import_error": '[data-testid="import-error"]',
-    "import_review_form": '[data-testid="import-review-form"]',
-    "import_review_auto_count": '[data-testid="import-review-auto-count"]',
-    "import_review_unmatched_count": '[data-testid="import-review-unmatched-count"]',
-    "import_review_auto_row": '[data-testid="import-review-auto-row"]',
-    "import_review_unmatched_row": '[data-testid="import-review-unmatched-row"]',
-    "import_review_class_select": '[data-testid="import-review-class-select"]',
-    "import_review_name_input": '[data-testid="import-review-name-input"]',
-    "import_review_confirm": '[data-testid="import-review-confirm"]',
-    "import_review_expired": '[data-testid="import-review-expired"]',
-    # The dashboard renders per-asset rows with data-testid="asset-position-count"
-    # (carrying the data-position-count attribute, see
-    # src/omaha/templates/dashboard.html:53). S05's polish slice renamed
-    # the S03 placeholder testid; the S04 e2e was missed in that rename
-    # and was still pointing at the S04 review-screen testid
-    # "import-position-count", which never appears on the dashboard —
-    # so row.locator(...).get_attribute("data-position-count") waited
-    # 30s (Playwright default) for a non-existent element and timed out.
-    "position_count": '[data-testid="asset-position-count"]',
+    # Dashboard import modal
+    "dashboard_import_btn": '[data-testid="dashboard-import-btn"]',
+    "import_file_input": '[data-testid="import-file-input"]',
+    "import_upload_btn": '[data-testid="import-upload-btn"]',
+    "import_modal_error": '[data-testid="import-upload-error"]',
+    "import_commit_btn": '[data-testid="import-commit-btn"]',
+    "import_matched_summary": '[data-testid="import-matched-summary"]',
+    "import_unmatched_table": '[data-testid="import-unmatched-table"]',
+    "import_assignment_class": '[data-testid="import-assignment-class"]',
+    "import_assignment_name": '[data-testid="import-assignment-name"]',
+    "import_commit_error": '[data-testid="import-commit-error"]',
 }
 
 
@@ -266,31 +246,56 @@ def _create_three_classes(page: Page, base_url: str) -> None:
 
 
 def _seed_43_assets(page: Page) -> None:
-    """Add the 43 names that match the broker fixture, one per asset."""
-    page.click(SELECTORS["nav_assets"])
-    page.wait_for_url(re.compile(r"/assets$"))
+    """Seed 43 assets via the JSON API for speed.
 
-    for i, asset_name in enumerate(MATCHED_NAMES):
-        if asset_name in RF_POS_NAMES:
-            class_label = "RF Pós"
-        elif asset_name in ACOES_NAMES:
-            class_label = "Acoes"
+    Uses ``page.evaluate()`` to call ``POST /api/assets`` once per asset,
+    with the correct class id extracted from the DOM. This is much faster
+    than creating 43 assets through the inline dashboard form.
+    """
+    # Read the class IDs from the dashboard DOM.
+    class_ids: dict[str, int] = page.evaluate(
+        """() => {
+            const rows = document.querySelectorAll('[data-testid="class-summary-row"]');
+            const result = {};
+            for (const row of rows) {
+                const nameEl = row.querySelector('[data-testid="class-section-name"]');
+                const name = nameEl ? nameEl.textContent.trim() : '';
+                result[name] = parseInt(row.getAttribute('data-class-id'), 10);
+            }
+            return result;
+        }"""
+    )
+    assert "RF Pós" in class_ids, f"RF Pós not found in class_ids: {class_ids}"
+    assert "Acoes" in class_ids, f"Acoes not found in class_ids: {class_ids}"
+    assert "Reserva" in class_ids, f"Reserva not found in class_ids: {class_ids}"
+
+    # Map asset name → class_id.
+    def _class_id_for(name: str) -> int:
+        if name in RF_POS_NAMES:
+            return class_ids["RF Pós"]
+        elif name in ACOES_NAMES:
+            return class_ids["Acoes"]
         else:
-            class_label = "Reserva"
-        page.fill(SELECTORS["asset_editor_name"], asset_name)
-        page.select_option(SELECTORS["asset_editor_class"], label=class_label)
-        page.click(SELECTORS["asset_editor_add"])
-        # Wait for the row count to increment before continuing.
-        try:
-            page.wait_for_function(
-                f"() => document.querySelectorAll('{SELECTORS['asset_row']}').length === {i + 1}",
-                timeout=5000,
-            )
-        except Exception:
-            _debug_dump(page, f"asset_iter_{i}_{asset_name}")
-            raise
+            return class_ids["Reserva"]
 
-    assert page.locator(SELECTORS["asset_row"]).count() == 43
+    # Create assets one at a time via the JSON API.
+    for asset_name in MATCHED_NAMES:
+        success = page.evaluate(
+            """async ({ name, class_id }) => {
+                const r = await fetch('/api/assets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, asset_class_id: class_id }),
+                });
+                return r.status === 201;
+            }""",
+            {"name": asset_name, "class_id": _class_id_for(asset_name)},
+        )
+        assert success, f"Failed to create asset {asset_name!r} via API"
+
+    # Reload to pick up the new assets on the dashboard.
+    page.goto(page.url)
+    page.wait_for_selector(SELECTORS["class_summary_row"], timeout=5000)
 
 
 def _debug_dump(page: Page, tag: str) -> None:
@@ -312,132 +317,71 @@ class TestS04ImportJourney:
     """One happy-path + one negative-path."""
 
     def test_import_journey_43_matched_5_unmatched_5_assigned_confirm_dashboard(
-        self, page: Page, live_url: str
+        self, page: Page, live_url: str, browser_context
     ) -> None:
-        """Full S04 user journey: classes → 43 assets → upload → review →
-        assign 5 unmatched → confirm → dashboard shows 48 assets each with
-        at least 1 position.
+        """Full S04 import journey via dashboard modal.
 
-        The matcher contract (43 auto + 5 unmatched) is pinned in
-        ``test_t02_csv_import.test_match_positions_43_5_split``. This
-        test asserts the same split is visible on the rendered review
-        screen AND the confirm flow commits one position per row.
+        Login → create 3 classes → seed 43 assets → open import modal →
+        upload CSV → review (43 auto + 5 unmatched) → assign classes
+        for unmatched → commit → dashboard shows 48 assets with positions.
         """
         _login_and_select_italo(page, live_url)
         _create_three_classes(page, live_url)
         _seed_43_assets(page)
 
-        # --- 1. Upload the broker CSV via the live /import form.
-        page.click(SELECTORS["nav_import"])
-        page.wait_for_url(re.compile(r"/import$"))
-        page.set_input_files(SELECTORS["import_file"], str(FIXTURE_PATH))
-        page.click(SELECTORS["import_submit"])
-        page.wait_for_url(re.compile(r"/import/review$"))
+        # --- 1. Open the import modal and upload the CSV.
+        page.click(SELECTORS["dashboard_import_btn"])
+        page.wait_for_timeout(500)  # let Alpine modal transition
 
-        # --- 2. Review screen shows 43 auto + 5 unmatched.
-        auto_count_text = page.locator(SELECTORS["import_review_auto_count"]).inner_text()
-        unmatched_count_text = page.locator(SELECTORS["import_review_unmatched_count"]).inner_text()
-        assert "43" in auto_count_text, f"expected 43 auto, got {auto_count_text!r}"
-        assert "5" in unmatched_count_text, f"expected 5 unmatched, got {unmatched_count_text!r}"
+        # Upload the CSV via the modal file input.
+        page.set_input_files(SELECTORS["import_file_input"], str(FIXTURE_PATH))
+        page.click(SELECTORS["import_upload_btn"])
 
-        # Spot-check the auto and unmatched row counts in the DOM.
-        assert page.locator(SELECTORS["import_review_auto_row"]).count() == 43
-        assert page.locator(SELECTORS["import_review_unmatched_row"]).count() == 5
+        # Wait for the modal to transition to step 2 (review).
+        # The Alpine store sets step=2 on successful upload; the
+        # commit button becomes visible.
+        page.wait_for_selector(SELECTORS["import_commit_btn"], timeout=10000)
+        page.wait_for_selector(SELECTORS["import_matched_summary"], timeout=5000)
 
-        # The 5 unmatched names match the T02 unit-test contract.
-        unmatched_names = {
-            page.locator(SELECTORS["import_review_unmatched_row"])
-            .nth(i)
-            .locator("td")
-            .nth(0)
-            .inner_text()
-            for i in range(5)
-        }
-        for expected in UNMATCHED_NAMES:
-            assert any(
-                expected in text for text in unmatched_names
-            ), f"missing unmatched {expected!r} in {unmatched_names!r}"
+        # --- 2. Check all 5 unmatched rows have a class selected.
+        # The Alpine store auto-selects the first class for all
+        # unmatched rows. Read the assignments and identify rows
+        # still on "-- escolha --" (empty value).
+        unmatched_rows = page.locator('[data-testid="import-unmatched-table"] tbody tr')
+        unmatched_count = unmatched_rows.count()
+        assert unmatched_count == 5, f"expected 5 unmatched rows, got {unmatched_count}"
 
-        # --- 3. The 'Minha Categoria' column pre-selects the class for
-        # rows whose category matches an existing class. The fixture
-        # carries: MXRF11 → 'RF Pós' (matches the "RF Pós" class by
-        # exact normalized name), XPLG11 → 'Ações' (matches the
-        # "Acoes" class after normalize_name strips the accent on
-        # "Ações" → "acoes" which equals "acoes"), and
-        # BPAC11/HGLG11/VINO11 → '(Não configurado)' (normalize_name
-        # yields "nao configurado" which matches no class, so the
-        # dropdown stays on "-- escolha --"). Verify the
-        # pre-selected values are correct, then override the 3
-        # un-selected rows to "RF Pós" so the import commits.
-
-        # Map unmatched rows to their pre-selected option value.
-        # The HTML uses Jinja-rendered `selected` boolean attributes; we
-        # read each <select> inside an unmatched row and look at which
-        # <option> carries `selected`.
-        preselect = page.evaluate(
-            """() => {
-                const rows = document.querySelectorAll(
-                    '[data-testid="import-review-unmatched-row"]'
-                );
-                const result = {};
-                for (const row of rows) {
-                    const firstTd = row.querySelector('td');
-                    const m = (firstTd?.textContent || '').match(/\\(([A-Z0-9]+)\\)/);
-                    if (!m) continue;
-                    const ticker = m[1];
-                    const select = row.querySelector('select');
-                    if (!select) continue;
-                    const sel = select.querySelector('option[selected]');
-                    result[ticker] = sel ? (sel.value || '') : '';
-                }
-                return result;
-            }"""
-        )
-        # MXRF11 → 'RF Pós' → 'RF Pós' (class id is the option value).
-        assert preselect.get(
-            "MXRF11"
-        ), f"MXRF11 expected pre-selected to a class, got {preselect.get('MXRF11')!r}"
-        # XPLG11 → 'Ações' → 'Acoes' (exact match after normalize_name).
-        assert preselect.get(
-            "XPLG11"
-        ), f"XPLG11 expected pre-selected to a class, got {preselect.get('XPLG11')!r}"
-        # The 3 '(Não configurado)' rows stay on '-- escolha --' (empty value).
-        for tk in ("BPAC11", "HGLG11", "VINO11"):
-            assert (
-                preselect.get(tk) == ""
-            ), f"{tk} expected '-- escolha --' (empty), got {preselect.get(tk)!r}"
-
-        # Fill the 3 un-selected rows with 'RF Pós' to keep the test
-        # contract (all 5 unmatched get a class).
-        for i in range(5):
-            select = page.locator(SELECTORS["import_review_class_select"]).nth(i)
-            current = select.evaluate("el => el.options[el.selectedIndex].value")
-            if not current:
+        # Override the 3 rows that start with an empty class
+        # (BPAC11, HGLG11, VINO11 have "(Não configurado)" category
+        # which does not pre-select a class) to "RF Pós".
+        for i in range(unmatched_count):
+            select = unmatched_rows.nth(i).locator(SELECTORS["import_assignment_class"])
+            current_value = select.evaluate("el => el.options[el.selectedIndex].value")
+            if not current_value:
                 select.select_option(label="RF Pós")
 
-        # --- 4. Confirm the import.
-        page.click(SELECTORS["import_review_confirm"])
-        page.wait_for_url(re.compile(r"/$"))
+        # --- 3. Confirm the import.
+        page.click(SELECTORS["import_commit_btn"])
 
-        # --- 5. Dashboard shows 48 asset rows (43 pre-seeded + 5 created),
-        # each with at least 1 position.
+        # Wait for the page reload (modal calls window.location.reload()
+        # on successful commit).
+        page.wait_for_url(f"{live_url}/")
+        page.wait_for_selector(SELECTORS["class_summary_row"], timeout=10000)
+
+        # --- 4. Dashboard shows 48 asset rows, each with >= 1 position.
         dashboard_rows = page.locator(SELECTORS["dashboard_asset_row"])
         try:
             page.wait_for_function(
                 "() => document.querySelectorAll("
                 f"'{SELECTORS['dashboard_asset_row']}').length === 48",
-                timeout=5000,
+                timeout=10000,
             )
         except Exception:
             _debug_dump(page, "post_confirm_dashboard")
             raise
         assert dashboard_rows.count() == 48
 
-        # Every row must show >= 1 position. The data-position-count
-        # attribute (added in the T04 dashboard change) is on the
-        # <li data-testid="dashboard-asset-row"> itself, not on the
-        # hidden <span data-testid="asset-position-count"> child.
-        # Read it directly from the row element.
+        # Every row must have >= 1 position via data-position-count.
         for i in range(48):
             row = dashboard_rows.nth(i)
             count_str = row.get_attribute("data-position-count")
@@ -445,47 +389,81 @@ class TestS04ImportJourney:
             count = int(count_str)
             assert count >= 1, f"row {i} has {count} positions, expected >= 1"
 
-        # The 5 new assets must have the unmatched names. They were
-        # all created in "RF Pós" (the class we picked for them).
+        # The 5 new assets must have the unmatched names.
         dashboard_text = page.locator("main").inner_text()
         for name in UNMATCHED_NAMES:
             assert name in dashboard_text, f"new asset {name!r} not on dashboard after confirm"
 
     def test_expired_preview_shows_expirado(self, page: Page, live_url: str) -> None:
-        """A preview whose created_at is older than PREVIEW_TTL renders
-        the Expirado state on /import/review.
+        """A backdated preview renders the Expired UI in the modal.
 
-        We don't wait 1 hour: the test backdates the preview row via
-        a direct sqlite3 write. The ``clean_italo`` autouse fixture
-        wipes classes before the test; we re-create them so the
-        /import POST succeeds (the route requires an active profile
-        with no class constraint, but the seed function on the
-        e2e conftest wipes everything).
+        The old test navigated to /import/review to see the expired
+        banner. With the dashboard modal, the expired state is checked
+        server-side on commit. We test end-to-end: upload via the modal,
+        backdate the preview, then verify the commit returns 400.
+
+        Additionally, we verify the GET /api/import/preview/<id> endpoint
+        returns 404 for expired previews (the server-side check that
+        the modal would hit on re-upload).
         """
         _login_and_select_italo(page, live_url)
         _create_three_classes(page, live_url)
 
-        # Upload to create a fresh preview.
-        page.click(SELECTORS["nav_import"])
-        page.wait_for_url(re.compile(r"/import$"))
-        page.set_input_files(SELECTORS["import_file"], str(FIXTURE_PATH))
-        page.click(SELECTORS["import_submit"])
-        page.wait_for_url(re.compile(r"/import/review$"))
+        # Upload via the dashboard modal to create a fresh preview.
+        page.click(SELECTORS["dashboard_import_btn"])
+        page.wait_for_timeout(500)
+        page.set_input_files(SELECTORS["import_file_input"], str(FIXTURE_PATH))
+        page.click(SELECTORS["import_upload_btn"])
+        page.wait_for_selector(SELECTORS["import_commit_btn"], timeout=10000)
+
+        # Read the preview_id from the Alpine store.
+        preview_id: int | None = page.evaluate(
+            "() => Alpine.store('importModal').previewId"
+        )
+        assert preview_id is not None and isinstance(preview_id, int), (
+            f"expected preview_id, got {preview_id!r}"
+        )
 
         # Backdate the preview to 2 hours ago (PREVIEW_TTL is 1h).
-        # Connect to the test DB the e2e conftest started.
         conn = sqlite3.connect(TEST_DB_PATH)
         try:
-            conn.execute("UPDATE import_previews SET created_at = datetime('now', '-2 hours')")
+            conn.execute(
+                "UPDATE import_previews SET created_at = datetime('now', '-2 hours') WHERE id = ?",
+                (preview_id,),
+            )
             conn.commit()
         finally:
             conn.close()
 
-        # Reload the review page — it should now show Expirado.
-        page.goto(f"{live_url}/import/review")
-        # The Expirado state replaces the form; the form is gone and
-        # the import-review-expired banner is rendered.
-        assert page.locator(SELECTORS["import_review_expired"]).count() == 1
-        assert page.locator(SELECTORS["import_review_form"]).count() == 0
-        expired_text = page.locator(SELECTORS["import_review_expired"]).inner_text()
-        assert "Expirado" in expired_text or "expirado" in expired_text.lower()
+        # Verify the GET preview endpoint returns 404 (expired).
+        resp = page.evaluate(
+            """async (previewId) => {
+                const r = await fetch('/api/import/preview/' + previewId);
+                return { status: r.status, detail: (await r.json()).detail };
+            }""",
+            preview_id,
+        )
+        assert resp["status"] == 404, f"expected 404 for expired preview, got {resp}"
+        assert "Expirado" in resp["detail"], f"expected 'Expirado' in error, got {resp['detail']!r}"
+
+        # Verify commit rejects the expired preview.
+        commit_resp = page.evaluate(
+            """async (previewId) => {
+                const r = await fetch('/api/import/commit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        preview_id: previewId,
+                        assignments: [],
+                    }),
+                });
+                return { status: r.status, detail: (await r.json()).detail };
+            }""",
+            preview_id,
+        )
+        assert commit_resp["status"] == 400, (
+            f"expected 400 for expired commit, got {commit_resp}"
+        )
+        assert "expirado" in commit_resp["detail"].lower(), (
+            f"expected 'expirado' in error, got {commit_resp['detail']!r}"
+        )

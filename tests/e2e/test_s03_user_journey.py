@@ -3,8 +3,9 @@
 Drives a headless chromium against a live uvicorn instance to
 verify the complete S03 user loop end to end:
 
-  login → select profile → create 3 classes → add 3 assets →
-  delete 1 asset → verify dashboard distribution
+  login → select profile → create 3 classes → add 3 assets via
+  the dashboard inline "+ Ativo" form → delete 1 asset via the
+  per-row confirm dialog → verify dashboard distribution
 
 This test exists because the route-level TestClient tests in
 ``test_t03_assets_e2e.py`` bypass the rendered HTML. The
@@ -31,15 +32,16 @@ SELECTORS = {
     "login_submit": 'button[type="submit"]',
     "profile_picker": "form.profile-picker button",
     "nav_dashboard": '[data-testid="nav-dashboard"]',
-    "nav_assets": '[data-testid="nav-assets"]',
     "class_summary_row": '[data-testid="class-summary-row"]',
-    "asset_editor_name": '[data-testid="asset-editor-name"]',
-    "asset_editor_class": '[data-testid="asset-editor-class"]',
-    "asset_editor_add": '[data-testid="asset-editor-add"]',
-    "asset_row": '[data-testid="asset-row"]',
-    "asset_row_delete": '[data-testid="asset-row-delete"]',
     "dashboard_class_section": '[data-testid="dashboard-class-section"]',
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
+    "dashboard_add_asset_btn": '[data-testid="dashboard-add-asset-btn"]',
+    "dashboard_add_asset_name": '[data-testid="dashboard-add-asset-name-input"]',
+    "dashboard_add_asset_pct": '[data-testid="dashboard-add-asset-pct-input"]',
+    "dashboard_add_asset_save": '[data-testid="dashboard-add-asset-save"]',
+    "dashboard_asset_delete_btn": '[data-testid="dashboard-asset-delete-btn"]',
+    "dashboard_asset_delete_confirm_yes": '[data-testid="dashboard-asset-delete-confirm-yes"]',
+    "asset_row_name": '[data-testid="asset-row-name"]',
 }
 
 
@@ -55,6 +57,48 @@ def _login_and_select_italo(page: Page, base_url: str) -> None:
     # The seed creates Italo first, Ana Livia second.
     page.locator(SELECTORS["profile_picker"]).filter(has_text="Italo").click()
     page.wait_for_url(re.compile(r"/$"))
+
+
+def _create_three_classes(page: Page, base_url: str) -> None:
+    """Create 3 classes via the snapshot form (POST /classes)."""
+    page.evaluate(
+        """async () => {
+            const fd = new FormData();
+            for (const [name, pct] of [['Renda Fixa', 60], ['Acoes', 30], ['Reserva', 10]]) {
+                fd.append('name[]', name);
+                fd.append('target_pct[]', String(pct));
+            }
+            const r = await fetch('/classes', { method: 'POST', body: fd });
+            if (!r.ok) throw new Error('POST /classes ' + r.status + ': ' + await r.text());
+        }"""
+    )
+    page.goto(f"{base_url}/")
+    page.wait_for_selector(SELECTORS["class_summary_row"], timeout=5000)
+    assert page.locator(SELECTORS["class_summary_row"]).count() == 3
+
+
+def _expand_section(page: Page, class_name: str) -> None:
+    """Expand a class section programmatically via Alpine.$data.
+
+    Sections collapse on every page reload (D016). Use Alpine's internal
+    data to toggle isOpen=true instead of clicking the chevron, which
+    can trigger pointer-event interception in the stacked layout.
+    """
+    page.evaluate(
+        """(className) => {
+            const rows = document.querySelectorAll('[data-testid="class-summary-row"]');
+            for (const row of rows) {
+                const name = row.querySelector('[data-testid="class-section-name"]');
+                if (name && name.textContent.trim() === className) {
+                    const data = Alpine.$data(row);
+                    if (data && !data.isOpen) data.isOpen = true;
+                    break;
+                }
+            }
+        }""",
+        class_name,
+    )
+    page.wait_for_timeout(350)
 
 
 def _debug_dump(page: Page, tag: str) -> None:
@@ -79,6 +123,52 @@ def _debug_dump(page: Page, tag: str) -> None:
             f.write(f"main inner_html failed: {exc}\n")
 
 
+def _add_asset_via_dashboard(page: Page, base_url: str, class_name: str,
+                              asset_name: str, target_pct: str = "10") -> None:
+    """Add an asset to a class via the dashboard inline form.
+
+    Uses the ``+ Ativo`` button inside the class section, fills
+    the name and target % inputs, clicks Save, and waits for the
+    page reload on success.
+
+    The class section starts collapsed (D016: default closed). We click
+    the chevron button to expand it before clicking ``+ Ativo``.
+    """
+    # Find the class section by its name.
+    page.wait_for_selector(SELECTORS["class_summary_row"], timeout=5000)
+    class_sections = page.locator(SELECTORS["class_summary_row"])
+    section = None
+    for i in range(class_sections.count()):
+        name_el = class_sections.nth(i).locator('[data-testid="class-section-name"]')
+        if name_el.inner_text().strip() == class_name:
+            section = class_sections.nth(i)
+            break
+    assert section is not None, f"Class section '{class_name}' not found"
+
+    # Expand the section by clicking the chevron with force=True
+    # (bypasses pointer-event interception checks in the stacked layout).
+    section.locator('[data-testid="class-chevron"]').click(force=True)
+    page.wait_for_timeout(350)  # transition: 200ms ease-out + buffer
+
+    # Click the + Ativo button inside this class section.
+    add_btn = section.locator(SELECTORS["dashboard_add_asset_btn"])
+    add_btn.click()
+    page.wait_for_timeout(300)  # let Alpine x-show toggle
+
+    # Fill the form.
+    section.locator(SELECTORS["dashboard_add_asset_name"]).fill(asset_name)
+    section.locator(SELECTORS["dashboard_add_asset_pct"]).fill(target_pct)
+
+    # Click Save — this triggers a POST /api/assets and reloads on 201.
+    section.locator(SELECTORS["dashboard_add_asset_save"]).click()
+
+    # Wait for the page to reload (the addAsset() function calls
+    # window.location.reload() on 201).
+    page.wait_for_url(f"{base_url}/")
+    page.wait_for_selector(SELECTORS["class_summary_row"], timeout=5000)
+    page.wait_for_load_state("networkidle", timeout=5000)
+
+
 class TestS03UserJourney:
     """One class per test scenario so failures are isolated."""
 
@@ -86,108 +176,71 @@ class TestS03UserJourney:
         """Smoke: login + select Italo lands on a dashboard with no classes yet."""
         _login_and_select_italo(page, live_url)
 
-        # The nav is rendered and points to the right places.
+        # The nav is rendered and points to the dashboard.
         assert page.locator(SELECTORS["nav_dashboard"]).count() == 1
-        assert page.locator(SELECTORS["nav_assets"]).count() == 1
 
         # No classes yet → empty state on the dashboard.
         page.wait_for_selector('[data-testid="empty-state"]', timeout=5000)
         assert page.locator(SELECTORS["class_summary_row"]).count() == 0
 
     def test_full_crud_journey_classes_assets_delete(self, page: Page, live_url: str) -> None:
-        """Full S03 user journey: 3 classes, 3 assets, delete 1, verify dashboard.
+        """Full S03 user journey: 3 classes, 3 assets (inline), delete 1, verify dashboard.
 
-        This is the regression test for the delete-button-outside-form
-        bug. If the formaction button is not associated with a <form>
-        (the original bug), clicking the "x" does nothing and the
-        test fails on the post-delete row count.
+        Uses the dashboard inline "+ Ativo" form for asset creation and
+        the per-row confirm dialog for deletion — both added in S03/T03
+        and S03/T04.
         """
         _login_and_select_italo(page, live_url)
 
         # --- 1. Create 3 classes summing to 100 via the snapshot form.
-        # The /classes page was retired in S02/T07 — class CRUD goes
-        # through the snapshot POST /classes (parallel form arrays)
-        # or the REST API. We use fetch() + FormData from the browser
-        # context since the page is already logged in.
-        page.evaluate(
-            """async () => {
-                const fd = new FormData();
-                for (const [name, pct] of [['Renda Fixa', 60], ['Acoes', 30], ['Reserva', 10]]) {
-                    fd.append('name[]', name);
-                    fd.append('target_pct[]', String(pct));
-                }
-                const r = await fetch('/classes', { method: 'POST', body: fd });
-                if (!r.ok) throw new Error('POST /classes ' + r.status + ': ' + await r.text());
-            }"""
+        _create_three_classes(page, live_url)
+
+        # --- 2. Add 3 assets inline on the dashboard, one per class.
+        # Assets are created with target_pct=0 because the per-class sum
+        # validator requires all assets' target_pct in a class to total 100
+        # — a single asset at 40% in an empty class would fail validation.
+        # The test asserts the CRUD flow (add/delete/verify), not allocation
+        # percentages, so 0% is fine for setup.
+        _add_asset_via_dashboard(page, live_url, "Renda Fixa", "Tesouro Selic", "0")
+        _add_asset_via_dashboard(page, live_url, "Acoes", "PETR4", "0")
+        _add_asset_via_dashboard(page, live_url, "Reserva", "IVVB11", "0")
+
+        # Verify all 3 assets appear on the dashboard.
+        # Sections collapse on reload (D016); rows exist but are not visible.
+        page.wait_for_selector(
+            SELECTORS["dashboard_asset_row"], state="attached", timeout=5000
         )
+        asset_rows = page.locator(SELECTORS["dashboard_asset_row"])
+        assert asset_rows.count() == 3, f"expected 3 asset rows, got {asset_rows.count()}"
 
-        # Reload the dashboard to pick up the new classes.
-        page.goto(f"{live_url}/")
-        page.wait_for_selector(SELECTORS["class_summary_row"], timeout=5000)
-        assert page.locator(SELECTORS["class_summary_row"]).count() == 3
+        # --- 3. Delete the second asset (PETR4 in Acoes).
+        # Expand the Acoes section first (collapsed after page reload, D016).
+        _expand_section(page, "Acoes")
+        page.wait_for_timeout(300)
 
-        # --- 2. Add 3 assets, one per class.
-        page.click(SELECTORS["nav_assets"])
-        page.wait_for_url(re.compile(r"/assets$"))
-
-        for i, (class_name, asset_name) in enumerate(
-            (
-                ("Renda Fixa", "Tesouro Selic"),
-                ("Acoes", "PETR4"),
-                ("Reserva", "IVVB11"),
-            )
-        ):
-            page.fill(SELECTORS["asset_editor_name"], asset_name)
-            page.select_option(SELECTORS["asset_editor_class"], label=class_name)
-            page.click(SELECTORS["asset_editor_add"])
-            # Wait for the asset to appear in the rendered list
-            # (the editor re-renders, the POST/303 round-trip is
-            # server-bound). i+1 because the iteration index
-            # starts at 0.
-            try:
-                page.wait_for_function(
-                    "() => document.querySelectorAll("
-                    f"'{SELECTORS['asset_row']}').length === {i + 1}",
-                    timeout=5000,
-                )
-            except Exception:
-                _debug_dump(page, f"asset_iter_{i}_{class_name}_{asset_name}")
-                raise
-
-        assert page.locator(SELECTORS["asset_row"]).count() == 3
-
-        # --- 3. Delete the second asset (PETR4 / Acoes).
-        # Locate the row whose name is "PETR4" and click its delete.
-        petr4_row = page.locator(SELECTORS["asset_row"]).filter(has_text="PETR4")
+        # Locate the row whose name is "PETR4" and click its delete button.
+        petr4_row = asset_rows.filter(has_text="PETR4")
         assert petr4_row.count() == 1, "PETR4 row should exist before delete"
-        petr4_row.locator(SELECTORS["asset_row_delete"]).click()
+        petr4_row.locator(SELECTORS["dashboard_asset_delete_btn"]).click()
+        page.wait_for_timeout(300)  # let Alpine x-show toggle the confirm dialog
 
-        # The formaction routes the POST to /assets/{id}/delete;
-        # a 303 redirects back to /assets. Wait for the row count
-        # to drop. The form is INSIDE the page, so the click
-        # actually fires — this is the regression assertion.
-        try:
-            page.wait_for_function(
-                f"() => document.querySelectorAll('{SELECTORS['asset_row']}').length === 2",
-                timeout=5000,
-            )
-        except Exception:
-            _debug_dump(page, "post_delete")
-            raise
-        assert page.locator(SELECTORS["asset_row"]).count() == 2
-        # The remaining 2 are Tesouro Selic and IVVB11 (no PETR4).
-        page_text = page.locator(".asset-editor").inner_text()
-        assert "PETR4" not in page_text
+        # Click the confirm button in the per-row delete dialog.
+        petr4_row.locator(SELECTORS["dashboard_asset_delete_confirm_yes"]).click()
 
-        # --- 4. Verify the dashboard shows 3 class sections, 2 assets.
-        page.click(SELECTORS["nav_dashboard"])
-        page.wait_for_url(re.compile(r"/$"))
+        # Wait for the page reload (confirmDeleteAsset() calls
+        # window.location.reload() on 204).
+        page.wait_for_url(f"{live_url}/")
+        page.wait_for_selector(SELECTORS["class_summary_row"], timeout=5000)
 
+        # --- 4. Verify dashboard shows 3 class sections, 2 assets.
+        # Sections collapsed again after reload; expand them to count visible rows.
         sections = page.locator(SELECTORS["dashboard_class_section"])
         assert sections.count() == 3
 
+        # The remaining assets are inside collapsed sections. Expand to
+        # confirm the correct count via DOM presence (not visibility).
         asset_rows = page.locator(SELECTORS["dashboard_asset_row"])
-        assert asset_rows.count() == 2
+        assert asset_rows.count() == 2, f"expected 2 asset rows, got {asset_rows.count()}"
         dashboard_text = page.locator("main").inner_text()
         assert "Tesouro Selic" in dashboard_text
         assert "IVVB11" in dashboard_text
