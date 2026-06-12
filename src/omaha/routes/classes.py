@@ -34,13 +34,10 @@ The full set of rules:
 2. Every ``target_pct`` parses to a :class:`~decimal.Decimal` in
    the closed interval ``[0, 100]`` (matches the column's
    ``Numeric(5, 2)``).
-3. ``abs(sum - 100) ≤ 0.01`` — a 1-cent tolerance so the message
-   can be reported as a whole number (``Falta 10`` /
-   ``Sobra 10``).
-4. No two names in the same submission are identical (in addition
+3. No two names in the same submission are identical (in addition
    to the DB unique constraint, so a duplicate surfaces as a
    clean 200 form re-render rather than an ``IntegrityError``).
-5. Any row whose ``class_id`` references an existing row must
+4. Any row whose ``class_id`` references an existing row must
    reference a row that belongs to the active profile — defensive
    against a hand-crafted form submission.
 
@@ -52,7 +49,7 @@ matches the user's input order on the first save.
 
 from __future__ import annotations
 
-from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
@@ -62,7 +59,6 @@ from sqlalchemy.orm import selectinload
 
 from omaha.auth import DbSession, require_active_profile, require_user
 from omaha.models import AssetClass, Profile, User
-from omaha.validators import validate_target_pct_sum
 
 router = APIRouter(tags=["classes"])
 
@@ -70,8 +66,6 @@ router = APIRouter(tags=["classes"])
 NAME_MAX_LEN = 64
 PCT_MIN = Decimal("0")
 PCT_MAX = Decimal("100")
-SUM_TARGET = Decimal("100")
-SUM_TOLERANCE = Decimal("0.01")
 
 
 def _templates(request: Request):
@@ -146,16 +140,9 @@ def _validate_rows(
 
         rows.append({"name": name, "pct": pct})
 
-    # Sum invariant is the last per-form check — it's the most
-    # expensive (it touches every row) and the message is the
-    # most user-facing.
-    total = sum((r["pct"] for r in rows), Decimal("0"))
-    delta = SUM_TARGET - total
-    if abs(delta) > SUM_TOLERANCE:
-        if delta > 0:
-            return None, f"Falta {int(delta.to_integral_value(rounding=ROUND_HALF_UP))}."
-        else:
-            return None, f"Sobra {int((-delta).to_integral_value(rounding=ROUND_HALF_UP))}."
+    # Sum invariant is NOT enforced as a blocker — the user builds
+    # the portfolio incrementally. The dashboard shows the current
+    # total as an informational indicator, never blocked.
 
     return rows, None
 
@@ -320,19 +307,23 @@ def post_class(
     profile: Profile = Depends(require_active_profile),
     payload: dict = None,
 ) -> Response:
-    """Create a single class with per-profile sum validation and duplicate-name detection.
+    """Create a single class with duplicate-name detection and per-row validation.
 
     The dashboard's Alpine component renders a "+" button that opens
     an inline form and POSTs JSON ``{"name": "...", "target_pct": "..."}``.
     ``display_order`` is optional and defaults to ``len(existing_classes)``
     (appending after the last row).
 
+    **Allocation is NOT blocked by sum-to-100** (the user builds the
+    portfolio incrementally). The dashboard shows the current total
+    as an informational indicator.
+
     Returns
     -------
-    - 201 with ``{"id": ..., "name": "...", "target_pct": "..."}`` on success.
+    - 201 with ``{"id": ..., "name": ..., "target_pct": ...}`` on success.
     - 409 with ``{"detail": "..."}`` if the name already exists in this profile.
     - 422 with ``{"detail": "..."}`` if validation fails (empty/long name,
-      invalid target_pct, or per-profile sum exceeds 100).
+      invalid target_pct range).
     """
     if payload is None:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
@@ -378,23 +369,13 @@ def post_class(
             detail=f"A alocação da classe deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
         )
 
-    # --- Gather existing classes and validate per-profile sum ---
+    # --- Compute display_order (append by default) ---
     existing_classes = (
         db.query(AssetClass)
         .filter(AssetClass.profile_id == profile.id)
         .order_by(AssetClass.display_order)
         .all()
     )
-    all_pcts = [c.target_pct for c in existing_classes] + [new_pct]
-
-    ok, error = validate_target_pct_sum(all_pcts)
-    if not ok:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=error,
-        )
-
-    # --- Compute display_order ---
     display_order = payload.get("display_order", len(existing_classes))
 
     # --- Insert ---
@@ -408,12 +389,12 @@ def post_class(
     try:
         db.commit()
         db.refresh(cls)
-    except IntegrityError:
+    except IntegrityError as err:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Já existe uma classe com o nome {name}.",
-        )
+        ) from err
 
     return {"id": cls.id, "name": cls.name, "target_pct": str(cls.target_pct)}
 
@@ -426,20 +407,22 @@ def patch_class(
     profile: Profile = Depends(require_active_profile),
     payload: dict = None,
 ) -> Response:
-    """Update a single class's ``target_pct" inline with per-profile sum validation.
+    """Update a single class's ``target_pct`` inline.
 
     The dashboard's Alpine component clicks the % cell, turns it into an
     input, and on blur sends a PATCH with ``{"target_pct": "<new>"}``.
     Only the ``target_pct`` field is accepted — name changes and other
     mutations go through the snapshot ``POST /classes`` editor.
 
+    **Allocation is NOT blocked by sum-to-100** (the user adjusts
+    incrementally). The dashboard shows the current total as an
+    informational indicator.
+
     Returns
     -------
-    - 200 with ``{"id": class_id, "target_pct": "<new>"}" on success.
+    - 200 with ``{"id": class_id, "target_pct": "<new>"}`` on success.
     - 404 if the class does not exist or belongs to another profile.
-    - 422 with ``{"detail": <error>}" if the new value breaks the
-      per-profile 100-sum invariant (message matches the class editor's
-      "Sobra X%" / "Falta X%" wording).
+    - 422 with ``{"detail": <error>}`` if the new value is out of range.
     """
     cls = db.get(AssetClass, class_id)
     if cls is None or cls.profile_id != profile.id:
@@ -457,24 +440,6 @@ def patch_class(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"A alocação da classe deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
-        )
-
-    # Gather all other classes in the profile + the new value for this one.
-    other_classes = (
-        db.query(AssetClass)
-        .filter(
-            AssetClass.profile_id == profile.id,
-            AssetClass.id != class_id,
-        )
-        .all()
-    )
-    all_pcts = [c.target_pct for c in other_classes] + [new_pct]
-
-    ok, error = validate_target_pct_sum(all_pcts)
-    if not ok:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=error,
         )
 
     cls.target_pct = new_pct

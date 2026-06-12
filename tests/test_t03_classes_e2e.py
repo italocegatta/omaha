@@ -111,8 +111,13 @@ class TestClassesE2E:
         assert abs(float(classes[1].target_pct) - 30.0) < 0.01
         assert abs(float(classes[2].target_pct) - 10.0) < 0.01
 
-    def test_save_blocked_when_sum_not_100(self, client: TestClient):
-        """Adding less than 100% is rejected with error message; nothing committed."""
+    def test_save_succeeds_even_with_non_100_sum(self, client: TestClient):
+        """Adding less than 100% succeeds — allocation is informational, not blocking.
+
+        The snapshot ``POST /classes`` form no longer validates the
+        sum-to-100 invariant. Classes at any valid percentage are
+        created; the user builds the portfolio incrementally.
+        """
         profile = _login_and_select_profile(client)
 
         resp = client.post(
@@ -124,13 +129,14 @@ class TestClassesE2E:
             follow_redirects=True,
         )
         assert resp.status_code == 200
-        # The form re-renders with the editor + a Falta/Sobra message.
-        assert 'data-testid="class-editor"' in resp.text
-        assert "falta" in resp.text.lower() or "faltam" in resp.text.lower()
+        # The dashboard shows the saved classes (redirected to /).
+        assert 'data-testid="class-summary"' in resp.text
+        assert "Renda Fixa" in resp.text
+        assert "Acoes" in resp.text
 
-        # Verify nothing was committed
+        # Verify the classes were committed (both rows exist)
         count = len(_classes_for_profile(profile.id))
-        assert count == 0
+        assert count == 2
 
     def test_edit_class_via_snapshot_resubmit(self, client: TestClient):
         """Snapshot edit: re-submit with a new name; old row is gone, new row is the only one.

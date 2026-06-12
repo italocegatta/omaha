@@ -178,14 +178,18 @@ def test_post_class_creates_row(client: TestClient) -> None:
     assert sum(all_pct, Decimal("0")) == Decimal("100")
 
 
-def test_post_class_invalid_sum_returns_422(client: TestClient) -> None:
-    """POST a class that makes the per-profile sum exceed 100; expect 422.
+def test_post_class_creates_even_with_non_100_sum(client: TestClient) -> None:
+    """POST a class that makes the per-profile sum exceed 100; expect 201.
+
+    Allocation is NEVER blocked by sum-to-100 — the user builds
+    the portfolio incrementally. The class must be created even
+    when the sum goes over or under 100.
 
     Initial: 2 classes at 60/30 (sum = 90). POST a 3rd at 30
-    → new sum = 120 → "Sobra 20%". DB unchanged (2 rows).
+    → new sum = 120 (over 100). Expect 201, DB has 3 rows.
     """
     _login_and_select(client, profile_id=1)
-    ids = _seed_classes(
+    _seed_classes(
         profile_id=1,
         rows=[
             ("Renda Fixa", "60"),
@@ -193,26 +197,43 @@ def test_post_class_invalid_sum_returns_422(client: TestClient) -> None:
         ],
     )
 
-    # POST a 3rd class at 30 → sum becomes 60+30+30 = 120 → "Sobra 20%"
+    # POST a 3rd class at 30 → sum becomes 60+30+30 = 120 (over 100)
     response = client.post(
         "/api/classes",
         json={"name": "Bonds", "target_pct": "30"},
     )
 
-    assert response.status_code == 422
+    # Should succeed — allocation is informational, not blocking
+    assert response.status_code == 201
     data = response.json()
-    from omaha.validators import validate_target_pct_sum
+    assert data["name"] == "Bonds"
 
-    _, err = validate_target_pct_sum([Decimal("60"), Decimal("30"), Decimal("30")])
-    assert data["detail"] == err
+    # DB has 3 rows (the class was created)
+    assert _count_classes(profile_id=1) == 3
 
-    # DB unchanged (2 rows)
-    assert _count_classes(profile_id=1) == 2
 
-    # Existing class values unchanged
-    pct0 = _get_class_target_pct(ids[0])
-    assert pct0 is not None
-    assert float(pct0) == 60.0
+def test_post_first_class_at_60_percent(client: TestClient) -> None:
+    """Create the very first class at 60%; expect 201.
+
+    This was the original bug: with 0 existing classes, creating
+    a class at any value != 100% was rejected with "Falta X%".
+    The fix removed the per-profile sum validation — the first
+    class can be at any valid percentage.
+    """
+    _login_and_select(client, profile_id=1)
+
+    # 0 existing classes. Create first class at 60%.
+    response = client.post(
+        "/api/classes",
+        json={"name": "Renda Fixa", "target_pct": "60"},
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["name"] == "Renda Fixa"
+
+    # DB has 1 row
+    assert _count_classes(profile_id=1) == 1
 
 
 def test_post_class_duplicate_name_returns_409(client: TestClient) -> None:
@@ -222,7 +243,7 @@ def test_post_class_duplicate_name_returns_409(client: TestClient) -> None:
     → 409. DB unchanged (2 rows).
     """
     _login_and_select(client, profile_id=1)
-    ids = _seed_classes(
+    _seed_classes(
         profile_id=1,
         rows=[
             ("Stocks", "60"),

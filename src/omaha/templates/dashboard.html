@@ -161,78 +161,81 @@
       </article>
       {% endfor %}
 
-      <div class="new-class-container" data-testid="new-class-container" x-data="newClassForm()">
-        <button type="button"
-                class="new-class-plus-btn"
-                data-testid="new-class-plus-btn"
-                x-show="!showForm"
-                @click="showForm = true">
-          + Nova classe
-        </button>
-
-        <div class="new-class-form"
-             data-testid="new-class-form"
-             x-show="showForm"
-             x-cloak>
-          <div class="new-class-form-body">
-            <div class="new-class-form-field">
-              <label for="new-class-name">Nome</label>
-              <input type="text"
-                     id="new-class-name"
-                     class="new-class-input"
-                     data-testid="new-class-name-input"
-                     x-model="name"
-                     placeholder="Ex: Renda Fixa"
-                     :disabled="saving"
-                     @keyup.enter="save()">
-            </div>
-            <div class="new-class-form-field">
-              <label for="new-class-pct">Alvo %</label>
-              <input type="number"
-                     id="new-class-pct"
-                     class="new-class-input new-class-input--pct"
-                     data-testid="new-class-pct-input"
-                     x-model="targetPct"
-                     step="0.01"
-                     min="0"
-                     max="100"
-                     placeholder="60"
-                     :disabled="saving"
-                     @keyup.enter="save()">
-            </div>
-            <div class="new-class-form-actions">
-              <button type="button"
-                      class="btn btn-primary new-class-form-save"
-                      data-testid="new-class-form-save"
-                      @click="save()"
-                      :disabled="saving">
-                <span x-show="!saving">Salvar</span>
-                <span x-show="saving">Salvando...</span>
-              </button>
-              <button type="button"
-                      class="btn new-class-form-cancel"
-                      data-testid="new-class-form-cancel"
-                      @click="cancel()"
-                      :disabled="saving">Cancelar</button>
-            </div>
-          </div>
-          <p class="new-class-form-error"
-             data-testid="new-class-form-error"
-             x-show="error"
-             x-text="error"
-             x-cloak></p>
-        </div>
-      </div>
     </section>
   </section>
   {% else %}
   <div class="empty-state" data-testid="empty-state">
-    <p>Sem classes ainda.</p>
-    <a href="/classes" class="btn btn-primary" style="margin-top:1rem;display:inline-block;width:auto">
-      Gerenciar classes
-    </a>
+    <p>Sem classes ainda. Crie sua primeira classe abaixo.</p>
   </div>
   {% endif %}
+
+  {# Always render the new-class-container so the user can create the
+     first class even when there are zero classes in the DB. The inline
+     Alpine form calls POST /api/classes and reloads the page on 201.
+     The old "Gerenciar classes" link pointed to /classes which was
+     retired in S02/T07 (302 redirect to / -- a dead loop). #}
+  <div class="new-class-container" data-testid="new-class-container" x-data="newClassForm()">
+    <button type="button"
+            class="new-class-plus-btn"
+            data-testid="new-class-plus-btn"
+            x-show="!showForm"
+            @click="showForm = true">
+      + Nova classe
+    </button>
+
+    <div class="new-class-form"
+         data-testid="new-class-form"
+         x-show="showForm"
+         x-cloak>
+      <div class="new-class-form-body">
+        <div class="new-class-form-field">
+          <label for="new-class-name">Nome</label>
+          <input type="text"
+                 id="new-class-name"
+                 class="new-class-input"
+                 data-testid="new-class-name-input"
+                 x-model="name"
+                 placeholder="Ex: Renda Fixa"
+                 :disabled="saving"
+                 @keyup.enter="save()">
+        </div>
+        <div class="new-class-form-field">
+          <label for="new-class-pct">Alvo %</label>
+          <input type="number"
+                 id="new-class-pct"
+                 class="new-class-input new-class-input--pct"
+                 data-testid="new-class-pct-input"
+                 x-model="targetPct"
+                 step="0.01"
+                 min="0"
+                 max="100"
+                 placeholder="60"
+                 :disabled="saving"
+                 @keyup.enter="save()">
+        </div>
+        <div class="new-class-form-actions">
+          <button type="button"
+                  class="btn btn-primary new-class-form-save"
+                  data-testid="new-class-form-save"
+                  @click="save()"
+                  :disabled="saving">
+            <span x-show="!saving">Salvar</span>
+            <span x-show="saving">Salvando...</span>
+          </button>
+          <button type="button"
+                  class="btn new-class-form-cancel"
+                  data-testid="new-class-form-cancel"
+                  @click="cancel()"
+                  :disabled="saving">Cancelar</button>
+        </div>
+      </div>
+      <p class="new-class-form-error"
+         data-testid="new-class-form-error"
+         x-show="error"
+         x-text="error"
+         x-cloak></p>
+    </div>
+  </div>
 </div>
 
 <script>

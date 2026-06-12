@@ -153,11 +153,15 @@ def test_patch_class_updates_target_pct(client: TestClient) -> None:
     assert float(updated_pct) == 33.34
 
 
-def test_patch_class_invalid_sum_returns_422(client: TestClient) -> None:
-    """PATCH to a value that breaks the per-profile sum; expect 422 and no DB change.
+def test_patch_class_allows_any_target_pct(client: TestClient) -> None:
+    """PATCH to any value; expect 200 even when the sum exceeds 100.
+
+    Allocation is NEVER blocked by sum-to-100 — the user adjusts
+    incrementally. The class must be updated even when the new sum
+    goes over or under 100.
 
     Initial: 30/30/40 (sum = 100). PATCH first to 60 → new sum =
-    60+30+40 = 130 → "Sobra 30%".
+    60+30+40 = 130. Expect 200, DB updated to 60.
     """
     _login_and_select(client, profile_id=1)
     ids = _seed_classes(
@@ -169,25 +173,23 @@ def test_patch_class_invalid_sum_returns_422(client: TestClient) -> None:
         ],
     )
 
-    # Verify initial sum is 100
-    initial_pct = _get_class_target_pct(ids[0])
-    assert float(initial_pct) == 30.0
-
-    # PATCH the first class to 60 → sum becomes 130
+    # PATCH the first class to 60 → sum becomes 130 (over 100)
     class_id = ids[0]
     response = client.patch(
         f"/api/classes/{class_id}",
         json={"target_pct": "60"},
     )
 
-    assert response.status_code == 422
+    # Should succeed — allocation is informational, not blocking
+    assert response.status_code == 200
     data = response.json()
-    assert data["detail"] == "Sobra 30%"
+    assert data["id"] == class_id
+    assert data["target_pct"] == "60"
 
-    # DB row unchanged
-    unchanged_pct = _get_class_target_pct(class_id)
-    assert unchanged_pct is not None
-    assert float(unchanged_pct) == 30.0
+    # DB row updated
+    updated_pct = _get_class_target_pct(class_id)
+    assert updated_pct is not None
+    assert float(updated_pct) == 60.0
 
 
 def test_patch_class_cross_profile_404(client: TestClient) -> None:
@@ -198,7 +200,7 @@ def test_patch_class_cross_profile_404(client: TestClient) -> None:
     """
     # Seed profile 1 with classes
     _login_and_select(client, profile_id=1)
-    ids_p1 = _seed_classes(
+    _seed_classes(
         profile_id=1,
         rows=[
             ("Renda Fixa", "30"),

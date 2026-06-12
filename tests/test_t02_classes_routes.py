@@ -237,8 +237,14 @@ def test_post_classes_sum_100_commits_with_display_order(
     assert orders == [0, 1, 2]
 
 
-def test_post_classes_sum_90_rejected_with_falta(client: TestClient) -> None:
-    """`POST /classes` with sum=90 re-renders with "Falta 10" and commits nothing."""
+def test_post_classes_sum_90_succeeds(client: TestClient) -> None:
+    """`POST /classes` with sum=90 succeeds — allocation is informational, not blocking.
+
+    The snapshot form no longer validates the sum-to-100 invariant.
+    Classes at any valid percentage are created; the user builds
+    the portfolio incrementally. The route returns 303 redirect
+    to the dashboard.
+    """
     _login_and_select(client, profile_id=1)
 
     response = _post_classes(
@@ -250,16 +256,21 @@ def test_post_classes_sum_90_rejected_with_falta(client: TestClient) -> None:
         ],
     )
 
-    assert response.status_code == 200
-    assert "Falta 10" in response.text
-    # The error is rendered into a dedicated element so the test
-    # does not couple to copy that T03 may rewrite.
-    assert "class-editor-error" in response.text
-    assert _count_classes(profile_id=1) == 0
+    # 303 redirect to / (success, not error re-render)
+    assert response.status_code == 303
+    assert response.headers.get("location") == "/"
+
+    # The classes were committed
+    assert _count_classes(profile_id=1) == 3
 
 
-def test_post_classes_sum_110_rejected_with_sobra(client: TestClient) -> None:
-    """`POST /classes` with sum=110 re-renders with "Sobra 10" and commits nothing."""
+def test_post_classes_sum_110_succeeds(client: TestClient) -> None:
+    """`POST /classes` with sum=110 succeeds — allocation is informational, not blocking.
+
+    The snapshot form no longer validates the sum-to-100 invariant.
+    Classes at any valid percentage are created. The route returns
+    303 redirect to the dashboard.
+    """
     _login_and_select(client, profile_id=1)
 
     response = _post_classes(
@@ -271,10 +282,12 @@ def test_post_classes_sum_110_rejected_with_sobra(client: TestClient) -> None:
         ],
     )
 
-    assert response.status_code == 200
-    assert "Sobra 10" in response.text
-    assert "class-editor-error" in response.text
-    assert _count_classes(profile_id=1) == 0
+    # 303 redirect to / (success, not error re-render)
+    assert response.status_code == 303
+    assert response.headers.get("location") == "/"
+
+    # The classes were committed
+    assert _count_classes(profile_id=1) == 3
 
 
 def test_post_classes_empty_name_rejected(client: TestClient) -> None:

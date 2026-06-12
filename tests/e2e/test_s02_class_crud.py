@@ -98,17 +98,10 @@ def _debug_dump(page: Page, tag: str) -> None:
 def _create_seed_classes(page: Page, classes: list[tuple[str, int]]) -> None:
     """Create seed classes via the ``POST /classes`` snapshot form.
 
-    The dashboard's inline create form (``new-class-container``) only
-    renders when ``asset_classes`` is non-empty (the ``{% if asset_classes %}``
-    block in the dashboard template). When all classes are wiped by
-    the ``clean_italo`` autouse fixture, the dashboard shows the
-    empty state, and there is no way to create the first class from
-    the dashboard. This helper creates one or more classes using the
-    still-active ``POST /classes`` FormData endpoint, which accepts
-    ``name[]`` / ``target_pct[]`` parallel arrays.
-
-    The API enforces that all classes in a profile sum to 100%
-    (within tolerance), so the list must pass the sum invariant.
+    The inline form (``new-class-container``) also calls
+    ``POST /api/classes`` which now accepts any allocation sum.
+    The snapshot form is used here to create multiple classes in
+    one shot for faster test setup.
     """
     page.evaluate(
         """async (items) => {
@@ -131,7 +124,7 @@ def _create_seed_classes(page: Page, classes: list[tuple[str, int]]) -> None:
 
 
 class TestS02ClassCRUD:
-    """4 e2e tests for the S02 dashboard-based class CRUD surface."""
+    """5 e2e tests for the S02 dashboard-based class CRUD surface."""
 
     # ── Test 1: /classes retirement ─────────────────────────────
 
@@ -152,9 +145,9 @@ class TestS02ClassCRUD:
         page.goto(f"{live_url}/classes")
 
         # After the 302 redirect, we should be on / (dashboard).
-        assert "/classes" not in page.url, (
-            f"expected redirect away from /classes, got URL: {page.url}"
-        )
+        assert (
+            "/classes" not in page.url
+        ), f"expected redirect away from /classes, got URL: {page.url}"
         assert page.url.rstrip("/").endswith(live_url.rstrip("/")) or page.url.rstrip("/").endswith(
             f"{live_url.rstrip('/')}/"
         ), f"expected dashboard URL, got: {page.url}"
@@ -164,7 +157,79 @@ class TestS02ClassCRUD:
         profile_header.wait_for(state="visible", timeout=5000)
         assert "Bem-vindo" in profile_header.inner_text()
 
-    # ── Test 2: Inline class create via "+ Nova classe" ─────────
+    # ── Test 2: Create first class from empty state ────────────
+
+    def test_create_first_class_from_empty_state(self, page: Page, live_url: str) -> None:
+        """Create the very first class from the empty state dashboard.
+
+        Bug fix: the "+ Nova classe" form was previously inside the
+        ``{% if asset_classes %}`` Jinja block, so when the DB had
+        zero classes, the form was not rendered. The empty state only
+        showed a "Gerenciar classes" link pointing to ``/classes``,
+        which had been retired in S02/T07 (302 redirect back to
+        dashboard -- a dead loop).
+
+        The fix moved the ``new-class-container`` outside the if/else
+        so it is always visible. This test verifies the fix by
+        starting with a clean DB (0 classes) and creating the first
+        class directly via the inline form.
+
+        ``POST /api/classes`` does NOT block by allocation sum --
+        the user creates classes incrementally at any percentage.
+        This test creates the first class at 60% to prove the
+        sum-to-100 invariant is informational, not blocking.
+
+        Asserts
+        -------
+        - The empty state message is visible ("Sem classes ainda").
+        - The "+ Nova classe" button is visible despite 0 classes.
+        - Clicking "+ Nova classe" reveals the inline create form.
+        - Filling name (60%) and saving creates a class section.
+        - Page reloads with the class section visible.
+        """
+        _login_and_select_italo(page, live_url)
+
+        # Verify the empty state is shown (0 classes).
+        empty_state = page.locator(S02_SELECTORS["empty_state"])
+        empty_state.wait_for(state="visible", timeout=5000)
+        assert "Sem classes ainda" in empty_state.inner_text()
+
+        # Verify the "+ Nova classe" button is visible despite empty state.
+        plus_btn = page.locator(S02_SELECTORS["new_class_plus_btn"])
+        plus_btn.wait_for(state="visible", timeout=2000)
+        assert plus_btn.is_visible(), "'+ Nova classe' button must be visible even with 0 classes"
+
+        # Click "+" to show the inline create form.
+        plus_btn.click()
+        page.locator(S02_SELECTORS["new_class_form"]).wait_for(state="visible", timeout=2000)
+        page.locator(S02_SELECTORS["new_class_name_input"]).wait_for(state="visible", timeout=2000)
+        page.locator(S02_SELECTORS["new_class_pct_input"]).wait_for(state="visible", timeout=2000)
+
+        # Fill and save the first class at 60% (allocation is NOT
+        # blocked by sum-to-100 -- the user creates classes at any
+        # percentage and builds the portfolio incrementally).
+        page.locator(S02_SELECTORS["new_class_name_input"]).fill("Renda Fixa")
+        page.locator(S02_SELECTORS["new_class_pct_input"]).fill("60")
+        page.locator(S02_SELECTORS["new_class_form_save"]).click()
+
+        # On 201, the page reloads. Wait for the class section to appear.
+        try:
+            class_row = page.locator(S02_SELECTORS["class_summary_row"])
+            class_row.wait_for(state="visible", timeout=8000)
+            assert class_row.count() == 1, f"expected 1 class, got {class_row.count()}"
+            name_elem = class_row.locator(S02_SELECTORS["class_section_name"])
+            assert "Renda Fixa" in name_elem.inner_text()
+        except Exception:
+            _debug_dump(page, "post_create_first_class")
+            raise
+
+        # The empty state should be gone now.
+        assert not empty_state.is_visible(), "empty state should be hidden after creating a class"
+
+    # ── Test 3: Inline class create via "+ Nova classe" ─────────
+    # Seeds via snapshot form. Creating one class at a time via the
+    # inline form now works at any percentage -- allocation sum is
+    # informational, not blocking.
 
     def test_inline_create_class(self, page: Page, live_url: str) -> None:
         """Create 2 classes via the inline "+ Nova classe" form.
@@ -175,46 +240,28 @@ class TestS02ClassCRUD:
 
         Setup
         -----
-        The ``clean_italo`` autouse fixture wipes all classes, so the
-        dashboard shows the empty state. The inline create form only
-        renders when at least one class exists (inside the
-        ``{% if asset_classes %}`` block). We create the first class
-        via the API first, then test the inline form for the second.
+        Seed 2 classes via snapshot form (batch sum to 100). Tests the
+        x-show toggle behavior of the inline create form.
 
         Asserts
         -------
         - Clicking "+ Nova classe" reveals the form (x-show toggle).
         - The form has name input, pct input, save and cancel buttons.
-        - Filling and saving creates a class section in the dashboard.
-        - The new class form resets to hidden after save (page reload).
-        - The class section shows name, target %, no assets line.
+        - Cancel hides the form again.
         """
         _login_and_select_italo(page, live_url)
 
-        # Create both classes in one shot using the snapshot form so
-        # the sum-to-100 invariant passes. Both render on the dashboard
-        # with the "+ Nova classe" button visible.
+        # Seed both classes in one shot so the sum-to-100 invariant passes.
         _create_seed_classes(page, [["Outros", 40], ["Renda Fixa", 60]])
 
-        # We should now have 2 classes.
+        # Verify 2 classes rendered.
         class_rows = page.locator(S02_SELECTORS["class_summary_row"])
-        assert class_rows.count() == 2, (
-            f"expected 2 classes (Outros + Renda Fixa), got {class_rows.count()}"
-        )
-
-        # Both class names should appear.
-        page_text = page.locator("main").inner_text()
-        assert "Outros" in page_text
-        assert "Renda Fixa" in page_text
+        assert class_rows.count() == 2
 
         # --- Verify the "+ Nova classe" form toggle UI ---
-        # The inline form is now visible (the button is below the
-        # class sections). Test the Alpine x-show toggle: click
-        # "+" → form appears → click "Cancelar" → form hides.
-        page.wait_for_selector(S02_SELECTORS["new_class_plus_btn"], timeout=5000)
+        page.locator(S02_SELECTORS["new_class_plus_btn"]).wait_for(state="visible", timeout=5000)
         page.locator(S02_SELECTORS["new_class_plus_btn"]).click()
         page.locator(S02_SELECTORS["new_class_form"]).wait_for(state="visible", timeout=2000)
-
         page.locator(S02_SELECTORS["new_class_name_input"]).wait_for(state="visible", timeout=2000)
         page.locator(S02_SELECTORS["new_class_pct_input"]).wait_for(state="visible", timeout=2000)
         page.locator(S02_SELECTORS["new_class_form_save"]).wait_for(state="visible", timeout=2000)
@@ -224,18 +271,18 @@ class TestS02ClassCRUD:
         page.locator(S02_SELECTORS["new_class_form_cancel"]).click()
         page.locator(S02_SELECTORS["new_class_form"]).wait_for(state="hidden", timeout=2000)
 
-    # ── Test 3: Class delete via × + confirm dialog ────────────
+    # ── Test 4: Class delete via x + confirm dialog ────────────
 
     def test_delete_class_via_confirm_dialog(self, page: Page, live_url: str) -> None:
-        """Delete a class via × button + "Sim, remover" confirmation.
+        """Delete a class via x button + "Sim, remover" confirmation.
 
-        Setup: create 2 classes (first via API, second via inline
-        form), delete one, verify it is removed.
+        Setup: create 2 classes via snapshot form, delete one, verify
+        it is removed.
 
         Asserts
         -------
-        - The × delete button is visible in the class header.
-        - Clicking × shows the confirm dialog (x-show toggle).
+        - The x delete button is visible in the class header.
+        - Clicking x shows the confirm dialog (x-show toggle).
         - Clicking "Cancelar" hides the dialog and does nothing.
         - Clicking "Sim, remover" sends DELETE /api/classes/{id}
           and reloads the page on success (204).
@@ -244,8 +291,7 @@ class TestS02ClassCRUD:
         """
         _login_and_select_italo(page, live_url)
 
-        # Create both classes in one shot using the snapshot form so
-        # the sum-to-100 invariant passes.
+        # Create two classes via snapshot form (batch sum to 100).
         _create_seed_classes(page, [["Reserva", 60], ["Acoes", 40]])
 
         # Verify 2 classes exist.
@@ -253,31 +299,28 @@ class TestS02ClassCRUD:
         assert class_rows.count() == 2
 
         # --- Test cancel behavior first ---
-        # Find the "Acoes" class row's delete button.
         acoes_row = class_rows.filter(has_text="Acoes")
         assert acoes_row.count() == 1, "Acoes class section must exist"
 
-        # Click the × delete button to show the confirm dialog.
+        # Click the x delete button to show the confirm dialog.
         acoes_row.locator(S02_SELECTORS["class_delete_btn"]).click()
         confirm = acoes_row.locator(S02_SELECTORS["class_delete_confirm"])
         confirm.wait_for(state="visible", timeout=2000)
 
         # Click "Cancelar" on the confirm dialog.
-        cancel_btn = acoes_row.locator(S02_SELECTORS["class_delete_confirm_no"])
-        cancel_btn.click()
+        acoes_row.locator(S02_SELECTORS["class_delete_confirm_no"]).click()
 
         # The confirm dialog should hide again (x-show toggles off).
         confirm.wait_for(state="hidden", timeout=2000)
 
-        # Now do the actual delete: click × again, then "Sim, remover".
+        # Now do the actual delete: click x again, then "Sim, remover".
         acoes_row.locator(S02_SELECTORS["class_delete_btn"]).click()
         acoes_row.locator(S02_SELECTORS["class_delete_confirm"]).wait_for(
             state="visible", timeout=2000
         )
         acoes_row.locator(S02_SELECTORS["class_delete_confirm_yes"]).click()
 
-        # On success (204), the page reloads. Wait for the class
-        # summary to re-render with only Reserva.
+        # On success (204), the page reloads. Wait for only Reserva.
         try:
             page.wait_for_function(
                 "() => document.querySelectorAll("
@@ -289,19 +332,17 @@ class TestS02ClassCRUD:
             raise
 
         remaining = page.locator(S02_SELECTORS["class_summary_row"])
-        assert remaining.count() == 1, (
-            f"expected 1 class after deleting Acoes, got {remaining.count()}"
-        )
+        assert (
+            remaining.count() == 1
+        ), f"expected 1 class after deleting Acoes, got {remaining.count()}"
         remaining_name = remaining.locator(S02_SELECTORS["class_section_name"]).inner_text()
-        assert "Reserva" in remaining_name, (
-            f"expected 'Reserva' to remain, got {remaining_name!r}"
-        )
+        assert "Reserva" in remaining_name, f"expected 'Reserva' to remain, got {remaining_name!r}"
 
         # "Acoes" should be gone from the page text.
         page_text = page.locator("main").inner_text()
         assert "Acoes" not in page_text
 
-    # ── Test 4: Delete a class with assets shows 409 error ──────
+    # ── Test 5: Delete a class with assets shows 409 error ──────
 
     def test_delete_class_with_assets_shows_409(self, page: Page, live_url: str) -> None:
         """Deleting a class that has assets shows a 409 error message.
@@ -311,8 +352,8 @@ class TestS02ClassCRUD:
 
         Asserts
         -------
-        - The × delete button is visible.
-        - Clicking × shows the confirm dialog.
+        - The x delete button is visible.
+        - Clicking x shows the confirm dialog.
         - Clicking "Sim, remover" sends DELETE /api/classes/{id}
           and the server returns 409.
         - The error message is displayed in the confirm dialog
@@ -341,14 +382,14 @@ class TestS02ClassCRUD:
         page.wait_for_url(re.compile(r"/$"))
         page.wait_for_selector(S02_SELECTORS["class_summary_row"], timeout=5000)
 
-        # Click × to trigger the delete confirm.
+        # Click x to trigger the delete confirm.
         class_row = page.locator(S02_SELECTORS["class_summary_row"]).first
         class_row.locator(S02_SELECTORS["class_delete_btn"]).click()
         class_row.locator(S02_SELECTORS["class_delete_confirm"]).wait_for(
             state="visible", timeout=2000
         )
 
-        # Click "Sim, remover" — the server should reject with 409.
+        # Click "Sim, remover" -- the server should reject with 409.
         class_row.locator(S02_SELECTORS["class_delete_confirm_yes"]).click()
 
         # Wait for the 409 error message to appear in the confirm
@@ -357,21 +398,18 @@ class TestS02ClassCRUD:
             error_elem = class_row.locator(S02_SELECTORS["class_delete_confirm_error"])
             error_elem.wait_for(state="visible", timeout=5000)
             error_text = error_elem.inner_text()
-            # The 409 response body: {"detail": "Classe tem N ativo(s); remova-os antes."}
-            # or the Portuguese translation.
-            assert "ativo" in error_text.lower(), (
-                f"expected 409 error mentioning 'ativo', got {error_text!r}"
-            )
+            assert (
+                "ativo" in error_text.lower()
+            ), f"expected 409 error mentioning 'ativo', got {error_text!r}"
         except Exception:
             _debug_dump(page, "post_409_delete")
             raise
 
-        # The class section must still be in the DOM (no reload
-        # on 409 — the Alpine handler shows the error inline).
+        # The class section must still be in the DOM.
         remaining = page.locator(S02_SELECTORS["class_summary_row"])
-        assert remaining.count() == 1, (
-            f"class should still exist after 409, got {remaining.count()} rows"
-        )
+        assert (
+            remaining.count() == 1
+        ), f"class should still exist after 409, got {remaining.count()} rows"
 
         # Verify the error can be dismissed by clicking "Cancelar".
         class_row.locator(S02_SELECTORS["class_delete_confirm_no"]).click()
