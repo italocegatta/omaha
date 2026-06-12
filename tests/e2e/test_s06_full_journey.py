@@ -544,18 +544,12 @@ class TestS06FullJourney:
         # Each section must have a name, target pct, and current pct.
         for i in range(3):
             section = sections.nth(i)
-            section_name = section.locator(SELECTORS["class_section_name"]).inner_text()
-            has_name = section.locator(SELECTORS["class_section_name"]).count() == 1
-            has_target = section.locator(SELECTORS["class_target_pct"]).count() == 1
-            has_current = section.locator(SELECTORS["class_current_pct"]).count() == 1
-            if not (has_name and has_target and has_current):
-                _debug_dump(page, f"section_{i}_missing")
-                inner = section.evaluate("el => el.innerHTML.substring(0, 2000)")
-                assert False, (
-                    f"Section {i} ({section_name!r}): "
-                    f"has_name={has_name}, has_target={has_target}, has_current={has_current}\n"
-                    f"Inner HTML: {inner}"
-                )
+            # wait_for auto-waits for each element (unlike .count() which does not)
+            section.locator(SELECTORS["class_section_name"]).wait_for(
+                state="attached", timeout=3000
+            )
+            section.locator(SELECTORS["class_target_pct"]).wait_for(state="attached", timeout=3000)
+            section.locator(SELECTORS["class_current_pct"]).wait_for(state="attached", timeout=3000)
             target_text = section.locator(SELECTORS["class_target_pct"]).inner_text()
             assert "Alvo" in target_text, f"target line missing 'Alvo': {target_text!r}"
             assert "%" in target_text, f"target line missing %: {target_text!r}"
