@@ -221,6 +221,178 @@ def post_assets(
     return RedirectResponse("/assets", status_code=303)
 
 
+@router.post("/api/assets", status_code=status.HTTP_201_CREATED, response_model=None)
+def post_api_asset(
+    request: Request,
+    db: DbSession,
+    profile: Profile = Depends(require_active_profile),
+    body: Annotated[dict[str, Any] | None, Body()] = None,
+) -> dict[str, Any]:
+    """Create a single asset with duplicate-name detection and per-class sum validation.
+
+    The dashboard's Alpine ``+`` component (S03/T03) opens an inline
+    form and POSTs JSON ``{"name": "...", "asset_class_id": ...,
+    "target_pct": "..."}`` to add a new asset under the selected class.
+    ``target_pct`` is optional and defaults to ``0`` (matches the S01
+    D015 contract: an asset can exist in a class at 0% while the
+    user is still building the allocation).
+
+    The per-class sum invariant is enforced here at create time:
+    when the new asset's ``target_pct`` is greater than zero, the
+    class's existing assets' ``target_pct`` plus the new value is
+    passed to :func:`omaha.validators.validate_target_pct_sum`. The
+    validator is the single source of truth for the error message —
+    the route re-emits it verbatim so the S01 PATCH endpoint
+    (which also surfaces the validator's "Sobra/Falta X%" wording)
+    and this endpoint show identical copy regardless of where the
+    check ran.
+
+    ``display_order`` is ``max(existing) + 1`` when the class has
+    other assets, or ``0`` when the class is empty — mirrors the
+    S03 form-encoded ``POST /assets`` logic so a user who mixes
+    the inline ``+`` and the legacy form still sees a contiguous,
+    stable order on the dashboard.
+
+    Returns
+    -------
+    - 201 with ``{"id": ..., "name": ..., "target_pct": ...}`` on success.
+    - 409 with ``{"detail": "Já existe um ativo com o nome {name} nessa classe."}``
+      if the name already exists in the target class.
+    - 422 with ``{"detail": ...}`` if validation fails: empty/long
+      name, missing/invalid ``asset_class_id``, out-of-range
+      ``target_pct``, or per-class sum overflow ("Sobra/Falta X%").
+    """
+    if body is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Payload ausente.",
+        )
+
+    # --- Validate name ---
+    name_raw = body.get("name", "")
+    name = name_raw.strip() if isinstance(name_raw, str) else ""
+    if not name:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="O nome do ativo é obrigatório.",
+        )
+    if len(name) > NAME_MAX_LEN:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"O nome do ativo deve ter no máximo {NAME_MAX_LEN} caracteres.",
+        )
+
+    # --- Validate asset_class_id (must belong to the active profile) ---
+    raw_class_id = body.get("asset_class_id")
+    if raw_class_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Selecione uma classe válida.",
+        )
+    try:
+        asset_class_id = int(raw_class_id)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Selecione uma classe válida.",
+        )
+
+    target_class = (
+        db.query(AssetClass)
+        .filter(
+            AssetClass.id == asset_class_id,
+            AssetClass.profile_id == profile.id,
+        )
+        .one_or_none()
+    )
+    if target_class is None:
+        # Cross-class / cross-profile: 422 with the same wording
+        # the S03 form-encoded POST uses, so the T03 inline form
+        # and the T01 form-encoded POST surface identical copy.
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Selecione uma classe válida.",
+        )
+
+    # --- Duplicate name pre-check (race window handled below by IntegrityError) ---
+    existing = (
+        db.query(Asset)
+        .filter(
+            Asset.asset_class_id == target_class.id,
+            Asset.name == name,
+        )
+        .first()
+    )
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Já existe um ativo com o nome {name} nessa classe.",
+        )
+
+    # --- Validate target_pct (default 0 when the body omits the key) ---
+    if "target_pct" not in body:
+        parsed_pct: Decimal = Decimal("0")
+    else:
+        raw_pct = body.get("target_pct")
+        if raw_pct is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"A alocação do ativo deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
+            )
+        parsed_pct = _parse_pct(str(raw_pct))
+        if parsed_pct is None or parsed_pct < PCT_MIN or parsed_pct > PCT_MAX:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"A alocação do ativo deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
+            )
+
+    # --- Per-class sum validation (only when target_pct > 0) ---
+    # When the new asset is 0%, the class's sum is unchanged, so the
+    # validator cannot push the class out of bounds. The
+    # ``target_pct > 0`` gate mirrors the S01 PATCH route's
+    # "candidate = other_pcts + [new]" semantics — we are asking
+    # "does adding this asset tip the class over 100?" and the
+    # answer is "no" when the new value is 0.
+    if parsed_pct > Decimal("0"):
+        other_pcts = [a.target_pct for a in target_class.assets]
+        candidate = other_pcts + [parsed_pct]
+        ok, error = validate_target_pct_sum(candidate)
+        if not ok:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=error,
+            )
+
+    # --- Compute display_order (next slot after the class's current max) ---
+    existing_assets = list(target_class.assets)
+    next_order = (existing_assets[-1].display_order + 1) if existing_assets else 0
+
+    # --- Insert ---
+    asset = Asset(
+        asset_class_id=target_class.id,
+        name=name,
+        target_pct=parsed_pct,
+        display_order=next_order,
+    )
+    db.add(asset)
+    try:
+        db.commit()
+        db.refresh(asset)
+    except IntegrityError as err:
+        # Race window: two POSTs with the same name in the same
+        # class win the unique constraint here. The pre-check
+        # above catches the common case; this fallback is for
+        # the rare double-submit. Same wording as the pre-check
+        # so the operator sees one consistent message.
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Já existe um ativo com o nome {name} nessa classe.",
+        ) from err
+
+    return {"id": asset.id, "name": asset.name, "target_pct": str(asset.target_pct)}
+
+
 @router.patch("/api/assets/{asset_id}", response_model=None)
 def patch_asset(
     asset_id: int,
