@@ -9,11 +9,11 @@ the full list on every edit.
 
 Endpoints
 ---------
-- ``GET /assets`` — renders ``templates/assets.html`` with the
-  profile's classes (for the dropdown) and each class's asset
-  list. If the profile has zero classes, the template renders
-  an empty-state with a link to ``/classes``; the add-asset
-  form is hidden.
+- ``GET /assets`` — retired by S03/T05 — 302 redirect to ``/``.
+  Asset management moved inline to the dashboard (S03/T03/T04);
+  the legacy form-encoded POST /assets and POST
+  /assets/{id}/delete routes below stay wired for now (future
+  polish slice may prune them).
 - ``POST /assets`` — accepts ``name`` (single string) and
   ``asset_class_id`` (single int) via :class:`Form`. Validates
   that the name is non-empty + ≤ 64 chars and the class id
@@ -82,39 +82,30 @@ def _templates(request: Request):
     return request.app.state.templates
 
 
-@router.get("/assets", response_class=HTMLResponse, response_model=None)
+@router.get("/assets", response_model=None)
 def get_assets(
     request: Request,
-    db: DbSession,
-    user: User = Depends(require_user),
-    profile: Profile = Depends(require_active_profile),
-) -> Response:
-    """Render the dedicated asset editor page.
+    db: DbSession,  # noqa: ARG001 — kept for signature stability; the redirect does not touch the session
+    user: User = Depends(require_user),  # noqa: ARG001 — kept for signature stability; auth still required before the redirect
+    profile: Profile = Depends(require_active_profile),  # noqa: ARG001 — kept for signature stability; profile is required to reach the dashboard
+) -> RedirectResponse:
+    """Redirect to the dashboard.
 
-    Loads the profile's classes (ordered by ``display_order``) and
-    each class's assets for the table view. If the profile has no
-    classes yet, the template shows the "Crie classes antes"
-    empty state with a link to ``/classes``; the add-asset form
-    is hidden because there is no class to add an asset to.
+    Retired by S03/T05 — 302 to ``/``. The dedicated ``/assets``
+    page was replaced by the dashboard's inline asset editor
+    (S03/T03 + T04). The form-encoded POST /assets and POST
+    /assets/{id}/delete routes below stay wired for now (future
+    polish slice may prune them — see the module docstring).
+
+    The ``request`` / ``db`` / ``user`` / ``profile`` parameters
+    are kept on the signature so the auth + active-profile
+    guard rails still run: an anonymous request gets a 303
+    to ``/login`` (via ``require_user``), and a user with no
+    active profile gets a friendly flash via
+    ``require_active_profile`` rather than a bare redirect
+    that could land on a half-rendered dashboard.
     """
-    classes = (
-        db.query(AssetClass)
-        .filter(AssetClass.profile_id == profile.id)
-        .order_by(AssetClass.display_order)
-        .all()
-    )
-    assets_by_class: dict[int, list[Asset]] = {cls.id: list(cls.assets) for cls in classes}
-    return _templates(request).TemplateResponse(
-        request,
-        "assets.html",
-        {
-            "user": user,
-            "profile": profile,
-            "classes": classes,
-            "assets_by_class": assets_by_class,
-            "error": None,
-        },
-    )
+    return RedirectResponse("/", status_code=302)
 
 
 @router.post("/assets", response_class=HTMLResponse, response_model=None)

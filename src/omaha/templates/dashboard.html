@@ -140,9 +140,52 @@
                    round-trip still resolves the same percentage. #}
                 <span data-testid="asset-pct" hidden>{{ a.current_pct_class | round(2) }}</span>
               </div>
+              {# S03/T04: per-asset × delete button. Lives inside the
+                 asset-row-line (next to the 4-pct grid) so the layout
+                 stays tight. Visibility tracks the row's per-class
+                 confirm state — only one row per class section can
+                 have the confirm dialog open at a time
+                 (showDeleteAssetId matches a single id). #}
+              <button type="button"
+                      class="dashboard-asset-delete-btn"
+                      data-testid="dashboard-asset-delete-btn"
+                      @click="askDeleteAsset({{ a.id }}, '{{ a.name }}')"
+                      x-show="showDeleteAssetId !== {{ a.id }} && !deletingAssetId"
+                      title="Remover ativo">×</button>
             </div>
             <div class="asset-progress-bar" data-testid="asset-progress-bar">
               <div class="asset-progress-fill" style="--final-width:{{ a.current_pct_class }}%"></div>
+            </div>
+            {# S03/T04: per-row confirm dialog for asset deletion.
+               Positions cascade (no 409) so the confirm is always
+               "are you sure" + delete. Hidden by [x-cloak] and
+               toggled by the same showDeleteAssetId / deletingAssetId
+               pair the × button reads. #}
+            <div class="dashboard-asset-delete-confirm"
+                 data-testid="dashboard-asset-delete-confirm"
+                 x-show="showDeleteAssetId === {{ a.id }}"
+                 x-cloak>
+              <p class="dashboard-asset-delete-confirm-text">Remover ativo <strong>{{ a.name }}</strong>?</p>
+              <div class="dashboard-asset-delete-confirm-actions">
+                <button type="button"
+                        class="btn dashboard-asset-delete-confirm-yes"
+                        data-testid="dashboard-asset-delete-confirm-yes"
+                        @click="confirmDeleteAsset()"
+                        :disabled="deletingAssetId === {{ a.id }}">
+                  <span x-show="deletingAssetId !== {{ a.id }}">Sim, remover</span>
+                  <span x-show="deletingAssetId === {{ a.id }}">Removendo...</span>
+                </button>
+                <button type="button"
+                        class="btn dashboard-asset-delete-confirm-no"
+                        data-testid="dashboard-asset-delete-confirm-no"
+                        @click="cancelDeleteAsset()"
+                        :disabled="deletingAssetId === {{ a.id }}">Cancelar</button>
+              </div>
+              <p class="dashboard-asset-delete-confirm-error"
+                 data-testid="dashboard-asset-delete-confirm-error"
+                 x-show="deleteAssetError"
+                 x-text="deleteAssetError"
+                 x-cloak></p>
             </div>
             {# S05 legacy marker: keep the data-testid present so
                downstream tests (asset-progress-bar fill assertions)
@@ -353,6 +396,19 @@
       newAssetTargetPct: '',
       addAssetError: '',
 
+      // S03/T04: per-asset delete confirm state. showDeleteAssetId
+      // matches a single asset id at a time (one confirm dialog per
+      // class section); deletingAssetId is set during the in-flight
+      // DELETE so both confirm buttons disable. deletingAssetName
+      // is the human-readable label from the template, used only
+      // for the confirm copy. Mirrors the S02 class-delete pattern
+      // (showDeleteConfirm / deleting) but lives on a separate
+      // namespace so the two delete flows never share state.
+      showDeleteAssetId: null,
+      deletingAssetId: null,
+      deleteAssetError: '',
+      deletingAssetName: '',
+
       // Live preview: the per-class sum of ``target_pct`` (i.e.
       // the same value the T02 PATCH route's server-side
       // validator will check). ``classDelta`` is signed:
@@ -560,6 +616,62 @@
         this.newAssetTargetPct = '';
         this.addAssetError = '';
         this.addingAsset = false;
+      },
+
+      // ── Per-asset delete confirm (S03/T04) ─────────────────
+      //
+      // The × button per asset row calls askDeleteAsset(id, name)
+      // which sets showDeleteAssetId; the matching row's confirm
+      // dialog appears (x-show="showDeleteAssetId === id"). Only
+      // one row per class section can be in confirm state at a
+      // time because showDeleteAssetId is a single value.
+      //
+      // confirmDeleteAsset() DELETEs /api/assets/{showDeleteAssetId}.
+      // 204 → page reload (asset + cascading positions removed).
+      // 404 → server returns {"detail": "Ativo não encontrado."};
+      // surfaced verbatim. There is no 409 — positions cascade.
+      askDeleteAsset: function (id, name) {
+        this.showDeleteAssetId = id;
+        this.deletingAssetName = name;
+        this.deleteAssetError = '';
+      },
+
+      confirmDeleteAsset: function () {
+        if (this.showDeleteAssetId === null) return;
+        var id = this.showDeleteAssetId;
+        var self = this;
+        self.deletingAssetId = id;
+        self.deleteAssetError = '';
+        fetch('/api/assets/' + id, {
+          method: 'DELETE',
+        })
+          .then(function (r) {
+            if (r.status === 204) {
+              // Success — reload the page so the asset row (and its
+              // cascading positions) is removed and server-side
+              // aggregates re-render.
+              window.location.reload();
+              return;
+            }
+            // 404 or other 4xx. Body shape: {"detail": "..."}.
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao remover ativo';
+              throw new Error(detail);
+            });
+          })
+          .catch(function (err) {
+            self.deleteAssetError = err && err.message ? err.message : 'Erro ao remover ativo';
+          })
+          .then(function () {
+            self.deletingAssetId = null;
+          });
+      },
+
+      cancelDeleteAsset: function () {
+        this.showDeleteAssetId = null;
+        this.deletingAssetId = null;
+        this.deleteAssetError = '';
+        this.deletingAssetName = '';
       },
     };
   }

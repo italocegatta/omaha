@@ -825,3 +825,104 @@ main { max-width: 760px; }
   font-size: 0.8rem;
   color: var(--negative);
 }
+
+/* =============================================================
+   M002 / S03 / T04 — Per-asset × delete button + confirm dialog
+   (mirrors the class-section-delete-btn / class-delete-confirm
+   pair above, but scoped to the asset row). Positions cascade on
+   delete so the confirm is a pure "are you sure" — no 409 wording.
+   ============================================================= */
+
+.dashboard-asset-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  align-self: center;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.dashboard-asset-delete-btn:hover {
+  color: var(--negative);
+  background: var(--error-bg);
+  border-color: rgba(193, 40, 40, 0.3);
+}
+
+.dashboard-asset-delete-confirm {
+  margin: 0.4rem 0 0.6rem 0;
+  padding: 0.6rem 0.75rem;
+  background: #fef6f6;
+  border: 1px solid #f5c6c6;
+  border-radius: 6px;
+}
+
+.dashboard-asset-delete-confirm-text {
+  margin: 0 0 0.4rem 0;
+  font-size: 0.82rem;
+  color: var(--ink);
+}
+
+.dashboard-asset-delete-confirm-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.dashboard-asset-delete-confirm-yes {
+  font-size: 0.78rem;
+  padding: 0.3rem 0.6rem;
+  background: var(--negative);
+  color: #fff;
+  border: 1px solid var(--negative);
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.dashboard-asset-delete-confirm-yes:hover:not(:disabled) {
+  background: #b71c1c;
+  border-color: #b71c1c;
+}
+
+.dashboard-asset-delete-confirm-yes:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dashboard-asset-delete-confirm-no {
+  font-size: 0.78rem;
+  padding: 0.3rem 0.6rem;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.dashboard-asset-delete-confirm-no:hover:not(:disabled) {
+  background: #f5f5f5;
+}
+
+.dashboard-asset-delete-confirm-no:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dashboard-asset-delete-confirm-error {
+  margin: 0.4rem 0 0 0;
+  font-size: 0.78rem;
+  color: var(--negative);
+}
