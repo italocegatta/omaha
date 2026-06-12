@@ -103,11 +103,7 @@ def _count_classes(profile_id: int) -> int:
 
     db = SessionLocal()
     try:
-        return (
-            db.query(AssetClass)
-            .filter(AssetClass.profile_id == profile_id)
-            .count()
-        )
+        return db.query(AssetClass).filter(AssetClass.profile_id == profile_id).count()
     finally:
         db.close()
 
@@ -206,6 +202,7 @@ def test_post_class_invalid_sum_returns_422(client: TestClient) -> None:
     assert response.status_code == 422
     data = response.json()
     from omaha.validators import validate_target_pct_sum
+
     _, err = validate_target_pct_sum([Decimal("60"), Decimal("30"), Decimal("30")])
     assert data["detail"] == err
 
