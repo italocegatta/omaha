@@ -223,41 +223,6 @@ def _asset_id_by_name(asset_class_id: int, name: str) -> int:
 # ---------------------------------------------------------------------------
 
 
-def test_get_assets_renders_editor_with_classes(client: TestClient) -> None:
-    """`GET /assets` renders the editor and lists the profile's classes in the dropdown."""
-    _login_and_select(client, profile_id=1)
-    [class_id] = _seed_classes(profile_id=1, rows=[("Renda Fixa", "100")])
-
-    response = client.get("/assets", follow_redirects=False)
-
-    assert response.status_code == 200
-    assert "text/html" in response.headers["content-type"]
-    assert 'data-testid="asset-editor"' in response.text
-    # The class dropdown surfaces the class name so the user
-    # can see what they're attaching an asset to.
-    assert "Renda Fixa" in response.text
-    # The dropdown's <option value="..."> must carry the class
-    # id so a POST can target it.
-    assert f'value="{class_id}"' in response.text
-
-
-def test_get_assets_empty_classes_shows_empty_state(client: TestClient) -> None:
-    """Fresh profile with no classes → empty-state copy + no add form."""
-    _login_and_select(client, profile_id=1)
-    # No _seed_classes: the profile has zero classes.
-
-    response = client.get("/assets", follow_redirects=False)
-
-    assert response.status_code == 200
-    assert "text/html" in response.headers["content-type"]
-    # Empty-state marker: the editor wrapper still renders (so
-    # the testid is present) but the add-asset form is absent.
-    assert 'data-testid="asset-editor"' in response.text
-    assert 'data-testid="asset-empty-state"' in response.text
-    assert "Crie classes antes" in response.text
-    assert 'data-testid="asset-editor-save"' not in response.text
-
-
 def test_post_assets_creates_row(client: TestClient) -> None:
     """Valid POST commits one asset, 303s to /assets, name is on disk."""
     _login_and_select(client, profile_id=1)

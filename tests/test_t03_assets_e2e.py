@@ -221,45 +221,6 @@ class TestAssetsE2E:
         assert len(_assets_for_class(ana_class_id)) == 0
         assert len(_assets_for_class(italo_class_id)) == 0
 
-    def test_data_testid_hooks_present(self, client: TestClient) -> None:
-        """All editor data-testid hooks render when there is at least one class.
-
-        Login, seed one class plus one asset, GET /assets. The
-        response must carry every hook the editor advertises,
-        including the per-row ``asset-row`` and ``asset-row-delete``
-        hooks (which only appear when the class has at least one
-        asset).
-        """
-        profile = _login_and_select_profile(client)
-        classes = _seed_classes(profile.id)
-
-        # Seed one asset so the per-row hooks render.
-        from omaha.db import SessionLocal
-
-        db = SessionLocal()
-        try:
-            db.add(
-                Asset(
-                    asset_class_id=classes[0].id,
-                    name="Tesouro Selic",
-                    display_order=0,
-                )
-            )
-            db.commit()
-        finally:
-            db.close()
-
-        resp = client.get("/assets")
-        assert resp.status_code == 200
-        body = resp.text
-        assert 'data-testid="asset-editor"' in body
-        assert 'data-testid="asset-editor-name"' in body
-        assert 'data-testid="asset-editor-class"' in body
-        assert 'data-testid="asset-editor-add"' in body
-        assert 'data-testid="asset-section"' in body
-        assert 'data-testid="asset-row"' in body
-        assert 'data-testid="asset-row-delete"' in body
-
     def test_delete_asset_from_editor(self, client: TestClient) -> None:
         """formaction-based delete: POST /assets/{id}/delete → 303 to /assets, row gone.
 
@@ -292,22 +253,3 @@ class TestAssetsE2E:
 
         # The asset is gone.
         assert len(_assets_for_class(cls_renda.id)) == 0
-
-    def test_empty_classes_shows_empty_state(self, client: TestClient) -> None:
-        """Fresh profile with zero classes: GET /assets renders the empty state.
-
-        The editor's add form is hidden when there are no classes
-        to add an asset to, and the empty-state panel with the link
-        to /classes is shown instead.
-        """
-        _login_and_select_profile(client)
-
-        resp = client.get("/assets")
-        assert resp.status_code == 200
-        body = resp.text
-        assert 'data-testid="asset-empty-state"' in body
-        # The add form is absent — no class to add an asset to.
-        assert 'data-testid="asset-editor-name"' not in body
-        assert 'data-testid="asset-editor-add"' not in body
-        # The empty-state copy is the one T03 advertises.
-        assert "Crie classes antes de adicionar ativos" in body

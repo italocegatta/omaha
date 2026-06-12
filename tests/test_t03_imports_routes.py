@@ -15,7 +15,7 @@ Covers the slice verification matrix:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -367,7 +367,7 @@ def test_expired_preview_renders_expirado(logged_in: TestClient) -> None:
             .first()
         )
         assert preview is not None
-        preview.created_at = datetime.utcnow() - timedelta(hours=2)
+        preview.created_at = datetime.now(tz=UTC).replace(tzinfo=None) - timedelta(hours=2)
         db.commit()
     r = logged_in.get("/import/review")
     assert r.status_code == 200

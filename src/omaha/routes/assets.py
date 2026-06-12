@@ -255,7 +255,7 @@ def post_api_asset(
     """
     if body is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Payload ausente.",
         )
 
@@ -264,12 +264,12 @@ def post_api_asset(
     name = name_raw.strip() if isinstance(name_raw, str) else ""
     if not name:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="O nome do ativo é obrigatório.",
         )
     if len(name) > NAME_MAX_LEN:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"O nome do ativo deve ter no máximo {NAME_MAX_LEN} caracteres.",
         )
 
@@ -277,16 +277,16 @@ def post_api_asset(
     raw_class_id = body.get("asset_class_id")
     if raw_class_id is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Selecione uma classe válida.",
         )
     try:
         asset_class_id = int(raw_class_id)
     except (TypeError, ValueError):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Selecione uma classe válida.",
-        )
+        ) from None
 
     target_class = (
         db.query(AssetClass)
@@ -301,7 +301,7 @@ def post_api_asset(
         # the S03 form-encoded POST uses, so the T03 inline form
         # and the T01 form-encoded POST surface identical copy.
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Selecione uma classe válida.",
         )
 
@@ -327,13 +327,13 @@ def post_api_asset(
         raw_pct = body.get("target_pct")
         if raw_pct is None:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"A alocação do ativo deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
             )
         parsed_pct = _parse_pct(str(raw_pct))
         if parsed_pct is None or parsed_pct < PCT_MIN or parsed_pct > PCT_MAX:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"A alocação do ativo deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
             )
 
@@ -350,7 +350,7 @@ def post_api_asset(
         ok, error = validate_target_pct_sum(candidate)
         if not ok:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=error,
             )
 
@@ -439,7 +439,7 @@ def patch_asset(
     parsed = _parse_pct(raw)
     if parsed is None or parsed < PCT_MIN or parsed > PCT_MAX:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"A alocação do ativo deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
         )
 
@@ -453,7 +453,7 @@ def patch_asset(
     ok, error = validate_target_pct_sum(candidate)
     if not ok:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=error,
         )
 

@@ -326,19 +326,19 @@ def post_class(
       invalid target_pct range).
     """
     if payload is None:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
 
     # --- Validate name ---
     name_raw = payload.get("name", "")
     name = name_raw.strip() if isinstance(name_raw, str) else ""
     if not name:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="O nome da classe é obrigatório.",
         )
     if len(name) > NAME_MAX_LEN:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"O nome da classe deve ter no máximo {NAME_MAX_LEN} caracteres.",
         )
 
@@ -360,12 +360,12 @@ def post_class(
     # --- Validate target_pct ---
     raw_pct = payload.get("target_pct")
     if raw_pct is None:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
 
     new_pct = _parse_pct(str(raw_pct))
     if new_pct is None or new_pct < PCT_MIN or new_pct > PCT_MAX:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"A alocação da classe deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
         )
 
@@ -429,16 +429,16 @@ def patch_class(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     if payload is None:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
 
     raw_pct = payload.get("target_pct")
     if raw_pct is None:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
 
     new_pct = _parse_pct(str(raw_pct))
     if new_pct is None or new_pct < PCT_MIN or new_pct > PCT_MAX:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"A alocação da classe deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
         )
 

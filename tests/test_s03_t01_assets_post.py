@@ -328,7 +328,7 @@ def test_post_api_asset_empty_name_returns_422(client: TestClient) -> None:
 
 
 def test_post_api_asset_cross_profile_class_returns_422(client: TestClient) -> None:
-    """POST an asset targeting a class from another profile; expect 422 with "classe válida" wording.
+    """POST an asset targeting a class from another profile; expect 422.
 
     Seed a class under profile 2 (Ana Livia). Login as profile 1
     (Italo). POST with ``asset_class_id`` pointing at the other
