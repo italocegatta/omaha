@@ -23,13 +23,13 @@ if TYPE_CHECKING:
     from playwright.sync_api import Page
 
 from .test_s04_user_journey import (
-    _login_and_select_italo,
     ACOES_NAMES,
     MATCHED_NAMES,
     REPO_ROOT,
     RESERVA_NAMES,
     RF_POS_NAMES,
     UNMATCHED_NAMES,
+    _login_and_select_italo,
 )
 
 FIXTURE_PATH = REPO_ROOT / "tests" / "fixtures" / "sample_broker.csv"
@@ -157,9 +157,9 @@ class TestS04ImportModal:
 
         # Verify 43 assets on dashboard before import.
         asset_rows = page.locator(SELECTORS["dashboard_asset_row"])
-        assert asset_rows.count() == 43, (
-            f"expected 43 asset rows before import, got {asset_rows.count()}"
-        )
+        assert (
+            asset_rows.count() == 43
+        ), f"expected 43 asset rows before import, got {asset_rows.count()}"
 
         # ------------------------------------------------------------------
         # Step 1: Open modal and upload CSV
@@ -168,9 +168,7 @@ class TestS04ImportModal:
         # Clicking the button's @click handler sometimes races with
         # Playwright's visibility checks.
         page.evaluate("Alpine.store('importModal').openModal()")
-        page.wait_for_selector(
-            SELECTORS["import_modal_overlay"], state="visible", timeout=5000
-        )
+        page.wait_for_selector(SELECTORS["import_modal_overlay"], state="visible", timeout=5000)
 
         page.set_input_files(SELECTORS["import_file_input"], str(FIXTURE_PATH))
         # Let Alpine process the @change event from set_input_files.
@@ -185,18 +183,14 @@ class TestS04ImportModal:
         # ------------------------------------------------------------------
         # Step 2: Wait for review (matched summary + unmatched table)
         # ------------------------------------------------------------------
-        page.wait_for_selector(
-            SELECTORS["import_matched_summary"], state="visible", timeout=15000
-        )
-        page.wait_for_selector(
-            SELECTORS["import_unmatched_table"], state="visible", timeout=5000
-        )
+        page.wait_for_selector(SELECTORS["import_matched_summary"], state="visible", timeout=15000)
+        page.wait_for_selector(SELECTORS["import_unmatched_table"], state="visible", timeout=5000)
 
         # Verify 5 unmatched rows.
         unmatched_rows = page.locator(SELECTORS["import_unmatched_row"])
-        assert unmatched_rows.count() == 5, (
-            f"expected 5 unmatched rows, got {unmatched_rows.count()}"
-        )
+        assert (
+            unmatched_rows.count() == 5
+        ), f"expected 5 unmatched rows, got {unmatched_rows.count()}"
 
         # Verify the unmatched tickers match the known list.
         unmatched_tickers: set[str] = set()
@@ -204,8 +198,7 @@ class TestS04ImportModal:
             ticker = unmatched_rows.nth(i).locator("td").nth(0).inner_text().strip()
             unmatched_tickers.add(ticker)
         assert unmatched_tickers == set(UNMATCHED_NAMES), (
-            f"expected unmatched tickers {set(UNMATCHED_NAMES)}, "
-            f"got {unmatched_tickers}"
+            f"expected unmatched tickers {set(UNMATCHED_NAMES)}, " f"got {unmatched_tickers}"
         )
 
         # ------------------------------------------------------------------
@@ -247,25 +240,21 @@ class TestS04ImportModal:
         # Step 5: Verify 48 assets with positions
         # ------------------------------------------------------------------
         dashboard_rows = page.locator(SELECTORS["dashboard_asset_row"])
-        assert dashboard_rows.count() == 48, (
-            f"expected 48 asset rows after import, got {dashboard_rows.count()}"
-        )
+        assert (
+            dashboard_rows.count() == 48
+        ), f"expected 48 asset rows after import, got {dashboard_rows.count()}"
 
         for i in range(48):
             row = dashboard_rows.nth(i)
             count_str = row.get_attribute("data-position-count")
             assert count_str is not None, f"row {i} missing data-position-count"
             count = int(count_str)
-            assert count >= 1, (
-                f"row {i} has {count} positions, expected >= 1"
-            )
+            assert count >= 1, f"row {i} has {count} positions, expected >= 1"
 
         # The 5 new assets must appear in the dashboard text.
         dashboard_text = page.locator("main").inner_text()
         for name in UNMATCHED_NAMES:
-            assert name in dashboard_text, (
-                f"new asset {name!r} not found on dashboard after import"
-            )
+            assert name in dashboard_text, f"new asset {name!r} not found on dashboard after import"
 
     def test_import_route_redirects(self, page: Page, live_url: str) -> None:
         """GET /import redirects to the dashboard (retired route)."""
@@ -274,9 +263,9 @@ class TestS04ImportModal:
         page.goto(f"{live_url}/import")
 
         # The URL must be the dashboard (/), not /import.
-        assert "/import" not in page.url, (
-            f"expected redirect away from /import, got URL: {page.url}"
-        )
+        assert (
+            "/import" not in page.url
+        ), f"expected redirect away from /import, got URL: {page.url}"
 
         profile_header = page.locator(SELECTORS["profile_name"])
         profile_header.wait_for(state="visible", timeout=5000)
