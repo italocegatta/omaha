@@ -584,6 +584,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: self.newAssetName,
+            asset_class_id: self.classId,
             target_pct: self.newAssetTargetPct,
           }),
         })
