@@ -290,8 +290,11 @@ def test_dashboard_renders_portfolio_totals(client: TestClient) -> None:
     assert "60.00%" in body, body
     # The asset row renders the seeded asset name.
     assert "TESOURO" in body, body
-    # The position-count line proves the positions relationship loaded.
-    assert "1 posicao" in body, body
+    # M002 S01/T03: the "1 posicao(oes)" line is removed in favor
+    # of the 4-percentage grid + inline editor. The data-position-count
+    # attribute is still on the <li> (asserted below in the layout
+    # test), but the visible text is gone — so no string match.
+    assert "1 posicao" not in body, body
 
 
 def test_dashboard_renders_distribution_layout(client: TestClient) -> None:
@@ -348,6 +351,23 @@ def test_dashboard_renders_distribution_layout(client: TestClient) -> None:
     assert 'data-testid="asset-current-value"' in body, body
     assert 'data-testid="asset-pct"' in body, body
     assert 'data-testid="asset-progress-bar"' in body, body
+
+    # M002 S01/T03: 4-percentage grid + Alpine inline editor
+    # (D012 — 1 storage, 2 views; D015 — visual affordance for
+    # the migration gap). Each cell carries its own data-testid;
+    # the editor's input is the save affordance.
+    assert 'data-testid="asset-pct-grid"' in body, body
+    assert 'data-testid="asset-target-pct-class"' in body, body
+    assert 'data-testid="asset-current-pct-class"' in body, body
+    assert 'data-testid="asset-target-pct-total"' in body, body
+    assert 'data-testid="asset-current-pct-total"' in body, body
+    assert 'data-testid="asset-inline-edit-input"' in body, body
+    assert 'data-testid="class-delta-badge"' in body, body
+    # Alpine x-data wrapper on each class section.
+    assert "x-data='classSection(" in body, body
+    # The new template never renders the visible "N posicao(oes)"
+    # line — D015 task scope.
+    assert "posicao(oes)" not in body, body
 
     # Target vs current comparison — both bars present
     assert "compare-bar-target-fill" in body, body

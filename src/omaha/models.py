@@ -178,6 +178,18 @@ class Asset(Base):
         index=True,
     )
     name: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Per-asset target percentage. The sum of ``target_pct`` across
+    # the assets in one class must equal 100; the invariant is
+    # enforced by :func:`omaha.validators.validate_target_pct_sum`
+    # on the PATCH route (S01) and the Alpine inline editor (S01).
+    # The DB column itself only enforces ``NOT NULL`` — the DB
+    # can't run a per-class sum check, and SQLite rejects
+    # ``ALTER TABLE ... ADD CONSTRAINT`` anyway. Mirrors
+    # :attr:`AssetClass.target_pct` shape so the validator can mix
+    # class-level and asset-level percentages without precision
+    # mismatches. Existing rows backfill to 0 via the
+    # ``server_default="0"`` in the 0006 migration.
+    target_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, server_default="0")
     display_order: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )

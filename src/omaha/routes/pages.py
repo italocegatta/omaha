@@ -151,9 +151,14 @@ def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
       module-level palette, the class's own ``invested`` /
       ``current_value``, the class's ``current_pct`` of the whole
       portfolio (0.0 when the portfolio is empty), and the list of
-      ``assets`` with their ``qty``, ``current_value``, and
-      ``asset_pct`` (share of the *class's* current_value, 0.0 when
-      the class is empty).
+      ``assets`` with their ``qty``, ``current_value``, and the four
+      percentages the M002 dashboard renders: ``target_pct_class``
+      (the stored :attr:`Asset.target_pct`), ``current_pct_class``
+      (the asset's share of its class's ``current_value`` — same
+      as ``asset_pct``), ``target_pct_total``
+      (``target_pct_class * class.target_pct / 100``), and
+      ``current_pct_total`` (the asset's share of the portfolio's
+      ``current_value``, 0.0 when the portfolio is empty).
 
     All percentages are stored as ``Decimal`` values in the 0-100
     range so the template can format them with Jinja's ``|round(2)``.
@@ -183,6 +188,14 @@ def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
                 asset_current += qty * cur
             class_invested += asset_invested
             class_current += asset_current
+            # ``target_pct_total`` only depends on the asset's stored
+            # target_pct and the class's stored target_pct, both of
+            # which are constant for the request — compute it now
+            # alongside the per-row dict so the second pass doesn't
+            # have to re-walk the loop. The Alpine inline editor in
+            # the dashboard template uses this field as the
+            # ``target % total`` column.
+            target_pct_total = (asset.target_pct or ZERO) * (klass.target_pct or ZERO) / HUNDRED
             asset_rows.append(
                 {
                     "id": asset.id,
@@ -191,6 +204,8 @@ def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
                     "qty": asset_qty,
                     "invested": asset_invested,
                     "current_value": asset_current,
+                    "target_pct_class": asset.target_pct or ZERO,
+                    "target_pct_total": target_pct_total,
                 }
             )
         portfolio_invested += class_invested
@@ -217,6 +232,14 @@ def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
             row["current_pct"] = ZERO
             for asset in row["_assets"]:
                 asset["asset_pct"] = ZERO
+                # ``current_pct_class`` mirrors ``asset_pct`` (the
+                # share of the class's current_value) — when the
+                # class has no current_value, both are 0.
+                asset["current_pct_class"] = ZERO
+                # ``current_pct_total`` is the share of the
+                # portfolio's current_value — 0 when the portfolio
+                # is empty (matches the S05 "empty bars" rule).
+                asset["current_pct_total"] = ZERO
     else:
         portfolio_gain_pct = (portfolio_gain / portfolio_invested) * HUNDRED
         for row in class_rows:
@@ -227,9 +250,25 @@ def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
             )
             class_current = row["current_value"]
             for asset in row["_assets"]:
-                asset["asset_pct"] = (
+                # ``asset_pct`` (legacy S05 field) and
+                # ``current_pct_class`` (M002 S01/T03 field) carry
+                # the same value: the asset's share of its class's
+                # current_value. The M002 dashboard renders
+                # ``current_pct_class`` in the 4-cell grid; the S05
+                # test ``test_aggregates_per_asset_pct_is_share_of_class``
+                # still asserts ``asset_pct`` so we keep both in
+                # sync. ``current_pct_total`` is the share of the
+                # whole portfolio.
+                asset_pct = (
                     (asset["current_value"] / class_current) * HUNDRED
                     if class_current > ZERO
+                    else ZERO
+                )
+                asset["asset_pct"] = asset_pct
+                asset["current_pct_class"] = asset_pct
+                asset["current_pct_total"] = (
+                    (asset["current_value"] / portfolio_current) * HUNDRED
+                    if portfolio_current > ZERO
                     else ZERO
                 )
 
