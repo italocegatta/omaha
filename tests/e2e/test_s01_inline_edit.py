@@ -59,6 +59,7 @@ if TYPE_CHECKING:
 
 from .test_s04_user_journey import (
     SELECTORS,
+    _create_classes_via_form,
     _login_and_select_italo,
 )
 from .test_s05_user_journey import S05_SELECTORS
@@ -100,46 +101,40 @@ def _debug_dump(page: Page, tag: str) -> None:
             f.write(f"main inner_text failed: {exc}\n")
 
 
-def _create_one_class(page: Page) -> None:
-    """Create a single class "Renda Fixa" at 60% via the Alpine class editor + DB adjustment.
+def _create_one_class(page: Page, base_url: str) -> None:
+    """Create a single class "Renda Fixa" at 60% via the snapshot form.
 
-    The class editor's save button is disabled when the
-    per-class sum is not 100 (template:
-    ``:disabled="Math.abs(total - 100) >= 0.01"``). A single
-    class at 60% sums to 60, so the save button stays disabled.
-    We create the class at 100% (enables save), then UPDATE
-    its target_pct to 60 via direct sqlite3 write so the
-    downstream math (target_pct_total = 40 * 60 / 100 = 24) is
-    testable. The dashboard reads target_pct from the DB on
-    every render, so the next page.goto("/") picks up the new
-    value.
+    The per-profile sum validator requires ALL classes to sum to 100,
+    so we create a pair (Renda Fixa 60 + Outros 40) via
+    ``POST /classes`` (accepts parallel name[]/target_pct[] arrays),
+    then delete the extra class via the API. Outros has no assets, so
+    the 409 asset guard does not fire.
     """
-    page.click(SELECTORS["nav_classes"])
-    page.wait_for_url(re.compile(r"/classes$"))
-    name_inputs = page.locator(SELECTORS["class_editor_name"])
-    pct_inputs = page.locator(SELECTORS["class_editor_pct"])
-    name_inputs.nth(0).fill("Renda Fixa")
-    pct_inputs.nth(0).fill("100")
-    page.wait_for_function(
-        f"() => !document.querySelector('{SELECTORS['class_editor_save']}').disabled",
-        timeout=3000,
+    _create_classes_via_form(
+        page,
+        base_url,
+        [("Renda Fixa", 60), ("Outros", 40)],
     )
-    page.click(SELECTORS["class_editor_save"])
-    page.wait_for_url(re.compile(r"/$"))
-
-    # Adjust the class's target_pct to 60 so the inline-edit
-    # math exercises a 60% class.
-    if TEST_DB_PATH.exists():
-        conn = sqlite3.connect(TEST_DB_PATH)
-        try:
-            conn.execute(
-                "UPDATE asset_classes SET target_pct = 60 "
-                "WHERE name = 'Renda Fixa' "
-                "AND profile_id IN (SELECT id FROM profiles WHERE name = 'Italo')"
-            )
-            conn.commit()
-        finally:
-            conn.close()
+    # Reload so the dashboard picks up the new classes.
+    page.goto(f"{base_url}/")
+    # Find Outros's id via DOM and delete it.
+    page.wait_for_selector('[data-testid="class-summary-row"]', timeout=5000)
+    outros_id = page.evaluate(
+        """() => {
+            const rows = document.querySelectorAll('[data-testid="class-summary-row"]');
+            for (const row of rows) {
+                const name = row.querySelector('[data-testid="class-section-name"]');
+                if (name && name.textContent.trim() === 'Outros') {
+                    return row.getAttribute('data-class-id');
+                }
+            }
+            return null;
+        }"""
+    )
+    assert outros_id is not None, "Outros class not found on dashboard"
+    del_resp = page.request.delete(f"{base_url}/api/classes/{outros_id}")
+    assert del_resp.ok, f"DELETE /api/classes/{outros_id} failed: {del_resp.status}"
+    page.goto(f"{base_url}/")
 
 
 def _create_n_assets(page: Page, names: list[str]) -> None:
@@ -296,7 +291,7 @@ class TestS01InlineEdit:
         - Direct DB read confirms ``target_pct=40`` for Ativo A.
         """
         _login_and_select_italo(page, live_url)
-        _create_one_class(page)
+        _create_one_class(page, live_url)
         _create_n_assets(page, ["Ativo A", "Ativo B", "Ativo C"])
 
         # Seed 2 of the 3 assets at 30% so the upcoming PATCH of
@@ -412,7 +407,7 @@ class TestS01InlineEdit:
           the server too (defense in depth).
         """
         _login_and_select_italo(page, live_url)
-        _create_one_class(page)
+        _create_one_class(page, live_url)
         _create_n_assets(page, ["Ativo A", "Ativo B", "Ativo C"])
 
         # Seed all 3 at 30% — sum=90 baseline. Typing 50 in B
@@ -520,7 +515,7 @@ class TestS01InlineEdit:
           was removed from the visible row).
         """
         _login_and_select_italo(page, live_url)
-        _create_one_class(page)
+        _create_one_class(page, live_url)
         _create_n_assets(page, ["Ativo A"])
         _seed_one_position_for_asset(page, live_url, "Ativo A")
 

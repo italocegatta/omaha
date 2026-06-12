@@ -626,3 +626,105 @@ main { max-width: 760px; }
     max-width: 100%;
   }
 }
+
+/* =============================================================
+   M002 / S02 / T05 — Inline class create form (+ Nova classe)
+   ============================================================= */
+
+.new-class-container {
+  margin-top: 0.5rem;
+}
+
+.new-class-plus-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.75rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--accent);
+  background: transparent;
+  border: 1px dashed var(--border-strong);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.new-class-plus-btn:hover {
+  background: rgba(10, 102, 194, 0.06);
+  border-color: var(--accent);
+}
+
+.new-class-form {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.new-class-form-body {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.new-class-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 8rem;
+}
+
+.new-class-form-field label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.new-class-input {
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--fg);
+  transition: border-color 0.15s;
+}
+
+.new-class-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(10, 102, 194, 0.12);
+}
+
+.new-class-input--pct {
+  max-width: 7rem;
+}
+
+.new-class-form-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.new-class-form-save {
+  font-size: 0.8rem;
+  padding: 0.4rem 0.75rem;
+}
+
+.new-class-form-cancel {
+  font-size: 0.8rem;
+  padding: 0.4rem 0.75rem;
+}
+
+.new-class-form-error {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.8rem;
+  color: var(--negative);
+}

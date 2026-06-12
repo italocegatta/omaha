@@ -31,12 +31,7 @@ SELECTORS = {
     "login_submit": 'button[type="submit"]',
     "profile_picker": "form.profile-picker button",
     "nav_dashboard": '[data-testid="nav-dashboard"]',
-    "nav_classes": '[data-testid="nav-classes"]',
     "nav_assets": '[data-testid="nav-assets"]',
-    "class_editor_name": '[data-testid="class-editor-name"]',
-    "class_editor_pct": '[data-testid="class-editor-pct"]',
-    "class_editor_add": '[data-testid="class-editor-add"]',
-    "class_editor_save": '[data-testid="class-editor-save"]',
     "class_summary_row": '[data-testid="class-summary-row"]',
     "asset_editor_name": '[data-testid="asset-editor-name"]',
     "asset_editor_class": '[data-testid="asset-editor-class"]',
@@ -84,23 +79,6 @@ def _debug_dump(page: Page, tag: str) -> None:
             f.write(f"main inner_html failed: {exc}\n")
 
 
-def _fill_class_row(page: Page, idx: int, name: str, pct: float) -> None:
-    """Fill the (already-rendered) row at ``idx`` with name + pct.
-
-    The Alpine class editor starts with one empty row (x-init
-    ``addRow()``). Each ``addRow`` click appends a new row.
-    Inputs are matched by ``data-testid`` plus index because
-    Alpine re-renders the whole ``<template>`` block on every
-    state change. ``x-model.number`` parses the value via
-    ``parseFloat`` when the ``input`` event fires, so sending
-    the text ``"60"`` round-trips as 60 in the Alpine state.
-    """
-    name_inputs = page.locator(SELECTORS["class_editor_name"])
-    pct_inputs = page.locator(SELECTORS["class_editor_pct"])
-    name_inputs.nth(idx).fill(name)
-    pct_inputs.nth(idx).fill(str(pct))
-
-
 class TestS03UserJourney:
     """One class per test scenario so failures are isolated."""
 
@@ -110,7 +88,6 @@ class TestS03UserJourney:
 
         # The nav is rendered and points to the right places.
         assert page.locator(SELECTORS["nav_dashboard"]).count() == 1
-        assert page.locator(SELECTORS["nav_classes"]).count() == 1
         assert page.locator(SELECTORS["nav_assets"]).count() == 1
 
         # No classes yet → empty state on the dashboard.
@@ -127,28 +104,26 @@ class TestS03UserJourney:
         """
         _login_and_select_italo(page, live_url)
 
-        # --- 1. Create 3 classes summing to 100.
-        page.click(SELECTORS["nav_classes"])
-        page.wait_for_url(re.compile(r"/classes$"))
-
-        # The editor seeds 1 empty row on init. Click addRow
-        # twice to bring the count to 3, then fill rows 0/1/2.
-        page.click(SELECTORS["class_editor_add"])
-        page.click(SELECTORS["class_editor_add"])
-        _fill_class_row(page, 0, "Renda Fixa", 60)
-        _fill_class_row(page, 1, "Acoes", 30)
-        _fill_class_row(page, 2, "Reserva", 10)
-        # Wait for the save button to become enabled (Alpine
-        # reactive total reaches 100 only after the next tick).
-        page.wait_for_function(
-            f"() => !document.querySelector('{SELECTORS['class_editor_save']}').disabled",
-            timeout=3000,
+        # --- 1. Create 3 classes summing to 100 via the snapshot form.
+        # The /classes page was retired in S02/T07 — class CRUD goes
+        # through the snapshot POST /classes (parallel form arrays)
+        # or the REST API. We use fetch() + FormData from the browser
+        # context since the page is already logged in.
+        page.evaluate(
+            """async () => {
+                const fd = new FormData();
+                for (const [name, pct] of [['Renda Fixa', 60], ['Acoes', 30], ['Reserva', 10]]) {
+                    fd.append('name[]', name);
+                    fd.append('target_pct[]', String(pct));
+                }
+                const r = await fetch('/classes', { method: 'POST', body: fd });
+                if (!r.ok) throw new Error('POST /classes ' + r.status + ': ' + await r.text());
+            }"""
         )
 
-        page.click(SELECTORS["class_editor_save"])
-        # Successful save redirects to dashboard.
-        page.wait_for_url(re.compile(r"/$"))
-
+        # Reload the dashboard to pick up the new classes.
+        page.goto(f"{live_url}/")
+        page.wait_for_selector(SELECTORS["class_summary_row"], timeout=5000)
         assert page.locator(SELECTORS["class_summary_row"]).count() == 3
 
         # --- 2. Add 3 assets, one per class.
@@ -217,29 +192,3 @@ class TestS03UserJourney:
         assert "Tesouro Selic" in dashboard_text
         assert "IVVB11" in dashboard_text
         assert "PETR4" not in dashboard_text
-
-    def test_save_blocked_when_classes_dont_sum_to_100(self, page: Page, live_url: str) -> None:
-        """The Alpine save button is disabled until the total reaches 100.
-
-        This is a UI contract that only a browser test can validate.
-        """
-        _login_and_select_italo(page, live_url)
-        page.click(SELECTORS["nav_classes"])
-        page.wait_for_url(re.compile(r"/classes$"))
-
-        # With one row at 50%, the total is 50% → save must be disabled.
-        pct_inputs = page.locator(SELECTORS["class_editor_pct"])
-        pct_inputs.nth(0).fill("50")
-        save_btn = page.locator(SELECTORS["class_editor_save"])
-        assert save_btn.is_disabled(), "save button must be disabled when total != 100"
-
-        # Bring the total to 100 and the button enables.
-        page.click(SELECTORS["class_editor_add"])
-        pct_inputs = page.locator(SELECTORS["class_editor_pct"])
-        pct_inputs.nth(1).fill("50")
-        # Alpine reads total reactively; the disabled state flips
-        # on the next tick. wait_for_function avoids a hard sleep.
-        page.wait_for_function(
-            f"() => !document.querySelector('{SELECTORS['class_editor_save']}').disabled",
-            timeout=2000,
-        )

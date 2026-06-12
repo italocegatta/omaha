@@ -128,6 +128,69 @@
         {% endif %}
       </article>
       {% endfor %}
+
+      <div class="new-class-container" data-testid="new-class-container" x-data="newClassForm()">
+        <button type="button"
+                class="new-class-plus-btn"
+                data-testid="new-class-plus-btn"
+                x-show="!showForm"
+                @click="showForm = true">
+          + Nova classe
+        </button>
+
+        <div class="new-class-form"
+             data-testid="new-class-form"
+             x-show="showForm"
+             x-cloak>
+          <div class="new-class-form-body">
+            <div class="new-class-form-field">
+              <label for="new-class-name">Nome</label>
+              <input type="text"
+                     id="new-class-name"
+                     class="new-class-input"
+                     data-testid="new-class-name-input"
+                     x-model="name"
+                     placeholder="Ex: Renda Fixa"
+                     :disabled="saving"
+                     @keyup.enter="save()">
+            </div>
+            <div class="new-class-form-field">
+              <label for="new-class-pct">Alvo %</label>
+              <input type="number"
+                     id="new-class-pct"
+                     class="new-class-input new-class-input--pct"
+                     data-testid="new-class-pct-input"
+                     x-model="targetPct"
+                     step="0.01"
+                     min="0"
+                     max="100"
+                     placeholder="60"
+                     :disabled="saving"
+                     @keyup.enter="save()">
+            </div>
+            <div class="new-class-form-actions">
+              <button type="button"
+                      class="btn btn-primary new-class-form-save"
+                      data-testid="new-class-form-save"
+                      @click="save()"
+                      :disabled="saving">
+                <span x-show="!saving">Salvar</span>
+                <span x-show="saving">Salvando...</span>
+              </button>
+              <button type="button"
+                      class="btn new-class-form-cancel"
+                      data-testid="new-class-form-cancel"
+                      @click="cancel()"
+                      :disabled="saving">Cancelar</button>
+            </div>
+          </div>
+          <p class="new-class-form-error"
+             data-testid="new-class-form-error"
+             x-show="error"
+             x-text="error"
+             x-cloak></p>
+        </div>
+      </div>
     </section>
   </section>
   {% else %}
@@ -281,6 +344,61 @@
           .then(function () {
             self.saving = false;
           });
+      },
+    };
+  }
+
+  // Alpine.js component for the "+ Nova classe" inline create form.
+  // When the plus button is clicked, the form appears with name and
+  // target % fields. On save, POSTs JSON to /api/classes and reloads
+  // the page on success so the new class renders with all server-side
+  // aggregate data (color, current_pct, assets, etc.). On validation
+  // error, shows the server's Portuguese error message inline.
+  function newClassForm() {
+    return {
+      showForm: false,
+      name: '',
+      targetPct: '',
+      saving: false,
+      error: '',
+
+      save: function () {
+        var self = this;
+        self.saving = true;
+        self.error = '';
+        fetch('/api/classes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: self.name, target_pct: self.targetPct }),
+        })
+          .then(function (r) {
+            if (r.status === 201) {
+              // Reload the page so the new class section renders with
+              // server-side aggregate data (color, current_pct, assets).
+              window.location.reload();
+              return;
+            }
+            // 409 (duplicate name) or 422 (validation error). Body
+            // shape: {"detail": "<message>"}.
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao criar classe';
+              throw new Error(detail);
+            });
+          })
+          .catch(function (err) {
+            self.error = err && err.message ? err.message : 'Erro ao criar classe';
+          })
+          .then(function () {
+            self.saving = false;
+          });
+      },
+
+      cancel: function () {
+        this.showForm = false;
+        this.name = '';
+        this.targetPct = '';
+        this.error = '';
+        this.saving = false;
       },
     };
   }

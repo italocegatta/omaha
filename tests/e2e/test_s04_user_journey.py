@@ -173,13 +173,8 @@ SELECTORS = {
     "login_submit": 'button[type="submit"]',
     "profile_picker": "form.profile-picker button",
     "nav_dashboard": '[data-testid="nav-dashboard"]',
-    "nav_classes": '[data-testid="nav-classes"]',
     "nav_assets": '[data-testid="nav-assets"]',
     "nav_import": '[data-testid="nav-import"]',
-    "class_editor_name": '[data-testid="class-editor-name"]',
-    "class_editor_pct": '[data-testid="class-editor-pct"]',
-    "class_editor_add": '[data-testid="class-editor-add"]',
-    "class_editor_save": '[data-testid="class-editor-save"]',
     "class_summary_row": '[data-testid="class-summary-row"]',
     "asset_editor_name": '[data-testid="asset-editor-name"]',
     "asset_editor_class": '[data-testid="asset-editor-class"]',
@@ -223,32 +218,50 @@ def _login_and_select_italo(page: Page, base_url: str) -> None:
     page.wait_for_url(re.compile(r"/$"))
 
 
-def _create_three_classes(page: Page) -> None:
-    """Create Renda Fixa 60 / Acoes 30 / Reserva 10 via the Alpine class editor."""
-    page.click(SELECTORS["nav_classes"])
-    page.wait_for_url(re.compile(r"/classes$"))
-    # Editor seeds 1 empty row on init; addRow twice to reach 3.
-    page.click(SELECTORS["class_editor_add"])
-    page.click(SELECTORS["class_editor_add"])
-    name_inputs = page.locator(SELECTORS["class_editor_name"])
-    pct_inputs = page.locator(SELECTORS["class_editor_pct"])
-    # "RF Pós" is the post-D011 class name: the broker file's
-    # "Minha Categoria" column carries "RF Pós" for the fixed-income
-    # rows and "Ações" for the equity rows, so the import review
-    # pre-selects these exact class names (no keyword map translates
-    # "RF Pós" → "Renda Fixa" any more).
-    name_inputs.nth(0).fill("RF Pós")
-    pct_inputs.nth(0).fill("60")
-    name_inputs.nth(1).fill("Acoes")
-    pct_inputs.nth(1).fill("30")
-    name_inputs.nth(2).fill("Reserva")
-    pct_inputs.nth(2).fill("10")
-    page.wait_for_function(
-        f"() => !document.querySelector('{SELECTORS['class_editor_save']}').disabled",
-        timeout=3000,
+def _create_classes_via_form(page: Page, base_url: str, classes: list[tuple[str, int]]) -> None:
+    """Submit the snapshot class editor form via the browser's fetch API.
+
+    The ``POST /classes`` endpoint uses snapshot semantics (parallel
+    ``name[]`` / ``target_pct[]`` form arrays) and requires the per-profile
+    sum to equal 100. The browser must be logged in — ``fetch`` inherits
+    the page's cookies.
+    """
+    page.evaluate(
+        """async ({ url, cls }) => {
+            const fd = new FormData();
+            for (const [name, pct] of cls) {
+                fd.append('name[]', name);
+                fd.append('target_pct[]', String(pct));
+            }
+            const r = await fetch(url, { method: 'POST', body: fd });
+            if (!r.ok) {
+                throw new Error('POST /classes ' + r.status + ': ' + await r.text());
+            }
+        }""",
+        {"url": f"{base_url}/classes", "cls": classes},
     )
-    page.click(SELECTORS["class_editor_save"])
-    page.wait_for_url(re.compile(r"/$"))
+
+
+def _create_three_classes(page: Page, base_url: str) -> None:
+    """Create RF Pós 60 / Acoes 30 / Reserva 10 via the snapshot form.
+
+    Uses ``POST /classes`` (form-based, parallel arrays). The browser
+    must be logged in — ``fetch`` inherits the page's cookies.
+
+    "RF Pós" is the post-D011 class name: the broker file's "Minha
+    Categoria" column carries "RF Pós" for the fixed-income rows and
+    "Ações" for the equity rows, so the import review pre-selects these
+    exact class names (no keyword map translates "RF Pós" → "Renda Fixa"
+    any more).
+    """
+    _create_classes_via_form(
+        page,
+        base_url,
+        [("RF Pós", 60), ("Acoes", 30), ("Reserva", 10)],
+    )
+    # Reload the dashboard to pick up the new classes.
+    page.goto(f"{base_url}/")
+    page.wait_for_selector(SELECTORS["class_summary_row"], timeout=5000)
     assert page.locator(SELECTORS["class_summary_row"]).count() == 3
 
 
@@ -311,7 +324,7 @@ class TestS04ImportJourney:
         screen AND the confirm flow commits one position per row.
         """
         _login_and_select_italo(page, live_url)
-        _create_three_classes(page)
+        _create_three_classes(page, live_url)
         _seed_43_assets(page)
 
         # --- 1. Upload the broker CSV via the live /import form.
@@ -421,13 +434,15 @@ class TestS04ImportJourney:
         assert dashboard_rows.count() == 48
 
         # Every row must show >= 1 position. The data-position-count
-        # attribute (added in the T04 dashboard change) is the
-        # machine-readable form of the count.
+        # attribute (added in the T04 dashboard change) is on the
+        # <li data-testid="dashboard-asset-row"> itself, not on the
+        # hidden <span data-testid="asset-position-count"> child.
+        # Read it directly from the row element.
         for i in range(48):
             row = dashboard_rows.nth(i)
-            count = int(
-                row.locator(SELECTORS["position_count"]).get_attribute("data-position-count")
-            )
+            count_str = row.get_attribute("data-position-count")
+            assert count_str is not None, f"row {i} missing data-position-count"
+            count = int(count_str)
             assert count >= 1, f"row {i} has {count} positions, expected >= 1"
 
         # The 5 new assets must have the unmatched names. They were
@@ -448,7 +463,7 @@ class TestS04ImportJourney:
         e2e conftest wipes everything).
         """
         _login_and_select_italo(page, live_url)
-        _create_three_classes(page)
+        _create_three_classes(page, live_url)
 
         # Upload to create a fresh preview.
         page.click(SELECTORS["nav_import"])

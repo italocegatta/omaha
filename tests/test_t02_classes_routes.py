@@ -467,19 +467,18 @@ def test_post_classes_delete_removes_class(client: TestClient) -> None:
     ]
 
 
-def test_get_classes_renders_editor(client: TestClient) -> None:
-    """`GET /classes` renders the S03 class editor template.
+def test_get_classes_redirects_to_dashboard(client: TestClient) -> None:
+    """`GET /classes` now 302s to `/` (S02/T07 retired the standalone editor).
 
-    The route is the canonical view of a profile's asset classes.
-    The dashboard surfaces a "Gerenciar classes" shortcut that
-    links here.
+    S02 consolidated class editing into the dashboard. The standalone
+    /classes route was retired via a 302 redirect so bookmarks and
+    stale links still work.
     """
     _login_and_select(client, profile_id=1)
     response = client.get("/classes", follow_redirects=False)
 
-    assert response.status_code == 200
-    assert "text/html" in response.headers["content-type"]
-    assert 'data-testid="class-editor"' in response.text
+    assert response.status_code == 302
+    assert response.headers["location"] == "/"
 
 
 def test_post_classes_snapshot_replaces_pre_existing(

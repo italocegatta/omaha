@@ -132,7 +132,7 @@ class TestS05DashboardJourney:
         - A full-page screenshot is captured for the S05 visual gate.
         """
         _login_and_select_italo(page, live_url)
-        _create_three_classes(page)
+        _create_three_classes(page, live_url)
         _seed_43_assets(page)
         _do_import(page)
 
@@ -249,12 +249,19 @@ class TestS05DashboardJourney:
         assert "R$" in value_text, f"asset value missing R$ prefix: {value_text!r}"
         assert value_text.strip() != "R$", f"asset value is empty: {value_text!r}"
 
+        # The [data-testid="asset-pct"] hidden span is just the raw
+        # number (no % suffix) — a machine-readable value for tests
+        # and backward compat with the S05 aggregate test. Check it
+        # is non-empty and parseable.
         pct_text = row.locator(S05_SELECTORS["asset_pct"]).inner_text()
-        assert "%" in pct_text, f"asset pct missing %: {pct_text!r}"
+        assert pct_text.strip(), "asset pct is empty"
+        float(pct_text)  # must parse — ValueError if not
 
-        pos_count = int(
-            row.locator(S05_SELECTORS["asset_position_count"]).get_attribute("data-position-count")
-        )
+        # data-position-count is on the <li> row itself, not on the
+        # hidden <span data-testid="asset-position-count"> child.
+        pos_count_str = row.get_attribute("data-position-count")
+        assert pos_count_str is not None, "asset row missing data-position-count"
+        pos_count = int(pos_count_str)
         assert pos_count >= 1, f"asset row 0 has {pos_count} positions, expected >= 1"
 
         # Progress bar width is a positive percentage. The fill carries

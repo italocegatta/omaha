@@ -234,24 +234,13 @@ class TestClassesE2E:
         assert "OldBonds" not in names
         assert names == ["Renda Fixa", "Acoes", "Reserva"]
 
-    def test_class_editor_has_data_testid_hooks(self, client: TestClient):
-        """Class editor renders with expected data-testid hooks."""
-        _login_and_select_profile(client)
+    def test_dashboard_shows_seeded_classes(self, client: TestClient):
+        """S02: GET / shows seeded classes in the dashboard (not empty).
 
-        resp = client.get("/classes")
-        assert resp.status_code == 200
-        assert 'data-testid="class-editor"' in resp.text
-        assert 'data-testid="class-editor-total"' in resp.text
-        assert 'data-testid="class-editor-add"' in resp.text
-        assert 'data-testid="class-editor-save"' in resp.text
-
-    def test_editor_starts_empty_regardless_of_db(self, client: TestClient):
-        """D014: GET /classes must render the editor with 0 pre-populated classes.
-
-        Pre-seed 3 classes directly. The rendered editor must
-        show 0 name inputs / 0 pct inputs — no pre-population
-        from the DB. The user retypes the desired set on every
-        visit (the snapshot model requires it).
+        The old standalone editor started empty (D014). S02
+        replaced it with the dashboard, which always renders
+        existing classes as collapsible sections. Seeded classes
+        must appear by name.
         """
         from decimal import Decimal
 
@@ -277,11 +266,22 @@ class TestClassesE2E:
             db.close()
         assert len(_classes_for_profile(profile.id)) == 3
 
-        resp = client.get("/classes")
+        resp = client.get("/")
         assert resp.status_code == 200
         body = resp.text
-        # Alpine seeds with 1 empty row via x-init="addRow()".
-        # The DB rows must not appear as input values anywhere.
-        assert "Legacy1" not in body
-        assert "Legacy2" not in body
-        assert "Legacy3" not in body
+        # The dashboard now shows all classes as sections.
+        assert "Legacy1" in body
+        assert "Legacy2" in body
+        assert "Legacy3" in body
+
+    def test_get_classes_redirects_to_dashboard(self, client: TestClient):
+        """S02/T07: GET /classes redirects to the dashboard.
+
+        The standalone class editor is retired. Any request to
+        GET /classes returns 302 pointing at /.
+        """
+        _login_and_select_profile(client)
+
+        resp = client.get("/classes", follow_redirects=False)
+        assert resp.status_code == 302
+        assert resp.headers.get("location") == "/"
