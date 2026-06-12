@@ -59,8 +59,10 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, 
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.exc import IntegrityError
 
+from sqlalchemy.orm import selectinload
+
 from omaha.auth import DbSession, require_active_profile, require_user
-from omaha.models import AssetClass, Profile, User
+from omaha.models import Asset, AssetClass, Profile, User
 from omaha.validators import validate_target_pct_sum
 
 router = APIRouter(tags=["classes"])
@@ -269,6 +271,50 @@ def delete_class(
     db.delete(cls)
     db.commit()
     return RedirectResponse("/", status_code=303)
+
+
+@router.delete("/api/classes/{class_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
+def delete_class_api(
+    class_id: int,
+    request: Request,
+    db: DbSession,
+    profile: Profile = Depends(require_active_profile),
+) -> Response:
+    """Delete a single class with asset-guard.
+
+    The dashboard's Alpine ``x`` button (S02/T06) calls this endpoint.
+    If the class has any assets, the endpoint returns 409 with the
+    asset count so the UI can display an inline error message — the
+    operator must delete or move the assets first. The cascade is
+    deliberately blocked (409 instead of cascade) to preserve the
+    operator's data.
+
+    Returns
+    -------
+    - 204 with no body on success.
+    - 404 if the class does not exist or belongs to another profile.
+    - 409 with ``{"detail": "Classe tem X ativo(s); remova-os antes."}``
+      if the class has non-empty assets.
+    """
+    cls = (
+        db.query(AssetClass)
+        .options(selectinload(AssetClass.assets))
+        .filter(AssetClass.id == class_id)
+        .one_or_none()
+    )
+    if cls is None or cls.profile_id != profile.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    if cls.assets:
+        count = len(cls.assets)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Classe tem {count} ativo(s); remova-os antes.",
+        )
+
+    db.delete(cls)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/api/classes", status_code=status.HTTP_201_CREATED, response_model=None)
