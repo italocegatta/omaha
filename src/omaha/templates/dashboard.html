@@ -158,6 +158,73 @@
           <a href="/assets" data-testid="dashboard-add-assets-link">Adicionar ativos</a>
         </p>
         {% endif %}
+
+        {# S03/T03: inline "+ Ativo" toggle button + create form. The
+           form lives inside classSection's x-data scope (NOT a
+           separate x-data factory) so its state is per-class and the
+           form is independent across class sections. The T01 JSON
+           endpoint (POST /api/assets) is the single source of truth
+           for per-class sum validation; this UI just renders the
+           server's ``detail`` message verbatim on 4xx. #}
+        <button type="button"
+                class="new-class-plus-btn dashboard-add-asset-btn"
+                data-testid="dashboard-add-asset-btn"
+                x-show="!showAddAsset"
+                @click="showAddAsset = true">
+          + Ativo
+        </button>
+        <div class="new-class-form dashboard-add-asset-form"
+             data-testid="dashboard-add-asset-form"
+             x-show="showAddAsset"
+             x-cloak>
+          <div class="new-class-form-body">
+            <div class="new-class-form-field">
+              <label for="dashboard-add-asset-name-{{ c.id }}">Nome</label>
+              <input type="text"
+                     id="dashboard-add-asset-name-{{ c.id }}"
+                     class="new-class-input"
+                     data-testid="dashboard-add-asset-name-input"
+                     x-model="newAssetName"
+                     placeholder="Ex: PETR4"
+                     :disabled="addingAsset"
+                     @keyup.enter="addAsset()">
+            </div>
+            <div class="new-class-form-field">
+              <label for="dashboard-add-asset-pct-{{ c.id }}">Alvo %</label>
+              <input type="number"
+                     id="dashboard-add-asset-pct-{{ c.id }}"
+                     class="new-class-input new-class-input--pct"
+                     data-testid="dashboard-add-asset-pct-input"
+                     x-model="newAssetTargetPct"
+                     step="0.01"
+                     min="0"
+                     max="100"
+                     placeholder="0"
+                     :disabled="addingAsset"
+                     @keyup.enter="addAsset()">
+            </div>
+            <div class="new-class-form-actions">
+              <button type="button"
+                      class="btn btn-primary new-class-form-save dashboard-add-asset-save"
+                      data-testid="dashboard-add-asset-save"
+                      @click="addAsset()"
+                      :disabled="addingAsset">
+                <span x-show="!addingAsset">Salvar</span>
+                <span x-show="addingAsset">Salvando...</span>
+              </button>
+              <button type="button"
+                      class="btn new-class-form-cancel dashboard-add-asset-cancel"
+                      data-testid="dashboard-add-asset-cancel"
+                      @click="cancelAddAsset()"
+                      :disabled="addingAsset">Cancelar</button>
+            </div>
+          </div>
+          <p class="new-class-form-error dashboard-add-asset-error"
+             data-testid="dashboard-add-asset-error"
+             x-show="addAssetError"
+             x-text="addAssetError"
+             x-cloak></p>
+        </div>
       </article>
       {% endfor %}
 
@@ -274,6 +341,17 @@
       showDeleteConfirm: false,
       deleting: false,
       deleteError: '',
+
+      // S03/T03: inline "+ Ativo" create form state. Lives inside
+      // the classSection scope so each class section owns its own
+      // form (independent across classes). The form mirrors the S02
+      // newClassForm pattern but reuses this component's x-data
+      // instead of a separate factory.
+      showAddAsset: false,
+      addingAsset: false,
+      newAssetName: '',
+      newAssetTargetPct: '',
+      addAssetError: '',
 
       // Live preview: the per-class sum of ``target_pct`` (i.e.
       // the same value the T02 PATCH route's server-side
@@ -429,6 +507,59 @@
         this.showDeleteConfirm = false;
         this.deleteError = '';
         this.deleting = false;
+      },
+
+      // ── Inline create asset (S03/T03) ───────────────────────
+      //
+      // POSTs JSON {name, target_pct} to /api/assets. The T01
+      // server-side validator is the single source of truth for
+      // per-class sum validation, duplicate-name 409, and
+      // cross-profile class id 422 — this UI just renders the
+      // server's ``detail`` message verbatim on 4xx. On 201 we
+      // reload so the new asset row renders with server-side
+      // aggregate data (current_value, percentages, etc.).
+
+      addAsset: function () {
+        var self = this;
+        self.addingAsset = true;
+        self.addAssetError = '';
+        fetch('/api/assets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: self.newAssetName,
+            target_pct: self.newAssetTargetPct,
+          }),
+        })
+          .then(function (r) {
+            if (r.status === 201) {
+              // Reload the page so the new asset row renders with
+              // server-side aggregate data (display_order, current
+              // value, percentages).
+              window.location.reload();
+              return;
+            }
+            // 409 (duplicate name) or 422 (validation error). Body
+            // shape: {"detail": "<message>"}.
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao criar ativo';
+              throw new Error(detail);
+            });
+          })
+          .catch(function (err) {
+            self.addAssetError = err && err.message ? err.message : 'Erro ao criar ativo';
+          })
+          .then(function () {
+            self.addingAsset = false;
+          });
+      },
+
+      cancelAddAsset: function () {
+        this.showAddAsset = false;
+        this.newAssetName = '';
+        this.newAssetTargetPct = '';
+        this.addAssetError = '';
+        this.addingAsset = false;
       },
     };
   }
