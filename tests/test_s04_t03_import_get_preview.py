@@ -8,7 +8,7 @@ or wrong-profile previews.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -61,8 +61,12 @@ def _create_asset_classes(profile_id: int) -> dict[str, int]:
     try:
         classes = [
             AssetClass(profile_id=profile_id, name="Renda Fixa", target_pct=50, display_order=0),
-            AssetClass(profile_id=profile_id, name="Renda Variável", target_pct=30, display_order=1),
-            AssetClass(profile_id=profile_id, name="Fundos Imobiliários", target_pct=20, display_order=2),
+            AssetClass(
+                profile_id=profile_id, name="Renda Variável", target_pct=30, display_order=1
+            ),
+            AssetClass(
+                profile_id=profile_id, name="Fundos Imobiliários", target_pct=20, display_order=2
+            ),
         ]
         db.add_all(classes)
         db.commit()
@@ -238,7 +242,7 @@ class TestGetImportPreview:
         db = SessionLocal()
         try:
             preview = db.get(ImportPreview, preview_id)
-            preview.created_at = datetime.utcnow() - timedelta(hours=2)
+            preview.created_at = datetime.now(tz=UTC).replace(tzinfo=None) - timedelta(hours=2)
             db.commit()
         finally:
             db.close()
@@ -289,13 +293,16 @@ class TestGetImportPreview:
         assert len(resp_before.json()["unmatched"]) == 5
 
         # Add assets for the unmatched tickers
-        _create_assets(class_map, [
-            ("Fundos Imobiliários", "MXRF11"),
-            ("Renda Variável", "BPAC11"),
-            ("Fundos Imobiliários", "HGLG11"),
-            ("Renda Variável", "XPLG11"),
-            ("Fundos Imobiliários", "VINO11"),
-        ])
+        _create_assets(
+            class_map,
+            [
+                ("Fundos Imobiliários", "MXRF11"),
+                ("Renda Variável", "BPAC11"),
+                ("Fundos Imobiliários", "HGLG11"),
+                ("Renda Variável", "XPLG11"),
+                ("Fundos Imobiliários", "VINO11"),
+            ],
+        )
 
         # Now GET should show 48 auto, 0 unmatched
         resp_after = client.get(f"/api/import/preview/{preview_id}")

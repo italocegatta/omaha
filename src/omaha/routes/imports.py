@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from fastapi import (
@@ -37,6 +37,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from omaha.auth import DbSession, require_active_profile, require_user
 from omaha.csv_import import (
@@ -82,8 +83,6 @@ def _raw_to_dict(rp: RawPosition) -> dict:
 
 
 def _dict_to_raw(d: dict) -> RawPosition:
-    from decimal import Decimal
-
     return RawPosition(
         broker_ticker=d["broker_ticker"],
         name=d["name"],
@@ -114,7 +113,7 @@ def _load_preview(db, profile_id: int, preview_id: int | None) -> ImportPreview 
 
 
 def _is_expired(preview: ImportPreview, now: datetime | None = None) -> bool:
-    now = now or datetime.utcnow()
+    now = now or datetime.now(tz=UTC).replace(tzinfo=None)
     return (now - preview.created_at) > PREVIEW_TTL
 
 
@@ -392,7 +391,9 @@ class CommitRequest(BaseModel):
 
 
 def _build_preview_response(
-    db: Session, profile: Profile, preview: ImportPreview,
+    db: Session,
+    profile: Profile,
+    preview: ImportPreview,
 ) -> dict:
     """Build the JSON response dict from an ImportPreview row.
 
@@ -622,7 +623,9 @@ def commit_import(
     db.delete(preview)
     db.commit()
 
-    logger.info("import_commit_api profile=%s upserted=%d created=%d", profile.id, upserted, created)
+    logger.info(
+        "import_commit_api profile=%s upserted=%d created=%d", profile.id, upserted, created
+    )
     return JSONResponse({"upserted": upserted, "created": created}, status_code=200)
 
 

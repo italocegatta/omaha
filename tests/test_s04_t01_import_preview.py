@@ -63,8 +63,12 @@ def _create_asset_classes(profile_id: int) -> dict[str, int]:
     try:
         classes = [
             AssetClass(profile_id=profile_id, name="Renda Fixa", target_pct=50, display_order=0),
-            AssetClass(profile_id=profile_id, name="Renda Variavel", target_pct=30, display_order=1),
-            AssetClass(profile_id=profile_id, name="Fundos Imobiliarios", target_pct=20, display_order=2),
+            AssetClass(
+                profile_id=profile_id, name="Renda Variavel", target_pct=30, display_order=1
+            ),
+            AssetClass(
+                profile_id=profile_id, name="Fundos Imobiliarios", target_pct=20, display_order=2
+            ),
         ]
         db.add_all(classes)
         db.commit()
@@ -89,11 +93,13 @@ def _create_assets(class_map: dict[str, int], names: list[tuple[str, str]]) -> N
         for class_name, asset_name in names:
             class_id = class_map[class_name]
             order = class_counts.get(class_id, 0)
-            db.add(Asset(
-                asset_class_id=class_id,
-                name=asset_name,
-                display_order=order,
-            ))
+            db.add(
+                Asset(
+                    asset_class_id=class_id,
+                    name=asset_name,
+                    display_order=order,
+                )
+            )
             class_counts[class_id] = order + 1
         db.commit()
     finally:
@@ -188,15 +194,13 @@ class TestPostImportPreview:
 
         assert "auto_matched" in data
         assert isinstance(data["auto_matched"], list)
-        assert len(data["auto_matched"]) == 43, (
-            f"Expected 43 auto_matched, got {len(data['auto_matched'])}"
-        )
+        assert (
+            len(data["auto_matched"]) == 43
+        ), f"Expected 43 auto_matched, got {len(data['auto_matched'])}"
 
         assert "unmatched" in data
         assert isinstance(data["unmatched"], list)
-        assert len(data["unmatched"]) == 5, (
-            f"Expected 5 unmatched, got {len(data['unmatched'])}"
-        )
+        assert len(data["unmatched"]) == 5, f"Expected 5 unmatched, got {len(data['unmatched'])}"
 
         assert "asset_classes" in data
         assert isinstance(data["asset_classes"], list)
@@ -223,9 +227,9 @@ class TestPostImportPreview:
 
         # Verify unmatched tickers are the expected 5
         unmatched_tickers = {u["broker_ticker"] for u in data["unmatched"]}
-        assert unmatched_tickers == _UNMATCHED_TICKERS, (
-            f"Expected unmatched tickers {_UNMATCHED_TICKERS}, got {unmatched_tickers}"
-        )
+        assert (
+            unmatched_tickers == _UNMATCHED_TICKERS
+        ), f"Expected unmatched tickers {_UNMATCHED_TICKERS}, got {unmatched_tickers}"
 
         # Verify asset_classes item shape
         ac = data["asset_classes"][0]
@@ -236,9 +240,9 @@ class TestPostImportPreview:
 
         # Verify all auto_matched have asset_id values
         for item in data["auto_matched"]:
-            assert isinstance(item["asset_id"], int), (
-                f"Expected int asset_id for {item['broker_ticker']}"
-            )
+            assert isinstance(
+                item["asset_id"], int
+            ), f"Expected int asset_id for {item['broker_ticker']}"
 
     def test_preview_empty_file_returns_400(self, client: TestClient) -> None:
         """Uploading an empty file returns 400."""
@@ -297,7 +301,7 @@ class TestPostImportPreview:
         """CSV with banner and header but zero data rows returns 400."""
         _login_and_select(client)
         # Banners + header + total only (no real data rows)
-        fake_csv = "Relatorio\nCodigo,Ativo,Quantidade\nTotal,0,,\n".encode("utf-8")
+        fake_csv = b"Relatorio\nCodigo,Ativo,Quantidade\nTotal,0,,\n"
         resp = client.post(
             "/api/import/preview",
             files={"file": ("zero.csv", fake_csv, "text/csv")},

@@ -11,6 +11,7 @@ missing preview, invalid class_id, preview from wrong profile.
 
 from __future__ import annotations
 
+from datetime import UTC
 from pathlib import Path
 
 import pytest
@@ -65,8 +66,12 @@ def _create_asset_classes(profile_id: int) -> dict[str, int]:
     try:
         classes = [
             AssetClass(profile_id=profile_id, name="Renda Fixa", target_pct=50, display_order=0),
-            AssetClass(profile_id=profile_id, name="Renda Variável", target_pct=30, display_order=1),
-            AssetClass(profile_id=profile_id, name="Fundos Imobiliários", target_pct=20, display_order=2),
+            AssetClass(
+                profile_id=profile_id, name="Renda Variável", target_pct=30, display_order=1
+            ),
+            AssetClass(
+                profile_id=profile_id, name="Fundos Imobiliários", target_pct=20, display_order=2
+            ),
         ]
         db.add_all(classes)
         db.commit()
@@ -103,17 +108,20 @@ def _create_preview(profile_id: int, raw_json: str | None = None) -> int:
     from omaha.models import ImportPreview
 
     if raw_json is None:
-        raw_json = json.dumps([
-            {
-                "broker_ticker": "TEST4",
-                "name": "TEST4",
-                "qty": "10",
-                "avg_price": "50.00",
-                "current_price": "55.00",
-                "row_index": 1,
-                "suggested_category": None,
-            }
-        ], ensure_ascii=False)
+        raw_json = json.dumps(
+            [
+                {
+                    "broker_ticker": "TEST4",
+                    "name": "TEST4",
+                    "qty": "10",
+                    "avg_price": "50.00",
+                    "current_price": "55.00",
+                    "row_index": 1,
+                    "suggested_category": None,
+                }
+            ],
+            ensure_ascii=False,
+        )
 
     db = SessionLocal()
     try:
@@ -267,11 +275,31 @@ class TestPostImportCommit:
 
         # Assign each unmatched ticker to a class
         assignments = [
-            {"broker_ticker": "MXRF11", "class_id": class_map["Fundos Imobiliários"], "asset_name": "MXRF11"},
-            {"broker_ticker": "BPAC11", "class_id": class_map["Renda Variável"], "asset_name": "BPAC11"},
-            {"broker_ticker": "HGLG11", "class_id": class_map["Fundos Imobiliários"], "asset_name": "HGLG11"},
-            {"broker_ticker": "XPLG11", "class_id": class_map["Renda Variável"], "asset_name": "XPLG11"},
-            {"broker_ticker": "VINO11", "class_id": class_map["Fundos Imobiliários"], "asset_name": "VINO11"},
+            {
+                "broker_ticker": "MXRF11",
+                "class_id": class_map["Fundos Imobiliários"],
+                "asset_name": "MXRF11",
+            },
+            {
+                "broker_ticker": "BPAC11",
+                "class_id": class_map["Renda Variável"],
+                "asset_name": "BPAC11",
+            },
+            {
+                "broker_ticker": "HGLG11",
+                "class_id": class_map["Fundos Imobiliários"],
+                "asset_name": "HGLG11",
+            },
+            {
+                "broker_ticker": "XPLG11",
+                "class_id": class_map["Renda Variável"],
+                "asset_name": "XPLG11",
+            },
+            {
+                "broker_ticker": "VINO11",
+                "class_id": class_map["Fundos Imobiliários"],
+                "asset_name": "VINO11",
+            },
         ]
 
         resp = client.post(
@@ -304,11 +332,31 @@ class TestPostImportCommit:
         preview_id = preview_resp.json()["preview_id"]
 
         assignments = [
-            {"broker_ticker": "MXRF11", "class_id": class_map["Fundos Imobiliários"], "asset_name": "MXRF11"},
-            {"broker_ticker": "BPAC11", "class_id": class_map["Renda Variável"], "asset_name": "BPAC11"},
-            {"broker_ticker": "HGLG11", "class_id": class_map["Fundos Imobiliários"], "asset_name": "HGLG11"},
-            {"broker_ticker": "XPLG11", "class_id": class_map["Renda Variável"], "asset_name": "XPLG11"},
-            {"broker_ticker": "VINO11", "class_id": class_map["Fundos Imobiliários"], "asset_name": "VINO11"},
+            {
+                "broker_ticker": "MXRF11",
+                "class_id": class_map["Fundos Imobiliários"],
+                "asset_name": "MXRF11",
+            },
+            {
+                "broker_ticker": "BPAC11",
+                "class_id": class_map["Renda Variável"],
+                "asset_name": "BPAC11",
+            },
+            {
+                "broker_ticker": "HGLG11",
+                "class_id": class_map["Fundos Imobiliários"],
+                "asset_name": "HGLG11",
+            },
+            {
+                "broker_ticker": "XPLG11",
+                "class_id": class_map["Renda Variável"],
+                "asset_name": "XPLG11",
+            },
+            {
+                "broker_ticker": "VINO11",
+                "class_id": class_map["Fundos Imobiliários"],
+                "asset_name": "VINO11",
+            },
         ]
 
         resp = client.post(
@@ -328,7 +376,11 @@ class TestPostImportCommit:
             assert len(positions) == 48
 
             # Verify the new assets were created
-            new_asset_names = {a.name for a in assets if a.name in {"MXRF11", "BPAC11", "HGLG11", "XPLG11", "VINO11"}}
+            new_asset_names = {
+                a.name
+                for a in assets
+                if a.name in {"MXRF11", "BPAC11", "HGLG11", "XPLG11", "VINO11"}
+            }
             assert len(new_asset_names) == 5
         finally:
             db.close()
@@ -387,7 +439,7 @@ class TestPostImportCommit:
         db = SessionLocal()
         try:
             preview = db.get(ImportPreview, preview_id)
-            preview.created_at = datetime.utcnow() - timedelta(hours=2)
+            preview.created_at = datetime.now(tz=UTC).replace(tzinfo=None) - timedelta(hours=2)
             db.commit()
         finally:
             db.close()
