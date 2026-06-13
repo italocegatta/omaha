@@ -3,10 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: bug de visualização
 status: planning
-last_updated: "2026-06-13T05:32:29.206Z"
-last_activity: 2026-06-13
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,17 +15,23 @@ progress:
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 1 of 5 — Audit
 Plan: —
-Status: Defining requirements
-Last activity: 2026-06-13 — Milestone v1.2 started
+Status: Ready to plan
+Last activity: 2026-06-13 — Roadmap created for milestone v1.2
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Project Reference
 
 See: `.planning/PROJECT.md` (updated 2026-06-13)
 
 **Core value:** The family opens the app, sees where the portfolio is, trusts the numbers, and closes the tab.
-**Current focus:** (none — milestone boundary)
+**Current focus:** Fix color-visibility defects and apply a robust, WCAG-aligned palette.
+
+## Performance Metrics
+
+*No plans completed yet.*
 
 ## Accumulated Context
 
