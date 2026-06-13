@@ -1,8 +1,10 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.2
-milestone_name: bug de visualização
-status: planning
+milestone_name: milestone
+status: executing
+last_updated: "2026-06-13T07:30:11.531Z"
+last_activity: 2026-06-13 — Roadmap created for milestone v1.2
 progress:
   total_phases: 5
   completed_phases: 0
@@ -17,7 +19,7 @@ progress:
 
 Phase: 1 of 5 — Audit
 Plan: —
-Status: Ready to plan
+Status: Ready to execute
 Last activity: 2026-06-13 — Roadmap created for milestone v1.2
 
 Progress: [░░░░░░░░░░] 0%
