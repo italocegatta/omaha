@@ -28,6 +28,10 @@ dev = [
     "ruff>=0.6",
     "prek>=0.2",
     "playwright>=1.60.0",
+    "coloraide>=8.8.1",
+    "tinycss2>=1.5.1",
+    "beautifulsoup4>=4.15.0",
+    "lxml>=6.1.1",
 ]
 
 [project.scripts]
