@@ -108,7 +108,10 @@ def composite_over(color: str, backdrop: str) -> str:
     try:
         fg_c = Color(color).convert("srgb")
         bg_c = Color(backdrop).convert("srgb")
-        alpha = min(1.0, max(0.0, fg_c.get("alpha", 1.0)))
+        try:
+            alpha = min(1.0, max(0.0, fg_c["alpha"]))
+        except (KeyError, TypeError):
+            alpha = 1.0
         if alpha >= 1.0:
             return color
         r = fg_c["r"] * alpha + bg_c["r"] * (1 - alpha)
