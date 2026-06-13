@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inventário de contraste — Omaha</title>
+  <style>
+    :root {
+      --surface: #ffffff;
+      --bg: #fafaf7;
+      --ink: oklch(0.20 0.01 60);
+      --ink-muted: oklch(0.50 0.01 60);
+      --accent: oklch(0.42 0.09 150);
+      --accent-ink: oklch(0.98 0.005 150);
+      --positive: oklch(0.52 0.13 145);
+      --negative: oklch(0.50 0.18 25);
+      --border: oklch(0.90 0.005 60);
+      --border-strong: oklch(0.82 0.008 60);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      font-size: 16px;
+      line-height: 1.55;
+      color: var(--ink);
+      background: var(--bg);
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 48px 24px 96px;
+    }
+    h1 { font-size: clamp(1.75rem, 3vw, 2.5rem); font-weight: 600; line-height: 1.2; margin-bottom: 8px; }
+    h2 { font-size: 1.125rem; font-weight: 600; line-height: 1.2; margin-bottom: 12px; }
+    .report-header { margin-bottom: 32px; }
+    .report-timestamp { font-size: 0.75rem; color: var(--ink-muted); margin-bottom: 24px; }
+    .summary-cards { display: flex; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
+    .summary-card {
+      flex: 1; min-width: 200px;
+      background: var(--surface); border: 1px solid var(--border-strong);
+      border-radius: 8px; padding: 20px;
+    }
+    .summary-card-label { font-size: 0.75rem; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .summary-card-value { font-size: 1.5rem; font-weight: 600; font-feature-settings: "tnum"; }
+    .summary-card-value--fail { color: var(--negative); }
+    .toc { margin-bottom: 32px; }
+    .toc ul { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+    .toc a { color: var(--accent); text-decoration: none; padding: 4px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; }
+    .toc a:hover { background: var(--accent); color: var(--accent-ink); }
+    .page-section { margin-bottom: 24px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; overflow: hidden; }
+    .page-section-header {
+      padding: 16px 20px; cursor: pointer; user-select: none;
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+    }
+    .page-section-header h2 { margin-bottom: 0; font-size: 1rem; }
+    .page-section-body { padding: 0 20px 20px; display: none; }
+    .page-section-body.open { display: block; }
+    .page-section-chevron { font-size: 0.75rem; transition: transform 0.15s; }
+    .page-section-header.open .page-section-chevron { transform: rotate(180deg); }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.85rem; }
+    th { text-align: left; padding: 8px 12px; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-muted); border-bottom: 1px solid var(--border-strong); }
+    td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .swatch { display: inline-block; width: 16px; height: 16px; border-radius: 3px; border: 1px solid var(--border); vertical-align: middle; margin-right: 6px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 500; line-height: 1.4; }
+    .badge--pass { background: color-mix(in srgb, var(--positive) 10%, var(--surface)); color: var(--positive); }
+    .badge--fail { background: color-mix(in srgb, var(--negative) 10%, var(--surface)); color: var(--negative); }
+    .ratio-value { font-feature-settings: "tnum"; font-weight: 500; }
+    .ratio-fail { color: var(--negative); }
+    .filters { margin-bottom: 24px; display: flex; align-items: center; gap: 8px; }
+    .filters label { font-size: 0.85rem; cursor: pointer; }
+    .filters input[type="checkbox"] { margin-right: 4px; }
+    .empty-state { text-align: center; padding: 48px 24px; color: var(--ink-muted); }
+    .empty-state h2 { margin-bottom: 8px; }
+    .failure-log { margin-top: 32px; }
+    .failure-group { margin-bottom: 16px; }
+    .failure-group h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; }
+    .hidden { display: none; }
+    .limit-col { font-size: 0.8rem; color: var(--ink-muted); }
+  </style>
+</head>
+<body>
+
+<div class="report-header">
+  <h1>Inventário de contraste — Omaha</h1>
+  <p class="report-timestamp">Gerado em {{ generation_time }}</p>
+</div>
+
+<div class="summary-cards">
+  <div class="summary-card">
+    <div class="summary-card-label">Elementos interativos</div>
+    <div class="summary-card-value">{{ summary.total_interactive }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-card-label">Tokens de cor</div>
+    <div class="summary-card-value">{{ summary.total_tokens }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-card-label">Falhas WCAG AA</div>
+    <div class="summary-card-value summary-card-value--fail">{{ summary.total_failures }}</div>
+  </div>
+</div>
+
+<div class="filters">
+  <input type="checkbox" id="show-only-failures" {% if show_only_failures %}checked{% endif %}>
+  <label for="show-only-failures">Mostrar apenas falhas</label>
+</div>
+
+{% if inventory_rows %}
+<div class="toc">
+  <h2>Páginas auditadas</h2>
+  <ul>
+    {% for page in pages %}
+    <li><a href="#page-{{ loop.index }}">{{ page }}</a></li>
+    {% endfor %}
+  </ul>
+</div>
+
+{% for page in pages %}
+{% set page_rows = inventory_rows | selectattr("template", "equalto", page) | list %}
+<section class="page-section" id="page-{{ loop.index }}">
+  <div class="page-section-header" onclick="this.classList.toggle('open'); this.nextElementSibling.classList.toggle('open')">
+    <h2>{{ page }} <small style="font-weight:400;color:var(--ink-muted);">({{ page_rows | length }} pares)</small></h2>
+    <span class="page-section-chevron">▼</span>
+  </div>
+  <div class="page-section-body open">
+    <table>
+      <thead>
+        <tr>
+          <th>Elemento</th>
+          <th>Estado</th>
+          <th>Cor do texto</th>
+          <th>Cor do fundo</th>
+          <th>Razão de contraste</th>
+          <th>Limite</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in page_rows %}
+        <tr class="inventory-row {% if row.status == 'Falha' %}row-fail{% endif %}"
+            {% if row.hidden_by_default %}title="Oculto por padrão (Alpine.js x-show/x-cloak)"{% endif %}>
+          <td>
+            <code>{{ row.selector }}</code>
+            {% if row.hidden_by_default %}<span style="font-size:0.7rem;color:var(--ink-muted)"> oculto</span>{% endif %}
+          </td>
+          <td>{{ row.state }}</td>
+          <td>
+            <span class="swatch" style="background:{{ row.fg }};" aria-label="Cor do texto {{ row.fg }}"></span>
+            <code>{{ row.fg }}</code>
+          </td>
+          <td>
+            <span class="swatch" style="background:{{ row.bg }};" aria-label="Cor do fundo {{ row.bg }}"></span>
+            <code>{{ row.bg }}</code>
+          </td>
+          <td class="ratio-value {% if row.status == 'Falha' %}ratio-fail{% endif %}">{{ "%.2f"|format(row.ratio) }}:1</td>
+          <td class="limit-col">AA: 4.5:1</td>
+          <td><span class="badge {% if row.status == 'Passa' %}badge--pass{% else %}badge--fail{% endif %}">{{ row.status }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endfor %}
+{% else %}
+<div class="empty-state">
+  <h2>Nenhum elemento interativo encontrado</h2>
+  <p>Verifique se os templates contêm elementos interativos (botões, links, inputs).</p>
+</div>
+{% endif %}
+
+{% if token_rows %}
+<section style="margin-top:32px;">
+  <h2>Inventário de tokens CSS</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Token</th>
+        <th>Valor computado</th>
+        <th>Fundo adjacente padrão</th>
+        <th>Contraste</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in token_rows %}
+      <tr class="token-row {% if row.status == 'Falha' %}row-fail{% endif %}">
+        <td><code>{{ row.token }}</code></td>
+        <td>
+          <span class="swatch" style="background:{{ row.computed_value }};" aria-label="Cor {{ row.computed_value }}"></span>
+          <code>{{ row.computed_value }}</code>
+        </td>
+        <td><code>{{ row.adjacent_background }}</code></td>
+        <td class="ratio-value {% if row.status == 'Falha' %}ratio-fail{% endif %}">{{ "%.2f"|format(row.ratio) }}:1</td>
+        <td><span class="badge {% if row.status == 'Passa' %}badge--pass{% else %}badge--fail{% endif %}">{{ row.status }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+{% if failure_log %}
+<section class="failure-log">
+  <h2>Registro de falhas</h2>
+  {% for group_name, group_items in failure_log.items() %}
+  <div class="failure-group">
+    <h3>{{ group_name }} ({{ group_items | length }} falhas)</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Seletor / Token</th>
+          <th>Estado</th>
+          <th>Cor do texto</th>
+          <th>Cor do fundo</th>
+          <th>Razão</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in group_items %}
+        <tr>
+          <td><code>{{ item.selector }}</code></td>
+          <td>{{ item.state }}</td>
+          <td><code>{{ item.fg }}</code></td>
+          <td><code>{{ item.bg }}</code></td>
+          <td class="ratio-value ratio-fail">{{ "%.2f"|format(item.ratio) }}:1</td>
+          <td><span class="badge badge--fail">Falha</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+</section>
+{% else %}
+<div class="empty-state">
+  <h2>Nenhuma falha de contraste encontrada</h2>
+  <p>Todos os pares de cores auditados atingem o limite mínimo WCAG 2.1 AA.</p>
+</div>
+{% endif %}
+
+<script>
+  // Show only failures toggle
+  var toggle = document.getElementById('show-only-failures');
+  if (toggle) {
+    toggle.addEventListener('change', function() {
+      var rows = document.querySelectorAll('.inventory-row, .token-row');
+      rows.forEach(function(row) {
+        if (toggle.checked) {
+          row.classList.toggle('hidden', !row.classList.contains('row-fail'));
+        } else {
+          row.classList.remove('hidden');
+        }
+      });
+      // Also toggle page sections: hide sections with no visible fail rows.
+      document.querySelectorAll('.page-section').forEach(function(section) {
+        if (toggle.checked) {
+          var failRows = section.querySelectorAll('.row-fail:not(.hidden)');
+          section.classList.toggle('hidden', failRows.length === 0);
+        } else {
+          section.classList.remove('hidden');
+        }
+      });
+    });
+  }
+</script>
+
+</body>
+</html>
