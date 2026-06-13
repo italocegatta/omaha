@@ -210,3 +210,57 @@ class TestGenerateReport:
         generate_report(css_path, templates_dir, output_path)
         size = output_path.stat().st_size
         assert size > 10_000, f"Report should be larger than 10 KB, got {size} bytes"
+
+
+# ---------------------------------------------------------------------------
+# CLI integration tests
+# ---------------------------------------------------------------------------
+
+
+class TestCLI:
+    """Verify the CLI entry point produces the expected output."""
+
+    def test_cli_writes_report(self, tmp_path):
+        from omaha.audit.cli import main
+
+        output_path = tmp_path / "contrast_audit.html"
+        exit_code = main([
+            "--css", "src/omaha/static/app.css",
+            "--templates-dir", "src/omaha/templates",
+            "--output", str(output_path),
+        ])
+        assert exit_code == 0
+        assert output_path.exists()
+        content = output_path.read_text(encoding="utf-8")
+        assert "Inventário de contraste — Omaha" in content
+
+    def test_cli_default_args(self):
+        from omaha.audit.cli import _parse_args
+
+        args = _parse_args([])
+        assert args.css == "src/omaha/static/app.css"
+        assert args.templates_dir == "src/omaha/templates"
+        assert args.output == "reports/contrast_audit.html"
+
+    def test_cli_custom_args(self):
+        from omaha.audit.cli import _parse_args
+
+        args = _parse_args([
+            "--css", "custom.css",
+            "--templates-dir", "custom/templates",
+            "--output", "out.html",
+        ])
+        assert args.css == "custom.css"
+        assert args.templates_dir == "custom/templates"
+        assert args.output == "out.html"
+
+    def test_cli_missing_css_returns_nonzero(self, tmp_path):
+        from omaha.audit.cli import main
+
+        output_path = tmp_path / "out.html"
+        exit_code = main([
+            "--css", "nonexistent.css",
+            "--templates-dir", "src/omaha/templates",
+            "--output", str(output_path),
+        ])
+        assert exit_code == 1
