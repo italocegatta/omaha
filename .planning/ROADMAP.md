@@ -11,7 +11,7 @@ This milestone audits every interactive state and color token in the app, replac
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Audit** - Inventory interactive states and compute contrast ratios
+- [x] **Phase 1: Audit** - Inventory interactive states and compute contrast ratios (completed 2026-06-13)
 - [ ] **Phase 2: Palette** - Define corrected color tokens and update DESIGN.md
 - [ ] **Phase 3: Components** - Fix buttons, links, inputs, feedback, and data visualization states
 - [ ] **Phase 4: Validation** - Verify WCAG AA contrast and document exceptions
@@ -34,11 +34,11 @@ This milestone audits every interactive state and color token in the app, replac
 Plans:
 **Wave 1**
 
-- [ ] 01-02: Inventory CSS color tokens and compute adjacent contrasts
+- [x] 01-02: Inventory CSS color tokens and compute adjacent contrasts
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 01-01: Inventory interactive elements and state color pairs
+- [x] 01-01: Inventory interactive elements and state color pairs
 
 ### Phase 2: Palette
 
@@ -51,13 +51,17 @@ Plans:
   2. Each token pair has a documented minimum contrast ratio that meets WCAG 2.1 AA (body ≥ 4.5:1, UI/large ≥ 3:1).
   3. `DESIGN.md` reflects the corrected token values and includes the rationale for each change.
 
-**Plans**: TBD
+**Plans**: 3 plans in 2 waves
 **UI hint**: yes
 
 Plans:
 
-- [ ] 02-01: Define corrected color tokens in `app.css`
-- [ ] 02-02: Update `DESIGN.md` with token values and rationale
+**Wave 1**
+- [ ] 02-01: Correct `app.css` token values — fix class-4/class-6, add status-ink tokens, convert error tokens to OKLCH, replace hardcoded `#fff` with `var(--negative-ink)`
+- [ ] 02-02: Rewrite `DESIGN.md` color sections — token table with Contrast column (D-02), corrected class swatches, annotated component inventory (D-04)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 02-03: Create `tests/test_phase02_tokens.py` with PALT-01/PALT-02 verification and run full pipeline
 
 ### Phase 3: Components
 
@@ -123,7 +127,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Audit | TBD | Not started | - |
+| 1. Audit | 2/2 | Complete   | 2026-06-13 |
 | 2. Palette | TBD | Not started | - |
 | 3. Components | TBD | Not started | - |
 | 4. Validation | TBD | Not started | - |
