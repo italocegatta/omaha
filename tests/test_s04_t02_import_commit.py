@@ -461,8 +461,11 @@ class TestPostImportCommit:
         assert resp.status_code == 400
         assert "detail" in resp.json()
 
-    def test_commit_invalid_class_id_returns_422(self, client: TestClient) -> None:
-        """Assigning an unmatched row to a non-existent class returns 422."""
+    def test_commit_invalid_class_id_skips_row(self, client: TestClient) -> None:
+        """An unmatched row with a non-existent class_id is silently skipped."""
+        from omaha.db import SessionLocal
+        from omaha.models import Asset, Position
+
         _login_and_select(client)
         class_map = _create_asset_classes(1)
         _create_assets(class_map, _AUTO_MATCH_NAMES[:5])
@@ -483,8 +486,83 @@ class TestPostImportCommit:
                 ],
             },
         )
-        assert resp.status_code == 422
-        assert "detail" in resp.json()
+        # Invalid class_id is silently skipped, not an error.
+        assert resp.status_code == 200
+        data = resp.json()
+        # 5 auto-matched rows (no assignment → keep original class)
+        assert data["upserted"] == 5
+        assert data["created"] == 0
+
+        db = SessionLocal()
+        try:
+            # No new assets created (MXRF11 was skipped due to invalid class)
+            assets = db.query(Asset).all()
+            assert len(assets) == 5  # only the pre-created 5
+            # MXRF11 position should NOT exist
+            mxrf_positions = db.query(Position).filter(Position.broker_ticker == "MXRF11").count()
+            assert mxrf_positions == 0
+        finally:
+            db.close()
+
+    def test_commit_skips_rows_without_class_id(self, client: TestClient) -> None:
+        """Rows with empty class_id in assignments are not imported."""
+        from omaha.db import SessionLocal
+        from omaha.models import Asset, Position
+
+        _login_and_select(client)
+        class_map = _create_asset_classes(1)
+        # Create only 5 assets so 43 rows are unmatched
+        _create_assets(class_map, _AUTO_MATCH_NAMES[:5])
+
+        csv_bytes = (FIXTURE_DIR / "sample_broker.csv").read_bytes()
+        preview_resp = client.post(
+            "/api/import/preview",
+            files={"file": ("sample_broker.csv", csv_bytes, "text/csv")},
+        )
+        preview_id = preview_resp.json()["preview_id"]
+
+        # Send assignments that include empty class_id for some rows
+        assignments = [
+            # MXRF11 and BPAC11 have valid class_id → should be imported
+            {
+                "broker_ticker": "MXRF11",
+                "class_id": class_map["Fundos Imobiliários"],
+                "asset_name": "MXRF11",
+            },
+            {
+                "broker_ticker": "BPAC11",
+                "class_id": class_map["Renda Variável"],
+                "asset_name": "BPAC11",
+            },
+            # HGLG11 has null class_id → skipped
+            {"broker_ticker": "HGLG11", "class_id": None, "asset_name": "HGLG11"},
+            # XPLG11 has no assignment at all → skipped
+        ]
+
+        resp = client.post(
+            "/api/import/commit",
+            json={"preview_id": preview_id, "assignments": assignments},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        # 5 auto-matched (no assignment → keep original) + 2 with valid class
+        assert data["upserted"] == 7
+        assert data["created"] == 2
+
+        db = SessionLocal()
+        try:
+            # 5 pre-existing + 2 new = 7 assets
+            assets = db.query(Asset).all()
+            assert len(assets) == 7
+            # MXRF11 and BPAC11 have positions; HGLG11 and XPLG11 do not
+            for ticker in ("MXRF11", "BPAC11"):
+                count = db.query(Position).filter(Position.broker_ticker == ticker).count()
+                assert count == 1, f"{ticker} should have 1 position"
+            for ticker in ("HGLG11", "XPLG11"):
+                count = db.query(Position).filter(Position.broker_ticker == ticker).count()
+                assert count == 0, f"{ticker} should NOT have a position"
+        finally:
+            db.close()
 
     def test_commit_deletes_preview(self, client: TestClient) -> None:
         """After a successful commit, the preview row is deleted from the DB."""

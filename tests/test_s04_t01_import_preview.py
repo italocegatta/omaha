@@ -215,6 +215,8 @@ class TestPostImportPreview:
         assert "current_price" in am
         assert "asset_id" in am
         assert isinstance(am["asset_id"], int)
+        assert "asset_class_id" in am
+        assert isinstance(am["asset_class_id"], int)
 
         # Verify unmatched item shape
         um = data["unmatched"][0]
@@ -224,6 +226,12 @@ class TestPostImportPreview:
         assert "avg_price" in um
         assert "current_price" in um
         assert "suggested_category" in um
+        assert "suggested_class_id" in um
+        # suggested_class_id should be None for these unmatched rows
+        # because the test classes (Renda Fixa, Renda Variavel,
+        # Fundos Imobiliarios) don't match any CSV category names
+        # (Ações, RF Pós, (Não configurado)) via exact/substring/word.
+        assert um["suggested_class_id"] is None
 
         # Verify unmatched tickers are the expected 5
         unmatched_tickers = {u["broker_ticker"] for u in data["unmatched"]}

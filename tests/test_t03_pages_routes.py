@@ -340,7 +340,7 @@ def test_dashboard_renders_distribution_layout(client: TestClient) -> None:
     assert 'data-testid="dashboard-class-section"' in body, body
     assert 'data-testid="class-color-swatch"' in body, body
     assert 'data-testid="class-section-name"' in body, body
-    assert 'data-testid="class-target-pct"' in body, body
+    assert 'data-testid="class-target-pct-view"' in body, body
     assert 'data-testid="class-current-pct"' in body, body
     assert 'data-testid="class-compare-bar"' in body, body
 

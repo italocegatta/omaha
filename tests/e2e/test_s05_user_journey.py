@@ -66,7 +66,7 @@ S05_SELECTORS = {
     "dashboard_class_section": '[data-testid="dashboard-class-section"]',
     "class_color_swatch": '[data-testid="class-color-swatch"]',
     "class_section_name": '[data-testid="class-section-name"]',
-    "class_target_pct": '[data-testid="class-target-pct"]',
+    "class_target_pct": '[data-testid="class-target-pct-view"]',
     "class_current_pct": '[data-testid="class-current-pct"]',
     "class_compare_bar": '[data-testid="class-compare-bar"]',
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
@@ -142,6 +142,12 @@ class TestS05DashboardJourney:
         _do_import(page)
 
         # --- 1. Portfolio header is present with 3 BRL-formatted stats.
+        # Wait explicitly for the portfolio header — after the import
+        # commit calls location.reload(), wait_for_load_state("networkidle")
+        # can resolve before the NEW page has finished rendering, because
+        # networkidle detects the OLD page's idle state before the reload
+        # navigation starts. Use a targeted wait_for_selector instead.
+        page.wait_for_selector(S05_SELECTORS["portfolio_header"], timeout=10000)
         assert page.locator(S05_SELECTORS["portfolio_header"]).count() == 1
         assert page.locator(S05_SELECTORS["portfolio_invested"]).count() == 1
         assert page.locator(S05_SELECTORS["portfolio_total"]).count() == 1

@@ -44,6 +44,7 @@ from omaha.csv_import import (
     RawPosition,
     match_positions,
     parse_positions,
+    suggest_class_id,
 )
 from omaha.models import Asset, AssetClass, ImportPreview, Profile, User
 
@@ -321,7 +322,7 @@ class AssignmentItem(BaseModel):
     """One user-assigned mapping from broker ticker to asset class."""
 
     broker_ticker: str
-    class_id: int
+    class_id: int | None = None
     asset_name: str
 
 
@@ -351,13 +352,20 @@ def _build_preview_response(
     existing_assets = _existing_assets_for_profile(db, profile.id)
     result = match_positions(raw, existing_assets)
 
-    asset_classes = [
-        {"id": ac.id, "name": ac.name}
-        for ac in db.query(AssetClass)
+    class_rows = (
+        db.query(AssetClass)
         .filter(AssetClass.profile_id == profile.id)
         .order_by(AssetClass.display_order)
         .all()
+    )
+    asset_classes = [
+        {"id": ac.id, "name": ac.name}
+        for ac in class_rows
     ]
+
+    asset_class_of: dict[int, int] = {}
+    for asset in existing_assets:
+        asset_class_of[asset.id] = asset.asset_class_id
 
     auto_matched = [
         {
@@ -367,6 +375,7 @@ def _build_preview_response(
             "avg_price": str(rp.avg_price),
             "current_price": str(rp.current_price),
             "asset_id": asset_id,
+            "asset_class_id": asset_class_of.get(asset_id),
         }
         for rp, asset_id in result.auto_matched
     ]
@@ -379,6 +388,7 @@ def _build_preview_response(
             "avg_price": str(rp.avg_price),
             "current_price": str(rp.current_price),
             "suggested_category": rp.suggested_category,
+            "suggested_class_id": suggest_class_id(rp.suggested_category, class_rows),
         }
         for rp in result.unmatched
     ]
@@ -467,7 +477,17 @@ def commit_import(
     existing_assets = _existing_assets_for_profile(db, profile.id)
     result = match_positions(raw, existing_assets)
 
-    # Build a lookup from broker_ticker to assignment for unmatched rows.
+    # Build asset_id/class lookups for auto-matched rows.
+    ticker_to_asset_id: dict[str, int] = {}
+    ticker_to_original_class: dict[str, int] = {}
+    for rp, asset_id in result.auto_matched:
+        ticker_to_asset_id[rp.broker_ticker] = asset_id
+    asset_class_of: dict[int, int] = {a.id: a.asset_class_id for a in existing_assets}
+    ticker_to_original_class = {
+        ticker: asset_class_of.get(aid) for ticker, aid in ticker_to_asset_id.items()
+    }
+
+    # Build assignment lookup from user input.
     assignment_map: dict[str, AssignmentItem] = {}
     for a in body.assignments:
         assignment_map[a.broker_ticker] = a
@@ -485,75 +505,75 @@ def commit_import(
     upserted = 0
     created = 0
 
-    # Auto-matched: upsert positions using the matched asset_id.
-    for rp, asset_id in result.auto_matched:
-        db.execute(
-            text(upsert_sql),
-            {
-                "asset_id": asset_id,
-                "qty": str(rp.qty),
-                "avg_price": str(rp.avg_price),
-                "current_price": str(rp.current_price),
-                "broker_ticker": rp.broker_ticker,
-            },
-        )
-        upserted += 1
-
-    # Unmatched: resolve each via the assignment map.
-    for rp in result.unmatched:
+    # Process ALL raw positions through the assignment map.
+    # - Auto-matched without explicit assignment keeps original class.
+    # - Auto-matched with assignment uses assigned class (possibly new).
+    # - Unmatched rows without assignment or with empty class_id are skipped.
+    for rp in raw:
+        original_asset_id = ticker_to_asset_id.get(rp.broker_ticker)
         assignment = assignment_map.get(rp.broker_ticker)
-        if assignment is None:
+
+        # Determine target class_id.
+        if original_asset_id is not None and assignment is None:
+            class_id = ticker_to_original_class.get(rp.broker_ticker)
+        elif assignment is not None and assignment.class_id is not None:
+            class_id = assignment.class_id
+        else:
             continue
 
-        # Validate the class belongs to this profile.
+        if class_id is None:
+            continue
+
+        # Validate class ownership.
         target_class = (
             db.query(AssetClass)
-            .filter(
-                AssetClass.id == assignment.class_id,
-                AssetClass.profile_id == profile.id,
-            )
+            .filter(AssetClass.id == class_id, AssetClass.profile_id == profile.id)
             .one_or_none()
         )
         if target_class is None:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Classe invalida para {rp.broker_ticker}.",
-            )
+            continue
 
-        asset_name = assignment.asset_name.strip()
+        # Determine asset name.
+        if original_asset_id is not None and assignment is None:
+            asset_name = rp.name
+        elif assignment is not None:
+            asset_name = assignment.asset_name.strip()
+        else:
+            continue
+
         if not asset_name or len(asset_name) > NAME_MAX_LEN:
             continue
 
-        # Reuse existing asset in that class with the same name, or create a new one.
-        existing = (
-            db.query(Asset)
-            .filter(
-                Asset.asset_class_id == target_class.id,
-                Asset.name == asset_name,
-            )
-            .one_or_none()
-        )
-        if existing is None:
-            max_order = (
-                db.query(func.coalesce(func.max(Asset.display_order), -1))
-                .filter(Asset.asset_class_id == target_class.id)
-                .scalar()
-            )
-            new_asset = Asset(
-                asset_class_id=target_class.id,
-                name=asset_name,
-                display_order=max_order + 1,
-            )
-            db.add(new_asset)
-            try:
-                db.flush()
-            except IntegrityError:
-                db.rollback()
-                continue
-            asset_id = new_asset.id
-            created += 1
+        # Determine asset_id.
+        if original_asset_id is not None and ticker_to_original_class.get(rp.broker_ticker) == class_id:
+            asset_id = original_asset_id
         else:
-            asset_id = existing.id
+            existing = (
+                db.query(Asset)
+                .filter(Asset.asset_class_id == target_class.id, Asset.name == asset_name)
+                .one_or_none()
+            )
+            if existing is None:
+                max_order = (
+                    db.query(func.coalesce(func.max(Asset.display_order), -1))
+                    .filter(Asset.asset_class_id == target_class.id)
+                    .scalar()
+                )
+                new_asset = Asset(
+                    asset_class_id=target_class.id,
+                    name=asset_name,
+                    display_order=max_order + 1,
+                )
+                db.add(new_asset)
+                try:
+                    db.flush()
+                except IntegrityError:
+                    db.rollback()
+                    continue
+                asset_id = new_asset.id
+                created += 1
+            else:
+                asset_id = existing.id
 
         db.execute(
             text(upsert_sql),

@@ -207,6 +207,8 @@ class TestGetImportPreview:
         assert "avg_price" in am
         assert "current_price" in am
         assert "asset_id" in am
+        assert "asset_class_id" in am
+        assert isinstance(am["asset_class_id"], int)
 
         um = data["unmatched"][0]
         assert "broker_ticker" in um

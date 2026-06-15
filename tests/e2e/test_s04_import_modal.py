@@ -40,13 +40,13 @@ SELECTORS = {
     "import_modal_overlay": '[data-testid="import-modal-overlay"]',
     "import_file_input": '[data-testid="import-file-input"]',
     "import_upload_btn": '[data-testid="import-upload-btn"]',
-    "import_matched_summary": '[data-testid="import-matched-summary"]',
     "import_unmatched_table": '[data-testid="import-unmatched-table"]',
     "import_unmatched_row": '[data-testid="import-unmatched-row"]',
     "import_commit_btn": '[data-testid="import-commit-btn"]',
     "class_summary_row": '[data-testid="class-summary-row"]',
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
     "class_section_name": '[data-testid="class-section-name"]',
+    "import_assignment_class": '[data-testid="import-assignment-class"]',
 }
 
 
@@ -164,10 +164,8 @@ class TestS04ImportModal:
         # ------------------------------------------------------------------
         # Step 1: Open modal and upload CSV
         # ------------------------------------------------------------------
-        # Open the modal by calling the Alpine store method directly.
-        # Clicking the button's @click handler sometimes races with
-        # Playwright's visibility checks.
-        page.evaluate("Alpine.store('importModal').openModal()")
+        # Click the dashboard import button to open the modal.
+        page.click(SELECTORS["dashboard_import_btn"])
         page.wait_for_selector(SELECTORS["import_modal_overlay"], state="visible", timeout=5000)
 
         page.set_input_files(SELECTORS["import_file_input"], str(FIXTURE_PATH))
@@ -181,9 +179,9 @@ class TestS04ImportModal:
         page.wait_for_timeout(500)
 
         # ------------------------------------------------------------------
-        # Step 2: Wait for review (matched summary + unmatched table)
+        # Step 2: Wait for review (commit button visible = step 2 loaded)
         # ------------------------------------------------------------------
-        page.wait_for_selector(SELECTORS["import_matched_summary"], state="visible", timeout=15000)
+        page.wait_for_selector(SELECTORS["import_commit_btn"], state="visible", timeout=15000)
         page.wait_for_selector(SELECTORS["import_unmatched_table"], state="visible", timeout=5000)
 
         # Verify 5 unmatched rows.
@@ -204,15 +202,21 @@ class TestS04ImportModal:
         # ------------------------------------------------------------------
         # Step 3: Assign classes to the 5 unmatched rows
         # ------------------------------------------------------------------
-        # The Alpine store defaults ALL unmatched to the first class
-        # (RF Pós -- the first one created).  MXRF11 has "RF Pós" at
-        # the suggestion level but the store always picks the first
-        # class.  XPLG11's CSV row says "Acoes" so we put it in Acoes.
-        # The other 3 can stay in their default (RF Pós).
+        # Rows with "(Não configurado)" category have empty class_id.
+        # Rows with "RF Pós" or "Acoes" category pre-fill from suggestion.
+        # Fill any empty selections and set XPLG11 to Acoes.
         page.evaluate(
             """() => {
                 const s = Alpine.store('importModal');
+                const rfPos = s.assetClasses.find(c => c.name === 'RF Pós');
                 const acoes = s.assetClasses.find(c => c.name === 'Acoes');
+                // Fill all unmatched rows that have empty class_id
+                for (const ticker in s.assignments) {
+                    if (!s.assignments[ticker].class_id) {
+                        s.assignments[ticker].class_id = rfPos ? rfPos.id : '';
+                    }
+                }
+                // XPLG11 goes to Acoes (its CSV category is "Acoes")
                 if (acoes && s.assignments['XPLG11']) {
                     s.assignments['XPLG11'].class_id = acoes.id;
                 }

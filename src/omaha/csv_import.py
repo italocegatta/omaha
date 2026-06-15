@@ -67,7 +67,7 @@ _KNOWN_CUR_LABELS = ("preco atual", "preco de mercado", "current price", "preco"
 # (col 0) or, in some broker statements, by the first non-empty
 # cell. Substring match so "Total Geral", "Conta corrente",
 # "Subtotal", "X ativos" all hit.
-_KNOWN_FOOTER_LABELS = ("total", "subtotal", "conta", "ativos", "resumo", "patrimonio liquido")
+_KNOWN_FOOTER_LABELS = ("total", "subtotal", "ativos", "resumo", "patrimonio liquido")
 
 # Category column labels — when the broker statement carries a
 # "Minha Categoria" / "Categoria" / "Category" cell, we read it
@@ -255,6 +255,8 @@ def _parse_brazilian_number(s: str) -> Decimal:
         _parse_brazilian_number("")           -> InvalidOperation
     """
     s = s.strip()
+    if s == "-":
+        return Decimal("0")
     if not s:
         raise InvalidOperation("empty value")
     s = _QR_PREFIX_RE.sub("", s).strip().strip('"').strip()
@@ -641,6 +643,11 @@ def suggest_class_id(
        prevents a short class name like "Cripto" from matching a
        long broker category like "Criptoativos Internacionais
        Liquidados em USD" when the user has multiple classes.
+    3. **Word-level intersection** — any non-trivial word (length
+       > 2) from the normalized category appears as a word in the
+       normalized class name. This bridges plural/singular and
+       word-order variants where substring fails, e.g. "Acoes"
+       (from CSV "Ações") matches a class called "Acoes 30%".
 
     The order of ``classes`` is preserved (first match wins), so
     the dropdown reflects the same order the user sees in their
@@ -668,5 +675,14 @@ def suggest_class_id(
     for cls, cls_norm in normalized:
         if cat_norm in cls_norm:
             return cls.id
+
+    # Tier 3: word-level intersection — any significant word (>2
+    # chars) from the category appears in the class name words.
+    cat_words = {w for w in cat_norm.split() if len(w) > 2}
+    if cat_words:
+        for cls, cls_norm in normalized:
+            cls_words = {w for w in cls_norm.split() if len(w) > 2}
+            if cat_words & cls_words:
+                return cls.id
 
     return None

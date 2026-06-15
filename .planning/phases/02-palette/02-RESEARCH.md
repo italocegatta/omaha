@@ -616,7 +616,7 @@ for label, fg, bg in pairs:
 
 **If this table is empty:** N/A — 5 assumptions documented.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `--class-1`, `--class-2`, `--class-3`, `--class-5` also convert to OKLCH now?**
    - What we know: They pass at current hex values (5.29, 4.77, 5.23, 8.73). DESIGN.md has OKLCH targets for all 6 slots.

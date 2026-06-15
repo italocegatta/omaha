@@ -177,7 +177,6 @@ SELECTORS = {
     "import_upload_btn": '[data-testid="import-upload-btn"]',
     "import_modal_error": '[data-testid="import-upload-error"]',
     "import_commit_btn": '[data-testid="import-commit-btn"]',
-    "import_matched_summary": '[data-testid="import-matched-summary"]',
     "import_unmatched_table": '[data-testid="import-unmatched-table"]',
     "import_assignment_class": '[data-testid="import-assignment-class"]',
     "import_assignment_name": '[data-testid="import-assignment-name"]',
@@ -329,9 +328,8 @@ class TestS04ImportJourney:
         _seed_43_assets(page)
 
         # --- 1. Open the import modal and upload the CSV.
-        # Open the modal via Alpine's store (more reliable than @click for
-        # Alpine 3.x deferred init — the store must exist before interaction).
-        page.evaluate("() => Alpine.store('importModal').openModal()")
+        # Click the dashboard import button to open the modal.
+        page.click(SELECTORS["dashboard_import_btn"])
         page.wait_for_selector(
             '[data-testid="import-modal-overlay"]', state="visible", timeout=5000
         )
@@ -347,12 +345,10 @@ class TestS04ImportJourney:
         # The Alpine store sets step=2 on successful upload; the
         # commit button becomes visible.
         page.wait_for_selector(SELECTORS["import_commit_btn"], timeout=10000)
-        page.wait_for_selector(SELECTORS["import_matched_summary"], timeout=5000)
 
         # --- 2. Check all 5 unmatched rows have a class selected.
-        # The Alpine store auto-selects the first class for all
-        # unmatched rows. Read the assignments and identify rows
-        # still on "-- escolha --" (empty value).
+        # Rows with "(Não configurado)" category start with empty class.
+        # Read the assignments and fill any empty values.
         unmatched_rows = page.locator('[data-testid="import-unmatched-table"] tbody tr')
         unmatched_count = unmatched_rows.count()
         assert unmatched_count == 5, f"expected 5 unmatched rows, got {unmatched_count}"
@@ -416,7 +412,7 @@ class TestS04ImportJourney:
         _create_three_classes(page, live_url)
 
         # Upload via the dashboard modal to create a fresh preview.
-        page.evaluate("() => Alpine.store('importModal').openModal()")
+        page.click(SELECTORS["dashboard_import_btn"])
         page.wait_for_selector(
             '[data-testid="import-modal-overlay"]', state="visible", timeout=5000
         )
