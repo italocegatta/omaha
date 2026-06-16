@@ -69,12 +69,12 @@ def _login_and_select(client: TestClient, profile_id: int = 1) -> None:
     """Log in with the seed credentials and bind ``active_profile_id``.
 
     The seed creates profile 1 = Italo (display_order=0) and
-    profile 2 = Ana Livia (display_order=1). Default is profile 1
+    profile 2 = Ana (display_order=1). Default is profile 1
     because that's what the T04 happy-path flow uses.
     """
     client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": "Italo", "password": "test-password"},
         follow_redirects=False,
     )
     client.post(f"/profiles/{profile_id}/select", follow_redirects=False)
@@ -330,7 +330,7 @@ def test_post_api_asset_empty_name_returns_422(client: TestClient) -> None:
 def test_post_api_asset_cross_profile_class_returns_422(client: TestClient) -> None:
     """POST an asset targeting a class from another profile; expect 422.
 
-    Seed a class under profile 2 (Ana Livia). Login as profile 1
+    Seed a class under profile 2 (Ana). Login as profile 1
     (Italo). POST with ``asset_class_id`` pointing at the other
     profile's class → 422 with "Selecione uma classe válida." (the
     route must not surface a 404 for cross-class — that contract
@@ -338,7 +338,7 @@ def test_post_api_asset_cross_profile_class_returns_422(client: TestClient) -> N
     so the T03 inline form can render the error in the input
     field). DB has 0 assets in either profile.
     """
-    # Seed a class under profile 2 (Ana Livia) — must be done
+    # Seed a class under profile 2 (Ana) — must be done
     # before login because the seed helper bypasses the auth
     # session, so the active profile is irrelevant here.
     [other_class_id] = _seed_classes(profile_id=2, rows=[("Acoes", "100")])

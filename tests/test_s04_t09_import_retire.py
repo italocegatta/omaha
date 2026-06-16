@@ -15,7 +15,7 @@ def test_get_import_redirects_to_dashboard(client: TestClient) -> None:
     # Log in with seed credentials and select the first profile
     client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": "Italo", "password": "test-password"},
         follow_redirects=False,
     )
     client.post("/profiles/1/select", follow_redirects=False)
@@ -30,7 +30,7 @@ def test_get_import_review_redirects_to_dashboard(client: TestClient) -> None:
     # Log in with seed credentials and select the first profile
     client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": "Italo", "password": "test-password"},
         follow_redirects=False,
     )
     client.post("/profiles/1/select", follow_redirects=False)

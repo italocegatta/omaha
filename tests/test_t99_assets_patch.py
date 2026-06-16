@@ -114,7 +114,7 @@ def _login_and_select(client: TestClient, profile_id: int = 1) -> None:
     """Log in with the seed credentials and bind ``active_profile_id``."""
     client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": "Italo", "password": "test-password"},
         follow_redirects=False,
     )
     client.post(f"/profiles/{profile_id}/select", follow_redirects=False)
@@ -281,13 +281,13 @@ def test_patch_asset_invalid_sum_returns_422(
 def test_patch_asset_cross_profile_404(client: TestClient, _omaha_test_env: dict[str, str]) -> None:
     """A PATCH against another profile's asset is 404 (ownership check walks the FK).
 
-    Seeds an asset under Ana Livia (profile 2). Logs in as Italo
+    Seeds an asset under Ana (profile 2). Logs in as Italo
     (profile 1) and tries to PATCH the asset. The route's
     ``asset.asset_class.profile_id != profile.id`` check raises
     404 — the response is identical to "asset doesn't exist", so
     a stale URL is indistinguishable from a cross-profile probe.
     """
-    # Pre-populate an asset under Ana Livia via a fresh engine
+    # Pre-populate an asset under Ana via a fresh engine
     # bound to the session-scoped test DB URL (not the
     # monkeypatched ``omaha.db`` — see the autouse fixture's
     # docstring for why).

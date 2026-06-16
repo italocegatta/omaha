@@ -71,7 +71,7 @@ def _login_and_select(client: TestClient, profile_id: int = 1) -> None:
     """Log in with the seed credentials and bind ``active_profile_id``."""
     client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": "Italo", "password": "test-password"},
         follow_redirects=False,
     )
     client.post(f"/profiles/{profile_id}/select", follow_redirects=False)
@@ -209,7 +209,7 @@ def test_delete_asset_returns_204_and_removes_from_db(
 def test_delete_asset_cross_profile_404(client: TestClient) -> None:
     """DELETE on another profile's asset returns 404; asset remains.
 
-    Seed an asset under profile 2 (Ana Livia, per the seed
+    Seed an asset under profile 2 (Ana, per the seed
     script's profile ordering). Log in as profile 1 (Italo) and
     attempt to DELETE Ana's asset. Expect 404. The asset must
     still be on disk — the 404 means the route never touched

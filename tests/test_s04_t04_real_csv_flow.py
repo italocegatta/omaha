@@ -62,7 +62,7 @@ def _clean_data() -> None:
 def _login_and_select(client: TestClient, profile_id: int = 1) -> None:
     client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": "Italo", "password": "test-password"},
         follow_redirects=False,
     )
     client.post(f"/profiles/{profile_id}/select", follow_redirects=False)
@@ -81,7 +81,9 @@ def _create_asset_classes(profile_id: int) -> dict[str, int]:
     try:
         classes = [
             AssetClass(profile_id=profile_id, name="Renda Fixa", target_pct=50, display_order=0),
-            AssetClass(profile_id=profile_id, name="Renda Variavel", target_pct=30, display_order=1),
+            AssetClass(
+                profile_id=profile_id, name="Renda Variavel", target_pct=30, display_order=1
+            ),
             AssetClass(
                 profile_id=profile_id, name="Fundos Imobiliarios", target_pct=20, display_order=2
             ),
@@ -229,8 +231,14 @@ _ASSIGNMENTS = [
     {"broker_ticker": "RDB Pós 100% CDI 01/08/2033", "class_name": "Renda Variavel"},
     {"broker_ticker": "RDB Pós 100% CDI 01/06/2035", "class_name": "Renda Variavel"},
     {"broker_ticker": "CDB Pós  CDI+1,75% 18/06/2026 BMG", "class_name": "Renda Fixa"},
-    {"broker_ticker": "RDB Pós 120% CDI 15/05/2028 Caixinha Turbo NuCel", "class_name": "Renda Fixa"},
-    {"broker_ticker": "RDB Pós 120% CDI 15/05/2028 Caixinha Turbo Ultravioleta", "class_name": "Renda Fixa"},
+    {
+        "broker_ticker": "RDB Pós 120% CDI 15/05/2028 Caixinha Turbo NuCel",
+        "class_name": "Renda Fixa",
+    },
+    {
+        "broker_ticker": "RDB Pós 120% CDI 15/05/2028 Caixinha Turbo Ultravioleta",
+        "class_name": "Renda Fixa",
+    },
 ]
 
 
@@ -253,7 +261,9 @@ class TestParseRealCsv:
 
         # Spot-check: "Conta corrente em dólar Avenue" included with qty=0
         conta = [r for r in result if "conta corrente" in r.name.lower()]
-        assert len(conta) == 1, "Conta corrente em dólar Avenue should be parsed (not filtered as footer)"
+        assert (
+            len(conta) == 1
+        ), "Conta corrente em dólar Avenue should be parsed (not filtered as footer)"
         assert conta[0].qty == Decimal("0"), "Conta corrente qty should be 0 (was - in CSV)"
 
         # Spot-check: "48 ativos" footer is excluded
@@ -291,7 +301,9 @@ class TestSuggestClassId:
             (None, None),
         ],
     )
-    def test_suggest_class_id_real_categories(self, category: str | None, expected_id: int | None) -> None:
+    def test_suggest_class_id_real_categories(
+        self, category: str | None, expected_id: int | None
+    ) -> None:
         """No real CSV category matches 'Renda Fixa' / 'Renda Variavel' / 'Fundos Imobiliarios' via exact/substring/word (>2 chars)."""
         from omaha.csv_import import suggest_class_id
 
@@ -333,9 +345,9 @@ class TestPreviewRealCsv:
         # Every unmatched row has suggested_class_id=None (no CSV category
         # matches the class names via exact/substring/word with current algo)
         for um in data["unmatched"]:
-            assert um["suggested_class_id"] is None, (
-                f"Unexpected suggestion for {um['broker_ticker']}: {um['suggested_class_id']}"
-            )
+            assert (
+                um["suggested_class_id"] is None
+            ), f"Unexpected suggestion for {um['broker_ticker']}: {um['suggested_class_id']}"
             assert um["suggested_category"] is not None
 
         # Unmatched tickers match expected set
@@ -380,9 +392,7 @@ class TestCommitRealCsv:
 
         return preview_id
 
-    def test_commit_real_csv_creates_correct_class_association(
-        self, client: TestClient
-    ) -> None:
+    def test_commit_real_csv_creates_correct_class_association(self, client: TestClient) -> None:
         """Each committed Position points to an Asset whose AssetClass matches expectations."""
         from omaha.db import SessionLocal
         from omaha.models import Asset, AssetClass, Position
@@ -404,9 +414,9 @@ class TestCommitRealCsv:
                 asset_class = db.get(AssetClass, asset.asset_class_id)
                 assert asset_class is not None, f"No class for asset {asset.name}"
                 expected = _EXPECTED_CLASS[pos.broker_ticker]
-                assert asset_class.name == expected, (
-                    f"{pos.broker_ticker}: expected class {expected!r}, got {asset_class.name!r}"
-                )
+                assert (
+                    asset_class.name == expected
+                ), f"{pos.broker_ticker}: expected class {expected!r}, got {asset_class.name!r}"
         finally:
             db.close()
 
@@ -511,7 +521,9 @@ class TestPreviewChangesAfterAddingAssets:
             files={"file": ("posicao_italo.csv", csv_bytes, "text/csv")},
         )
         data2 = resp2.json()
-        assert len(data2["auto_matched"]) == 48, f"Expected 48 auto, got {len(data2['auto_matched'])}"
+        assert (
+            len(data2["auto_matched"]) == 48
+        ), f"Expected 48 auto, got {len(data2['auto_matched'])}"
         assert len(data2["unmatched"]) == 0, f"Expected 0 unmatched, got {len(data2['unmatched'])}"
 
 
@@ -540,4 +552,6 @@ class TestCrossProfileIsolation:
         _login_and_select(client, profile_id=2)
 
         resp2 = client.get(f"/api/import/preview/{preview_id}")
-        assert resp2.status_code == 404, f"Expected 404 for cross-profile access, got {resp2.status_code}"
+        assert (
+            resp2.status_code == 404
+        ), f"Expected 404 for cross-profile access, got {resp2.status_code}"

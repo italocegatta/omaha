@@ -62,11 +62,11 @@ def _login_and_select(client: TestClient, profile_id: int = 1) -> None:
     """Log in with the seed credentials and bind ``active_profile_id``.
 
     The seed creates profile 1 = Italo (display_order=0) and
-    profile 2 = Ana Livia (display_order=1).
+    profile 2 = Ana (display_order=1).
     """
     client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": "Italo", "password": "test-password"},
         follow_redirects=False,
     )
     client.post(f"/profiles/{profile_id}/select", follow_redirects=False)

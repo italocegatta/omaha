@@ -47,7 +47,7 @@ def _clean_data() -> None:
 def _login_and_select(client: TestClient, profile_id: int = 1) -> None:
     client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": "Italo", "password": "test-password"},
         follow_redirects=False,
     )
     client.post(f"/profiles/{profile_id}/select", follow_redirects=False)
@@ -109,7 +109,7 @@ def _login_and_select_and_upload(profile_id: int, csv_bytes: bytes) -> TestClien
     with TestClient(app) as client:
         client.post(
             "/login",
-            data={"username": "family", "password": "test-password"},
+            data={"username": "Italo", "password": "test-password"},
             follow_redirects=False,
         )
         client.post(f"/profiles/{profile_id}/select", follow_redirects=False)

@@ -48,13 +48,13 @@ SELECTORS = {
 def _login_and_select_italo(page: Page, base_url: str) -> None:
     """Drive the login + profile picker using the live UI."""
     page.goto(f"{base_url}/login")
-    page.fill(SELECTORS["login_user"], "family")
+    page.fill(SELECTORS["login_user"], "Italo")
     page.fill(SELECTORS["login_pass"], "test-password")
     page.click(SELECTORS["login_submit"])
     page.wait_for_url(re.compile(r"/profiles$"))
 
     # The picker renders one button per profile, in display_order.
-    # The seed creates Italo first, Ana Livia second.
+    # The seed creates Italo first, Ana second.
     page.locator(SELECTORS["profile_picker"]).filter(has_text="Italo").click()
     page.wait_for_url(re.compile(r"/$"))
 

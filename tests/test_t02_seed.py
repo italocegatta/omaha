@@ -126,28 +126,37 @@ def test_seed_creates_user_and_profiles(seeded_db) -> None:
         from omaha.models import Profile, User
 
         users = session.query(User).all()
-        assert len(users) == 1
-        assert users[0].username == "family"
-        assert users[0].password_hash  # bcrypt hash is non-empty
-        assert users[0].password_hash.startswith("$2"), "password_hash should be a bcrypt hash"
+        assert len(users) == 2
+        usernames = {u.username for u in users}
+        assert usernames == {"Italo", "Ana"}
+        italo = next(u for u in users if u.username == "Italo")
+        assert italo.password_hash  # bcrypt hash is non-empty
+        assert italo.password_hash.startswith("$2"), "password_hash should be a bcrypt hash"
 
         profiles = session.query(Profile).order_by(Profile.display_order).all()
-        assert [p.name for p in profiles] == ["Italo", "Ana Livia"]
+        assert [p.name for p in profiles] == ["Italo", "Ana"]
         assert [p.display_order for p in profiles] == [0, 1]
-        assert all(p.user_id == users[0].id for p in profiles)
+        # Each profile belongs to its namesake user — Italo's profile
+        # is owned by Italo, Ana's by Ana. Verify the (name, user)
+        # pairing is consistent.
+        italo_user = next(u for u in users if u.username == "Italo")
+        ana_user = next(u for u in users if u.username == "Ana")
+        assert all(
+            p.user_id == (italo_user.id if p.name == "Italo" else ana_user.id) for p in profiles
+        ), "each profile must be owned by the user with the matching username"
 
 
 def test_seed_is_idempotent(seeded_db) -> None:
     seeded_db["seed"]()
-    # Second call should detect the existing user and skip inserts.
+    # Second call should detect the existing users and skip inserts.
     prior = seeded_db["seed"]()
-    assert prior == 1, "second seed call should report 1 prior user"
+    assert prior == 2, "second seed call should report 2 prior users"
 
     SessionLocal = seeded_db["SessionLocal"]
     with SessionLocal() as session:
         from omaha.models import Profile, User
 
-        assert session.query(User).count() == 1
+        assert session.query(User).count() == 2
         assert session.query(Profile).count() == 2
 
 

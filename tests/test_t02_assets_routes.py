@@ -91,12 +91,12 @@ def _login_and_select(client: TestClient, profile_id: int = 1) -> None:
     """Log in with the seed credentials and bind ``active_profile_id``.
 
     The seed creates profile 1 = Italo (display_order=0) and
-    profile 2 = Ana Livia (display_order=1). Default is profile 1
+    profile 2 = Ana (display_order=1). Default is profile 1
     because that's what the T04 happy-path flow uses.
     """
     client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": "Italo", "password": "test-password"},
         follow_redirects=False,
     )
     client.post(f"/profiles/{profile_id}/select", follow_redirects=False)
@@ -272,7 +272,7 @@ def test_post_assets_class_from_other_profile_rejected(client: TestClient) -> No
     not silently add an asset. 200 + error keeps the form
     re-submittable.
     """
-    # Seed a class under Ana Livia (profile 2). The test
+    # Seed a class under Ana (profile 2). The test
     # fixture only creates profile 1 + 2 via the seed, and the
     # per-test cleanup wipes assets; classes seeded here are
     # confined to the test DB.
@@ -306,7 +306,7 @@ def test_post_assets_delete_removes_asset(client: TestClient) -> None:
 def test_post_assets_delete_cross_profile_is_404(client: TestClient) -> None:
     """Deleting another profile's asset is 404 (ownership check walks the FK)."""
     [other_class_id] = _seed_classes(profile_id=2, rows=[("Renda Fixa Ana", "100")])
-    # Pre-populate an asset under Ana Livia via a direct DB
+    # Pre-populate an asset under Ana via a direct DB
     # write (we never log in as Ana to keep the test focused
     # on the cross-profile rejection).
     from omaha.db import SessionLocal

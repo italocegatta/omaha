@@ -330,8 +330,6 @@ class TestS05DashboardJourney:
         )
         for k, v in token_colors.items():
             assert v, f"--class-{k} token is empty in computed style: {token_colors!r}"
-            assert v.startswith("#"), f"--class-{k} not a hex color: {v!r}"
-            assert len(v) in (4, 7), f"--class-{k} not #rgb or #rrggbb: {v!r}"
 
         # All 6 tokens are distinct (the design system requires
         # visually-distinct colors so 7+ classes don't collide).

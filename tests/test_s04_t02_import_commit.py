@@ -48,10 +48,15 @@ def _clean_data() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _login_and_select(client: TestClient, profile_id: int = 1) -> None:
+def _login_and_select(client: TestClient, profile_id: int = 1, username: str = "Italo") -> None:
+    """Log in as ``username`` and select the given profile id.
+
+    Each seed user owns exactly one profile, so cross-profile tests
+    pass ``username="Ana"`` to reach profile id 2.
+    """
     client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": username, "password": "test-password"},
         follow_redirects=False,
     )
     client.post(f"/profiles/{profile_id}/select", follow_redirects=False)
@@ -604,8 +609,9 @@ class TestPostImportCommit:
         _create_assets(class_map, _AUTO_MATCH_NAMES[:5])
         preview_id = _create_preview_with_full_csv(1)
 
-        # Switch to profile 2 (Ana Livia)
-        _login_and_select(client, profile_id=2)
+        # Switch to profile 2 (Ana). Re-authenticate as Ana since
+        # each seed user owns only their namesake profile.
+        _login_and_select(client, profile_id=2, username="Ana")
 
         resp = client.post(
             "/api/import/commit",

@@ -45,8 +45,8 @@ TEST_PASSWORD = "test-password"
 
 
 def _login_and_select_profile(client: TestClient, profile_name: str = "Italo") -> Profile:
-    """Log in as ``family`` and select the named profile (defaults to Italo)."""
-    client.post("/login", data={"username": "family", "password": TEST_PASSWORD})
+    """Log in as ``Italo`` and select the named profile (defaults to Italo)."""
+    client.post("/login", data={"username": "Italo", "password": TEST_PASSWORD})
     # Use a fresh session to read the profile (mirrors T02's
     # helper pattern: open a new SessionLocal so we see committed
     # state, not in-flight transaction state).

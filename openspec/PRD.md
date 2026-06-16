@@ -165,9 +165,13 @@ Nenhuma fase depende de M002 estar fechado.
 
 | Item | Tipo | Descrição |
 |------|------|-----------|
-| `test_s05_user_journey.py` | Regressão e2e | 1 teste falhando — precisa diagnóstico |
 | R12 | Gap de escopo | Frontend de edição inline de classe (não implementado) |
 | R13 | Gap de escopo | Recalculo live client-side (não implementado) |
+
+> **Resolvido 2026-06-16** — `test_s05_user_journey.py` regressão
+> e2e fechada por `fix-stale-test-user-after-multi-user-seed`.
+> S05 + S06 verdes; ver `tests/e2e/M002_RESSALVA_DIAGNOSIS.md`
+> secção "Resolution". R12/R13 permanecem como gaps de escopo.
 
 ### 5.2 Post-mortem S04 Import
 

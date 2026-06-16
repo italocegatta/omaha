@@ -26,11 +26,21 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 SAMPLE_CSV = (FIXTURES / "sample_broker.csv").read_text(encoding="utf-8")
 
 
-def _login_and_pick_profile(client: TestClient, profile_name: str = "Italo") -> None:
-    """Helper: log in as the seed user and pick the named profile."""
+def _login_and_pick_profile(
+    client: TestClient, profile_name: str = "Italo", username: str | None = None
+) -> None:
+    """Helper: log in as ``username`` and pick the named profile.
+
+    Each seed user owns exactly one profile, so ``username`` defaults
+    to ``profile_name`` when not given. Pass a different ``username``
+    only when you intentionally want to authenticate as another
+    user (cross-profile isolation tests).
+    """
+    if username is None:
+        username = profile_name
     r = client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": username, "password": "test-password"},
         follow_redirects=False,
     )
     assert r.status_code == 303, r.text
@@ -270,9 +280,13 @@ def test_cross_profile_preview_via_api(client: TestClient) -> None:
         assert preview is not None
         preview_id = preview.id
 
-    # Logout, login as the other profile.
+    # Logout, login as the other profile. The seed creates one
+    # user per account, so the second profile's owner is a
+    # different user; the helper defaults ``username`` to
+    # ``profile_name`` so passing "Ana" is enough to re-auth as
+    # Ana (her only profile).
     client.post("/logout", follow_redirects=False)
-    _login_and_pick_profile(client, "Ana Livia")
+    _login_and_pick_profile(client, "Ana")
     # GET /import/review now redirects to dashboard.
     r = client.get("/import/review", follow_redirects=False)
     assert r.status_code == 302, r.text

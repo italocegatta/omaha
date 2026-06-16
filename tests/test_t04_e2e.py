@@ -66,7 +66,7 @@ def test_full_login_profile_dashboard_logout_flow(client: TestClient) -> None:
     # 2. Valid credentials → 303 to /profiles + the session cookie.
     login_response = client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": "Italo", "password": "test-password"},
         follow_redirects=False,
     )
     assert login_response.status_code == 303
@@ -78,11 +78,10 @@ def test_full_login_profile_dashboard_logout_flow(client: TestClient) -> None:
     # middleware actually wrote a cookie.
     assert cookie_value, "omaha_session cookie should be non-empty after login"
 
-    # 3. Profile picker is reachable and lists both seed profiles.
+    # 3. Profile picker is reachable and lists the logged-in user's profile.
     profiles_page = client.get("/profiles")
     assert profiles_page.status_code == 200
     assert "Italo" in profiles_page.text
-    assert "Ana Livia" in profiles_page.text
 
     # 4. Selecting Italo (profile id 1) 303s to the dashboard.
     select_response = client.post("/profiles/1/select", follow_redirects=False)

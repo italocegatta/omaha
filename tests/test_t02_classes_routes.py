@@ -81,16 +81,18 @@ def _clean_asset_classes() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _login_and_select(client: TestClient, profile_id: int = 1) -> None:
+def _login_and_select(client: TestClient, profile_id: int = 1, username: str = "Italo") -> None:
     """Log in with the seed credentials and bind ``active_profile_id``.
 
-    The seed creates profile 1 = Italo (display_order=0) and
-    profile 2 = Ana Livia (display_order=1). Default is profile 1
-    because that's what the T04 happy-path flow uses.
+    The seed creates one user per account: Italo owns profile 1,
+    Ana owns profile 2. Cross-profile ownership is enforced by
+    ``/profiles/{id}/select`` (404 on mismatch), so callers
+    touching profile 2 must pass ``username="Ana"`` to re-authenticate
+    as the right user. Default is ``Italo`` + profile 1.
     """
     client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": username, "password": "test-password"},
         follow_redirects=False,
     )
     client.post(f"/profiles/{profile_id}/select", follow_redirects=False)
@@ -420,8 +422,8 @@ def test_post_classes_cross_profile_isolation(client: TestClient) -> None:
     assert _classes_for_profile(profile_id=2) == []
 
     # Switch to profile 2 and POST its own rows. Profile 1's
-    # classes must be untouched.
-    client.post("/profiles/2/select", follow_redirects=False)
+    # classes must be untouched. Re-auth as Ana (profile 2's owner).
+    _login_and_select(client, profile_id=2, username="Ana")
     _post_classes(
         client,
         [

@@ -62,7 +62,7 @@ def test_login_wrong_password_rerenders_form(client: TestClient) -> None:
     """A bad password re-renders the form (200) and does not log the user in."""
     response = client.post(
         "/login",
-        data={"username": "family", "password": "WRONG"},
+        data={"username": "Italo", "password": "WRONG"},
         follow_redirects=False,
     )
 
@@ -85,7 +85,7 @@ def test_login_correct_password_redirects_to_profiles(client: TestClient) -> Non
     """A good password sets the cookie and 303s to /profiles."""
     response = client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": "Italo", "password": "test-password"},
         follow_redirects=False,
     )
 
@@ -99,7 +99,6 @@ def test_login_correct_password_redirects_to_profiles(client: TestClient) -> Non
     profiles_page = client.get("/profiles", follow_redirects=False)
     assert profiles_page.status_code == 200
     assert "Italo" in profiles_page.text
-    assert "Ana Livia" in profiles_page.text
 
 
 def test_select_profile_redirects_to_dashboard(client: TestClient) -> None:
@@ -107,7 +106,7 @@ def test_select_profile_redirects_to_dashboard(client: TestClient) -> None:
     # Log in first.
     client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": "Italo", "password": "test-password"},
         follow_redirects=False,
     )
 
@@ -119,13 +118,16 @@ def test_select_profile_redirects_to_dashboard(client: TestClient) -> None:
 
 def test_index_with_active_profile_renders_dashboard(client: TestClient) -> None:
     """With an active profile, GET / renders the dashboard for that profile."""
-    # Log in and select a profile.
+    # Log in as Ana (whose profile id is 2) and select her profile.
+    # The seed creates one user per account, so each user's profile
+    # is owned by that user; logging in as Italo and selecting
+    # profile 2 would 404 (cross-profile ownership check).
     client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": "Ana", "password": "test-password"},
         follow_redirects=False,
     )
-    client.post("/profiles/2/select", follow_redirects=False)  # Ana Livia (display_order=1)
+    client.post("/profiles/2/select", follow_redirects=False)  # Ana
 
     response = client.get("/", follow_redirects=False)
 
@@ -134,7 +136,7 @@ def test_index_with_active_profile_renders_dashboard(client: TestClient) -> None
     # Profile name is rendered into a dedicated element so the test
     # does not depend on the surrounding copy.
     assert "profile-name" in response.text
-    assert "Ana Livia" in response.text
+    assert "Ana" in response.text
 
 
 def test_logout_clears_session(client: TestClient) -> None:
@@ -142,7 +144,7 @@ def test_logout_clears_session(client: TestClient) -> None:
     # Establish a logged-in session first.
     client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": "Italo", "password": "test-password"},
         follow_redirects=False,
     )
     # Sanity check: a protected page is reachable.

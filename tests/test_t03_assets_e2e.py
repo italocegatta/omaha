@@ -51,8 +51,8 @@ TEST_PASSWORD = "test-password"
 
 
 def _login_and_select_profile(client: TestClient, profile_name: str = "Italo") -> Profile:
-    """Log in as ``family`` and select the named profile (defaults to Italo)."""
-    client.post("/login", data={"username": "family", "password": TEST_PASSWORD})
+    """Log in as ``Italo`` and select the named profile (defaults to Italo)."""
+    client.post("/login", data={"username": "Italo", "password": TEST_PASSWORD})
     from omaha.db import SessionLocal
 
     db = SessionLocal()
@@ -193,13 +193,13 @@ class TestAssetsE2E:
     def test_add_assets_blocked_when_class_not_in_profile(self, client: TestClient) -> None:
         """Cross-profile class id is rejected — defensive against hand-crafted forms.
 
-        Seed a class under Ana Livia, log in as Italo, POST with
-        Ana Livia's class id. The route's ownership check returns
-        200 with an error, and no asset is written anywhere.
+        Seed a class under Ana, log in as Italo, POST with
+        Ana's class id. The route's ownership check returns
+                200 with an error, and no asset is written anywhere.
         """
         # Log in as Ana Livia first to seed her class, then log in
         # as Italo to attempt the cross-profile POST.
-        ana = _login_and_select_profile(client, "Ana Livia")
+        ana = _login_and_select_profile(client, "Ana")
         ana_classes = _seed_classes(ana.id)
         ana_class_id = ana_classes[0].id
 
