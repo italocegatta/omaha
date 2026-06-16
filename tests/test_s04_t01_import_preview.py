@@ -48,7 +48,7 @@ def _login_and_select(client: TestClient, profile_id: int = 1) -> None:
     """Log in and select profile 1 (Italo)."""
     client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": "Italo", "password": "test-password"},
         follow_redirects=False,
     )
     client.post(f"/profiles/{profile_id}/select", follow_redirects=False)
@@ -69,6 +69,32 @@ def _create_asset_classes(profile_id: int) -> dict[str, int]:
             AssetClass(
                 profile_id=profile_id, name="Fundos Imobiliarios", target_pct=20, display_order=2
             ),
+        ]
+        db.add_all(classes)
+        db.commit()
+        for c in classes:
+            db.refresh(c)
+        return {c.name: c.id for c in classes}
+    finally:
+        db.close()
+
+
+def _create_matching_asset_classes(profile_id: int) -> dict[str, int]:
+    """Create asset classes whose names match sample_broker.csv categories.
+
+    Returns ``{name: id}`` for the created classes ("RF Pós", "Ações").
+    Used to validate that ``suggest_class_id`` actually returns the
+    matching class id (not None) when the profile's class names
+    coincide with the "Minha Categoria" column in the CSV.
+    """
+    from omaha.db import SessionLocal
+    from omaha.models import AssetClass
+
+    db = SessionLocal()
+    try:
+        classes = [
+            AssetClass(profile_id=profile_id, name="RF Pós", target_pct=50, display_order=0),
+            AssetClass(profile_id=profile_id, name="Ações", target_pct=50, display_order=1),
         ]
         db.add_all(classes)
         db.commit()
@@ -162,6 +188,16 @@ _AUTO_MATCH_NAMES: list[tuple[str, str]] = [
 
 # 5 fixture rows that will NOT be pre-created (unmatched)
 _UNMATCHED_TICKERS = {"MXRF11", "BPAC11", "HGLG11", "XPLG11", "VINO11"}
+
+# Assets that belong to the matching classes ("RF Pós", "Ações").
+# Same 43 tickers from _AUTO_MATCH_NAMES — the class they sit in is
+# irrelevant for the auto-match step, but the test distributes them
+# across the two matching classes so the profile shape looks like a
+# real user that named classes after broker categories.
+_MATCHING_CLASS_ASSETS: list[tuple[str, str]] = [
+    (("Ações", name) if i < 26 else ("RF Pós", name))
+    for i, (_, name) in enumerate(_AUTO_MATCH_NAMES)
+]
 
 
 # ---------------------------------------------------------------------------
@@ -382,3 +418,68 @@ class TestPostImportPreview:
         assert resp.status_code == 200
         data = resp.json()
         assert data["asset_classes"] == []
+
+    def test_preview_suggests_class_when_category_matches_class_name(
+        self, client: TestClient
+    ) -> None:
+        """When the profile's class names match CSV categories, ``suggested_class_id`` is filled.
+
+        This covers the happy path that the rest of the suite ignores: the
+        default test classes (Renda Fixa / Renda Variavel / Fundos
+        Imobiliarios) deliberately do NOT match the broker categories
+        in ``sample_broker.csv`` (RF Pós / Ações / (Não configurado)),
+        so every other test sees ``suggested_class_id is None`` and
+        would still pass if ``suggest_class_id`` were deleted.
+
+        Profile classes here are "RF Pós" and "Ações" — exact names of
+        two of the unmatched rows' "Minha Categoria" values — so the
+        preview API must return those class ids for MXRF11 and XPLG11,
+        and ``None`` for the other three unmatched rows whose
+        categories do not match any class.
+        """
+        _login_and_select(client)
+        class_map = _create_matching_asset_classes(1)
+        _create_assets(class_map, _MATCHING_CLASS_ASSETS)
+
+        rf_pos_id = class_map["RF Pós"]
+        acoes_id = class_map["Ações"]
+
+        csv_bytes = _read_fixture("sample_broker.csv")
+        resp = client.post(
+            "/api/import/preview",
+            files={"file": ("sample_broker.csv", csv_bytes, "text/csv")},
+        )
+        assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
+        data = resp.json()
+
+        assert len(data["unmatched"]) == 5, (
+            f"Expected 5 unmatched rows, got {len(data['unmatched'])}"
+        )
+
+        unmatched_by_ticker = {u["broker_ticker"]: u for u in data["unmatched"]}
+
+        # MXRF11 has category "RF Pós" → exact match with class "RF Pós"
+        mxrf = unmatched_by_ticker["MXRF11"]
+        assert mxrf["suggested_category"] == "RF Pós"
+        assert mxrf["suggested_class_id"] == rf_pos_id, (
+            f"MXRF11 should suggest class id {rf_pos_id} (RF Pós), "
+            f"got {mxrf['suggested_class_id']}"
+        )
+
+        # XPLG11 has category "Ações" → exact match with class "Ações"
+        xplg = unmatched_by_ticker["XPLG11"]
+        assert xplg["suggested_category"] == "Ações"
+        assert xplg["suggested_class_id"] == acoes_id, (
+            f"XPLG11 should suggest class id {acoes_id} (Ações), "
+            f"got {xplg['suggested_class_id']}"
+        )
+
+        # The other three unmatched rows have category "(Não configurado)"
+        # and no class with that name exists, so suggested_class_id stays None.
+        for ticker in ("BPAC11", "HGLG11", "VINO11"):
+            row = unmatched_by_ticker[ticker]
+            assert row["suggested_category"] == "(Não configurado)"
+            assert row["suggested_class_id"] is None, (
+                f"{ticker} should have suggested_class_id=None, "
+                f"got {row['suggested_class_id']}"
+            )

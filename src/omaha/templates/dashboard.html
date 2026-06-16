@@ -507,8 +507,9 @@
                     <td x-text="row.qty"></td>
                     <td x-text="row.avg_price"></td>
                     <td>
-                      <select :value="$store.importModal.getClassId(row.broker_ticker)"
-                              @change="$store.importModal.setClassId(row.broker_ticker, $event.target.value)"
+                      <select x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })"
+                              x-effect="(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })()"
+                              @change="$store.importModal.assignments[row.broker_ticker].class_id = $event.target.value"
                               data-testid="import-existing-class">
                         <option value="">Selecione...</option>
                         <template x-for="ac in $store.importModal.assetClasses" :key="ac.id">
@@ -551,8 +552,9 @@
                     <td x-text="row.qty"></td>
                     <td x-text="row.avg_price"></td>
                     <td>
-                      <select :value="$store.importModal.getClassId(row.broker_ticker)"
-                              @change="$store.importModal.setClassId(row.broker_ticker, $event.target.value)"
+                      <select x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })"
+                              x-effect="(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })()"
+                              @change="$store.importModal.assignments[row.broker_ticker].class_id = $event.target.value"
                               data-testid="import-assignment-class">
                         <option value="">Selecione...</option>
                         <template x-for="ac in $store.importModal.assetClasses" :key="ac.id">
@@ -1130,15 +1132,6 @@
       previewError: false,
       assignments: {},
 
-      getClassId: function (ticker) {
-        var a = this.assignments[ticker];
-        return a ? a.class_id : '';
-      },
-      setClassId: function (ticker, val) {
-        if (!this.assignments[ticker]) this.assignments[ticker] = { class_id: '', asset_name: '' };
-        this.assignments[ticker].class_id = val !== '' ? parseInt(val, 10) : '';
-        this.assignments = Object.assign({}, this.assignments);
-      },
       getAssetName: function (ticker) {
         var a = this.assignments[ticker];
         return a ? a.asset_name : '';

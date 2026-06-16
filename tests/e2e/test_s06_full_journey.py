@@ -355,6 +355,40 @@ class TestS06PosicaoItaloImport:
         )
 
         # ------------------------------------------------------------------
+        # Step 2b: Verify the DOM <select> values match the server suggestion
+        # ------------------------------------------------------------------
+        # Read the actual select.value from the DOM (not just the Alpine
+        # store) so the test catches a regression where the store has the
+        # right value but the <select> renders with the placeholder option
+        # selected. This is the regression guard for the
+        # :value/@change -> x-model fix on the modal's <select> bindings.
+        select_loc = page.locator(SELECTORS["import_assignment_class"])
+        assert select_loc.count() == len(unmatched), (
+            f"expected {len(unmatched)} <select> rows in DOM, "
+            f"got {select_loc.count()}"
+        )
+        dom_mismatches: list[str] = []
+        matched_rows = 0
+        for i, r in enumerate(unmatched):
+            if r["suggested_class_id"] is None:
+                continue
+            matched_rows += 1
+            expected_id = str(r["suggested_class_id"])
+            actual_id = select_loc.nth(i).input_value()
+            if actual_id != expected_id:
+                dom_mismatches.append(
+                    f"{r['broker_ticker']}: "
+                    f"select.value={actual_id!r} expected={expected_id!r}"
+                )
+        assert matched_rows > 0, (
+            "expected at least one unmatched row with a server suggestion"
+        )
+        assert not dom_mismatches, (
+            f"{len(dom_mismatches)} DOM <select> values diverged from the "
+            f"server suggestion. First 10: {dom_mismatches[:10]}"
+        )
+
+        # ------------------------------------------------------------------
         # Step 3: Override rows with no suggested category
         # ------------------------------------------------------------------
         # BR Dividendos, Cripto, (Nao configurado) rows have no suggestion
