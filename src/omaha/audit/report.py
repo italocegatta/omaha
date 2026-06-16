@@ -12,20 +12,17 @@ the FastAPI request/response cycle.
 from __future__ import annotations
 
 from collections import OrderedDict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
-from omaha.audit.css_parser import color_token_inventory, parse_stylesheet
+from omaha.audit.css_parser import TokenInventoryRow, color_token_inventory, parse_stylesheet
 from omaha.audit.inventory import (
-    INTERACTIVE_SELECTOR,
     AuditContextFactory,
     InteractiveStateRow,
     inventory_for_page,
 )
-from omaha.audit.css_parser import TokenInventoryRow
-
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -151,9 +148,7 @@ def generate_report(
 
     resolved_tpl = (repo_root / templates_dir).resolve()
     if repo_root not in resolved_tpl.parents and resolved_tpl != repo_root:
-        raise ValueError(
-            f"Templates path {templates_dir!s} is outside the repository root"
-        )
+        raise ValueError(f"Templates path {templates_dir!s} is outside the repository root")
 
     # Parse the stylesheet.
     stylesheet = parse_stylesheet(css_path)
@@ -184,7 +179,7 @@ def generate_report(
         all_rows.extend(rows)
 
     # Generate timestamp.
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     generation_time = now.strftime("%d/%m/%Y %H:%M UTC")
 
     # Render report.

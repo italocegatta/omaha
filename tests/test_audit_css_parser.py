@@ -38,7 +38,6 @@ from omaha.audit.css_parser import (
     resolve_var,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -66,7 +65,8 @@ FIXTURE_CSS = textwrap.dedent("""\
 APP_CSS_PATH = Path(__file__).resolve().parents[1] / "src" / "omaha" / "static" / "app.css"
 
 _SMALL_FIXTURE_RULES = [
-    r for r in css_parser.Stylesheet(
+    r
+    for r in css_parser.Stylesheet(
         rules=css_parser.tinycss2.parse_stylesheet(
             FIXTURE_CSS, skip_comments=True, skip_whitespace=True
         ),
@@ -194,9 +194,7 @@ def test_parse_stylesheet_from_real_css() -> None:
 
 
 def _make_stylesheet(css: str) -> Stylesheet:
-    rules = css_parser.tinycss2.parse_stylesheet(
-        css, skip_comments=True, skip_whitespace=True
-    )
+    rules = css_parser.tinycss2.parse_stylesheet(css, skip_comments=True, skip_whitespace=True)
     return Stylesheet(rules=rules, raw_text=css)
 
 

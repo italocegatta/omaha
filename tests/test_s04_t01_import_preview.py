@@ -452,9 +452,9 @@ class TestPostImportPreview:
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
         data = resp.json()
 
-        assert len(data["unmatched"]) == 5, (
-            f"Expected 5 unmatched rows, got {len(data['unmatched'])}"
-        )
+        assert (
+            len(data["unmatched"]) == 5
+        ), f"Expected 5 unmatched rows, got {len(data['unmatched'])}"
 
         unmatched_by_ticker = {u["broker_ticker"]: u for u in data["unmatched"]}
 
@@ -480,6 +480,5 @@ class TestPostImportPreview:
             row = unmatched_by_ticker[ticker]
             assert row["suggested_category"] == "(Não configurado)"
             assert row["suggested_class_id"] is None, (
-                f"{ticker} should have suggested_class_id=None, "
-                f"got {row['suggested_class_id']}"
+                f"{ticker} should have suggested_class_id=None, " f"got {row['suggested_class_id']}"
             )

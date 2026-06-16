@@ -29,7 +29,6 @@ from omaha.audit.css_parser import (
     parse_stylesheet,
 )
 
-
 APP_CSS_PATH = Path(__file__).resolve().parents[1] / "src" / "omaha" / "static" / "app.css"
 
 
@@ -104,12 +103,8 @@ def test_status_ink_on_fill() -> None:
     neg_ratio = contrast_ratio(negative_ink, negative)
     pos_ratio = contrast_ratio(positive_ink, positive)
 
-    assert neg_ratio >= 4.5, (
-        f"--negative-ink on --negative: {neg_ratio:.2f}:1 (need >= 4.5:1)"
-    )
-    assert pos_ratio >= 4.5, (
-        f"--positive-ink on --positive: {pos_ratio:.2f}:1 (need >= 4.5:1)"
-    )
+    assert neg_ratio >= 4.5, f"--negative-ink on --negative: {neg_ratio:.2f}:1 (need >= 4.5:1)"
+    assert pos_ratio >= 4.5, f"--positive-ink on --positive: {pos_ratio:.2f}:1 (need >= 4.5:1)"
 
 
 # ---------------------------------------------------------------------------
@@ -128,9 +123,7 @@ def test_error_fg_on_error_bg() -> None:
     error_bg = _resolved_value(sheet, "--error-bg")
     error_fg = _resolved_value(sheet, "--error-fg")
     ratio = contrast_ratio(error_fg, error_bg)
-    assert ratio >= 4.5, (
-        f"--error-fg on --error-bg: {ratio:.2f}:1 (need >= 4.5:1)"
-    )
+    assert ratio >= 4.5, f"--error-fg on --error-bg: {ratio:.2f}:1 (need >= 4.5:1)"
 
 
 # ---------------------------------------------------------------------------
@@ -158,12 +151,12 @@ def test_delete_confirm_no_white() -> None:
         match = pattern.search(css)
         assert match is not None, f"Rule {selector!r} not found in app.css"
         body = match.group(1)
-        assert "color: #fff" not in body, (
-            f"{selector} still hardcodes 'color: #fff' — must use var(--negative-ink)"
-        )
-        assert "var(--negative-ink)" in body, (
-            f"{selector} must reference 'var(--negative-ink)' for its text color"
-        )
+        assert (
+            "color: #fff" not in body
+        ), f"{selector} still hardcodes 'color: #fff' — must use var(--negative-ink)"
+        assert (
+            "var(--negative-ink)" in body
+        ), f"{selector} must reference 'var(--negative-ink)' for its text color"
 
 
 def test_corrected_tokens_are_oklch() -> None:
@@ -175,9 +168,7 @@ def test_corrected_tokens_are_oklch() -> None:
     for token in OKLCH_ONLY_TOKENS:
         assert token in by_name, f"{token} missing from inventory"
         value = by_name[token].computed_value.lower()
-        assert value.startswith("oklch"), (
-            f"{token} = {value!r} — Phase 2 requires OKLCH, not hex"
-        )
+        assert value.startswith("oklch"), f"{token} = {value!r} — Phase 2 requires OKLCH, not hex"
 
 
 def test_legacy_aliases_intact() -> None:
@@ -189,9 +180,7 @@ def test_legacy_aliases_intact() -> None:
     muted = _resolved_value(sheet, "--muted")
 
     assert fg == ink, f"--fg ({fg!r}) must equal --ink ({ink!r})"
-    assert muted == ink_muted, (
-        f"--muted ({muted!r}) must equal --ink-muted ({ink_muted!r})"
-    )
+    assert muted == ink_muted, f"--muted ({muted!r}) must equal --ink-muted ({ink_muted!r})"
 
 
 # ---------------------------------------------------------------------------
@@ -205,21 +194,21 @@ def test_legacy_aliases_intact() -> None:
 # tokens but reverses it for fill/ink pairs (--accent on --ink, etc.);
 # this table is the contract.
 _DOCUMENTED_PAIRS: tuple[tuple[str, str, float], ...] = (
-    ("--ink",         "--bg",        4.5),
-    ("--ink-muted",   "--bg",        4.5),
-    ("--accent-ink",  "--accent",    4.5),
-    ("--positive",    "--bg",        4.5),
-    ("--negative",    "--bg",        4.5),
-    ("--positive-ink","--positive",  4.5),
-    ("--negative-ink","--negative",  4.5),
-    ("--error-fg",    "--error-bg",  4.5),
-    ("--color-focus", "--bg",        3.0),  # UI component (focus ring), 3:1 OK
-    ("--class-1",     "--bg",        4.5),
-    ("--class-2",     "--bg",        4.5),
-    ("--class-3",     "--bg",        4.5),
-    ("--class-4",     "--bg",        4.5),
-    ("--class-5",     "--bg",        4.5),
-    ("--class-6",     "--bg",        4.5),
+    ("--ink", "--bg", 4.5),
+    ("--ink-muted", "--bg", 4.5),
+    ("--accent-ink", "--accent", 4.5),
+    ("--positive", "--bg", 4.5),
+    ("--negative", "--bg", 4.5),
+    ("--positive-ink", "--positive", 4.5),
+    ("--negative-ink", "--negative", 4.5),
+    ("--error-fg", "--error-bg", 4.5),
+    ("--color-focus", "--bg", 3.0),  # UI component (focus ring), 3:1 OK
+    ("--class-1", "--bg", 4.5),
+    ("--class-2", "--bg", 4.5),
+    ("--class-3", "--bg", 4.5),
+    ("--class-4", "--bg", 4.5),
+    ("--class-5", "--bg", 4.5),
+    ("--class-6", "--bg", 4.5),
 )
 
 
@@ -244,8 +233,6 @@ def test_documented_pairs_pass() -> None:
         bg = by_name[bg_token].computed_value
         ratio = contrast_ratio(fg, bg)
         if ratio < minimum:
-            failures.append(
-                f"{fg_token} on {bg_token}: {ratio:.2f}:1 (need >= {minimum}:1)"
-            )
+            failures.append(f"{fg_token} on {bg_token}: {ratio:.2f}:1 (need >= {minimum}:1)")
 
     assert not failures, "Documented pairs failing: " + ", ".join(failures)

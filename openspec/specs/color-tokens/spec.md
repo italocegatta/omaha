@@ -46,4 +46,3 @@ DESIGN.md SHALL be updated to reflect the corrected token system. The color stra
 #### Scenario: Component inventory lists token dependencies
 - **WHEN** a reader views the component inventory in DESIGN.md
 - **THEN** each component SHALL list the foreground and background tokens it depends on
-

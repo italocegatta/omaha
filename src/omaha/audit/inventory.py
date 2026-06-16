@@ -10,22 +10,20 @@ side-effect it performs is rendering Jinja2 templates with dummy data.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any
 
 from bs4 import BeautifulSoup, Tag
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment
 
-from omaha.audit.css_parser import Stylesheet, resolve_var
 from omaha.audit.color_resolver import (
     aa_status,
     apply_brightness,
     composite_over,
     contrast_ratio,
 )
-
+from omaha.audit.css_parser import Stylesheet, resolve_var
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -256,7 +254,13 @@ class AuditContextFactory:
         ctx["unmatched_count"] = 1
         ctx["auto_matched"] = [
             (
-                SimpleNamespace(name="PETR4", broker_ticker="PETR4", qty=100, avg_price=28.50, current_price=35.10),
+                SimpleNamespace(
+                    name="PETR4",
+                    broker_ticker="PETR4",
+                    qty=100,
+                    avg_price=28.50,
+                    current_price=35.10,
+                ),
                 1,
             )
         ]
@@ -415,9 +419,7 @@ def _collect_rules_for_element(
     return results
 
 
-def _resolve_declared_value(
-    value: str, registry: dict[str, str]
-) -> str:
+def _resolve_declared_value(value: str, registry: dict[str, str]) -> str:
     """Resolve a CSS value through the custom-property registry.
 
     If the value contains ``var(...)``, resolve it recursively.
@@ -517,6 +519,7 @@ def state_color_pairs(
             resolved = _resolve_declared_value(raw_value, registry)
             if prop == "filter" and brightness_factor is None:
                 import re
+
                 m = re.search(r"brightness\(([0-9.]+)\)", resolved)
                 if m:
                     brightness_factor = float(m.group(1))
@@ -538,6 +541,7 @@ def state_color_pairs(
         style = element.get("style")
         if style:
             import re
+
             m = re.search(r"color:\s*([^;]+)", str(style))
             if m:
                 fg = m.group(1).strip()
@@ -545,6 +549,7 @@ def state_color_pairs(
         style = element.get("style")
         if style:
             import re
+
             m = re.search(r"background(?:-color)?:\s*([^;]+)", str(style))
             if m:
                 bg = m.group(1).strip()
@@ -560,6 +565,7 @@ def state_color_pairs(
     # Composite transparent backgrounds over ancestor.
     try:
         from coloraide import Color as _C
+
         bg_color = _C(bg)
         try:
             alpha = min(1.0, max(0.0, bg_color.get("alpha", 1.0)))

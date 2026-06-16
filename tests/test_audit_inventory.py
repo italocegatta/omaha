@@ -11,7 +11,6 @@ from pathlib import Path
 import pytest
 from jinja2 import Environment, FileSystemLoader
 
-from omaha.audit import inventory
 from omaha.audit.css_parser import parse_stylesheet
 from omaha.audit.inventory import (
     INTERACTIVE_SELECTOR,
@@ -35,9 +34,11 @@ _CSS_PATH = Path(__file__).resolve().parents[1] / "src" / "omaha" / "static" / "
 def jinja_env() -> Environment:
     """Return a Jinja2 Environment pointed at the application templates."""
     env = Environment(loader=FileSystemLoader(_TEMPLATES_DIR))
+
     # Register the brl filter that templates expect.
     def _brl(value, *args, **kwargs):
         return f"R${value:,.2f}"
+
     env.filters["brl"] = _brl
     return env
 
@@ -236,12 +237,16 @@ class TestStateColorPairs:
             if "btn-primary" in classes:
                 btn_primary = el
                 break
-        assert btn_primary is not None, f"Should find .btn-primary in import.html. Elements: {[(e.name, e.get('class', [])) for e in elements]}"
+        assert (
+            btn_primary is not None
+        ), f"Should find .btn-primary in import.html. Elements: {[(e.name, e.get('class', [])) for e in elements]}"
 
         default_row = state_color_pairs(btn_primary, stylesheet, "default")
         hover_row = state_color_pairs(btn_primary, stylesheet, "hover")
         assert default_row is not None
-        assert hover_row is not None, f"Hover row is None. Selector classes: {btn_primary.get('class', [])}"
+        assert (
+            hover_row is not None
+        ), f"Hover row is None. Selector classes: {btn_primary.get('class', [])}"
 
         # Hover should differ from default (brightness filter applied).
         assert (
@@ -302,9 +307,9 @@ class TestInventoryForPage:
         states = {r.state for r in rows}
         assert "default" in states
         # At least one interactive element should have a hover state defined.
-        assert any(
-            r.state == "hover" and r.bg for r in rows
-        ) or "hover" in states, f"Should have hover states. Got: {states}"
+        assert (
+            any(r.state == "hover" and r.bg for r in rows) or "hover" in states
+        ), f"Should have hover states. Got: {states}"
 
     def test_rows_have_template_field_set(self, jinja_env, stylesheet):
         rows = inventory_for_page("dashboard.html", jinja_env, stylesheet)

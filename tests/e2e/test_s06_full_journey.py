@@ -95,9 +95,9 @@ CATEGORY_CLASS_MAP: dict[str, str | None] = {
     # Exact match (Tier 1): category normalizes to the same string
     # as the class name.
     "Internacional": "Internacional",
-    "RF Pós": "RF Pos",      # normalize("RF Pós") = "rf pos" == normalize("RF Pos")
+    "RF Pós": "RF Pos",  # normalize("RF Pós") = "rf pos" == normalize("RF Pos")
     "RF Dinâmica": "RF Dinamica",  # normalize("RF Dinâmica") = "rf dinamica"
-    "Ações": "Acoes",          # normalize("Ações") = "acoes" == normalize("Acoes")
+    "Ações": "Acoes",  # normalize("Ações") = "acoes" == normalize("Acoes")
     "FII": "FII",
     # These categories have no exact or substring match with any
     # of the 5 classes so suggest_class_id returns None:
@@ -176,9 +176,7 @@ class TestS06PosicaoItaloImport:
     the first class.
     """
 
-    def test_import_posicao_italo_with_class_association(
-        self, page: Page, live_url: str
-    ) -> None:
+    def test_import_posicao_italo_with_class_association(self, page: Page, live_url: str) -> None:
         """Full import journey with posicao_italo.csv and class association.
 
         Setup
@@ -318,9 +316,7 @@ class TestS06PosicaoItaloImport:
         # in the CSV that happens to match a different class name).
         # The key assertion is that MOST rows got correct suggestions.
         mismatch_ratio = len(mismatches) / max(len(unmatched), 1)
-        assert (
-            mismatch_ratio < 0.15
-        ), (
+        assert mismatch_ratio < 0.15, (
             f"{len(mismatches)}/{len(unmatched)} rows have incorrect "
             f"suggested_class_id. First 10: {mismatches[:10]}"
         )
@@ -347,9 +343,7 @@ class TestS06PosicaoItaloImport:
                     f"(suggested={r['suggested_class_id']}, default={default_id})"
                 )
 
-        assert (
-            len(wrong_assignments) < 5
-        ), (
+        assert len(wrong_assignments) < 5, (
             f"{len(wrong_assignments)} wrong Alpine assignments. "
             f"First 10: {wrong_assignments[:10]}"
         )
@@ -364,8 +358,7 @@ class TestS06PosicaoItaloImport:
         # :value/@change -> x-model fix on the modal's <select> bindings.
         select_loc = page.locator(SELECTORS["import_assignment_class"])
         assert select_loc.count() == len(unmatched), (
-            f"expected {len(unmatched)} <select> rows in DOM, "
-            f"got {select_loc.count()}"
+            f"expected {len(unmatched)} <select> rows in DOM, " f"got {select_loc.count()}"
         )
         dom_mismatches: list[str] = []
         matched_rows = 0
@@ -377,12 +370,9 @@ class TestS06PosicaoItaloImport:
             actual_id = select_loc.nth(i).input_value()
             if actual_id != expected_id:
                 dom_mismatches.append(
-                    f"{r['broker_ticker']}: "
-                    f"select.value={actual_id!r} expected={expected_id!r}"
+                    f"{r['broker_ticker']}: " f"select.value={actual_id!r} expected={expected_id!r}"
                 )
-        assert matched_rows > 0, (
-            "expected at least one unmatched row with a server suggestion"
-        )
+        assert matched_rows > 0, "expected at least one unmatched row with a server suggestion"
         assert not dom_mismatches, (
             f"{len(dom_mismatches)} DOM <select> values diverged from the "
             f"server suggestion. First 10: {dom_mismatches[:10]}"
@@ -454,9 +444,7 @@ class TestS06PosicaoItaloImport:
             raise
 
         row_count = dashboard_rows.count()
-        assert row_count >= 10, (
-            f"expected at least 10 asset rows after import, " f"got {row_count}"
-        )
+        assert row_count >= 10, f"expected at least 10 asset rows after import, " f"got {row_count}"
 
         # Verify asset rows have position counts.
         for i in range(min(row_count, 10)):
@@ -469,9 +457,9 @@ class TestS06PosicaoItaloImport:
         # Verify some expected tickers appear on the dashboard.
         dashboard_text = page.locator("main").inner_text()
         for expected_ticker in ["SMH", "PRIO3", "BTC", "LVBI11"]:
-            assert expected_ticker in dashboard_text, (
-                f"expected ticker {expected_ticker!r} not found on dashboard"
-            )
+            assert (
+                expected_ticker in dashboard_text
+            ), f"expected ticker {expected_ticker!r} not found on dashboard"
 
         # Verify the 5 classes still exist.
         class_rows = page.locator(SELECTORS["class_summary_row"])

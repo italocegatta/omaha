@@ -358,10 +358,7 @@ def _build_preview_response(
         .order_by(AssetClass.display_order)
         .all()
     )
-    asset_classes = [
-        {"id": ac.id, "name": ac.name}
-        for ac in class_rows
-    ]
+    asset_classes = [{"id": ac.id, "name": ac.name} for ac in class_rows]
 
     asset_class_of: dict[int, int] = {}
     for asset in existing_assets:
@@ -545,7 +542,10 @@ def commit_import(
             continue
 
         # Determine asset_id.
-        if original_asset_id is not None and ticker_to_original_class.get(rp.broker_ticker) == class_id:
+        if (
+            original_asset_id is not None
+            and ticker_to_original_class.get(rp.broker_ticker) == class_id
+        ):
             asset_id = original_asset_id
         else:
             existing = (

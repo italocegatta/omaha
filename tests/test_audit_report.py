@@ -11,10 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from omaha.audit.css_parser import TokenInventoryRow, parse_stylesheet
+from omaha.audit.css_parser import TokenInventoryRow
 from omaha.audit.inventory import InteractiveStateRow
 from omaha.audit.report import generate_report, render_report
-
 
 # ---------------------------------------------------------------------------
 # Fixture data
@@ -105,7 +104,7 @@ class TestRenderReport:
     def test_report_is_self_contained(self, report_html):
         # No external stylesheet or script references.
         assert '<link rel="stylesheet"' not in report_html
-        assert '<script src=' not in report_html
+        assert "<script src=" not in report_html
         # Inline <style> is present.
         assert "<style>" in report_html.lower()
 
@@ -128,8 +127,8 @@ class TestRenderReport:
     def test_report_contains_status_badges(self, report_html):
         assert "Passa" in report_html
         assert "Falha" in report_html
-        assert 'badge--pass' in report_html
-        assert 'badge--fail' in report_html
+        assert "badge--pass" in report_html
+        assert "badge--fail" in report_html
 
     def test_report_contains_failure_log(self, report_html):
         assert "Registro de falhas" in report_html
@@ -200,7 +199,7 @@ class TestGenerateReport:
         result = generate_report(css_path, templates_dir, output_path)
         content = result.read_text(encoding="utf-8")
         assert '<link rel="stylesheet"' not in content
-        assert '<script src=' not in content
+        assert "<script src=" not in content
 
     def test_generate_report_larger_than_10kb(self, tmp_path):
         css_path = Path("src/omaha/static/app.css")
@@ -224,11 +223,16 @@ class TestCLI:
         from omaha.audit.cli import main
 
         output_path = tmp_path / "contrast_audit.html"
-        exit_code = main([
-            "--css", "src/omaha/static/app.css",
-            "--templates-dir", "src/omaha/templates",
-            "--output", str(output_path),
-        ])
+        exit_code = main(
+            [
+                "--css",
+                "src/omaha/static/app.css",
+                "--templates-dir",
+                "src/omaha/templates",
+                "--output",
+                str(output_path),
+            ]
+        )
         assert exit_code == 0
         assert output_path.exists()
         content = output_path.read_text(encoding="utf-8")
@@ -245,11 +249,16 @@ class TestCLI:
     def test_cli_custom_args(self):
         from omaha.audit.cli import _parse_args
 
-        args = _parse_args([
-            "--css", "custom.css",
-            "--templates-dir", "custom/templates",
-            "--output", "out.html",
-        ])
+        args = _parse_args(
+            [
+                "--css",
+                "custom.css",
+                "--templates-dir",
+                "custom/templates",
+                "--output",
+                "out.html",
+            ]
+        )
         assert args.css == "custom.css"
         assert args.templates_dir == "custom/templates"
         assert args.output == "out.html"
@@ -258,9 +267,14 @@ class TestCLI:
         from omaha.audit.cli import main
 
         output_path = tmp_path / "out.html"
-        exit_code = main([
-            "--css", "nonexistent.css",
-            "--templates-dir", "src/omaha/templates",
-            "--output", str(output_path),
-        ])
+        exit_code = main(
+            [
+                "--css",
+                "nonexistent.css",
+                "--templates-dir",
+                "src/omaha/templates",
+                "--output",
+                str(output_path),
+            ]
+        )
         assert exit_code == 1

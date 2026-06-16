@@ -28,7 +28,6 @@ import tinycss2
 
 from omaha.audit.color_resolver import aa_status, contrast_ratio
 
-
 # ---------------------------------------------------------------------------
 # Dataclasses
 # ---------------------------------------------------------------------------

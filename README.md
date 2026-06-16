@@ -234,8 +234,23 @@ uv run pytest tests/e2e/ -v         # Playwright browser tests (S03–S05)
 uv run prek run --all-files         # ruff-format + ruff-check
 ```
 
-The e2e suite needs Playwright + a one-time `playwright install chromium`
-(see `pyproject.toml` dev deps).
+The e2e suite needs Playwright + a chromium browser. One-time setup:
+
+```bash
+uv run playwright install chromium --with-deps   # ~450 MB + system libs
+```
+
+The `_browser` fixture in `tests/e2e/conftest.py` resolves the chromium
+binary at runtime in this order:
+
+1. `$E2E_CHROMIUM_PATH` — explicit override
+2. `~/.cache/ms-playwright/chromium-*/chrome-linux*/chrome` — what
+   `playwright install chromium` produces
+3. `/usr/bin/chromium-browser` — legacy fallback for hosts that ship
+   system chromium
+
+If none of those exist the fixture fails with an actionable error message
+pointing back at the install command.
 
 ---
 

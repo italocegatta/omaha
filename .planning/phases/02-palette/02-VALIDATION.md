@@ -27,7 +27,7 @@ created: 2026-06-13
 
 ## Sampling Rate
 
-- **After every task commit:** Run `uv run python3 -c "from omaha.audit.css_parser import ... ; [token verification]"` 
+- **After every task commit:** Run `uv run python3 -c "from omaha.audit.css_parser import ... ; [token verification]"`
 - **After every plan wave:** Run `uv run pytest tests/test_audit_css_parser.py tests/test_audit_color_resolver.py -x`
 - **Before `/gsd-verify-work`:** Full suite must be green
 - **Max feedback latency:** 5 seconds
