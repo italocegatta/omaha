@@ -58,14 +58,27 @@ Discover them any time with `uv run task --list`.
 | `lint`          | Run prek hooks: ruff format check, ruff --fix, hygiene.                         |
 | `format`        | Auto-format the codebase with ruff.                                              |
 | `check`         | CI-style gate: `lint` + `test-unit`.                                            |
+| `coverage`      | Run tests with coverage report (missing lines per module).                      |
+| `db-current`    | Show the current Alembic revision head.                                         |
+| `db-downgrade`  | Revert the last Alembic migration.                                              |
+| `db-history`    | Show the full Alembic migration timeline.                                       |
 | `db-migrate`    | Apply pending Alembic migrations.                                               |
 | `db-revision`   | Create a new Alembic revision: `task db-revision -m "add foo column"`.          |
 | `db-seed`       | Run the idempotent family + profiles seed.                                      |
 | `db-reset`      | Wipe + reseed Italo's profile for manual import-flow testing.                   |
+| `docker-build`  | Build the dev Docker image from docker-compose.yml.                             |
+| `docker-down`   | Stop and remove the dev Docker Compose stack.                                   |
+| `docker-up`     | Start the dev Docker Compose stack in detached mode.                            |
 | `install`       | `uv sync` — install / sync locked dependencies into `.venv`.                    |
 | `install-e2e`   | One-time download of the Playwright Chromium browser.                           |
+| `prod-down`     | Stop and remove the production Docker Compose stack.                            |
+| `prod-logs`     | Stream logs from all production services.                                       |
+| `prod-rebuild`  | Rebuild the prod image and restart the stack.                                   |
+| `prod-up`       | Start the production Docker Compose stack.                                      |
 | `backup`        | Snapshot the prod DB to `./backups/` (one-off container from `prod.yml`).       |
 | `clean`         | Remove Python bytecode and tool caches (keeps `.venv` and `node_modules`).      |
+| `secret-key`    | Generate a cryptographically random SECRET_KEY.                                 |
+| `update`        | Upgrade all dependencies within version constraints.                            |
 
 A few things worth knowing:
 

@@ -24,6 +24,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8.3",
+    "pytest-cov>=6.0",
     "httpx>=0.27",
     "ruff>=0.6",
     "prek>=0.2",
@@ -109,6 +110,9 @@ db-migrate  = { cmd = "uv run alembic upgrade head",                            
 db-revision = { cmd = "uv run alembic revision --autogenerate",                      help = "Create a new Alembic revision:  task db-revision -m \"add foo column\"" }
 db-seed     = { cmd = "uv run python -m omaha.seed",                                 help = "Run the idempotent family + profiles seed" }
 db-reset    = { cmd = "uv run python -m scripts.dev_reset",                          help = "Wipe + reseed Italo's profile for manual import-flow testing" }
+db-current  = { cmd = "uv run alembic current",                                      help = "Show the current Alembic revision head" }
+db-history  = { cmd = "uv run alembic history",                                      help = "Show the full Alembic migration timeline" }
+db-downgrade = { cmd = "uv run alembic downgrade -1",                                help = "Revert the last Alembic migration" }
 
 # ── Install / setup ─────────────────────────────────────────────────────────
 install     = { cmd = "uv sync",                                       help = "Install / sync locked dependencies into .venv" }
@@ -121,3 +125,21 @@ backup      = { cmd = "docker compose -f prod.yml run --rm backup",    help = "S
 # Wipes Python bytecode caches + the ruff/pytest caches. Excludes .venv
 # and node_modules — those caches are owned by the toolchain, not by us.
 clean       = { cmd = "find . -type d -name __pycache__ -not -path './.venv/*' -not -path './node_modules/*' -exec rm -rf {{}} + 2>/dev/null; rm -rf .pytest_cache .ruff_cache", help = "Remove Python bytecode and tool caches (keeps .venv and node_modules)" }
+
+# ── Docker dev ──────────────────────────────────────────────────────────────
+docker-build = { cmd = "docker compose build",                              help = "Build the dev Docker image from docker-compose.yml" }
+docker-up    = { cmd = "docker compose up -d",                              help = "Start the dev Docker Compose stack in detached mode" }
+docker-down  = { cmd = "docker compose down",                               help = "Stop and remove the dev Docker Compose stack" }
+
+# ── Docker prod ─────────────────────────────────────────────────────────────
+prod-up      = { cmd = "docker compose -f prod.yml up -d",                  help = "Start the production Docker Compose stack" }
+prod-down    = { cmd = "docker compose -f prod.yml down",                   help = "Stop and remove the production Docker Compose stack" }
+prod-logs    = { cmd = "docker compose -f prod.yml logs -f",                help = "Stream logs from all production services" }
+prod-rebuild = { cmd = "docker build -t omaha:prod . && docker compose -f prod.yml up -d", help = "Rebuild the prod image and restart the stack" }
+
+# ── Code quality ────────────────────────────────────────────────────────────
+coverage     = { cmd = "uv run pytest --cov=src/omaha --cov-report=term-missing", help = "Run tests with coverage report (missing lines per module)" }
+update       = { cmd = "uv sync --upgrade",                                 help = "Upgrade all dependencies within version constraints" }
+
+# ── Onboarding ──────────────────────────────────────────────────────────────
+secret-key   = { cmd = "python -c \"import secrets; print(secrets.token_urlsafe(50))\"", help = "Generate a cryptographically random SECRET_KEY" }
