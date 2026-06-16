@@ -160,6 +160,27 @@ If you move to a different network, re-detect the IP with
 listed. `localhost` and `127.0.0.1` are never correct for a manual UI
 test session.
 
+### Windows / WSL: forwarding the host port
+
+If the dev host is WSL on Windows, the Linux LAN IP above is not
+reachable from the Windows side directly — the WSL instance is on a
+virtual NIC. Forward a Windows host port to the WSL IP with
+`netsh interface portproxy` and open the firewall, then point the
+client at `http://localhost:<port>` (or the host's LAN IP) instead.
+
+Run this in **PowerShell as Administrator** on the Windows host. Edit
+`$port` to match the port uvicorn is bound to inside WSL (e.g. `8000`
+if that is what you launched).
+
+```powershell
+$port=4096; $wslIp=(wsl -d juca hostname -I).Trim(); netsh interface portproxy add v4tov4 listenport=$port listenaddress=0.0.0.0 connectport=$port connectaddress=$wslIp; netsh advfirewall firewall add rule name="WSL $port" dir=in action=allow protocol=TCP localport=$port; Write-Host "OK — porta $port aberta para $wslIp"
+```
+
+Verify the forward is in place with `netsh interface portproxy show
+all`. To remove it later: `netsh interface portproxy delete v4tov4
+listenport=$port listenaddress=0.0.0.0` and
+`netsh advfirewall firewall delete rule name="WSL $port"`.
+
 ---
 
 ## Testing the app

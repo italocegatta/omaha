@@ -83,7 +83,7 @@ def reset_for_italo() -> None:
     """Wipe + reseed Italo's profile. Idempotent; safe to re-run."""
     db = SessionLocal()
     try:
-        user = db.query(User).filter(User.username == "family").one()
+        user = db.query(User).filter(User.username == "Italo").one()
         italo = db.query(Profile).filter(Profile.user_id == user.id, Profile.name == "Italo").one()
         profile_id = italo.id
 

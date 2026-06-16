@@ -34,8 +34,12 @@
   --muted: var(--ink-muted);
 
   /* App-specific error feedback — not in the design token table. */
-  --error-bg: #fde8e8;
-  --error-fg: #8a1f1f;
+  --error-bg: oklch(0.95 0.03 25);
+  --error-fg: oklch(0.45 0.15 25);
+
+  /* Status ink tokens — high-luminance text on status fills. */
+  --negative-ink: oklch(0.98 0.005 25);
+  --positive-ink: oklch(0.98 0.005 145);
 
   /* Class color tokens (S05 T03) — kept as hex per DESIGN.md
      ("migration source until the swatch palette is committed"). Must
@@ -47,9 +51,9 @@
   --class-1: #0a66c2; /* blue   */
   --class-2: #2e7d32; /* green  */
   --class-3: #c62828; /* red    */
-  --class-4: #ef6c00; /* orange */
+  --class-4: oklch(0.53 0.13 50);  /* orange — corrected 2026-06 to meet ≥4.5:1 vs --bg */
   --class-5: #6a1b9a; /* purple */
-  --class-6: #00838f; /* teal   */
+  --class-6: oklch(0.52 0.10 200); /* teal   — corrected 2026-06 to meet ≥4.5:1 vs --bg */
 
   /* Focus ring color (S05 T04). Matches the accent used for input
      focus borders. Override by setting --color-focus on a container
@@ -1082,7 +1086,7 @@ main { max-width: 760px; }
   font-size: 0.8rem;
   padding: 0.35rem 0.7rem;
   background: var(--negative);
-  color: #fff;
+  color: var(--negative-ink);
   border: 1px solid var(--negative);
   border-radius: 4px;
   cursor: pointer;
@@ -1183,7 +1187,7 @@ main { max-width: 760px; }
   font-size: 0.78rem;
   padding: 0.3rem 0.6rem;
   background: var(--negative);
-  color: #fff;
+  color: var(--negative-ink);
   border: 1px solid var(--negative);
   border-radius: 4px;
   cursor: pointer;
