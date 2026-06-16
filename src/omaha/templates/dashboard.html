@@ -3,6 +3,16 @@
 <div class="dashboard">
   <h1 class="profile-name" data-testid="profile-name">Bem-vindo, {{ profile.name }}</h1>
 
+  <div class="dashboard-actions" data-testid="dashboard-actions">
+    <button type="button"
+            class="import-btn import-btn-primary"
+            data-testid="dashboard-import-btn"
+            x-data
+            @click="$store.importModal.openModal()">
+      Importar CSV
+    </button>
+  </div>
+
   {% if asset_classes %}
   <section class="class-summary" data-testid="class-summary">
     {% if portfolio.current_value %}
@@ -26,21 +36,104 @@
 
     <section class="dashboard-distribution" data-testid="dashboard-distribution">
       <h2>Distribuicao</h2>
+      <div class="class-summary-total"
+           data-testid="class-summary-total"
+           x-data
+           x-show="$store.classSum.message"
+           x-cloak>
+        <span class="class-summary-total-label">Total classes:</span>
+        <span class="class-summary-total-value" x-text="$store.classSum.totalPct.toFixed(2) + '%'"></span>
+        <span class="class-summary-total-delta"
+              x-text="$store.classSum.message"
+              :class="$store.classSum.delta < 0 ? 'class-delta-badge--short' : 'class-delta-badge--long'"></span>
+      </div>
       {% for c in class_aggregates %}
       {% set class_data = {"id": c.id, "name": c.name, "target_pct": (c.target_pct | float), "assets": []} %}
       {% for a in c.assets %}
       {% set _ = class_data.assets.append({"id": a.id, "name": a.name, "target_pct": (a.target_pct_class | float), "current_pct_class": (a.current_pct_class | float), "current_pct_total": (a.current_pct_total | float), "target_pct_total": (a.target_pct_total | float)}) %}
       {% endfor %}
       <article class="class-section" data-testid="class-summary-row" data-class-id="{{ c.id }}" x-data='classSection({{ class_data | tojson }})'>
-        <header class="class-section-header" data-testid="dashboard-class-section">
+        <header class="class-section-header" data-testid="dashboard-class-section" @click="isOpen = !isOpen">
           <span class="class-color-swatch" data-testid="class-color-swatch" style="background:{{ c.color }}"></span>
+          <button type="button"
+                  class="class-chevron"
+                  data-testid="class-chevron"
+                  :class="{'is-open': isOpen}"
+                  title="Expandir/recolher"
+                  @click.stop="isOpen = !isOpen">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M4 2L8 6L4 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
           <span class="class-section-name" data-testid="class-section-name">{{ c.name }}</span>
+          <button type="button"
+                  class="class-section-delete-btn"
+                  data-testid="class-delete-btn"
+                  @click.stop="showDeleteConfirm = true"
+                  x-show="!showDeleteConfirm && !deleting"
+                  title="Remover classe">×</button>
           <span class="class-section-stats">
-            <span class="pct-target" data-testid="class-target-pct">Alvo {{ c.target_pct }}%</span>
+            <span class="pct-target pct-target--view" data-testid="class-target-pct-view" x-show="!editingClassPct" @click="startEditClassPct()" title="Clique para editar">Alvo <span x-text="classTargetPct"></span>%</span>
+            <div class="pct-target pct-target--edit" data-testid="class-target-pct-edit" x-show="editingClassPct" x-cloak>
+              Alvo
+              <input type="number"
+                     step="0.01"
+                     min="0"
+                     max="100"
+                     class="class-inline-edit-input"
+                     data-testid="class-inline-edit-input"
+                     x-model="editClassPctValue"
+                     @keyup.enter="commitEditClassPct()"
+                     @keyup.escape.window="cancelEditClassPct()"
+                     :disabled="savingClassPct"
+                     @click.stop>
+              <button type="button"
+                      class="class-inline-edit-commit"
+                      data-testid="class-inline-edit-commit"
+                      @click.stop="commitEditClassPct()"
+                      :disabled="savingClassPct">salvar</button>
+              <button type="button"
+                      class="class-inline-edit-cancel"
+                      data-testid="class-inline-edit-cancel"
+                      @click.stop="cancelEditClassPct()"
+                      :disabled="savingClassPct">cancelar</button>
+              <span class="class-inline-edit-error"
+                    data-testid="class-inline-edit-error"
+                    x-show="editClassPctError"
+                    x-text="editClassPctError"
+                    x-cloak></span>
+            </div>
             <span class="pct-current" data-testid="class-current-pct">Atual {{ c.current_pct | round(2) }}%</span>
             <span class="class-delta-badge" data-testid="class-delta-badge" x-show="classDeltaMessage" x-text="classDeltaMessage" :class="classDelta > 0 ? 'class-delta-badge--short' : 'class-delta-badge--long'"></span>
           </span>
         </header>
+        <div class="class-delete-confirm"
+             data-testid="class-delete-confirm"
+             x-show="showDeleteConfirm"
+             x-cloak>
+          <p class="class-delete-confirm-text">Remover classe <strong>{{ c.name }}</strong>?</p>
+          <div class="class-delete-confirm-actions">
+            <button type="button"
+                    class="btn class-delete-confirm-yes"
+                    data-testid="class-delete-confirm-yes"
+                    @click="confirmDelete()"
+                    :disabled="deleting">
+              <span x-show="!deleting">Sim, remover</span>
+              <span x-show="deleting">Removendo...</span>
+            </button>
+            <button type="button"
+                    class="btn class-delete-confirm-no"
+                    data-testid="class-delete-confirm-no"
+                    @click="cancelDelete()"
+                    :disabled="deleting">Cancelar</button>
+          </div>
+          <p class="class-delete-confirm-error"
+             data-testid="class-delete-confirm-error"
+             x-show="deleteError"
+             x-text="deleteError"
+             x-cloak></p>
+        </div>
+        <div class="class-section-body" :class="{'class-section-body--collapsed': !isOpen}">
         <div class="compare-bar" data-testid="class-compare-bar">
           <div class="compare-bar-track compare-bar-target-track">
             <div class="compare-bar-fill compare-bar-target-fill" style="--final-width:{{ c.target_pct }}%"></div>
@@ -108,9 +201,52 @@
                    round-trip still resolves the same percentage. #}
                 <span data-testid="asset-pct" hidden>{{ a.current_pct_class | round(2) }}</span>
               </div>
+              {# S03/T04: per-asset × delete button. Lives inside the
+                 asset-row-line (next to the 4-pct grid) so the layout
+                 stays tight. Visibility tracks the row's per-class
+                 confirm state — only one row per class section can
+                 have the confirm dialog open at a time
+                 (showDeleteAssetId matches a single id). #}
+              <button type="button"
+                      class="dashboard-asset-delete-btn"
+                      data-testid="dashboard-asset-delete-btn"
+                      @click="askDeleteAsset({{ a.id }}, '{{ a.name }}')"
+                      x-show="showDeleteAssetId !== {{ a.id }} && !deletingAssetId"
+                      title="Remover ativo">×</button>
             </div>
             <div class="asset-progress-bar" data-testid="asset-progress-bar">
               <div class="asset-progress-fill" style="--final-width:{{ a.current_pct_class }}%"></div>
+            </div>
+            {# S03/T04: per-row confirm dialog for asset deletion.
+               Positions cascade (no 409) so the confirm is always
+               "are you sure" + delete. Hidden by [x-cloak] and
+               toggled by the same showDeleteAssetId / deletingAssetId
+               pair the × button reads. #}
+            <div class="dashboard-asset-delete-confirm"
+                 data-testid="dashboard-asset-delete-confirm"
+                 x-show="showDeleteAssetId === {{ a.id }}"
+                 x-cloak>
+              <p class="dashboard-asset-delete-confirm-text">Remover ativo <strong>{{ a.name }}</strong>?</p>
+              <div class="dashboard-asset-delete-confirm-actions">
+                <button type="button"
+                        class="btn dashboard-asset-delete-confirm-yes"
+                        data-testid="dashboard-asset-delete-confirm-yes"
+                        @click="confirmDeleteAsset()"
+                        :disabled="deletingAssetId === {{ a.id }}">
+                  <span x-show="deletingAssetId !== {{ a.id }}">Sim, remover</span>
+                  <span x-show="deletingAssetId === {{ a.id }}">Removendo...</span>
+                </button>
+                <button type="button"
+                        class="btn dashboard-asset-delete-confirm-no"
+                        data-testid="dashboard-asset-delete-confirm-no"
+                        @click="cancelDeleteAsset()"
+                        :disabled="deletingAssetId === {{ a.id }}">Cancelar</button>
+              </div>
+              <p class="dashboard-asset-delete-confirm-error"
+                 data-testid="dashboard-asset-delete-confirm-error"
+                 x-show="deleteAssetError"
+                 x-text="deleteAssetError"
+                 x-cloak></p>
             </div>
             {# S05 legacy marker: keep the data-testid present so
                downstream tests (asset-progress-bar fill assertions)
@@ -121,23 +257,349 @@
           {% endfor %}
         </ul>
         {% else %}
-        <p class="dashboard-asset-empty">
-          Nenhum ativo nesta classe.
-          <a href="/assets" data-testid="dashboard-add-assets-link">Adicionar ativos</a>
-        </p>
+        <div class="empty-state empty-state--inline" data-testid="empty-assets">
+          <p>Nenhum ativo nesta classe.</p>
+          <button type="button"
+                  class="new-class-plus-btn"
+                  data-testid="empty-state-create-asset"
+                  @click="showAddAsset = true">
+            + Ativo
+          </button>
+        </div>
         {% endif %}
+
+        </div><!-- /.class-section-body -->
+
+        {# S03/T03: inline "+ Ativo" toggle button + create form.
+           Lives OUTSIDE class-section-body (Bug 2 fix) so it's
+           always visible even when the section is collapsed. #}
+        <button type="button"
+                class="new-class-plus-btn dashboard-add-asset-btn"
+                data-testid="dashboard-add-asset-btn"
+                x-show="!showAddAsset"
+                @click="showAddAsset = true">
+          + Ativo
+        </button>
+        <div class="new-class-form dashboard-add-asset-form"
+             data-testid="dashboard-add-asset-form"
+             x-show="showAddAsset"
+             x-cloak>
+          <div class="new-class-form-body">
+            <div class="new-class-form-field">
+              <label for="dashboard-add-asset-name-{{ c.id }}">Nome</label>
+              <input type="text"
+                     id="dashboard-add-asset-name-{{ c.id }}"
+                     class="new-class-input"
+                     data-testid="dashboard-add-asset-name-input"
+                     x-model="newAssetName"
+                     placeholder="Ex: PETR4"
+                     :disabled="addingAsset"
+                     @keyup.enter="addAsset()">
+            </div>
+            <div class="new-class-form-field">
+              <label for="dashboard-add-asset-pct-{{ c.id }}">Alvo %</label>
+              <input type="number"
+                     id="dashboard-add-asset-pct-{{ c.id }}"
+                     class="new-class-input new-class-input--pct"
+                     data-testid="dashboard-add-asset-pct-input"
+                     x-model="newAssetTargetPct"
+                     step="0.01"
+                     min="0"
+                     max="100"
+                     placeholder="0"
+                     :disabled="addingAsset"
+                     @keyup.enter="addAsset()">
+            </div>
+            <div class="new-class-form-actions">
+              <button type="button"
+                      class="btn btn-primary new-class-form-save dashboard-add-asset-save"
+                      data-testid="dashboard-add-asset-save"
+                      @click="addAsset()"
+                      :disabled="addingAsset">
+                <span x-show="!addingAsset">Salvar</span>
+                <span x-show="addingAsset">Salvando...</span>
+              </button>
+              <button type="button"
+                      class="btn new-class-form-cancel dashboard-add-asset-cancel"
+                      data-testid="dashboard-add-asset-cancel"
+                      @click="cancelAddAsset()"
+                      :disabled="addingAsset">Cancelar</button>
+            </div>
+          </div>
+          <p class="new-class-form-error dashboard-add-asset-error"
+             data-testid="dashboard-add-asset-error"
+             x-show="addAssetError"
+             x-text="addAssetError"
+             x-cloak></p>
+        </div>
       </article>
       {% endfor %}
+
     </section>
   </section>
   {% else %}
   <div class="empty-state" data-testid="empty-state">
-    <p>Sem classes ainda.</p>
-    <a href="/classes" class="btn btn-primary" style="margin-top:1rem;display:inline-block;width:auto">
-      Gerenciar classes
-    </a>
+    <h2>Voce ainda nao tem classes</h2>
+    <p>Classes organizam seus ativos por categoria (ex.: Acoes, FIIs, Cripto).</p>
+    <button type="button"
+            class="new-class-plus-btn"
+            data-testid="empty-state-create-class"
+            @click="document.querySelector('[data-testid=new-class-plus-btn]')?.click()">
+      + Nova classe
+    </button>
   </div>
   {% endif %}
+
+  {# Always render the new-class-container so the user can create the
+     first class even when there are zero classes in the DB. The inline
+     Alpine form calls POST /api/classes and reloads the page on 201.
+     The old "Gerenciar classes" link pointed to /classes which was
+     retired in S02/T07 (302 redirect to / -- a dead loop). #}
+  <div class="new-class-container" data-testid="new-class-container" x-data="newClassForm()">
+    <button type="button"
+            class="new-class-plus-btn"
+            data-testid="new-class-plus-btn"
+            x-show="!showForm"
+            @click="showForm = true">
+      + Nova classe
+    </button>
+
+    <div class="new-class-form"
+         data-testid="new-class-form"
+         x-show="showForm"
+         x-cloak>
+      <div class="new-class-form-body">
+        <div class="new-class-form-field">
+          <label for="new-class-name">Nome</label>
+          <input type="text"
+                 id="new-class-name"
+                 class="new-class-input"
+                 data-testid="new-class-name-input"
+                 x-model="name"
+                 placeholder="Ex: Renda Fixa"
+                 :disabled="saving"
+                 @keyup.enter="save()">
+        </div>
+        <div class="new-class-form-field">
+          <label for="new-class-pct">Alvo %</label>
+          <input type="number"
+                 id="new-class-pct"
+                 class="new-class-input new-class-input--pct"
+                 data-testid="new-class-pct-input"
+                 x-model="targetPct"
+                 step="0.01"
+                 min="0"
+                 max="100"
+                 placeholder="60"
+                 :disabled="saving"
+                 @keyup.enter="save()">
+        </div>
+        <div class="new-class-form-actions">
+          <button type="button"
+                  class="btn btn-primary new-class-form-save"
+                  data-testid="new-class-form-save"
+                  @click="save()"
+                  :disabled="saving">
+            <span x-show="!saving">Salvar</span>
+            <span x-show="saving">Salvando...</span>
+          </button>
+          <button type="button"
+                  class="btn new-class-form-cancel"
+                  data-testid="new-class-form-cancel"
+                  @click="cancel()"
+                  :disabled="saving">Cancelar</button>
+        </div>
+      </div>
+      <p class="new-class-form-error"
+         data-testid="new-class-form-error"
+         x-show="error"
+         x-text="error"
+         x-cloak></p>
+    </div>
+  </div>
+</div>
+
+<!-- S04/T03: Import modal overlay. x-data is on the overlay so the
+     backdrop click handler fires correctly. State lives in a global
+     Alpine store ($store.importModal) so the trigger button above
+     (in a different x-data scope) can open it without nesting. The
+     store is initialized in the script below. -->
+<div class="import-modal-overlay"
+     x-data
+     x-show="$store.importModal.open"
+     x-cloak
+     x-transition.opacity.duration.200ms
+     @click.self="$store.importModal.closeModal()"
+     data-testid="import-modal-overlay">
+  <div class="import-modal-panel" @click.stop>
+    <div class="import-modal-header">
+      <h2>Importar posicoes</h2>
+      <button type="button" class="import-modal-close" @click="$store.importModal.closeModal()">&times;</button>
+    </div>
+
+    <!-- Step 1: File upload -->
+    <div class="import-modal-step"
+         x-show="$store.importModal.step === 1"
+         x-transition:enter.duration.200ms>
+      <div class="import-modal-upload-area">
+        <p style="font-size:0.85rem;color:var(--muted);margin:0;">
+          Selecione um arquivo CSV com as posicoes do seu corretor
+        </p>
+        <input type="file"
+               accept=".csv"
+               data-testid="import-file-input"
+               @change="$store.importModal.file = $event.target.files[0]; $store.importModal.error = ''"
+               :disabled="$store.importModal.uploading">
+        <button type="button"
+                class="import-btn import-btn-primary"
+                data-testid="import-upload-btn"
+                @click="$store.importModal.uploadFile()"
+                :disabled="!$store.importModal.file || $store.importModal.uploading">
+          <span x-show="!$store.importModal.uploading">Enviar</span>
+          <span x-show="$store.importModal.uploading">Enviando...</span>
+        </button>
+      </div>
+      <p class="import-modal-error"
+         x-show="$store.importModal.step1Error"
+         x-text="$store.importModal.step1Error"
+         x-cloak
+         data-testid="import-upload-error"></p>
+    </div>
+
+    <!-- Step 2: Review + commit -->
+    <div class="import-modal-step"
+         x-show="$store.importModal.step === 2"
+         x-transition:enter.duration.200ms>
+
+      <!-- Expired preview -->
+      <div class="import-expired-message"
+           x-show="$store.importModal.previewError"
+           data-testid="import-expired-message">
+        <p>Sessao expirada. Reenvie o arquivo.</p>
+        <button type="button"
+                class="import-btn import-btn-primary"
+                @click="$store.importModal.goBackToStep1()">
+          Reenviar
+        </button>
+      </div>
+
+      <template x-if="!$store.importModal.previewError">
+        <div>
+          <!-- Existing assets (auto-matched) -->
+          <div class="import-review-section" x-show="$store.importModal.autoMatched.length > 0">
+            <h3>Ativos existentes na carteira</h3>
+            <table class="import-review-table" data-testid="import-existing-table">
+              <thead>
+                <tr>
+                  <th>Ticker</th>
+                  <th>Nome</th>
+                  <th>Qtde</th>
+                  <th>P. Medio</th>
+                  <th>Classe</th>
+                  <th>Nome do ativo</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="(row, i) in $store.importModal.autoMatched" :key="row.broker_ticker">
+                  <tr data-testid="import-existing-row">
+                    <td x-text="row.broker_ticker"></td>
+                    <td x-text="row.name"></td>
+                    <td x-text="row.qty"></td>
+                    <td x-text="row.avg_price"></td>
+                    <td>
+                      <select x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })"
+                              x-effect="(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })()"
+                              @change="$store.importModal.assignments[row.broker_ticker].class_id = $event.target.value"
+                              data-testid="import-existing-class">
+                        <option value="">Selecione...</option>
+                        <template x-for="ac in $store.importModal.assetClasses" :key="ac.id">
+                          <option :value="ac.id" x-text="ac.name"></option>
+                        </template>
+                      </select>
+                    </td>
+                    <td>
+                      <input type="text"
+                             :value="$store.importModal.getAssetName(row.broker_ticker)"
+                             @input="$store.importModal.setAssetName(row.broker_ticker, $event.target.value)"
+                             placeholder="Nome do ativo"
+                             data-testid="import-existing-name">
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- New assets (unmatched) -->
+          <div class="import-review-section" x-show="$store.importModal.unmatched.length > 0">
+            <h3>Novos ativos</h3>
+            <table class="import-review-table" data-testid="import-unmatched-table">
+              <thead>
+                <tr>
+                  <th>Ticker</th>
+                  <th>Nome</th>
+                  <th>Qtde</th>
+                  <th>P. Medio</th>
+                  <th>Classe</th>
+                  <th>Nome do ativo</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="(row, i) in $store.importModal.unmatched" :key="row.broker_ticker">
+                  <tr data-testid="import-unmatched-row">
+                    <td x-text="row.broker_ticker"></td>
+                    <td x-text="row.name"></td>
+                    <td x-text="row.qty"></td>
+                    <td x-text="row.avg_price"></td>
+                    <td>
+                      <select x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })"
+                              x-effect="(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })()"
+                              @change="$store.importModal.assignments[row.broker_ticker].class_id = $event.target.value"
+                              data-testid="import-assignment-class">
+                        <option value="">Selecione...</option>
+                        <template x-for="ac in $store.importModal.assetClasses" :key="ac.id">
+                          <option :value="ac.id" x-text="ac.name"></option>
+                        </template>
+                      </select>
+                    </td>
+                    <td>
+                      <input type="text"
+                             :value="$store.importModal.getAssetName(row.broker_ticker)"
+                             @input="$store.importModal.setAssetName(row.broker_ticker, $event.target.value)"
+                             placeholder="Nome do ativo"
+                             data-testid="import-assignment-name">
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Commit error -->
+          <p class="import-modal-error"
+             x-show="$store.importModal.error"
+             x-text="$store.importModal.error"
+             x-cloak
+             data-testid="import-commit-error"></p>
+
+          <!-- Actions -->
+          <div class="import-modal-actions">
+            <button type="button"
+                    class="import-btn"
+                    @click="$store.importModal.closeModal()">Cancelar</button>
+            <button type="button"
+                    class="import-btn import-btn-primary"
+                    data-testid="import-commit-btn"
+                    @click="$store.importModal.commit()"
+                    :disabled="$store.importModal.committing">
+              <span x-show="!$store.importModal.committing">Confirmar</span>
+              <span x-show="$store.importModal.committing">Salvando...</span>
+            </button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -154,6 +616,14 @@
       classId: initial.id,
       className: initial.name,
       classTargetPct: initial.target_pct,
+
+      // Register with the class allocation sum store on init so the
+      // Distribution header shows the live total across all classes.
+      init: function () {
+        if (Alpine.store('classSum')) {
+          Alpine.store('classSum').register(this.classId, this.classTargetPct);
+        }
+      },
       assets: initial.assets.map(function (a) {
         return {
           id: a.id,
@@ -168,6 +638,51 @@
       editingValue: '',
       saving: false,
       error: '',
+
+      // Collapse/expand state (D016: default closed on every load).
+      isOpen: false,
+
+      // Delete button state — confirm dialog visibility, in-flight
+      // flag, and server error message (409 when class has assets).
+      // Each class-section instance owns its own copy so operators
+      // can delete independently.
+      showDeleteConfirm: false,
+      deleting: false,
+      deleteError: '',
+
+      // S03/T03: inline "+ Ativo" create form state. Lives inside
+      // the classSection scope so each class section owns its own
+      // form (independent across classes). The form mirrors the S02
+      // newClassForm pattern but reuses this component's x-data
+      // instead of a separate factory.
+      showAddAsset: false,
+      addingAsset: false,
+      newAssetName: '',
+      newAssetTargetPct: '',
+      addAssetError: '',
+
+      // S03/T04: per-asset delete confirm state. showDeleteAssetId
+      // matches a single asset id at a time (one confirm dialog per
+      // class section); deletingAssetId is set during the in-flight
+      // DELETE so both confirm buttons disable. deletingAssetName
+      // is the human-readable label from the template, used only
+      // for the confirm copy. Mirrors the S02 class-delete pattern
+      // (showDeleteConfirm / deleting) but lives on a separate
+      // namespace so the two delete flows never share state.
+      showDeleteAssetId: null,
+      deletingAssetId: null,
+      deleteAssetError: '',
+      deletingAssetName: '',
+
+      // R12: Class inline edit — click class target_pct span to
+      // show an inline input. PATCH /api/classes/{id} on blur or
+      // Enter. Mirrors the asset inline edit pattern (startEdit /
+      // commitEdit / cancelEdit) but lives on a separate namespace
+      // so no state bleeds between asset and class editing.
+      editingClassPct: false,
+      editClassPctValue: '',
+      editClassPctError: '',
+      savingClassPct: false,
 
       // Live preview: the per-class sum of ``target_pct`` (i.e.
       // the same value the T02 PATCH route's server-side
@@ -218,6 +733,71 @@
         // "X.XX%".
         if (!value || Math.abs(value) < 0.005) return '—';
         return Number(value).toFixed(2) + '%';
+      },
+
+      // R12: Class inline edit — click the Alvo NN% span to show an
+      // input, PATCH on blur/Enter, update the local target_pct on
+      // success so the dashboard reacts immediately (no page reload).
+      // The server-side PATCH /api/classes/{id} endpoint handles the
+      // per-class target_pct update (the sum-to-100 gate was removed
+      // by D006).
+      startEditClassPct: function () {
+        this.editingClassPct = true;
+        this.editClassPctValue = String(this.classTargetPct);
+        this.editClassPctError = '';
+      },
+      cancelEditClassPct: function () {
+        this.editingClassPct = false;
+        this.editClassPctValue = '';
+        this.editClassPctError = '';
+      },
+      commitEditClassPct: function () {
+        var self = this;
+        var parsed = parseFloat(self.editClassPctValue);
+        if (isNaN(parsed) || parsed < 0 || parsed > 100) {
+          self.editClassPctError = 'Valor deve ser entre 0 e 100';
+          return;
+        }
+        self.savingClassPct = true;
+        self.editClassPctError = '';
+        fetch('/api/classes/' + self.classId, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target_pct: self.editClassPctValue }),
+        })
+          .then(function (r) {
+            if (r.status === 200) {
+              return r.json();
+            }
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao salvar';
+              throw new Error(detail);
+            });
+          })
+          .then(function (payload) {
+            self.classTargetPct = parseFloat(payload.target_pct);
+            // Update the class-level allocation sum store so the
+            // Distribution header reflects the new total reactively.
+            if (Alpine.store('classSum')) {
+              Alpine.store('classSum').update(self.classId, self.classTargetPct);
+            }
+            // Recompute each asset's target_pct_total in the local
+            // model so the dashboard reflects the new class-level
+            // allocation without a page reload.
+            for (var i = 0; i < self.assets.length; i++) {
+              var a = self.assets[i];
+              a.target_pct_total = (a.target_pct * self.classTargetPct) / 100;
+            }
+            self.editingClassPct = false;
+            self.editClassPctValue = '';
+            self.editClassPctError = '';
+          })
+          .catch(function (err) {
+            self.editClassPctError = err && err.message ? err.message : 'Erro ao salvar';
+          })
+          .then(function () {
+            self.savingClassPct = false;
+          });
       },
 
       startEdit: function (id) {
@@ -282,7 +862,420 @@
             self.saving = false;
           });
       },
+
+      // ── Delete class ──────────────────────────────────────────
+      //
+      // Shows confirm dialog; on confirm, DELETE /api/classes/{id}.
+      // 204 → page reload (class removed server-side).
+      // 409 → display server error (class has assets).
+      // Other errors → generic message.
+
+      confirmDelete: function () {
+        var self = this;
+        self.deleting = true;
+        self.deleteError = '';
+        fetch('/api/classes/' + self.classId, {
+          method: 'DELETE',
+        })
+          .then(function (r) {
+            if (r.status === 204) {
+              // Success — reload the page so the class section is removed
+              // and server-side aggregates re-render.
+              window.location.reload();
+              return;
+            }
+            // 409 (class has assets) or other error. Body shape:
+            // {"detail": "Classe tem N ativo(s); remova-os antes."}
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao remover classe';
+              throw new Error(detail);
+            });
+          })
+          .catch(function (err) {
+            self.deleteError = err && err.message ? err.message : 'Erro ao remover classe';
+          })
+          .then(function () {
+            self.deleting = false;
+          });
+      },
+
+      cancelDelete: function () {
+        this.showDeleteConfirm = false;
+        this.deleteError = '';
+        this.deleting = false;
+      },
+
+      // ── Inline create asset (S03/T03) ───────────────────────
+      //
+      // POSTs JSON {name, target_pct} to /api/assets. The T01
+      // server-side validator is the single source of truth for
+      // per-class sum validation, duplicate-name 409, and
+      // cross-profile class id 422 — this UI just renders the
+      // server's ``detail`` message verbatim on 4xx. On 201 we
+      // reload so the new asset row renders with server-side
+      // aggregate data (current_value, percentages, etc.).
+
+      addAsset: function () {
+        var self = this;
+        self.addingAsset = true;
+        self.addAssetError = '';
+        fetch('/api/assets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: self.newAssetName,
+            asset_class_id: self.classId,
+            target_pct: self.newAssetTargetPct,
+          }),
+        })
+          .then(function (r) {
+            if (r.status === 201) {
+              // Reload the page so the new asset row renders with
+              // server-side aggregate data (display_order, current
+              // value, percentages).
+              window.location.reload();
+              return;
+            }
+            // 409 (duplicate name) or 422 (validation error). Body
+            // shape: {"detail": "<message>"}.
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao criar ativo';
+              throw new Error(detail);
+            });
+          })
+          .catch(function (err) {
+            self.addAssetError = err && err.message ? err.message : 'Erro ao criar ativo';
+          })
+          .then(function () {
+            self.addingAsset = false;
+          });
+      },
+
+      cancelAddAsset: function () {
+        this.showAddAsset = false;
+        this.newAssetName = '';
+        this.newAssetTargetPct = '';
+        this.addAssetError = '';
+        this.addingAsset = false;
+      },
+
+      // ── Per-asset delete confirm (S03/T04) ─────────────────
+      //
+      // The × button per asset row calls askDeleteAsset(id, name)
+      // which sets showDeleteAssetId; the matching row's confirm
+      // dialog appears (x-show="showDeleteAssetId === id"). Only
+      // one row per class section can be in confirm state at a
+      // time because showDeleteAssetId is a single value.
+      //
+      // confirmDeleteAsset() DELETEs /api/assets/{showDeleteAssetId}.
+      // 204 → page reload (asset + cascading positions removed).
+      // 404 → server returns {"detail": "Ativo não encontrado."};
+      // surfaced verbatim. There is no 409 — positions cascade.
+      askDeleteAsset: function (id, name) {
+        this.showDeleteAssetId = id;
+        this.deletingAssetName = name;
+        this.deleteAssetError = '';
+      },
+
+      confirmDeleteAsset: function () {
+        if (this.showDeleteAssetId === null) return;
+        var id = this.showDeleteAssetId;
+        var self = this;
+        self.deletingAssetId = id;
+        self.deleteAssetError = '';
+        fetch('/api/assets/' + id, {
+          method: 'DELETE',
+        })
+          .then(function (r) {
+            if (r.status === 204) {
+              // Success — reload the page so the asset row (and its
+              // cascading positions) is removed and server-side
+              // aggregates re-render.
+              window.location.reload();
+              return;
+            }
+            // 404 or other 4xx. Body shape: {"detail": "..."}.
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao remover ativo';
+              throw new Error(detail);
+            });
+          })
+          .catch(function (err) {
+            self.deleteAssetError = err && err.message ? err.message : 'Erro ao remover ativo';
+          })
+          .then(function () {
+            self.deletingAssetId = null;
+          });
+      },
+
+      cancelDeleteAsset: function () {
+        this.showDeleteAssetId = null;
+        this.deletingAssetId = null;
+        this.deleteAssetError = '';
+        this.deletingAssetName = '';
+      },
     };
   }
+
+  // Alpine.js component for the "+ Nova classe" inline create form.
+  // When the plus button is clicked, the form appears with name and
+  // target % fields. On save, POSTs JSON to /api/classes and reloads
+  // the page on success so the new class renders with all server-side
+  // aggregate data (color, current_pct, assets, etc.). On validation
+  // error, shows the server's Portuguese error message inline.
+  function newClassForm() {
+    return {
+      showForm: false,
+      name: '',
+      targetPct: '',
+      saving: false,
+      error: '',
+
+      save: function () {
+        var self = this;
+        self.saving = true;
+        self.error = '';
+        fetch('/api/classes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: self.name, target_pct: self.targetPct }),
+        })
+          .then(function (r) {
+            if (r.status === 201) {
+              // Reload the page so the new class section renders with
+              // server-side aggregate data (color, current_pct, assets).
+              window.location.reload();
+              return;
+            }
+            // 409 (duplicate name) or 422 (validation error). Body
+            // shape: {"detail": "<message>"}.
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao criar classe';
+              throw new Error(detail);
+            });
+          })
+          .catch(function (err) {
+            self.error = err && err.message ? err.message : 'Erro ao criar classe';
+          })
+          .then(function () {
+            self.saving = false;
+          });
+      },
+
+      cancel: function () {
+        this.showForm = false;
+        this.name = '';
+        this.targetPct = '';
+        this.error = '';
+        this.saving = false;
+      },
+    };
+  }
+
+  // S04/T03: Global Alpine store for the import modal. A store
+  // (not a component function) so the trigger button in the
+  // dashboard-actions div (which has no x-data of its own) can
+  // open it via $store.importModal.openModal().
+  document.addEventListener('alpine:init', function () {
+    // S02/D006: Class-level allocation sum tracker — shows "Falta X%" /
+    // "Sobra X%" for the total of all class target_pcts. Never blocks
+    // creation or editing (informational only). Each classSection
+    // registers via register() on init and update() after a PATCH
+    // succeeds so the display is reactive without page reloads.
+    Alpine.store('classSum', {
+      items: {},
+      totalPct: 0,
+      delta: 0,
+      message: '',
+      register: function (id, pct) {
+        this.items[id] = pct;
+        this._recalc();
+      },
+      update: function (id, pct) {
+        this.items[id] = pct;
+        this._recalc();
+      },
+      _recalc: function () {
+        var sum = 0;
+        for (var k in this.items) {
+          if (this.items.hasOwnProperty(k)) {
+            sum += parseFloat(this.items[k]) || 0;
+          }
+        }
+        this.totalPct = Math.round(sum * 100) / 100;
+        var d = Math.round((100 - this.totalPct) * 100) / 100;
+        if (Math.abs(d) <= 0.01) {
+          this.delta = 0;
+          this.message = '';
+        } else if (d < 0) {
+          this.delta = d;
+          this.message = 'Sobra ' + Math.round(-d) + '%';
+        } else {
+          this.delta = d;
+          this.message = 'Falta ' + Math.round(d) + '%';
+        }
+      },
+    });
+
+    Alpine.store('importModal', {
+      open: false,
+      step: 1,
+      file: null,
+      previewId: null,
+      autoMatched: [],
+      unmatched: [],
+      assetClasses: [],
+      uploading: false,
+      committing: false,
+      error: '',
+      step1Error: '',
+      previewError: false,
+      assignments: {},
+
+      getAssetName: function (ticker) {
+        var a = this.assignments[ticker];
+        return a ? a.asset_name : '';
+      },
+      setAssetName: function (ticker, val) {
+        if (!this.assignments[ticker]) this.assignments[ticker] = { class_id: '', asset_name: '' };
+        this.assignments[ticker].asset_name = val;
+        this.assignments = Object.assign({}, this.assignments);
+      },
+
+      openModal: function () {
+        this.resetState();
+        this.open = true;
+      },
+
+      closeModal: function () {
+        this.open = false;
+        this.resetState();
+      },
+
+      resetState: function () {
+        this.step = 1;
+        this.file = null;
+        this.previewId = null;
+        this.autoMatched = [];
+        this.unmatched = [];
+        this.assetClasses = [];
+        this.uploading = false;
+        this.committing = false;
+        this.error = '';
+        this.step1Error = '';
+        this.previewError = false;
+        this.assignments = {};
+      },
+
+      uploadFile: function () {
+        if (!this.file) return;
+        var self = this;
+        self.uploading = true;
+        self.step1Error = '';
+        self.error = '';
+        var fd = new FormData();
+        fd.append('file', self.file);
+        fetch('/api/import/preview', { method: 'POST', body: fd })
+          .then(function (r) {
+            if (r.ok) return r.json();
+            return r.json().then(function (body) {
+              throw new Error(body && body.detail ? body.detail : 'Erro ao enviar');
+            });
+          })
+          .then(function (data) {
+            self.previewId = data.preview_id;
+            self.autoMatched = data.auto_matched || [];
+            self.unmatched = data.unmatched || [];
+            self.assetClasses = data.asset_classes || [];
+
+            // Build default assignments for ALL rows.
+            var assigns = {};
+
+            // Auto-matched: pre-fill with current class and asset name.
+            // User can change the class via the dropdown.
+            var autoMatched = data.auto_matched || [];
+            for (var i = 0; i < autoMatched.length; i++) {
+              var row = autoMatched[i];
+              assigns[row.broker_ticker] = {
+                class_id: row.asset_class_id,
+                asset_name: row.name,
+              };
+            }
+
+            // Unmatched: use server-suggested class when available,
+            // otherwise leave empty for the user to pick.
+            var unmatched = data.unmatched || [];
+            for (var i = 0; i < unmatched.length; i++) {
+              var row = unmatched[i];
+              var suggested = row.suggested_class_id;
+              assigns[row.broker_ticker] = {
+                class_id: suggested != null ? suggested : '',
+                asset_name: row.name,
+              };
+            }
+            self.assignments = assigns;
+            self.step = 2;
+          })
+          .catch(function (err) {
+            self.step1Error = err && err.message ? err.message : 'Erro ao processar arquivo';
+          })
+          .then(function () {
+            self.uploading = false;
+          });
+      },
+
+      commit: function () {
+        var self = this;
+        self.committing = true;
+        self.error = '';
+
+        // Build the assignments list from the assignments object.
+        // Skip rows where the user did not select a class.
+        var list = [];
+        for (var ticker in self.assignments) {
+          if (self.assignments.hasOwnProperty(ticker)) {
+            var rawClassId = self.assignments[ticker].class_id;
+            if (rawClassId === '' || rawClassId === null || rawClassId === undefined) continue;
+            list.push({
+              broker_ticker: ticker,
+              class_id: rawClassId,
+              asset_name: self.assignments[ticker].asset_name,
+            });
+          }
+        }
+
+        fetch('/api/import/commit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            preview_id: self.previewId,
+            assignments: list,
+          }),
+        })
+          .then(function (r) {
+            if (r.ok) {
+              window.location.reload();
+              return;
+            }
+            return r.json().then(function (body) {
+              throw new Error(body && body.detail ? body.detail : 'Erro ao confirmar');
+            });
+          })
+          .catch(function (err) {
+            self.error = err && err.message ? err.message : 'Erro ao confirmar importacao';
+          })
+          .then(function () {
+            self.committing = false;
+          });
+      },
+
+      goBackToStep1: function () {
+        this.step = 1;
+        this.previewError = false;
+        this.error = '';
+        this.step1Error = '';
+      },
+    });
+  });
 </script>
 {% endblock %}

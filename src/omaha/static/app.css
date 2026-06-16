@@ -34,8 +34,12 @@
   --muted: var(--ink-muted);
 
   /* App-specific error feedback — not in the design token table. */
-  --error-bg: #fde8e8;
-  --error-fg: #8a1f1f;
+  --error-bg: oklch(0.95 0.03 25);
+  --error-fg: oklch(0.45 0.15 25);
+
+  /* Status ink tokens — high-luminance text on status fills. */
+  --negative-ink: oklch(0.98 0.005 25);
+  --positive-ink: oklch(0.98 0.005 145);
 
   /* Class color tokens (S05 T03) — kept as hex per DESIGN.md
      ("migration source until the swatch palette is committed"). Must
@@ -47,9 +51,14 @@
   --class-1: #0a66c2; /* blue   */
   --class-2: #2e7d32; /* green  */
   --class-3: #c62828; /* red    */
-  --class-4: #ef6c00; /* orange */
+  --class-4: oklch(0.53 0.13 50);  /* orange — corrected 2026-06 to meet ≥4.5:1 vs --bg */
   --class-5: #6a1b9a; /* purple */
-  --class-6: #00838f; /* teal   */
+  --class-6: oklch(0.52 0.10 200); /* teal   — corrected 2026-06 to meet ≥4.5:1 vs --bg */
+
+  /* Focus ring color (S05 T04). Matches the accent used for input
+     focus borders. Override by setting --color-focus on a container
+     (e.g. a dark backdrop). */
+  --color-focus: #2563eb;
 }
 
 /* Cycle beyond 6 classes: nth-of-type selectors reuse tokens 1-6.
@@ -101,6 +110,36 @@ body {
   font-feature-settings: "tnum";
 }
 
+/* Accessible focus rings (S05 T04). 2px outline + 2px offset is
+   the WCAG-recommended pattern — visible without being garish.
+   The blue matches the accent color used for input focus borders
+   elsewhere in the app. */
+input, select, button, textarea, label {
+  color: var(--ink);
+  background: var(--surface);
+}
+input, select, textarea {
+  background: #fff;
+}
+button {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+input:focus,
+select:focus,
+button:focus,
+[tabindex]:focus {
+  outline: 2px solid var(--color-focus, #2563eb);
+  outline-offset: 2px;
+}
+input:focus-visible,
+select:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--color-focus, #2563eb);
+  outline-offset: 2px;
+}
+
 /* Display serif — per DESIGN.md typography section. Scoped to the
    dashboard's portfolio header values and the profile name only.
    Used at most twice on the dashboard. Serif in a product register
@@ -132,7 +171,7 @@ main h2 {
 
 header.app-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0.75rem 1.5rem; border-bottom: 1px solid var(--border); background: #fff;
+  padding: 0.75rem 1.5rem; border-bottom: 1px solid var(--border); background: var(--surface);
 }
 header.app-header .app-header-left,
 header.app-header .app-header-right {
@@ -169,6 +208,30 @@ p.error, .error {
   margin-top: 2rem; padding: 1.5rem; border: 1px dashed var(--border);
   border-radius: 8px; text-align: center; color: var(--muted);
 }
+.empty-state h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.empty-state p {
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+}
+.empty-state .new-class-plus-btn {
+  margin: 0 auto;
+}
+
+/* Inline empty state for per-class no-assets case (S05 T03).
+   Smaller padding than the root empty-state, no top margin
+   (the class-section already has padding). */
+.empty-state--inline {
+  margin-top: 0;
+  padding: 0.75rem 1rem;
+}
+.empty-state--inline p {
+  margin: 0 0 0.5rem 0;
+}
 
 /* Class Editor (S03) */
 .class-editor {
@@ -190,7 +253,7 @@ p.error, .error {
 
 .class-table th {
   text-align: left; font-size: 0.75rem; text-transform: uppercase;
-  color: #888; padding-bottom: 0.5rem; border-bottom: 2px solid #eee;
+  color: var(--ink-muted); padding-bottom: 0.5rem; border-bottom: 2px solid var(--border);
 }
 
 .col-name { width: 50%; }
@@ -198,21 +261,21 @@ p.error, .error {
 .col-action { width: 15%; }
 
 .class-table td {
-  padding: 0.5rem 0; border-bottom: 1px solid #f0f0f0; vertical-align: middle;
+  padding: 0.5rem 0; border-bottom: 1px solid var(--border); vertical-align: middle;
 }
 
 .input-name, .input-pct {
-  width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem;
+  width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; font-size: 0.9rem;
 }
 .input-pct { max-width: 120px; }
 .input-name:focus, .input-pct:focus {
   outline: none; border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(10,102,194,0.15);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 .btn-remove {
-  background: none; border: 1px solid #e0e0e0; border-radius: 4px;
-  width: 32px; height: 32px; cursor: pointer; font-size: 0.9rem; color: #999;
+  background: none; border: 1px solid var(--border); border-radius: 4px;
+  width: 32px; height: 32px; cursor: pointer; font-size: 0.9rem; color: var(--ink-muted);
   display: flex; align-items: center; justify-content: center;
 }
 .btn-remove:hover:not(:disabled) { background: var(--error-bg); border-color: var(--error-fg); color: var(--error-fg); }
@@ -220,7 +283,7 @@ p.error, .error {
 
 .class-total {
   text-align: right; font-size: 1.1rem; font-weight: 600;
-  padding: 0.75rem 0; border-top: 2px solid #eee; margin-bottom: 1rem;
+  padding: 0.75rem 0; border-top: 2px solid var(--border); margin-bottom: 1rem;
   font-feature-settings: "tnum";
 }
 .total-ok { color: var(--positive); }
@@ -229,11 +292,66 @@ p.error, .error {
 .class-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }
 
 .btn-secondary {
-  background: #f5f5f5; color: #333; border: 1px solid #ddd;
+  background: var(--surface-sunk); color: var(--ink); border: 1px solid var(--border);
 }
-.btn-secondary:hover { background: #e8e8e8; }
+.btn-secondary:hover { background: var(--border); }
 
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.75rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn:hover:not(:disabled) {
+  background: var(--surface-sunk);
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.75rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn:hover:not(:disabled) {
+  background: var(--surface-sunk);
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.muted { color: var(--muted); font-size: 0.875rem; }
 
 /* Asset Editor (S03 / T03) */
 .asset-editor { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 2rem; }
@@ -242,13 +360,13 @@ p.error, .error {
 .asset-form {
   display: flex; gap: 0.75rem; align-items: center;
   margin: 1rem 0 1.5rem 0; padding: 1rem;
-  border: 1px solid var(--border); border-radius: 6px; background: #fcfcfb;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--surface-sunk);
 }
 .asset-form input[type="text"] {
   flex: 1; padding: 0.5rem 0.75rem; border: 1px solid var(--border);
   border-radius: 4px; font-size: 0.95rem;
 }
-.asset-form input[type="text"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(10,102,194,0.15); }
+.asset-form input[type="text"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent); }
 .asset-form select {
   padding: 0.5rem 0.75rem; border: 1px solid var(--border);
   border-radius: 4px; font-size: 0.95rem; background: #fff;
@@ -257,14 +375,14 @@ p.error, .error {
 .asset-section { margin: 1.5rem 0 1rem 0; }
 .asset-section-name {
   font-size: 1rem; font-weight: 600; color: var(--muted);
-  margin: 0 0 0.5rem 0; padding-bottom: 0.25rem; border-bottom: 1px solid #f0f0f0;
+  margin: 0 0 0.5rem 0; padding-bottom: 0.25rem; border-bottom: 1px solid var(--border);
 }
 .asset-section-empty { color: var(--muted); font-size: 0.875rem; font-style: italic; margin: 0.25rem 0; }
 
 .asset-rows { list-style: none; padding: 0; margin: 0; }
 .asset-row {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0.5rem 0; border-bottom: 1px solid #f5f5f5;
+  padding: 0.5rem 0; border-bottom: 1px solid var(--border);
 }
 .asset-row-name { font-size: 0.95rem; }
 .asset-row-delete {
@@ -285,7 +403,7 @@ p.error, .error {
 .class-section-header {
   display: flex; justify-content: space-between; align-items: baseline;
   font-weight: 600; color: var(--muted); margin-bottom: 0.5rem;
-  padding-bottom: 0.25rem; border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 0.25rem; border-bottom: 1px solid var(--border);
 }
 .class-section-pct { font-size: 0.875rem; }
 .dashboard-asset-list { list-style: none; padding: 0; margin: 0; }
@@ -304,12 +422,12 @@ p.error, .error {
 .import-form {
   display: flex; flex-direction: column; gap: 0.75rem;
   margin: 1rem 0; padding: 1rem;
-  border: 1px solid var(--border); border-radius: 6px; background: #fcfcfb;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--surface-sunk);
 }
 .import-form label { font-size: 0.9rem; color: var(--muted); }
 .import-form input[type="file"] {
   padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px;
-  background: #fff; font-size: 0.9rem;
+  background: var(--surface); font-size: 0.9rem;
 }
 .import-form .btn { align-self: flex-start; }
 
@@ -323,23 +441,23 @@ p.error, .error {
 .auto-matched { margin: 1.5rem 0; }
 .auto-matched-list { list-style: none; padding: 0; margin: 0; }
 .auto-matched-list li {
-  padding: 0.4rem 0; border-bottom: 1px solid #f0f0f0; font-size: 0.9rem;
+  padding: 0.4rem 0; border-bottom: 1px solid var(--border); font-size: 0.9rem;
 }
 .unmatched-table { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem 0; }
 .unmatched-table th {
   text-align: left; font-size: 0.75rem; text-transform: uppercase;
-  color: #888; padding-bottom: 0.5rem; border-bottom: 2px solid #eee;
+  color: var(--ink-muted); padding-bottom: 0.5rem; border-bottom: 2px solid var(--border);
 }
 .unmatched-table td {
-  padding: 0.5rem 0.25rem; border-bottom: 1px solid #f0f0f0; vertical-align: middle;
+  padding: 0.5rem 0.25rem; border-bottom: 1px solid var(--border); vertical-align: middle;
   font-size: 0.9rem;
 }
 .unmatched-table select, .unmatched-table input[type="text"] {
-  width: 100%; padding: 0.4rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem;
+  width: 100%; padding: 0.4rem 0.5rem; border: 1px solid var(--border); border-radius: 4px; font-size: 0.9rem;
 }
 .import-review-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1rem; }
 .expired-state {
-  background: #fcfcfc; border: 1px dashed var(--border);
+  background: var(--surface); border: 1px dashed var(--border);
   padding: 1.5rem; border-radius: 6px; text-align: center; margin: 1rem 0;
 }
 
@@ -378,12 +496,56 @@ main { max-width: 760px; }
 .class-section-header {
   display: flex; align-items: center; gap: 0.6rem;
   margin-bottom: 0.5rem;
+  cursor: pointer;
+  user-select: none;
 }
 .class-color-swatch {
   display: inline-block; width: 14px; height: 14px;
   border-radius: 3px; flex-shrink: 0;
 }
 .class-section-name { font-weight: 600; font-size: 0.95rem; flex: 1; }
+
+/* Collapse chevron (S05 T01). Points right by default (collapsed),
+   rotates 90deg when isOpen. The 200ms ease-out matches the body
+   collapse duration so chevron and body animate together. */
+.class-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--muted);
+  transition: transform 200ms ease-out, color 200ms ease-out;
+  flex-shrink: 0;
+}
+.class-chevron:hover {
+  color: var(--ink);
+  background: var(--surface-sunk);
+}
+.class-chevron.is-open {
+  transform: rotate(90deg);
+}
+
+/* Class section body collapse animation (S05 T01). Uses
+   max-height transition with a generous upper bound so the
+   content animates in/out smoothly. The collapsed state
+   clips to 0 with overflow hidden; the open state lets
+   the content determine its natural height. */
+.class-section-body {
+  max-height: 1000px;
+  overflow: hidden;
+  transition: max-height 200ms ease-out, opacity 200ms ease-out;
+  opacity: 1;
+}
+.class-section-body--collapsed {
+  max-height: 0;
+  opacity: 0;
+}
 .class-section-stats {
   display: flex; flex-direction: column; align-items: flex-end;
   font-size: 0.72rem; gap: 0.1rem; line-height: 1.2;
@@ -398,16 +560,16 @@ main { max-width: 760px; }
   margin: 0.5rem 0 0.75rem 0;
 }
 .compare-bar-track {
-  height: 6px; background: #f0f0f0; border-radius: 3px; overflow: hidden;
+  height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;
 }
 .compare-bar-fill { height: 100%; border-radius: 3px; }
-.compare-bar-target-fill { background: #c8c8c8; }
+.compare-bar-target-fill { background: var(--border-strong); }
 .compare-bar-current-fill { background: var(--accent); }
 
 /* Per-asset rows (S05 T02) */
 .dashboard-asset-list { list-style: none; padding: 0; margin: 0; }
 .dashboard-asset-list li {
-  padding: 0.6rem 0; border-bottom: 1px solid #f5f5f5;
+  padding: 0.6rem 0; border-bottom: 1px solid var(--border);
   /* Column flex so the line (text) and the bar stack vertically. The
      bar needs full width of the cross axis to be visible; the default
      `align-items: stretch` would be overridden by the older S03
@@ -428,7 +590,7 @@ main { max-width: 760px; }
 .asset-row-value { font-size: 0.88rem; font-weight: 500; font-feature-settings: "tnum"; }
 .asset-row-pct { font-size: 0.78rem; color: var(--muted); min-width: 3.5rem; text-align: right; font-feature-settings: "tnum"; }
 .asset-progress-bar {
-  height: 3px; background: #f0f0f0; border-radius: 2px;
+  height: 3px; background: var(--border); border-radius: 2px;
   margin-top: 0.4rem; overflow: hidden;
 }
 .asset-progress-fill { height: 100%; background: var(--accent); border-radius: 2px; }
@@ -464,6 +626,8 @@ main { max-width: 760px; }
 .dashboard-asset-empty { color: var(--muted); font-size: 0.875rem; margin: 0.25rem 0; }
 .dashboard-asset-empty a { color: var(--accent); }
 
+.muted { color: var(--muted); font-size: 0.875rem; }
+
 /* Reduced motion: collapse all animation/transition durations to a
    tick so motion-sensitive users see instant state changes. Per
    DESIGN.md motion section. */
@@ -496,7 +660,7 @@ main { max-width: 760px; }
   gap: 0.05rem;
   padding: 0.25rem 0.4rem;
   border-radius: 4px;
-  background: rgba(0, 0, 0, 0.03);
+  background: var(--surface-sunk);
   font-size: 0.75rem;
   max-width: 8rem;
   min-width: 0;
@@ -505,7 +669,7 @@ main { max-width: 760px; }
 
 .asset-pct-cell-label {
   font-size: 0.65rem;
-  color: var(--color-text-muted, #666);
+  color: var(--ink-muted);
   text-transform: lowercase;
   white-space: nowrap;
   overflow: hidden;
@@ -523,8 +687,8 @@ main { max-width: 760px; }
 }
 
 .asset-pct-cell--editable {
-  background: rgba(10, 102, 194, 0.08);
-  border: 1px dashed rgba(10, 102, 194, 0.3);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--accent) 30%, transparent);
   cursor: pointer;
   font: inherit;
   color: inherit;
@@ -532,14 +696,14 @@ main { max-width: 760px; }
 }
 
 .asset-pct-cell--editable:hover {
-  background: rgba(10, 102, 194, 0.15);
-  border-color: rgba(10, 102, 194, 0.6);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
 }
 
 .asset-pct-cell--editing {
-  background: #fff;
-  border: 1px solid rgba(10, 102, 194, 0.4);
-  box-shadow: 0 0 0 2px rgba(10, 102, 194, 0.1);
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .asset-inline-edit-input {
@@ -548,15 +712,15 @@ main { max-width: 760px; }
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   padding: 0.15rem 0.3rem;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border);
   border-radius: 3px;
   background: #fff;
   color: inherit;
 }
 
 .asset-inline-edit-input--error {
-  border-color: #c62828;
-  background: #fff5f5;
+  border-color: var(--negative);
+  background: color-mix(in srgb, var(--negative) 8%, var(--surface));
 }
 
 .asset-inline-edit-actions {
@@ -573,25 +737,90 @@ main { max-width: 760px; }
   font-size: 0.7rem;
   padding: 0.15rem 0.3rem;
   border-radius: 3px;
-  border: 1px solid #ccc;
-  background: #f5f5f5;
+  border: 1px solid var(--border);
+  background: var(--surface-sunk);
   cursor: pointer;
 }
 
 .asset-inline-edit-commit {
-  background: #0a66c2;
-  color: #fff;
-  border-color: #0a66c2;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
 }
 
 .asset-inline-edit-commit:disabled {
-  background: #999;
-  border-color: #999;
+  background: var(--ink-muted);
+  border-color: var(--ink-muted);
   cursor: not-allowed;
 }
 
 .asset-inline-edit-cancel {
+  background: var(--surface);
+}
+
+/* R12: Class inline edit — mirrors the asset inline edit pattern
+   but uses inline-flex layout to keep the input on the same line
+   as the "Alvo" label. The input is narrower than the asset one
+   because class target_pcts are 0-100 whole percentages. */
+.class-inline-edit-input {
+  width: 4rem;
+  font: inherit;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 0.1rem 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
   background: #fff;
+  color: inherit;
+  margin-left: 0.25rem;
+}
+
+.class-inline-edit-commit,
+.class-inline-edit-cancel {
+  font: inherit;
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  margin-left: 0.25rem;
+}
+
+.class-inline-edit-commit {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+
+.class-inline-edit-commit:disabled {
+  background: var(--ink-muted);
+  border-color: var(--ink-muted);
+  cursor: not-allowed;
+}
+
+.class-inline-edit-cancel {
+  background: var(--surface);
+}
+
+.class-inline-edit-error {
+  color: var(--negative);
+  font-size: 0.7rem;
+  margin-left: 0.5rem;
+}
+
+.pct-target--view {
+  cursor: pointer;
+}
+
+.pct-target--view:hover {
+  color: var(--accent);
+}
+
+.pct-target--edit {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
 }
 
 .class-delta-badge {
@@ -601,28 +830,615 @@ main { max-width: 760px; }
   padding: 0.1rem 0.4rem;
   border-radius: 3px;
   margin-left: 0.4rem;
-  background: #fff3e0;
-  color: #c62828;
-  border: 1px solid #ffcdd2;
+  background: color-mix(in srgb, var(--negative) 10%, var(--bg));
+  color: var(--negative);
+  border: 1px solid color-mix(in srgb, var(--negative) 20%, transparent);
 }
 
 .class-delta-badge--short {
-  background: #fff3e0;
-  color: #c62828;
+  background: color-mix(in srgb, var(--negative) 10%, var(--bg));
+  color: var(--negative);
 }
 
 .class-delta-badge--long {
-  background: #e3f2fd;
-  color: #0a66c2;
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg));
+  color: var(--accent);
 }
 
 [x-cloak] { display: none !important; }
 
 @media (max-width: 480px) {
+  /* Smaller padding on main content for narrow screens */
+  main {
+    padding: 0 0.75rem;
+    margin-top: 1rem;
+  }
+
+  /* Compact portfolio header — stack vertically */
+  .portfolio-header {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+
+  /* Class section — compact padding */
+  .class-section {
+    padding: 0.75rem;
+  }
+
+  /* Class header: stack stats below name on small screens */
+  .class-section-header {
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+  .class-section-name {
+    min-width: 0;
+    font-size: 0.9rem;
+  }
+  .class-section-stats {
+    width: 100%;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 0.75rem;
+    margin-left: calc(22px + 1.8rem); /* offset past chevron + swatch */
+  }
+
+  /* Collapsed body still works — the stats are in the header,
+     the body content collapses independently. */
+
   .asset-pct-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .asset-pct-cell {
     max-width: 100%;
   }
+
+  /* Import modal fills viewport on small screens */
+  .import-modal-panel {
+    max-width: 100%;
+    max-height: 100vh;
+    height: 100vh;
+    border-radius: 0;
+    padding: 1rem;
+  }
+
+  /* Compact app header */
+  header.app-header {
+    padding: 0.5rem 0.75rem;
+  }
+  header.app-header .main-nav a {
+    font-size: 0.82rem;
+  }
+
+  /* Action buttons stack on small screens */
+  .dashboard-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .dashboard-actions .import-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* New class/asset forms — full width on mobile */
+  .new-class-form-body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .new-class-input--pct {
+    max-width: 100%;
+  }
+}
+
+/* =============================================================
+   M002 / S02 / T05 — Inline class create form (+ Nova classe)
+   ============================================================= */
+
+.new-class-container {
+  margin-top: 0.5rem;
+}
+
+.new-class-plus-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.75rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--accent);
+  background: transparent;
+  border: 1px dashed var(--border-strong);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.new-class-plus-btn:hover {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-color: var(--accent);
+}
+
+.new-class-form {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.new-class-form-body {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.new-class-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 8rem;
+}
+
+.new-class-form-field label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.new-class-input {
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--fg);
+  transition: border-color 0.15s;
+}
+
+.new-class-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.new-class-input--pct {
+  max-width: 7rem;
+}
+
+.new-class-form-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.new-class-form-save {
+  font-size: 0.8rem;
+  padding: 0.4rem 0.75rem;
+}
+
+.new-class-form-cancel {
+  font-size: 0.8rem;
+  padding: 0.4rem 0.75rem;
+}
+
+.new-class-form-error {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.8rem;
+  color: var(--negative);
+}
+
+/* =============================================================
+   M002 / S02 / T06 — X delete button with confirm dialog
+   ============================================================= */
+
+.class-section-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.class-section-delete-btn:hover {
+  color: var(--negative);
+  background: var(--error-bg);
+  border-color: color-mix(in srgb, var(--negative) 30%, transparent);
+}
+
+.class-delete-confirm {
+  margin: 0.5rem 0 0.75rem 0;
+  padding: 0.75rem;
+  background: color-mix(in srgb, var(--negative) 6%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--negative) 20%, transparent);
+  border-radius: 6px;
+}
+
+.class-delete-confirm-text {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.class-delete-confirm-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.class-delete-confirm-yes {
+  font-size: 0.8rem;
+  padding: 0.35rem 0.7rem;
+  background: var(--negative);
+  color: var(--negative-ink);
+  border: 1px solid var(--negative);
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.class-delete-confirm-yes:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--negative) 90%, #000);
+  border-color: color-mix(in srgb, var(--negative) 90%, #000);
+}
+
+.class-delete-confirm-yes:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.class-delete-confirm-no {
+  font-size: 0.8rem;
+  padding: 0.35rem 0.7rem;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.class-delete-confirm-no:hover:not(:disabled) {
+  background: var(--surface-sunk);
+}
+
+.class-delete-confirm-no:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.class-delete-confirm-error {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.8rem;
+  color: var(--negative);
+}
+
+/* =============================================================
+   M002 / S03 / T04 — Per-asset × delete button + confirm dialog
+   (mirrors the class-section-delete-btn / class-delete-confirm
+   pair above, but scoped to the asset row). Positions cascade on
+   delete so the confirm is a pure "are you sure" — no 409 wording.
+   ============================================================= */
+
+.dashboard-asset-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  align-self: center;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.dashboard-asset-delete-btn:hover {
+  color: var(--negative);
+  background: var(--error-bg);
+  border-color: color-mix(in srgb, var(--negative) 30%, transparent);
+}
+
+.dashboard-asset-delete-confirm {
+  margin: 0.4rem 0 0.6rem 0;
+  padding: 0.6rem 0.75rem;
+  background: color-mix(in srgb, var(--negative) 6%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--negative) 20%, transparent);
+  border-radius: 6px;
+}
+
+.dashboard-asset-delete-confirm-text {
+  margin: 0 0 0.4rem 0;
+  font-size: 0.82rem;
+  color: var(--ink);
+}
+
+.dashboard-asset-delete-confirm-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.dashboard-asset-delete-confirm-yes {
+  font-size: 0.78rem;
+  padding: 0.3rem 0.6rem;
+  background: var(--negative);
+  color: var(--negative-ink);
+  border: 1px solid var(--negative);
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.dashboard-asset-delete-confirm-yes:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--negative) 90%, #000);
+  border-color: color-mix(in srgb, var(--negative) 90%, #000);
+}
+
+.dashboard-asset-delete-confirm-yes:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dashboard-asset-delete-confirm-no {
+  font-size: 0.78rem;
+  padding: 0.3rem 0.6rem;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.dashboard-asset-delete-confirm-no:hover:not(:disabled) {
+  background: var(--surface-sunk);
+}
+
+.dashboard-asset-delete-confirm-no:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dashboard-asset-delete-confirm-error {
+  margin: 0.4rem 0 0 0;
+  font-size: 0.78rem;
+  color: var(--negative);
+}
+
+/* =============================================================
+   M002 / S04 / T03 — Import modal overlay, panel, steps
+   ============================================================= */
+
+.import-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.import-modal-panel {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  max-width: 720px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 1.5rem;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+}
+
+.import-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.import-modal-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.import-modal-close {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.import-modal-close:hover {
+  background: var(--surface-sunk);
+  border-color: var(--border);
+}
+
+.import-modal-step {
+  /* Fade transition controlled by x-transition */
+}
+
+.import-modal-upload-area {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface-sunk);
+  text-align: center;
+}
+
+.import-modal-upload-area input[type="file"] {
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.import-modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.import-modal-error {
+  margin: 0.75rem 0 0 0;
+  padding: 0.5rem 0.75rem;
+  background: var(--error-bg);
+  color: var(--error-fg);
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.import-matched-summary {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: color-mix(in srgb, var(--positive) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--positive) 25%, transparent);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.import-matched-summary strong {
+  color: var(--positive);
+}
+
+.import-matched-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0 0;
+}
+
+.import-matched-list li {
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.import-review-section h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 1rem 0 0.5rem 0;
+}
+
+.import-review-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+}
+
+.import-review-table th {
+  text-align: left;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  padding: 0.4rem 0.3rem;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+
+.import-review-table td {
+  padding: 0.4rem 0.3rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  font-size: 0.85rem;
+}
+
+.import-review-table select,
+.import-review-table input[type="text"] {
+  width: 100%;
+  padding: 0.35rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 0.82rem;
+  background: #fff;
+}
+
+.import-review-table select:focus,
+.import-review-table input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.import-expired-message {
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: 6px;
+  text-align: center;
+  margin: 0.75rem 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.import-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.75rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.import-btn:hover:not(:disabled) {
+  background: var(--surface-sunk);
+}
+
+.import-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.import-btn-primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+
+.import-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
 }

@@ -9,22 +9,24 @@ the full list on every edit.
 
 Endpoints
 ---------
-- ``GET /assets`` — renders ``templates/assets.html`` with the
-  profile's classes (for the dropdown) and each class's asset
-  list. If the profile has zero classes, the template renders
-  an empty-state with a link to ``/classes``; the add-asset
-  form is hidden.
-- ``POST /assets`` — accepts ``name`` (single string) and
-  ``asset_class_id`` (single int) via :class:`Form`. Validates
-  that the name is non-empty + ≤ 64 chars and the class id
-  belongs to the active profile. On success, appends a new
-  :class:`Asset` with ``display_order = max_existing + 1`` and
-  303s to ``/assets`` (the editor, not the dashboard — matches
-  the S02 POST → /classes editor redirect). On failure,
-  re-renders with ``error`` and status 200.
-- ``POST /assets/{asset_id}/delete`` — removes an asset after
-  asserting it walks the FK back to the active profile. 303s
-  to ``/assets``.
+- ``GET /assets`` — renders ``templates/assets.html``.
+
+- ``POST /assets`` — form-encoded, adds asset, 303s to
+  ``/assets``.
+
+- ``POST /api/assets`` — JSON API for dashboard inline
+  "+ Ativo" form. Creates an asset with ``name``, ``asset_class_id``,
+  and optional ``target_pct``. Returns 201 on success, 409 on
+  duplicate name, 422 on validation failure.
+
+- ``PATCH /api/assets/{asset_id}`` — JSON API for inline target
+  percent editor. Returns 200 / 404 / 422.
+
+- ``DELETE /api/assets/{asset_id}`` — JSON API for dashboard
+  inline ``×`` delete button. Returns 204 / 404.
+
+- ``POST /assets/{asset_id}/delete`` — form-encoded, 303s to
+  ``/assets``.
 
 Validation invariants
 ---------------------
@@ -221,6 +223,123 @@ def post_assets(
     return RedirectResponse("/assets", status_code=303)
 
 
+@router.post("/api/assets", status_code=status.HTTP_201_CREATED, response_model=None)
+def post_api_asset(
+    request: Request,
+    db: DbSession,
+    profile: Profile = Depends(require_active_profile),
+    body: Annotated[dict[str, Any] | None, Body()] = None,
+) -> dict[str, Any]:
+    if body is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Payload ausente.",
+        )
+
+    name_raw = body.get("name", "")
+    name = name_raw.strip() if isinstance(name_raw, str) else ""
+    if not name:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="O nome do ativo é obrigatório.",
+        )
+    if len(name) > NAME_MAX_LEN:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"O nome do ativo deve ter no máximo {NAME_MAX_LEN} caracteres.",
+        )
+
+    raw_class_id = body.get("asset_class_id")
+    if raw_class_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Selecione uma classe válida.",
+        )
+    try:
+        asset_class_id = int(raw_class_id)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Selecione uma classe válida.",
+        ) from None
+
+    target_class = (
+        db.query(AssetClass)
+        .filter(
+            AssetClass.id == asset_class_id,
+            AssetClass.profile_id == profile.id,
+        )
+        .one_or_none()
+    )
+    if target_class is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Selecione uma classe válida.",
+        )
+
+    existing = (
+        db.query(Asset)
+        .filter(
+            Asset.asset_class_id == target_class.id,
+            Asset.name == name,
+        )
+        .first()
+    )
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Já existe um ativo com o nome {name} nessa classe.",
+        )
+
+    if "target_pct" not in body:
+        parsed_pct: Decimal = Decimal("0")
+    else:
+        raw_pct = body.get("target_pct")
+        if raw_pct is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"A alocação do ativo deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
+            )
+        parsed_pct = _parse_pct(str(raw_pct))
+        if parsed_pct is None or parsed_pct < PCT_MIN or parsed_pct > PCT_MAX:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"A alocação do ativo deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
+            )
+
+    if parsed_pct > Decimal("0"):
+        other_pcts = [a.target_pct for a in target_class.assets]
+        candidate = other_pcts + [parsed_pct]
+        ok, error = validate_target_pct_sum(candidate)
+        if not ok:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=error,
+            )
+
+    existing_assets = list(target_class.assets)
+    next_order = (existing_assets[-1].display_order + 1) if existing_assets else 0
+
+    asset = Asset(
+        asset_class_id=target_class.id,
+        name=name,
+        target_pct=parsed_pct,
+        display_order=next_order,
+    )
+    db.add(asset)
+    try:
+        db.commit()
+        db.refresh(asset)
+    except IntegrityError as err:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Já existe um ativo com o nome {name} nessa classe.",
+        ) from err
+
+    return {"id": asset.id, "name": asset.name, "target_pct": str(asset.target_pct)}
+
+
 @router.patch("/api/assets/{asset_id}", response_model=None)
 def patch_asset(
     asset_id: int,
@@ -297,6 +416,22 @@ def patch_asset(
     asset.target_pct = parsed
     db.commit()
     return {"id": asset.id, "target_pct": str(parsed)}
+
+
+@router.delete(
+    "/api/assets/{asset_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None
+)
+def delete_api_asset(
+    asset_id: int,
+    db: DbSession,
+    profile: Profile = Depends(require_active_profile),
+) -> Response:
+    asset = db.get(Asset, asset_id)
+    if asset is None or asset.asset_class.profile_id != profile.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    db.delete(asset)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 def _parse_pct(raw: str) -> Decimal | None:
