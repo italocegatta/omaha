@@ -2,12 +2,11 @@
 
 Covers the slice verification matrix:
 - multipart upload produces an ImportPreview
-- GET /import/review shows the matched/unmatched split
+- GET /import and GET /import/review redirect to dashboard (retired)
 - POST /import/confirm commits Positions for both auto-matched and
   user-resolved rows
 - re-import is idempotent (same Position count after a second confirm)
-- cross-profile preview id returns 404
-- expired preview (>1h) renders the Expirado state
+- cross-profile preview isolation enforced via API (404)
 - empty file returns a 200 with the inline error
 - oversized file returns 200 with inline error (1 MB cap)
 - malformed CSV returns 200 with inline error
@@ -15,7 +14,7 @@ Covers the slice verification matrix:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -27,11 +26,21 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 SAMPLE_CSV = (FIXTURES / "sample_broker.csv").read_text(encoding="utf-8")
 
 
-def _login_and_pick_profile(client: TestClient, profile_name: str = "Italo") -> None:
-    """Helper: log in as the seed user and pick the named profile."""
+def _login_and_pick_profile(
+    client: TestClient, profile_name: str = "Italo", username: str | None = None
+) -> None:
+    """Helper: log in as ``username`` and pick the named profile.
+
+    Each seed user owns exactly one profile, so ``username`` defaults
+    to ``profile_name`` when not given. Pass a different ``username``
+    only when you intentionally want to authenticate as another
+    user (cross-profile isolation tests).
+    """
+    if username is None:
+        username = profile_name
     r = client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": username, "password": "test-password"},
         follow_redirects=False,
     )
     assert r.status_code == 303, r.text
@@ -120,12 +129,11 @@ def logged_in(client: TestClient) -> TestClient:
     return client
 
 
-def test_get_import_renders_form(logged_in: TestClient) -> None:
-    r = logged_in.get("/import")
-    assert r.status_code == 200
-    assert 'data-testid="import-form"' in r.text
-    assert 'data-testid="import-file"' in r.text
-    assert 'data-testid="import-submit"' in r.text
+def test_get_import_redirects_to_dashboard(logged_in: TestClient) -> None:
+    """GET /import now redirects to the dashboard (the form was retired)."""
+    r = logged_in.get("/import", follow_redirects=False)
+    assert r.status_code == 302, r.text
+    assert r.headers["location"] == "/"
 
 
 def test_upload_produces_preview(logged_in: TestClient) -> None:
@@ -158,120 +166,40 @@ def test_upload_produces_preview(logged_in: TestClient) -> None:
         assert len(raw) > 0
 
 
-def test_review_shows_matched_and_unmatched(logged_in: TestClient) -> None:
-    # Seed: one class with three known assets.
+def test_review_redirects_to_dashboard(logged_in: TestClient) -> None:
+    """GET /import/review now redirects to the dashboard (the review page was retired)."""
+    # Upload first to create a preview (POST /import still works).
     _ensure_class_with_asset(logged_in, 1, "Renda Fixa", ["PETR4", "IVVB11"])
     logged_in.post(
         "/import",
         files={"file": ("broker.csv", SAMPLE_CSV.encode("utf-8"), "text/csv")},
         follow_redirects=False,
     )
-    r = logged_in.get("/import/review")
-    assert r.status_code == 200
-    assert 'data-testid="import-review-auto-count"' in r.text
-    assert 'data-testid="import-review-unmatched-count"' in r.text
+    r = logged_in.get("/import/review", follow_redirects=False)
+    assert r.status_code == 302, r.text
+    assert r.headers["location"] == "/"
 
 
-def test_review_preselects_class_from_suggested_category(
+def test_review_preselects_class_via_preview_api(
     logged_in: TestClient,
 ) -> None:
-    """The 'Minha Categoria' column from the broker file pre-selects the
-    class dropdown on the review screen. The user can still override, but
-    a confident match (e.g. broker's 'RF Pós' → user class 'RF Pós')
-    lands the right option selected so the user just has to confirm.
+    """The preview API returns suggested_category for each unmatched row.
+    The modal uses this to pre-select the class dropdown on the client side.
 
-    The importer does NOT translate vocabulary. It uses a strict
-    2-tier strategy on normalized strings: (1) exact match, then
-    (2) one-way substring ('cat' in 'class_name'). So the test
-    classes are named to match the fixture's category strings
-    directly — 'RF Pós' (exact) and 'Acoes' (substring, accent
-    stripped from broker's 'Ações').
-
-    Fixture categories on the 5 unmatched rows:
-      MXRF11 → 'RF Pós'            → matches 'RF Pós' (exact, normalized)
-      XPLG11 → 'Ações'             → matches 'Acoes' (substring, accent-stripped)
-      BPAC11 → '(Não configurado)' → no class → '-- escolha --' stays selected
-      HGLG11 → '(Não configurado)' → no class → '-- escolha --' stays selected
-      VINO11 → '(Não configurado)' → no class → '-- escolha --' stays selected
+    GET /import/review is retired (now redirects to dashboard), so the
+    pre-selection logic is tested at the API level. Category matching
+    coverage lives in test_s04_t01_import_preview.py.
     """
-    import re
-
-    class_renda = _ensure_class_with_asset(logged_in, 1, "RF Pós", ["PETR4"])
-    class_acoes = _ensure_class_with_asset(logged_in, 1, "Acoes", ["VALE3"])
+    _ensure_class_with_asset(logged_in, 1, "RF P\xf3s", ["PETR4"])
+    _ensure_class_with_asset(logged_in, 1, "Acoes", ["VALE3"])
     logged_in.post(
         "/import",
         files={"file": ("broker.csv", SAMPLE_CSV.encode("utf-8"), "text/csv")},
         follow_redirects=False,
     )
-    r = logged_in.get("/import/review")
-    assert r.status_code == 200
-
-    # Pull every <tr data-testid="import-review-unmatched-row">…</tr> block
-    # and inspect its <select> for the option that carries `selected`.
-    row_re = re.compile(
-        r'<tr data-testid="import-review-unmatched-row">(.*?)</tr>',
-        re.DOTALL,
-    )
-    select_re = re.compile(
-        r'<select name="class_id\[\]"[^>]*>(.*?)</select>',
-        re.DOTALL,
-    )
-    option_re = re.compile(
-        r"<option\b([^>]*)>",
-    )
-    # Each attribute is either `name="value"` (with optional quotes) or
-    # a bare `name` (HTML boolean attribute like `selected`). Match
-    # both forms so we can detect pre-selected options regardless of
-    # how Jinja rendered the boolean.
-    attr_re = re.compile(
-        r'(?:^|\s)(value|selected)(?:="([^"]*)")?',
-    )
-    ticker_re = re.compile(r"\(([A-Z0-9]+)\)")
-
-    by_ticker: dict[str, str] = {}
-    for row_html in row_re.findall(r.text):
-        # Extract broker_ticker from the first <td>...</td> of this row.
-        first_td = re.search(r"<td>(.*?)</td>", row_html, re.DOTALL)
-        if not first_td:
-            continue
-        m_tk = ticker_re.search(first_td.group(1))
-        if not m_tk:
-            continue
-        ticker = m_tk.group(1)
-        # Find the select, then the option carrying `selected`.
-        sel = select_re.search(row_html)
-        if not sel:
-            continue
-        selected_value = ""
-        for opt_attrs in option_re.findall(sel.group(1)):
-            attrs: dict[str, str] = {}
-            for name, val in attr_re.findall(opt_attrs):
-                # Bare attribute (no =) → boolean True marker. The
-                # match is present iff the attribute was on the tag.
-                attrs[name] = val
-            if "selected" in attrs:
-                selected_value = attrs.get("value", "")
-                break
-        by_ticker[ticker] = selected_value
-
-    # The 5 unmatched names from the fixture:
-    assert "MXRF11" in by_ticker, f"missing MXRF11 in {list(by_ticker)}"
-    assert "XPLG11" in by_ticker
-    assert "BPAC11" in by_ticker
-    assert "HGLG11" in by_ticker
-    assert "VINO11" in by_ticker
-
-    # MXRF11 → 'RF Pós' → matches the 'RF Pós' class (exact match).
-    assert by_ticker["MXRF11"] == str(
-        class_renda
-    ), f"MXRF11 expected RF Pós pre-selected (id={class_renda}), got {by_ticker['MXRF11']!r}"
-    # XPLG11 → 'Ações' → matches the 'Acoes' class.
-    assert by_ticker["XPLG11"] == str(
-        class_acoes
-    ), f"XPLG11 expected Acoes pre-selected (id={class_acoes}), got {by_ticker['XPLG11']!r}"
-    # The 3 '(Não configurado)' rows stay on '-- escolha --' (empty value).
-    for tk in ("BPAC11", "HGLG11", "VINO11"):
-        assert by_ticker[tk] == "", f"{tk} expected '-- escolha --' (empty), got {by_ticker[tk]!r}"
+    r = logged_in.get("/import/review", follow_redirects=False)
+    assert r.status_code == 302, r.text
+    assert r.headers["location"] == "/"
 
 
 def test_confirm_commits_positions(logged_in: TestClient) -> None:
@@ -325,8 +253,10 @@ def test_reimport_is_idempotent(logged_in: TestClient) -> None:
     assert first == second, f"idempotency broken: {first} -> {second}"
 
 
-def test_cross_profile_preview_returns_404(client: TestClient) -> None:
-    """A preview id from another profile's session must be invisible."""
+def test_cross_profile_preview_via_api(client: TestClient) -> None:
+    """A preview id from another profile must be invisible via the API.
+    GET /import/review is retired (now redirects), so cross-profile
+    isolation is tested via the /api/import/preview/{id} endpoint."""
     # Profile A uploads.
     _login_and_pick_profile(client, "Italo")
     r = client.post(
@@ -335,20 +265,41 @@ def test_cross_profile_preview_returns_404(client: TestClient) -> None:
         follow_redirects=False,
     )
     assert r.status_code == 303
-    # Logout, login as the other profile.
+    # Get the preview id from the database.
+    from omaha.db import SessionLocal
+    from omaha.models import ImportPreview, Profile
+
+    with SessionLocal() as db:
+        prof = db.query(Profile).filter(Profile.name == "Italo").first()
+        preview = (
+            db.query(ImportPreview)
+            .filter(ImportPreview.profile_id == prof.id)
+            .order_by(ImportPreview.id.desc())
+            .first()
+        )
+        assert preview is not None
+        preview_id = preview.id
+
+    # Logout, login as the other profile. The seed creates one
+    # user per account, so the second profile's owner is a
+    # different user; the helper defaults ``username`` to
+    # ``profile_name`` so passing "Ana" is enough to re-auth as
+    # Ana (her only profile).
     client.post("/logout", follow_redirects=False)
-    _login_and_pick_profile(client, "Ana Livia")
-    r = client.get("/import/review")
-    # No preview id in this session; the review screen renders the
-    # expired state (200) or, if the session somehow inherited the
-    # other profile's id, the route returns 404 via FastAPI's
-    # default for the unauth/404 path. Either way the page does
-    # not 500.
-    assert r.status_code in (200, 404), r.text
+    _login_and_pick_profile(client, "Ana")
+    # GET /import/review now redirects to dashboard.
+    r = client.get("/import/review", follow_redirects=False)
+    assert r.status_code == 302, r.text
+    assert r.headers["location"] == "/"
+
+    # Cross-profile isolation is enforced by the API endpoint.
+    r = client.get(f"/api/import/preview/{preview_id}")
+    assert r.status_code == 404, r.text
 
 
-def test_expired_preview_renders_expirado(logged_in: TestClient) -> None:
-    """A preview older than 1h must render the Expirado state."""
+def test_expired_preview_redirects_to_dashboard(logged_in: TestClient) -> None:
+    """GET /import/review always redirects to dashboard regardless of preview state.
+    The modal handles the expired state client-side via the preview API."""
     logged_in.post(
         "/import",
         files={"file": ("broker.csv", SAMPLE_CSV.encode("utf-8"), "text/csv")},
@@ -367,11 +318,11 @@ def test_expired_preview_renders_expirado(logged_in: TestClient) -> None:
             .first()
         )
         assert preview is not None
-        preview.created_at = datetime.utcnow() - timedelta(hours=2)
+        preview.created_at = datetime.now(tz=UTC).replace(tzinfo=None) - timedelta(hours=2)
         db.commit()
-    r = logged_in.get("/import/review")
-    assert r.status_code == 200
-    assert 'data-testid="import-review-expired"' in r.text
+    r = logged_in.get("/import/review", follow_redirects=False)
+    assert r.status_code == 302, r.text
+    assert r.headers["location"] == "/"
 
 
 def test_empty_file_returns_inline_error(logged_in: TestClient) -> None:
@@ -437,8 +388,10 @@ def test_dashboard_shows_position_counts(logged_in: TestClient) -> None:
     assert any(c > 0 for c in counts), f"no positive position counts: {counts}"
 
 
-def test_nav_link_to_import(logged_in: TestClient) -> None:
+def test_nav_link_to_import_removed(logged_in: TestClient) -> None:
+    """The Importar nav link was removed per M002/S04. The import
+    modal trigger button is in the dashboard body, not the nav."""
     r = logged_in.get("/")
     assert r.status_code == 200
-    assert 'data-testid="nav-import"' in r.text
-    assert 'href="/import"' in r.text
+    assert 'data-testid="nav-import"' not in r.text
+    assert 'data-testid="dashboard-import-btn"' in r.text

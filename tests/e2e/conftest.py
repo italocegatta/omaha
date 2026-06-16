@@ -5,11 +5,22 @@ Drives a real chromium against a real uvicorn server bound to
 (data/test_e2e.db) so the user's manual-testing DB
 (data/portfolio.db) is never touched.
 
-Why the system chromium, not the bundled one: Playwright's bundled
-browsers do not have a build for ``ubuntu26.04-x64`` (the host is
-on Ubuntu Resolute Raccoon). The host has chromium 149 at
-``/usr/bin/chromium-browser`` which speaks the same CDP protocol and
-is launched via ``executable_path=...``.
+Chromium resolution
+-------------------
+The ``_browser`` fixture launches a single chromium process for
+the suite. It does NOT hard-code a single path — it searches in
+order:
+
+1. ``$E2E_CHROMIUM_PATH`` (explicit override)
+2. ``~/.cache/ms-playwright/chromium-*/chrome-linux*/chrome``
+   (binaries installed by ``playwright install chromium``)
+3. ``/usr/bin/chromium-browser`` (system chromium, legacy hosts)
+
+If none of these exist the fixture raises an actionable
+RuntimeError pointing the operator at the install command. This
+keeps the suite runnable on hosts that have either the bundled
+Playwright browser or a system chromium, without committing to
+one or the other in source.
 
 Server lifecycle
 ----------------
@@ -174,17 +185,66 @@ def clean_italo() -> None:
     # No teardown — the next test's autouse invocation re-cleans.
 
 
+def _resolve_chromium() -> str:
+    """Find a usable chromium binary on this host.
+
+    Search order:
+        1. ``$E2E_CHROMIUM_PATH`` if set and the file exists
+        2. ``~/.cache/ms-playwright/chromium-*/chrome-linux*/chrome``
+           (the binary installed by ``playwright install chromium``)
+        3. ``/usr/bin/chromium-browser`` (legacy system chromium)
+
+    Returns the first match as a string path. Raises RuntimeError
+    with an actionable message if nothing is found.
+    """
+    candidates: list[Path] = []
+    env = os.environ.get("E2E_CHROMIUM_PATH")
+    if env:
+        candidates.append(Path(env))
+
+    cache = Path.home() / ".cache" / "ms-playwright"
+    if cache.exists():
+        # Sort newest first so we pick the latest installed revision
+        # when multiple are present.
+        candidates.extend(sorted(cache.glob("chromium-*/chrome-linux*/chrome"), reverse=True))
+        candidates.extend(
+            sorted(cache.glob("chromium-*/chrome-linux*/headless_shell"), reverse=True)
+        )
+
+    candidates.append(Path("/usr/bin/chromium-browser"))
+
+    for cand in candidates:
+        if cand.is_file() and os.access(cand, os.X_OK):
+            return str(cand)
+
+    raise RuntimeError(
+        "chromium binary not found. Tried: "
+        + ", ".join(str(c) for c in candidates if not str(c).startswith("~"))
+        + ". Run `uv run playwright install chromium --with-deps` "
+        "or set E2E_CHROMIUM_PATH=/path/to/chrome."
+    )
+
+
 @pytest.fixture(scope="session")
 def _browser():
     """Single chromium browser process for the suite (faster than per-test)."""
     from playwright.sync_api import sync_playwright
 
+    executable = _resolve_chromium()
     with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            executable_path="/usr/bin/chromium-browser",
-            args=["--no-sandbox", "--disable-dev-shm-usage"],
-        )
+        try:
+            browser = p.chromium.launch(
+                headless=True,
+                executable_path=executable,
+                args=["--no-sandbox", "--disable-dev-shm-usage"],
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to launch chromium at {executable}: {exc}. "
+                "If this looks like 'shared library not found', run "
+                "`uv run playwright install chromium --with-deps` to install "
+                "system dependencies (libnss3, libxkbcommon0, libgbm1, etc.)."
+            ) from exc
         try:
             yield browser
         finally:

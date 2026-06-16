@@ -45,8 +45,8 @@ TEST_PASSWORD = "test-password"
 
 
 def _login_and_select_profile(client: TestClient, profile_name: str = "Italo") -> Profile:
-    """Log in as ``family`` and select the named profile (defaults to Italo)."""
-    client.post("/login", data={"username": "family", "password": TEST_PASSWORD})
+    """Log in as ``Italo`` and select the named profile (defaults to Italo)."""
+    client.post("/login", data={"username": "Italo", "password": TEST_PASSWORD})
     # Use a fresh session to read the profile (mirrors T02's
     # helper pattern: open a new SessionLocal so we see committed
     # state, not in-flight transaction state).
@@ -111,8 +111,13 @@ class TestClassesE2E:
         assert abs(float(classes[1].target_pct) - 30.0) < 0.01
         assert abs(float(classes[2].target_pct) - 10.0) < 0.01
 
-    def test_save_blocked_when_sum_not_100(self, client: TestClient):
-        """Adding less than 100% is rejected with error message; nothing committed."""
+    def test_save_succeeds_even_with_non_100_sum(self, client: TestClient):
+        """Adding less than 100% succeeds — allocation is informational, not blocking.
+
+        The snapshot ``POST /classes`` form no longer validates the
+        sum-to-100 invariant. Classes at any valid percentage are
+        created; the user builds the portfolio incrementally.
+        """
         profile = _login_and_select_profile(client)
 
         resp = client.post(
@@ -124,13 +129,14 @@ class TestClassesE2E:
             follow_redirects=True,
         )
         assert resp.status_code == 200
-        # The form re-renders with the editor + a Falta/Sobra message.
-        assert 'data-testid="class-editor"' in resp.text
-        assert "falta" in resp.text.lower() or "faltam" in resp.text.lower()
+        # The dashboard shows the saved classes (redirected to /).
+        assert 'data-testid="class-summary"' in resp.text
+        assert "Renda Fixa" in resp.text
+        assert "Acoes" in resp.text
 
-        # Verify nothing was committed
+        # Verify the classes were committed (both rows exist)
         count = len(_classes_for_profile(profile.id))
-        assert count == 0
+        assert count == 2
 
     def test_edit_class_via_snapshot_resubmit(self, client: TestClient):
         """Snapshot edit: re-submit with a new name; old row is gone, new row is the only one.
@@ -234,24 +240,13 @@ class TestClassesE2E:
         assert "OldBonds" not in names
         assert names == ["Renda Fixa", "Acoes", "Reserva"]
 
-    def test_class_editor_has_data_testid_hooks(self, client: TestClient):
-        """Class editor renders with expected data-testid hooks."""
-        _login_and_select_profile(client)
+    def test_dashboard_shows_seeded_classes(self, client: TestClient):
+        """S02: GET / shows seeded classes in the dashboard (not empty).
 
-        resp = client.get("/classes")
-        assert resp.status_code == 200
-        assert 'data-testid="class-editor"' in resp.text
-        assert 'data-testid="class-editor-total"' in resp.text
-        assert 'data-testid="class-editor-add"' in resp.text
-        assert 'data-testid="class-editor-save"' in resp.text
-
-    def test_editor_starts_empty_regardless_of_db(self, client: TestClient):
-        """D014: GET /classes must render the editor with 0 pre-populated classes.
-
-        Pre-seed 3 classes directly. The rendered editor must
-        show 0 name inputs / 0 pct inputs — no pre-population
-        from the DB. The user retypes the desired set on every
-        visit (the snapshot model requires it).
+        The old standalone editor started empty (D014). S02
+        replaced it with the dashboard, which always renders
+        existing classes as collapsible sections. Seeded classes
+        must appear by name.
         """
         from decimal import Decimal
 
@@ -277,11 +272,22 @@ class TestClassesE2E:
             db.close()
         assert len(_classes_for_profile(profile.id)) == 3
 
-        resp = client.get("/classes")
+        resp = client.get("/")
         assert resp.status_code == 200
         body = resp.text
-        # Alpine seeds with 1 empty row via x-init="addRow()".
-        # The DB rows must not appear as input values anywhere.
-        assert "Legacy1" not in body
-        assert "Legacy2" not in body
-        assert "Legacy3" not in body
+        # The dashboard now shows all classes as sections.
+        assert "Legacy1" in body
+        assert "Legacy2" in body
+        assert "Legacy3" in body
+
+    def test_get_classes_redirects_to_dashboard(self, client: TestClient):
+        """S02/T07: GET /classes redirects to the dashboard.
+
+        The standalone class editor is retired. Any request to
+        GET /classes returns 302 pointing at /.
+        """
+        _login_and_select_profile(client)
+
+        resp = client.get("/classes", follow_redirects=False)
+        assert resp.status_code == 302
+        assert resp.headers.get("location") == "/"

@@ -34,13 +34,10 @@ The full set of rules:
 2. Every ``target_pct`` parses to a :class:`~decimal.Decimal` in
    the closed interval ``[0, 100]`` (matches the column's
    ``Numeric(5, 2)``).
-3. ``abs(sum - 100) ≤ 0.01`` — a 1-cent tolerance so the message
-   can be reported as a whole number (``Falta 10`` /
-   ``Sobra 10``).
-4. No two names in the same submission are identical (in addition
+3. No two names in the same submission are identical (in addition
    to the DB unique constraint, so a duplicate surfaces as a
    clean 200 form re-render rather than an ``IntegrityError``).
-5. Any row whose ``class_id`` references an existing row must
+4. Any row whose ``class_id`` references an existing row must
    reference a row that belongs to the active profile — defensive
    against a hand-crafted form submission.
 
@@ -52,12 +49,13 @@ matches the user's input order on the first save.
 
 from __future__ import annotations
 
-from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
 
 from omaha.auth import DbSession, require_active_profile, require_user
 from omaha.models import AssetClass, Profile, User
@@ -68,8 +66,6 @@ router = APIRouter(tags=["classes"])
 NAME_MAX_LEN = 64
 PCT_MIN = Decimal("0")
 PCT_MAX = Decimal("100")
-SUM_TARGET = Decimal("100")
-SUM_TOLERANCE = Decimal("0.01")
 
 
 def _templates(request: Request):
@@ -144,16 +140,9 @@ def _validate_rows(
 
         rows.append({"name": name, "pct": pct})
 
-    # Sum invariant is the last per-form check — it's the most
-    # expensive (it touches every row) and the message is the
-    # most user-facing.
-    total = sum((r["pct"] for r in rows), Decimal("0"))
-    delta = SUM_TARGET - total
-    if abs(delta) > SUM_TOLERANCE:
-        if delta > 0:
-            return None, f"Falta {int(delta.to_integral_value(rounding=ROUND_HALF_UP))}."
-        else:
-            return None, f"Sobra {int((-delta).to_integral_value(rounding=ROUND_HALF_UP))}."
+    # Sum invariant is NOT enforced as a blocker — the user builds
+    # the portfolio incrementally. The dashboard shows the current
+    # total as an informational indicator, never blocked.
 
     return rows, None
 
@@ -164,19 +153,13 @@ def get_classes(
     user: User = Depends(require_user),
     profile: Profile = Depends(require_active_profile),
 ) -> Response:
-    """Render the dedicated class editor page.
+    """Redirect to the dashboard.
 
-    The dashboard surfaces a "Gerenciar classes" shortcut that
-    links here. The editor always starts with one empty row
-    regardless of the profile's existing classes — the user must
-    re-type the desired set on every visit (``POST /classes``
-    performs a delete-all-then-insert snapshot).
+    Retired by S02/T07 — 302 to /. The /classes GET is the only
+    path that mattered for the user. The POST handler and per-class
+    form routes remain for now (see S02 scope).
     """
-    return _templates(request).TemplateResponse(
-        request,
-        "classes.html",
-        {"user": user, "profile": profile, "error": None},
-    )
+    return RedirectResponse("/", status_code=302)
 
 
 @router.post("/classes", response_class=HTMLResponse, response_model=None)
@@ -268,6 +251,200 @@ def delete_class(
     db.delete(cls)
     db.commit()
     return RedirectResponse("/", status_code=303)
+
+
+@router.delete(
+    "/api/classes/{class_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None
+)
+def delete_class_api(
+    class_id: int,
+    request: Request,
+    db: DbSession,
+    profile: Profile = Depends(require_active_profile),
+) -> Response:
+    """Delete a single class with asset-guard.
+
+    The dashboard's Alpine ``x`` button (S02/T06) calls this endpoint.
+    If the class has any assets, the endpoint returns 409 with the
+    asset count so the UI can display an inline error message — the
+    operator must delete or move the assets first. The cascade is
+    deliberately blocked (409 instead of cascade) to preserve the
+    operator's data.
+
+    Returns
+    -------
+    - 204 with no body on success.
+    - 404 if the class does not exist or belongs to another profile.
+    - 409 with ``{"detail": "Classe tem X ativo(s); remova-os antes."}``
+      if the class has non-empty assets.
+    """
+    cls = (
+        db.query(AssetClass)
+        .options(selectinload(AssetClass.assets))
+        .filter(AssetClass.id == class_id)
+        .one_or_none()
+    )
+    if cls is None or cls.profile_id != profile.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    if cls.assets:
+        count = len(cls.assets)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Classe tem {count} ativo(s); remova-os antes.",
+        )
+
+    db.delete(cls)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/api/classes", status_code=status.HTTP_201_CREATED, response_model=None)
+def post_class(
+    request: Request,
+    db: DbSession,
+    user: User = Depends(require_user),
+    profile: Profile = Depends(require_active_profile),
+    payload: dict = None,
+) -> Response:
+    """Create a single class with duplicate-name detection and per-row validation.
+
+    The dashboard's Alpine component renders a "+" button that opens
+    an inline form and POSTs JSON ``{"name": "...", "target_pct": "..."}``.
+    ``display_order`` is optional and defaults to ``len(existing_classes)``
+    (appending after the last row).
+
+    **Allocation is NOT blocked by sum-to-100** (the user builds the
+    portfolio incrementally). The dashboard shows the current total
+    as an informational indicator.
+
+    Returns
+    -------
+    - 201 with ``{"id": ..., "name": ..., "target_pct": ...}`` on success.
+    - 409 with ``{"detail": "..."}`` if the name already exists in this profile.
+    - 422 with ``{"detail": "..."}`` if validation fails (empty/long name,
+      invalid target_pct range).
+    """
+    if payload is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
+
+    # --- Validate name ---
+    name_raw = payload.get("name", "")
+    name = name_raw.strip() if isinstance(name_raw, str) else ""
+    if not name:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="O nome da classe é obrigatório.",
+        )
+    if len(name) > NAME_MAX_LEN:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"O nome da classe deve ter no máximo {NAME_MAX_LEN} caracteres.",
+        )
+
+    # --- Duplicate name check ---
+    existing = (
+        db.query(AssetClass)
+        .filter(
+            AssetClass.profile_id == profile.id,
+            AssetClass.name == name,
+        )
+        .first()
+    )
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Já existe uma classe com o nome {name}.",
+        )
+
+    # --- Validate target_pct ---
+    raw_pct = payload.get("target_pct")
+    if raw_pct is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
+
+    new_pct = _parse_pct(str(raw_pct))
+    if new_pct is None or new_pct < PCT_MIN or new_pct > PCT_MAX:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"A alocação da classe deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
+        )
+
+    # --- Compute display_order (append by default) ---
+    existing_classes = (
+        db.query(AssetClass)
+        .filter(AssetClass.profile_id == profile.id)
+        .order_by(AssetClass.display_order)
+        .all()
+    )
+    display_order = payload.get("display_order", len(existing_classes))
+
+    # --- Insert ---
+    cls = AssetClass(
+        profile_id=profile.id,
+        name=name,
+        target_pct=new_pct,
+        display_order=display_order,
+    )
+    db.add(cls)
+    try:
+        db.commit()
+        db.refresh(cls)
+    except IntegrityError as err:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Já existe uma classe com o nome {name}.",
+        ) from err
+
+    return {"id": cls.id, "name": cls.name, "target_pct": str(cls.target_pct)}
+
+
+@router.patch("/api/classes/{class_id}", response_model=None)
+def patch_class(
+    class_id: int,
+    request: Request,
+    db: DbSession,
+    profile: Profile = Depends(require_active_profile),
+    payload: dict = None,
+) -> Response:
+    """Update a single class's ``target_pct`` inline.
+
+    The dashboard's Alpine component clicks the % cell, turns it into an
+    input, and on blur sends a PATCH with ``{"target_pct": "<new>"}``.
+    Only the ``target_pct`` field is accepted — name changes and other
+    mutations go through the snapshot ``POST /classes`` editor.
+
+    **Allocation is NOT blocked by sum-to-100** (the user adjusts
+    incrementally). The dashboard shows the current total as an
+    informational indicator.
+
+    Returns
+    -------
+    - 200 with ``{"id": class_id, "target_pct": "<new>"}`` on success.
+    - 404 if the class does not exist or belongs to another profile.
+    - 422 with ``{"detail": <error>}`` if the new value is out of range.
+    """
+    cls = db.get(AssetClass, class_id)
+    if cls is None or cls.profile_id != profile.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    if payload is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
+
+    raw_pct = payload.get("target_pct")
+    if raw_pct is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
+
+    new_pct = _parse_pct(str(raw_pct))
+    if new_pct is None or new_pct < PCT_MIN or new_pct > PCT_MAX:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"A alocação da classe deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
+        )
+
+    cls.target_pct = new_pct
+    db.commit()
+    return {"id": cls.id, "target_pct": str(new_pct)}
 
 
 def _render_classes_with_error(

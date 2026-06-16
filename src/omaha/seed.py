@@ -1,9 +1,9 @@
-"""Idempotent database seed for the family account and starter profiles.
+"""Idempotent database seed for the two household accounts.
 
-The seed creates exactly one user (``family``) with the shared family
-password (from ``settings.ADMIN_PASSWORD``) and two profiles — *Italo*
-and *Ana Livia* — tied to that user. It is safe to call more than once:
-if any user already exists, the function exits without writing.
+The seed creates two users — ``Italo`` and ``Ana`` — both with the
+shared family password (from ``settings.ADMIN_PASSWORD``), each with
+one profile of the same name. It is safe to call more than once: if
+any user already exists, the function exits without writing.
 
 Typical entry points:
 
@@ -23,15 +23,14 @@ from omaha.config import settings
 from omaha.db import SessionLocal
 from omaha.models import Profile, User
 
-DEFAULT_USERNAME = "family"
-DEFAULT_PROFILES: tuple[tuple[str, int], ...] = (
+DEFAULT_USERS: tuple[tuple[str, int], ...] = (
     ("Italo", 0),
-    ("Ana Livia", 1),
+    ("Ana", 1),
 )
 
 
 def _seed_with_session(db: Session) -> int:
-    """Idempotently create the family user + profiles.
+    """Idempotently create the two users + their default profiles.
 
     Returns the number of users that existed *before* the call, which is
     a convenient signal for callers (``0`` = we just seeded, ``1+`` =
@@ -47,16 +46,13 @@ def _seed_with_session(db: Session) -> int:
             "or export it in the environment."
         )
 
-    user = User(
-        username=DEFAULT_USERNAME,
-        password_hash=hash_password(settings.ADMIN_PASSWORD),
-    )
-    db.add(user)
-    # Flush so the user.id is populated before we add profile rows.
-    db.flush()
+    password_hash = hash_password(settings.ADMIN_PASSWORD)
 
-    for name, order in DEFAULT_PROFILES:
-        db.add(Profile(user_id=user.id, name=name, display_order=order))
+    for username, order in DEFAULT_USERS:
+        user = User(username=username, password_hash=password_hash)
+        db.add(user)
+        db.flush()  # populate user.id before the profile row
+        db.add(Profile(user_id=user.id, name=username, display_order=order))
 
     db.commit()
     return 0
@@ -77,9 +73,8 @@ def seed() -> int:
 
     if prior == 0:
         print(
-            f"seeded user {DEFAULT_USERNAME!r} with "
-            f"{len(DEFAULT_PROFILES)} profiles: "
-            f"{[name for name, _ in DEFAULT_PROFILES]}"
+            f"seeded {len(DEFAULT_USERS)} users with the shared password: "
+            f"{[u for u, _ in DEFAULT_USERS]}"
         )
     else:
         print(f"seed skipped: {prior} user(s) already present")

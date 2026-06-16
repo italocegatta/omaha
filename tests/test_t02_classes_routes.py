@@ -81,16 +81,18 @@ def _clean_asset_classes() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _login_and_select(client: TestClient, profile_id: int = 1) -> None:
+def _login_and_select(client: TestClient, profile_id: int = 1, username: str = "Italo") -> None:
     """Log in with the seed credentials and bind ``active_profile_id``.
 
-    The seed creates profile 1 = Italo (display_order=0) and
-    profile 2 = Ana Livia (display_order=1). Default is profile 1
-    because that's what the T04 happy-path flow uses.
+    The seed creates one user per account: Italo owns profile 1,
+    Ana owns profile 2. Cross-profile ownership is enforced by
+    ``/profiles/{id}/select`` (404 on mismatch), so callers
+    touching profile 2 must pass ``username="Ana"`` to re-authenticate
+    as the right user. Default is ``Italo`` + profile 1.
     """
     client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": username, "password": "test-password"},
         follow_redirects=False,
     )
     client.post(f"/profiles/{profile_id}/select", follow_redirects=False)
@@ -237,8 +239,14 @@ def test_post_classes_sum_100_commits_with_display_order(
     assert orders == [0, 1, 2]
 
 
-def test_post_classes_sum_90_rejected_with_falta(client: TestClient) -> None:
-    """`POST /classes` with sum=90 re-renders with "Falta 10" and commits nothing."""
+def test_post_classes_sum_90_succeeds(client: TestClient) -> None:
+    """`POST /classes` with sum=90 succeeds — allocation is informational, not blocking.
+
+    The snapshot form no longer validates the sum-to-100 invariant.
+    Classes at any valid percentage are created; the user builds
+    the portfolio incrementally. The route returns 303 redirect
+    to the dashboard.
+    """
     _login_and_select(client, profile_id=1)
 
     response = _post_classes(
@@ -250,16 +258,21 @@ def test_post_classes_sum_90_rejected_with_falta(client: TestClient) -> None:
         ],
     )
 
-    assert response.status_code == 200
-    assert "Falta 10" in response.text
-    # The error is rendered into a dedicated element so the test
-    # does not couple to copy that T03 may rewrite.
-    assert "class-editor-error" in response.text
-    assert _count_classes(profile_id=1) == 0
+    # 303 redirect to / (success, not error re-render)
+    assert response.status_code == 303
+    assert response.headers.get("location") == "/"
+
+    # The classes were committed
+    assert _count_classes(profile_id=1) == 3
 
 
-def test_post_classes_sum_110_rejected_with_sobra(client: TestClient) -> None:
-    """`POST /classes` with sum=110 re-renders with "Sobra 10" and commits nothing."""
+def test_post_classes_sum_110_succeeds(client: TestClient) -> None:
+    """`POST /classes` with sum=110 succeeds — allocation is informational, not blocking.
+
+    The snapshot form no longer validates the sum-to-100 invariant.
+    Classes at any valid percentage are created. The route returns
+    303 redirect to the dashboard.
+    """
     _login_and_select(client, profile_id=1)
 
     response = _post_classes(
@@ -271,10 +284,12 @@ def test_post_classes_sum_110_rejected_with_sobra(client: TestClient) -> None:
         ],
     )
 
-    assert response.status_code == 200
-    assert "Sobra 10" in response.text
-    assert "class-editor-error" in response.text
-    assert _count_classes(profile_id=1) == 0
+    # 303 redirect to / (success, not error re-render)
+    assert response.status_code == 303
+    assert response.headers.get("location") == "/"
+
+    # The classes were committed
+    assert _count_classes(profile_id=1) == 3
 
 
 def test_post_classes_empty_name_rejected(client: TestClient) -> None:
@@ -407,8 +422,8 @@ def test_post_classes_cross_profile_isolation(client: TestClient) -> None:
     assert _classes_for_profile(profile_id=2) == []
 
     # Switch to profile 2 and POST its own rows. Profile 1's
-    # classes must be untouched.
-    client.post("/profiles/2/select", follow_redirects=False)
+    # classes must be untouched. Re-auth as Ana (profile 2's owner).
+    _login_and_select(client, profile_id=2, username="Ana")
     _post_classes(
         client,
         [
@@ -467,19 +482,18 @@ def test_post_classes_delete_removes_class(client: TestClient) -> None:
     ]
 
 
-def test_get_classes_renders_editor(client: TestClient) -> None:
-    """`GET /classes` renders the S03 class editor template.
+def test_get_classes_redirects_to_dashboard(client: TestClient) -> None:
+    """`GET /classes` now 302s to `/` (S02/T07 retired the standalone editor).
 
-    The route is the canonical view of a profile's asset classes.
-    The dashboard surfaces a "Gerenciar classes" shortcut that
-    links here.
+    S02 consolidated class editing into the dashboard. The standalone
+    /classes route was retired via a 302 redirect so bookmarks and
+    stale links still work.
     """
     _login_and_select(client, profile_id=1)
     response = client.get("/classes", follow_redirects=False)
 
-    assert response.status_code == 200
-    assert "text/html" in response.headers["content-type"]
-    assert 'data-testid="class-editor"' in response.text
+    assert response.status_code == 302
+    assert response.headers["location"] == "/"
 
 
 def test_post_classes_snapshot_replaces_pre_existing(

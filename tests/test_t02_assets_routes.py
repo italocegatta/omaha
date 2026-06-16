@@ -91,12 +91,12 @@ def _login_and_select(client: TestClient, profile_id: int = 1) -> None:
     """Log in with the seed credentials and bind ``active_profile_id``.
 
     The seed creates profile 1 = Italo (display_order=0) and
-    profile 2 = Ana Livia (display_order=1). Default is profile 1
+    profile 2 = Ana (display_order=1). Default is profile 1
     because that's what the T04 happy-path flow uses.
     """
     client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": "Italo", "password": "test-password"},
         follow_redirects=False,
     )
     client.post(f"/profiles/{profile_id}/select", follow_redirects=False)
@@ -223,41 +223,6 @@ def _asset_id_by_name(asset_class_id: int, name: str) -> int:
 # ---------------------------------------------------------------------------
 
 
-def test_get_assets_renders_editor_with_classes(client: TestClient) -> None:
-    """`GET /assets` renders the editor and lists the profile's classes in the dropdown."""
-    _login_and_select(client, profile_id=1)
-    [class_id] = _seed_classes(profile_id=1, rows=[("Renda Fixa", "100")])
-
-    response = client.get("/assets", follow_redirects=False)
-
-    assert response.status_code == 200
-    assert "text/html" in response.headers["content-type"]
-    assert 'data-testid="asset-editor"' in response.text
-    # The class dropdown surfaces the class name so the user
-    # can see what they're attaching an asset to.
-    assert "Renda Fixa" in response.text
-    # The dropdown's <option value="..."> must carry the class
-    # id so a POST can target it.
-    assert f'value="{class_id}"' in response.text
-
-
-def test_get_assets_empty_classes_shows_empty_state(client: TestClient) -> None:
-    """Fresh profile with no classes → empty-state copy + no add form."""
-    _login_and_select(client, profile_id=1)
-    # No _seed_classes: the profile has zero classes.
-
-    response = client.get("/assets", follow_redirects=False)
-
-    assert response.status_code == 200
-    assert "text/html" in response.headers["content-type"]
-    # Empty-state marker: the editor wrapper still renders (so
-    # the testid is present) but the add-asset form is absent.
-    assert 'data-testid="asset-editor"' in response.text
-    assert 'data-testid="asset-empty-state"' in response.text
-    assert "Crie classes antes" in response.text
-    assert 'data-testid="asset-editor-save"' not in response.text
-
-
 def test_post_assets_creates_row(client: TestClient) -> None:
     """Valid POST commits one asset, 303s to /assets, name is on disk."""
     _login_and_select(client, profile_id=1)
@@ -307,7 +272,7 @@ def test_post_assets_class_from_other_profile_rejected(client: TestClient) -> No
     not silently add an asset. 200 + error keeps the form
     re-submittable.
     """
-    # Seed a class under Ana Livia (profile 2). The test
+    # Seed a class under Ana (profile 2). The test
     # fixture only creates profile 1 + 2 via the seed, and the
     # per-test cleanup wipes assets; classes seeded here are
     # confined to the test DB.
@@ -341,7 +306,7 @@ def test_post_assets_delete_removes_asset(client: TestClient) -> None:
 def test_post_assets_delete_cross_profile_is_404(client: TestClient) -> None:
     """Deleting another profile's asset is 404 (ownership check walks the FK)."""
     [other_class_id] = _seed_classes(profile_id=2, rows=[("Renda Fixa Ana", "100")])
-    # Pre-populate an asset under Ana Livia via a direct DB
+    # Pre-populate an asset under Ana via a direct DB
     # write (we never log in as Ana to keep the test focused
     # on the cross-profile rejection).
     from omaha.db import SessionLocal

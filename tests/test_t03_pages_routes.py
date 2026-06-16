@@ -189,13 +189,13 @@ def test_aggregates_handles_negative_gain() -> None:
 
 
 def _login_and_select(client: TestClient, profile_name: str = "Italo") -> int:
-    """Log in as ``family`` and select the named profile.
+    """Log in as ``Italo`` and select the named profile.
 
     Returns the profile id (needed to seed classes/assets in tests
     that build state via HTTP). For pure-DB tests, callers can
     ignore the return value.
     """
-    client.post("/login", data={"username": "family", "password": TEST_PASSWORD})
+    client.post("/login", data={"username": "Italo", "password": TEST_PASSWORD})
     from omaha.db import SessionLocal
 
     db = SessionLocal()
@@ -340,7 +340,7 @@ def test_dashboard_renders_distribution_layout(client: TestClient) -> None:
     assert 'data-testid="dashboard-class-section"' in body, body
     assert 'data-testid="class-color-swatch"' in body, body
     assert 'data-testid="class-section-name"' in body, body
-    assert 'data-testid="class-target-pct"' in body, body
+    assert 'data-testid="class-target-pct-view"' in body, body
     assert 'data-testid="class-current-pct"' in body, body
     assert 'data-testid="class-compare-bar"' in body, body
 

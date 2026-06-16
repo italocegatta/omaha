@@ -373,6 +373,10 @@ def demo_classes() -> list[SimpleNamespace]:
         ("(Não configurado)", None),
         (None, None),
         ("", None),
+        # Tier 3: word-level intersection — category word appears in
+        # class name even when not as a contiguous substring.
+        ("Acoes Brasil", 2),  # "acoes" ∩ "acoes 30%" → Tier 2 fails
+        ("Renda Aberta", 1),  # "renda" ∩ "renda fixa 60%" → Tier 2 fails
     ],
 )
 def test_suggest_class_id_mapping(

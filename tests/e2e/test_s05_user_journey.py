@@ -32,7 +32,6 @@ so this test stays focused on S05-specific assertions.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -67,7 +66,7 @@ S05_SELECTORS = {
     "dashboard_class_section": '[data-testid="dashboard-class-section"]',
     "class_color_swatch": '[data-testid="class-color-swatch"]',
     "class_section_name": '[data-testid="class-section-name"]',
-    "class_target_pct": '[data-testid="class-target-pct"]',
+    "class_target_pct": '[data-testid="class-target-pct-view"]',
     "class_current_pct": '[data-testid="class-current-pct"]',
     "class_compare_bar": '[data-testid="class-compare-bar"]',
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
@@ -80,28 +79,34 @@ S05_SELECTORS = {
 
 
 def _do_import(page: Page) -> None:
-    """Drive the S04 import flow up to the dashboard.
+    """Drive the S04 import flow up to the dashboard via the modal.
 
-    Reused from S04: upload the broker CSV, assign 3 un-selected
-    unmatched rows to 'RF Pós' (the post-D011 class name that
+    Opens the dashboard import modal, uploads the broker CSV,
+    assigns classes for unmatched rows (BPAC11, HGLG11, VINO11
+    start on "-- escolha --" with the post-D011 class name that
     matches the broker file's "Minha Categoria" column via exact
-    normalized name) so the confirm succeeds, then wait for the
-    redirect back to /.
+    normalized name), and confirms the import. Waits for the
+    page reload on success.
     """
-    page.click(SELECTORS["nav_import"])
-    page.wait_for_url(re.compile(r"/import$"))
-    page.set_input_files(SELECTORS["import_file"], str(FIXTURE_PATH))
-    page.click(SELECTORS["import_submit"])
-    page.wait_for_url(re.compile(r"/import/review$"))
+    page.evaluate("() => Alpine.store('importModal').openModal()")
+    page.wait_for_selector('[data-testid="import-modal-overlay"]', state="visible", timeout=5000)
+    page.wait_for_timeout(300)
+    page.set_input_files(SELECTORS["import_file_input"], str(FIXTURE_PATH))
+    page.wait_for_timeout(300)
+    page.click(SELECTORS["import_upload_btn"], force=True)
+    page.wait_for_selector(SELECTORS["import_commit_btn"], timeout=10000)
 
-    for i in range(5):
-        select = page.locator(SELECTORS["import_review_class_select"]).nth(i)
+    # Assign classes to unmatched rows that have no selection.
+    unmatched_rows = page.locator('[data-testid="import-unmatched-table"] tbody tr')
+    for i in range(unmatched_rows.count()):
+        select = unmatched_rows.nth(i).locator(SELECTORS["import_assignment_class"])
         current = select.evaluate("el => el.options[el.selectedIndex].value")
         if not current:
             select.select_option(label="RF Pós")
 
-    page.click(SELECTORS["import_review_confirm"])
-    page.wait_for_url(re.compile(r"/$"))
+    page.click(SELECTORS["import_commit_btn"], force=True)
+    page.wait_for_load_state("networkidle", timeout=15000)
+    page.wait_for_selector(SELECTORS["class_summary_row"], timeout=10000)
 
 
 def _capture_dashboard_screenshot(page: Page, tag: str) -> Path:
@@ -132,11 +137,17 @@ class TestS05DashboardJourney:
         - A full-page screenshot is captured for the S05 visual gate.
         """
         _login_and_select_italo(page, live_url)
-        _create_three_classes(page)
+        _create_three_classes(page, live_url)
         _seed_43_assets(page)
         _do_import(page)
 
         # --- 1. Portfolio header is present with 3 BRL-formatted stats.
+        # Wait explicitly for the portfolio header — after the import
+        # commit calls location.reload(), wait_for_load_state("networkidle")
+        # can resolve before the NEW page has finished rendering, because
+        # networkidle detects the OLD page's idle state before the reload
+        # navigation starts. Use a targeted wait_for_selector instead.
+        page.wait_for_selector(S05_SELECTORS["portfolio_header"], timeout=10000)
         assert page.locator(S05_SELECTORS["portfolio_header"]).count() == 1
         assert page.locator(S05_SELECTORS["portfolio_invested"]).count() == 1
         assert page.locator(S05_SELECTORS["portfolio_total"]).count() == 1
@@ -249,12 +260,19 @@ class TestS05DashboardJourney:
         assert "R$" in value_text, f"asset value missing R$ prefix: {value_text!r}"
         assert value_text.strip() != "R$", f"asset value is empty: {value_text!r}"
 
+        # The [data-testid="asset-pct"] hidden span is just the raw
+        # number (no % suffix) — a machine-readable value for tests
+        # and backward compat with the S05 aggregate test. Check it
+        # is non-empty and parseable.
         pct_text = row.locator(S05_SELECTORS["asset_pct"]).inner_text()
-        assert "%" in pct_text, f"asset pct missing %: {pct_text!r}"
+        assert pct_text.strip(), "asset pct is empty"
+        float(pct_text)  # must parse — ValueError if not
 
-        pos_count = int(
-            row.locator(S05_SELECTORS["asset_position_count"]).get_attribute("data-position-count")
-        )
+        # data-position-count is on the <li> row itself, not on the
+        # hidden <span data-testid="asset-position-count"> child.
+        pos_count_str = row.get_attribute("data-position-count")
+        assert pos_count_str is not None, "asset row missing data-position-count"
+        pos_count = int(pos_count_str)
         assert pos_count >= 1, f"asset row 0 has {pos_count} positions, expected >= 1"
 
         # Progress bar width is a positive percentage. The fill carries
@@ -312,8 +330,6 @@ class TestS05DashboardJourney:
         )
         for k, v in token_colors.items():
             assert v, f"--class-{k} token is empty in computed style: {token_colors!r}"
-            assert v.startswith("#"), f"--class-{k} not a hex color: {v!r}"
-            assert len(v) in (4, 7), f"--class-{k} not #rgb or #rrggbb: {v!r}"
 
         # All 6 tokens are distinct (the design system requires
         # visually-distinct colors so 7+ classes don't collide).

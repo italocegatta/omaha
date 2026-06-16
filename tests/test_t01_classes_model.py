@@ -46,6 +46,21 @@ def _tmp_db_url(tmp_path: Path) -> str:
     return f"sqlite:///{db_file}"
 
 
+def _restore_omaha_modules(saved: dict[str, object]) -> None:
+    """Re-populate ``sys.modules`` with the omaha.* modules saved before the fixture.
+
+    Drop any modules that the fixture re-imported (so we don't keep
+    stale env-bound copies in ``sys.modules``), then restore the
+    pre-fixture snapshot. Without this, subsequent tests sharing the
+    session-scoped ``_omaha_test_env`` get the wrong DB engine.
+    """
+    for name in list(sys.modules):
+        if (name == "omaha" or name.startswith("omaha.")) and name not in saved:
+            del sys.modules[name]
+    for name, mod in saved.items():
+        sys.modules[name] = mod
+
+
 def _bootstrap_omaha_for_db(
     db_url: str,
     *,
@@ -89,13 +104,27 @@ def _bootstrap_omaha_for_db(
 
 
 @pytest.fixture()
-def omaha_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
+def omaha_db(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
+) -> dict[str, object]:
     """Yield a bootstrapped ``omaha`` stack backed by a fresh SQLite file.
 
     Returns the SessionLocal factory, the db path, and the db URL so
     tests can inspect the schema with a fresh engine (the in-process
     engine from ``omaha.db`` is tied to the SessionLocal sessions).
+
+    Restores the pre-existing ``omaha.*`` modules on teardown so the
+    conftest's session-scoped ``_omaha_test_env`` modules are
+    available for subsequent tests in the session.
     """
+    saved_omaha_modules = {
+        name: mod
+        for name, mod in sys.modules.items()
+        if name == "omaha" or name.startswith("omaha.")
+    }
+
     db_url = _tmp_db_url(tmp_path)
     monkeypatch.setenv("DATABASE_URL", db_url)
     monkeypatch.setenv("ADMIN_PASSWORD", "test-family-password")
@@ -105,6 +134,8 @@ def omaha_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, objec
 
     import omaha.db
     import omaha.models
+
+    request.addfinalizer(lambda: _restore_omaha_modules(saved_omaha_modules))
 
     return {
         "db_path": Path(urlparse(db_url).path),
