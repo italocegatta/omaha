@@ -230,9 +230,9 @@ class TestPostImportPreview:
 
         assert "auto_matched" in data
         assert isinstance(data["auto_matched"], list)
-        assert (
-            len(data["auto_matched"]) == 43
-        ), f"Expected 43 auto_matched, got {len(data['auto_matched'])}"
+        assert len(data["auto_matched"]) == 43, (
+            f"Expected 43 auto_matched, got {len(data['auto_matched'])}"
+        )
 
         assert "unmatched" in data
         assert isinstance(data["unmatched"], list)
@@ -271,9 +271,9 @@ class TestPostImportPreview:
 
         # Verify unmatched tickers are the expected 5
         unmatched_tickers = {u["broker_ticker"] for u in data["unmatched"]}
-        assert (
-            unmatched_tickers == _UNMATCHED_TICKERS
-        ), f"Expected unmatched tickers {_UNMATCHED_TICKERS}, got {unmatched_tickers}"
+        assert unmatched_tickers == _UNMATCHED_TICKERS, (
+            f"Expected unmatched tickers {_UNMATCHED_TICKERS}, got {unmatched_tickers}"
+        )
 
         # Verify asset_classes item shape
         ac = data["asset_classes"][0]
@@ -292,9 +292,9 @@ class TestPostImportPreview:
 
         # Verify all auto_matched have asset_id values
         for item in data["auto_matched"]:
-            assert isinstance(
-                item["asset_id"], int
-            ), f"Expected int asset_id for {item['broker_ticker']}"
+            assert isinstance(item["asset_id"], int), (
+                f"Expected int asset_id for {item['broker_ticker']}"
+            )
 
     def test_preview_empty_file_returns_400(self, client: TestClient) -> None:
         """Uploading an empty file returns 400."""
@@ -460,9 +460,9 @@ class TestPostImportPreview:
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
         data = resp.json()
 
-        assert (
-            len(data["unmatched"]) == 5
-        ), f"Expected 5 unmatched rows, got {len(data['unmatched'])}"
+        assert len(data["unmatched"]) == 5, (
+            f"Expected 5 unmatched rows, got {len(data['unmatched'])}"
+        )
 
         unmatched_by_ticker = {u["broker_ticker"]: u for u in data["unmatched"]}
 
@@ -470,16 +470,14 @@ class TestPostImportPreview:
         mxrf = unmatched_by_ticker["MXRF11"]
         assert mxrf["suggested_category"] == "RF Pós"
         assert mxrf["suggested_class_id"] == rf_pos_id, (
-            f"MXRF11 should suggest class id {rf_pos_id} (RF Pós), "
-            f"got {mxrf['suggested_class_id']}"
+            f"MXRF11 should suggest class id {rf_pos_id} (RF Pós), got {mxrf['suggested_class_id']}"
         )
 
         # XPLG11 has category "Ações" → exact match with class "Ações"
         xplg = unmatched_by_ticker["XPLG11"]
         assert xplg["suggested_category"] == "Ações"
         assert xplg["suggested_class_id"] == acoes_id, (
-            f"XPLG11 should suggest class id {acoes_id} (Ações), "
-            f"got {xplg['suggested_class_id']}"
+            f"XPLG11 should suggest class id {acoes_id} (Ações), got {xplg['suggested_class_id']}"
         )
 
         # The other three unmatched rows have category "(Não configurado)"
@@ -488,5 +486,5 @@ class TestPostImportPreview:
             row = unmatched_by_ticker[ticker]
             assert row["suggested_category"] == "(Não configurado)"
             assert row["suggested_class_id"] is None, (
-                f"{ticker} should have suggested_class_id=None, " f"got {row['suggested_class_id']}"
+                f"{ticker} should have suggested_class_id=None, got {row['suggested_class_id']}"
             )

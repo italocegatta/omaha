@@ -99,9 +99,9 @@ def _bootstrap_omaha_for_db(
         capture_output=True,
         text=True,
     )
-    assert (
-        result.returncode == 0
-    ), f"alembic upgrade head failed: stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert result.returncode == 0, (
+        f"alembic upgrade head failed: stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
 
     for mod_name in list(sys.modules):
         if mod_name == "omaha" or mod_name.startswith("omaha."):
@@ -235,9 +235,9 @@ def test_alembic_upgrade_creates_positions_table(omaha_db) -> None:
             "broker_ticker",
             "imported_at",
         ):
-            assert (
-                positions_cols[col_name]["nullable"] is False
-            ), f"positions.{col_name} must be NOT NULL, got {positions_cols[col_name]!r}"
+            assert positions_cols[col_name]["nullable"] is False, (
+                f"positions.{col_name} must be NOT NULL, got {positions_cols[col_name]!r}"
+            )
 
         # Unique constraint on (asset_id, broker_ticker)
         unique_constraints = inspector.get_unique_constraints("positions")
@@ -400,9 +400,9 @@ def test_deleting_asset_cascades_to_positions(omaha_db) -> None:
         from omaha.models import Position
 
         remaining = session.query(Position).filter(Position.asset_id == asset_id).count()
-        assert (
-            remaining == 0
-        ), f"deleting asset {asset_id} should cascade to positions, but {remaining} rows remain"
+        assert remaining == 0, (
+            f"deleting asset {asset_id} should cascade to positions, but {remaining} rows remain"
+        )
 
 
 def test_deleting_profile_cascades_to_positions(omaha_db) -> None:

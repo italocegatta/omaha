@@ -206,8 +206,7 @@ class TestS03UserJourney:
         # Wait for exactly 3 asset rows to avoid race between page rendering
         # and the count assertion (the 3rd inline save reload races with Alpine).
         page.wait_for_function(
-            "() => document.querySelectorAll("
-            f"'{SELECTORS['dashboard_asset_row']}').length === 3",
+            f"() => document.querySelectorAll('{SELECTORS['dashboard_asset_row']}').length === 3",
             timeout=8000,
         )
         asset_rows = page.locator(SELECTORS["dashboard_asset_row"])

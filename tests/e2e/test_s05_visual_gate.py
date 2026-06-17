@@ -119,9 +119,7 @@ class TestS05VisualGate:
         # class/asset rendering fails fast with a clear assertion.
         # ------------------------------------------------------------------
         class_rows = page.locator('[data-testid="class-summary-row"]')
-        assert class_rows.count() == 3, (
-            f"expected 3 class-summary-row, got {class_rows.count()}"
-        )
+        assert class_rows.count() == 3, f"expected 3 class-summary-row, got {class_rows.count()}"
 
         asset_rows = page.locator('[data-testid="dashboard-asset-row"]')
         assert asset_rows.count() >= 1, (

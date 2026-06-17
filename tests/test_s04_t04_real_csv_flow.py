@@ -261,9 +261,9 @@ class TestParseRealCsv:
 
         # Spot-check: "Conta corrente em dólar Avenue" included with qty=0
         conta = [r for r in result if "conta corrente" in r.name.lower()]
-        assert (
-            len(conta) == 1
-        ), "Conta corrente em dólar Avenue should be parsed (not filtered as footer)"
+        assert len(conta) == 1, (
+            "Conta corrente em dólar Avenue should be parsed (not filtered as footer)"
+        )
         assert conta[0].qty == Decimal("0"), "Conta corrente qty should be 0 (was - in CSV)"
 
         # Spot-check: "48 ativos" footer is excluded
@@ -354,9 +354,9 @@ class TestPreviewRealCsv:
         # Every unmatched row has suggested_class_id=None (no CSV category
         # matches the class names via exact/substring/word with current algo)
         for um in data["unmatched"]:
-            assert (
-                um["suggested_class_id"] is None
-            ), f"Unexpected suggestion for {um['broker_ticker']}: {um['suggested_class_id']}"
+            assert um["suggested_class_id"] is None, (
+                f"Unexpected suggestion for {um['broker_ticker']}: {um['suggested_class_id']}"
+            )
             assert um["suggested_category"] is not None
 
         # Unmatched tickers match expected set
@@ -423,9 +423,9 @@ class TestCommitRealCsv:
                 asset_class = db.get(AssetClass, asset.asset_class_id)
                 assert asset_class is not None, f"No class for asset {asset.name}"
                 expected = _EXPECTED_CLASS[pos.broker_ticker]
-                assert (
-                    asset_class.name == expected
-                ), f"{pos.broker_ticker}: expected class {expected!r}, got {asset_class.name!r}"
+                assert asset_class.name == expected, (
+                    f"{pos.broker_ticker}: expected class {expected!r}, got {asset_class.name!r}"
+                )
         finally:
             db.close()
 
@@ -530,9 +530,9 @@ class TestPreviewChangesAfterAddingAssets:
             files={"file": ("posicao_italo.csv", csv_bytes, "text/csv")},
         )
         data2 = resp2.json()
-        assert (
-            len(data2["auto_matched"]) == 48
-        ), f"Expected 48 auto, got {len(data2['auto_matched'])}"
+        assert len(data2["auto_matched"]) == 48, (
+            f"Expected 48 auto, got {len(data2['auto_matched'])}"
+        )
         assert len(data2["unmatched"]) == 0, f"Expected 0 unmatched, got {len(data2['unmatched'])}"
 
 
@@ -561,6 +561,6 @@ class TestCrossProfileIsolation:
         _login_and_select(client, profile_id=2)
 
         resp2 = client.get(f"/api/import/preview/{preview_id}")
-        assert (
-            resp2.status_code == 404
-        ), f"Expected 404 for cross-profile access, got {resp2.status_code}"
+        assert resp2.status_code == 404, (
+            f"Expected 404 for cross-profile access, got {resp2.status_code}"
+        )

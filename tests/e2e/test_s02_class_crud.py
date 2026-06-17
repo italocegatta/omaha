@@ -147,9 +147,9 @@ class TestS02ClassCRUD:
         page.goto(f"{live_url}/classes")
 
         # After the 302 redirect, we should be on / (dashboard).
-        assert (
-            "/classes" not in page.url
-        ), f"expected redirect away from /classes, got URL: {page.url}"
+        assert "/classes" not in page.url, (
+            f"expected redirect away from /classes, got URL: {page.url}"
+        )
         assert page.url.rstrip("/").endswith(live_url.rstrip("/")) or page.url.rstrip("/").endswith(
             f"{live_url.rstrip('/')}/"
         ), f"expected dashboard URL, got: {page.url}"
@@ -336,9 +336,9 @@ class TestS02ClassCRUD:
             raise
 
         remaining = page.locator(S02_SELECTORS["class_summary_row"])
-        assert (
-            remaining.count() == 1
-        ), f"expected 1 class after deleting Acoes, got {remaining.count()}"
+        assert remaining.count() == 1, (
+            f"expected 1 class after deleting Acoes, got {remaining.count()}"
+        )
         remaining_name = remaining.locator(S02_SELECTORS["class_section_name"]).inner_text()
         assert "Reserva" in remaining_name, f"expected 'Reserva' to remain, got {remaining_name!r}"
 
@@ -406,18 +406,18 @@ class TestS02ClassCRUD:
             error_elem = class_row.locator(S02_SELECTORS["class_delete_confirm_error"])
             error_elem.wait_for(state="visible", timeout=5000)
             error_text = error_elem.inner_text()
-            assert (
-                "ativo" in error_text.lower()
-            ), f"expected 409 error mentioning 'ativo', got {error_text!r}"
+            assert "ativo" in error_text.lower(), (
+                f"expected 409 error mentioning 'ativo', got {error_text!r}"
+            )
         except Exception:
             _debug_dump(page, "post_409_delete")
             raise
 
         # The class section must still be in the DOM.
         remaining = page.locator(S02_SELECTORS["class_summary_row"])
-        assert (
-            remaining.count() == 1
-        ), f"class should still exist after 409, got {remaining.count()} rows"
+        assert remaining.count() == 1, (
+            f"class should still exist after 409, got {remaining.count()} rows"
+        )
 
         # Verify the error can be dismissed by clicking "Cancelar".
         class_row.locator(S02_SELECTORS["class_delete_confirm_no"]).click()

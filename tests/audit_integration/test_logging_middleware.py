@@ -46,9 +46,7 @@ _ACCESS_LOG_RE = re.compile(
 )
 
 
-def test_access_log_middleware_emits_http_request_line_for_get_healthz(
-    client, caplog
-) -> None:
+def test_access_log_middleware_emits_http_request_line_for_get_healthz(client, caplog) -> None:
     """A GET /healthz triggers exactly one ``http_request`` line on the
     ``omaha.access`` logger, with the four required fields plus the
     client IP.

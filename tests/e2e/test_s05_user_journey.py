@@ -203,12 +203,12 @@ class TestS05DashboardJourney:
                 "style"
             )
             assert swatch_style, f"class {i} swatch has no inline style"
-            assert (
-                "background" in swatch_style
-            ), f"class {i} swatch missing background: {swatch_style!r}"
-            assert (
-                "transparent" not in swatch_style
-            ), f"class {i} swatch transparent: {swatch_style!r}"
+            assert "background" in swatch_style, (
+                f"class {i} swatch missing background: {swatch_style!r}"
+            )
+            assert "transparent" not in swatch_style, (
+                f"class {i} swatch transparent: {swatch_style!r}"
+            )
 
         # --- 3. Compare-bar target widths render as 60%/30%/10%.
         # The widths are carried as the --final-width CSS custom property

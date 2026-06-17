@@ -9,9 +9,9 @@
 
 - [x] 2.1 Em `src/omaha/templates/dashboard.html` (markup de ambas as tabelas), substituir `inline :style="cellStyle()"` no `<td>` por `x-bind:class`:
   ```html
-  <td class="import-class-cell" 
-      :class="cellColor === 'transparent' 
-        ? 'import-class-cell--pending' 
+  <td class="import-class-cell"
+      :class="cellColor === 'transparent'
+        ? 'import-class-cell--pending'
         : 'import-class-cell--cls-' + getClassIndex(cellColor)"
       ...>
   ```

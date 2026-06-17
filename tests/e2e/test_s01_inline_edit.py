@@ -419,14 +419,14 @@ class TestS01InlineEdit:
         target_total_text = updated_row.locator(
             S01_SELECTORS["asset_target_pct_total"]
         ).first.inner_text()
-        assert (
-            "24.00" in target_total_text
-        ), f"expected '24.00% total' (60%% × 40 / 100), got {target_total_text!r}"
+        assert "24.00" in target_total_text, (
+            f"expected '24.00% total' (60%% × 40 / 100), got {target_total_text!r}"
+        )
 
         # Server-side state: the DB has target_pct=40.
-        assert (
-            _read_target_pct("Italo", "Ativo A") == 40
-        ), "DB did not persist target_pct=40 after the 200 PATCH"
+        assert _read_target_pct("Italo", "Ativo A") == 40, (
+            "DB did not persist target_pct=40 after the 200 PATCH"
+        )
 
     def test_inline_edit_blocks_when_sum_neq_100(self, page: Page, live_url: str) -> None:
         """Editing one asset to push the per-class sum over 100 must block.
@@ -499,9 +499,9 @@ class TestS01InlineEdit:
         badge = page.locator(S01_SELECTORS["class_delta_badge"]).first
         badge.wait_for(state="visible", timeout=2000)
         badge_text = badge.inner_text()
-        assert (
-            "Sobra" in badge_text
-        ), f"expected 'Sobra 10%' in class-delta badge, got {badge_text!r}"
+        assert "Sobra" in badge_text, (
+            f"expected 'Sobra 10%' in class-delta badge, got {badge_text!r}"
+        )
         assert "10%" in badge_text, f"expected '10%' in class-delta badge, got {badge_text!r}"
 
         # The commit button must be disabled. Alpine
@@ -546,9 +546,9 @@ class TestS01InlineEdit:
             _debug_dump(page, "post_block_no_ativo_b")
             raise AssertionError("Ativo B missing after reload")
 
-        assert (
-            _read_target_pct("Italo", "Ativo B") == 30
-        ), "DB should still have target_pct=30 — the blocked PATCH must not have mutated the row"
+        assert _read_target_pct("Italo", "Ativo B") == 30, (
+            "DB should still have target_pct=30 — the blocked PATCH must not have mutated the row"
+        )
 
     def test_dashboard_displays_four_percentages_per_asset(self, page: Page, live_url: str) -> None:
         """The dashboard renders 4 percentages per asset + the "1 posicao" line is gone.
@@ -604,7 +604,7 @@ class TestS01InlineEdit:
         # text in ``<main>`` does not include the old
         # "1 posicao(oes)" line.
         main_text = page.locator("main").inner_text()
-        assert (
-            "posicao(oes)" not in main_text
-        ), f"old 'posicao(oes)' text still visible: {main_text!r}"
+        assert "posicao(oes)" not in main_text, (
+            f"old 'posicao(oes)' text still visible: {main_text!r}"
+        )
         assert "1 posicao" not in main_text, f"old '1 posicao' text still visible: {main_text!r}"

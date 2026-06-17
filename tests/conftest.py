@@ -53,9 +53,9 @@ def _run_alembic_upgrade(db_url: str) -> None:
         capture_output=True,
         text=True,
     )
-    assert (
-        result.returncode == 0
-    ), f"alembic upgrade head failed: stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert result.returncode == 0, (
+        f"alembic upgrade head failed: stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
 
 
 @pytest.fixture(scope="session")

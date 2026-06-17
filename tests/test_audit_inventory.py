@@ -148,9 +148,9 @@ def test_render_page_produces_template_specific_anchor(
     html = render_page(jinja_env, template_name, factory.context_for(template_name))
     assert isinstance(html, str)
     assert len(html) > 0
-    assert (
-        expected_anchor.lower() in html.lower()
-    ), f"rendered {template_name} missing anchor {expected_anchor!r}"
+    assert expected_anchor.lower() in html.lower(), (
+        f"rendered {template_name} missing anchor {expected_anchor!r}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -238,9 +238,9 @@ def test_hover_state_differs_from_default(
     hover_row = state_color_pairs(btn, stylesheet, "hover")
     assert default_row is not None
     assert hover_row is not None
-    assert (
-        default_row.bg != hover_row.bg or default_row.ratio != hover_row.ratio
-    ), f"Hover must differ from default; default.bg={default_row.bg} hover.bg={hover_row.bg}"
+    assert default_row.bg != hover_row.bg or default_row.ratio != hover_row.ratio, (
+        f"Hover must differ from default; default.bg={default_row.bg} hover.bg={hover_row.bg}"
+    )
 
 
 def test_element_without_colors_returns_none(stylesheet: Stylesheet) -> None:

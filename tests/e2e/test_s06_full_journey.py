@@ -295,9 +295,9 @@ class TestS06PosicaoItaloImport:
         assignments = store_data["assignments"]
         asset_classes = store_data["assetClasses"]
 
-        assert (
-            len(unmatched) == expected_count
-        ), f"expected exactly {expected_count} unmatched rows, got {len(unmatched)}"
+        assert len(unmatched) == expected_count, (
+            f"expected exactly {expected_count} unmatched rows, got {len(unmatched)}"
+        )
 
         # Build a ticker -> category lookup from the raw data.
         ticker_category: dict[str, str] = {}
@@ -353,9 +353,7 @@ class TestS06PosicaoItaloImport:
                 wrong_assignments.append(f"{ticker}: no assignment found")
                 continue
 
-            expected = (
-                r["suggested_class_id"] if r["suggested_class_id"] is not None else ""
-            )
+            expected = r["suggested_class_id"] if r["suggested_class_id"] is not None else ""
             if assignment["class_id"] != expected:
                 wrong_assignments.append(
                     f"{ticker}: assignment={assignment['class_id']!r} "
@@ -364,8 +362,7 @@ class TestS06PosicaoItaloImport:
                 )
 
         assert not wrong_assignments, (
-            f"{len(wrong_assignments)} wrong Alpine assignments. "
-            f"First 10: {wrong_assignments[:10]}"
+            f"{len(wrong_assignments)} wrong Alpine assignments. First 10: {wrong_assignments[:10]}"
         )
 
         # ------------------------------------------------------------------
@@ -378,7 +375,7 @@ class TestS06PosicaoItaloImport:
         # :value/@change -> x-model fix on the modal's <select> bindings.
         select_loc = page.locator(SELECTORS["import_assignment_class"])
         assert select_loc.count() == len(unmatched), (
-            f"expected {len(unmatched)} <select> rows in DOM, " f"got {select_loc.count()}"
+            f"expected {len(unmatched)} <select> rows in DOM, got {select_loc.count()}"
         )
         dom_mismatches: list[str] = []
         matched_rows = 0
@@ -390,7 +387,7 @@ class TestS06PosicaoItaloImport:
             actual_id = select_loc.nth(i).input_value()
             if actual_id != expected_id:
                 dom_mismatches.append(
-                    f"{r['broker_ticker']}: " f"select.value={actual_id!r} expected={expected_id!r}"
+                    f"{r['broker_ticker']}: select.value={actual_id!r} expected={expected_id!r}"
                 )
         assert matched_rows > 0, "expected at least one unmatched row with a server suggestion"
         assert not dom_mismatches, (
@@ -517,12 +514,12 @@ class TestS06PosicaoItaloImport:
         # Verify some expected tickers appear on the dashboard.
         dashboard_text = page.locator("main").inner_text()
         for expected_ticker in ["SMH", "PRIO3", "BTC", "LVBI11"]:
-            assert (
-                expected_ticker in dashboard_text
-            ), f"expected ticker {expected_ticker!r} not found on dashboard"
+            assert expected_ticker in dashboard_text, (
+                f"expected ticker {expected_ticker!r} not found on dashboard"
+            )
 
         # Verify the 5 classes still exist.
         class_rows = page.locator(SELECTORS["class_summary_row"])
         assert class_rows.count() == 5, (
-            f"expected 5 class rows after import, " f"got {class_rows.count()}"
+            f"expected 5 class rows after import, got {class_rows.count()}"
         )

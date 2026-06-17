@@ -45,7 +45,7 @@ SELECTORS = {
     "import_existing_table": '[data-testid="import-existing-table"]',
     "import_existing_row": '[data-testid="import-existing-row"]',
     "import_class_cell_assignment": '[data-testid="import-class-cell-assignment"]',
-    "import_class_swatch": '.import-class-swatch',
+    "import_class_swatch": ".import-class-swatch",
     "import_commit_btn": '[data-testid="import-commit-btn"]',
     "class_summary_row": '[data-testid="class-summary-row"]',
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
@@ -161,9 +161,9 @@ class TestS04ImportModal:
 
         # Verify 43 assets on dashboard before import.
         asset_rows = page.locator(SELECTORS["dashboard_asset_row"])
-        assert (
-            asset_rows.count() == 43
-        ), f"expected 43 asset rows before import, got {asset_rows.count()}"
+        assert asset_rows.count() == 43, (
+            f"expected 43 asset rows before import, got {asset_rows.count()}"
+        )
 
         # ------------------------------------------------------------------
         # Step 1: Open modal and upload CSV
@@ -190,9 +190,9 @@ class TestS04ImportModal:
 
         # Verify 5 unmatched rows.
         unmatched_rows = page.locator(SELECTORS["import_unmatched_row"])
-        assert (
-            unmatched_rows.count() == 5
-        ), f"expected 5 unmatched rows, got {unmatched_rows.count()}"
+        assert unmatched_rows.count() == 5, (
+            f"expected 5 unmatched rows, got {unmatched_rows.count()}"
+        )
 
         # Verify the unmatched tickers match the known list.
         unmatched_tickers: set[str] = set()
@@ -200,7 +200,7 @@ class TestS04ImportModal:
             ticker = unmatched_rows.nth(i).locator("td").nth(0).inner_text().strip()
             unmatched_tickers.add(ticker)
         assert unmatched_tickers == set(UNMATCHED_NAMES), (
-            f"expected unmatched tickers {set(UNMATCHED_NAMES)}, " f"got {unmatched_tickers}"
+            f"expected unmatched tickers {set(UNMATCHED_NAMES)}, got {unmatched_tickers}"
         )
 
         # ------------------------------------------------------------------
@@ -254,8 +254,7 @@ class TestS04ImportModal:
             """() => Alpine.store('importModal').assetClasses.find(c => c.name === 'Acoes').id"""
         )
         acoes_color: str = page.evaluate(
-            f"() => Alpine.store('importModal')"
-            f".assetClasses.find(c => c.id === {acoes_id}).color"
+            f"() => Alpine.store('importModal').assetClasses.find(c => c.id === {acoes_id}).color"
         )
         # Assign XPLG11 to Acoes and confirm the cell-level --class-color
         # inline style updates to the matching hex.  Match the row by
@@ -276,8 +275,7 @@ class TestS04ImportModal:
             ".unmatched.findIndex(r => r.broker_ticker === 'XPLG11')"
         )
         acoes_idx: int = page.evaluate(
-            f"() => Alpine.store('importModal')"
-            f".assetClasses.findIndex(c => c.id === {acoes_id})"
+            f"() => Alpine.store('importModal').assetClasses.findIndex(c => c.id === {acoes_id})"
         )
         # The <td> must carry the modifier class for the Acoes index
         # (e.g. import-class-cell--cls-1) — the visual color is now
@@ -454,9 +452,9 @@ class TestS04ImportModal:
         # Step 5: Verify 48 assets with positions
         # ------------------------------------------------------------------
         dashboard_rows = page.locator(SELECTORS["dashboard_asset_row"])
-        assert (
-            dashboard_rows.count() == 48
-        ), f"expected 48 asset rows after import, got {dashboard_rows.count()}"
+        assert dashboard_rows.count() == 48, (
+            f"expected 48 asset rows after import, got {dashboard_rows.count()}"
+        )
 
         for i in range(48):
             row = dashboard_rows.nth(i)
@@ -477,9 +475,9 @@ class TestS04ImportModal:
         page.goto(f"{live_url}/import")
 
         # The URL must be the dashboard (/), not /import.
-        assert (
-            "/import" not in page.url
-        ), f"expected redirect away from /import, got URL: {page.url}"
+        assert "/import" not in page.url, (
+            f"expected redirect away from /import, got URL: {page.url}"
+        )
 
         profile_header = page.locator(SELECTORS["profile_name"])
         profile_header.wait_for(state="visible", timeout=5000)
@@ -518,9 +516,7 @@ class TestS04ImportModal:
         page.wait_for_selector(SELECTORS["import_unmatched_table"], state="visible", timeout=5000)
 
         # assetClasses must be empty (profile has no classes).
-        ac_count: int = page.evaluate(
-            "() => Alpine.store('importModal').assetClasses.length"
-        )
+        ac_count: int = page.evaluate("() => Alpine.store('importModal').assetClasses.length")
         assert ac_count == 0, (
             f"expected empty assetClasses for profile with zero classes, got {ac_count}"
         )
@@ -528,9 +524,7 @@ class TestS04ImportModal:
         # Every unmatched row's <td> must carry the --pending modifier.
         unmatched_rows = page.locator(SELECTORS["import_unmatched_row"])
         n_unmatched = unmatched_rows.count()
-        assert n_unmatched > 0, (
-            "expected at least one unmatched row when importing without classes"
-        )
+        assert n_unmatched > 0, "expected at least one unmatched row when importing without classes"
 
         for i in range(n_unmatched):
             cell_class = (

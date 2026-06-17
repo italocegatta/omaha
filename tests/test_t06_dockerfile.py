@@ -98,16 +98,16 @@ def test_docker_run_pro_image_runs_as_omaha_user() -> None:
     assert build.returncode == 0, f"docker build failed: {build.stderr!r}"
 
     result = _run(["docker", "run", "--rm", DOCKER_IMAGE, "id"], timeout=30)
-    assert (
-        result.returncode == 0
-    ), f"docker run id failed: stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert result.returncode == 0, (
+        f"docker run id failed: stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
     # ``id`` in the runtime image writes ``uid=1000(omaha) gid=1000(omaha) groups=1000(omaha)``
     # to stdout. The substring check is exact enough to catch
     # either a wrong UID (e.g. still 0 from a missed USER) or a
     # wrong username (e.g. ``app`` instead of ``omaha``).
-    assert (
-        "uid=1000(omaha)" in result.stdout
-    ), f"expected uid=1000(omaha) in id output, got: {result.stdout!r}"
+    assert "uid=1000(omaha)" in result.stdout, (
+        f"expected uid=1000(omaha) in id output, got: {result.stdout!r}"
+    )
 
 
 def test_prod_yml_is_valid_yaml() -> None:
@@ -158,9 +158,9 @@ def test_prod_yml_is_valid_yaml() -> None:
         "start with `docker compose -f prod.yml up -d`"
     )
     # The named volume is the persistent DB.
-    assert "omaha-data" in data.get(
-        "volumes", {}
-    ), "prod.yml: top-level `volumes: omaha-data:` is required for SQLite persistence"
+    assert "omaha-data" in data.get("volumes", {}), (
+        "prod.yml: top-level `volumes: omaha-data:` is required for SQLite persistence"
+    )
     # Sanity: the web service must NOT publish ports. The
     # public/private split is the whole point of nginx in
     # front; an accidental `ports: [\"8000:8000\"]` would

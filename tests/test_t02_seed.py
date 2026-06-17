@@ -105,9 +105,9 @@ def seeded_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.F
         capture_output=True,
         text=True,
     )
-    assert (
-        result.returncode == 0
-    ), f"alembic upgrade head failed: stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert result.returncode == 0, (
+        f"alembic upgrade head failed: stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
 
     return {
         "db_path": Path(urlparse(db_url).path),
@@ -176,9 +176,9 @@ def test_alembic_upgrade_creates_tables(tmp_path: Path) -> None:
         capture_output=True,
         text=True,
     )
-    assert (
-        result.returncode == 0
-    ), f"alembic upgrade head failed: stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert result.returncode == 0, (
+        f"alembic upgrade head failed: stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
 
     db_path = Path(urlparse(db_url).path)
     assert db_path.exists(), "alembic should have created the SQLite file"

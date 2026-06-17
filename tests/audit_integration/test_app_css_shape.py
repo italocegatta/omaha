@@ -58,12 +58,12 @@ def test_delete_confirm_no_white() -> None:
         match = pattern.search(css)
         assert match is not None, f"Rule {selector!r} not found in app.css"
         body = match.group(1)
-        assert (
-            "color: #fff" not in body
-        ), f"{selector} still hardcodes 'color: #fff' — must use var(--negative-ink)"
-        assert (
-            "var(--negative-ink)" in body
-        ), f"{selector} must reference 'var(--negative-ink)' for its text color"
+        assert "color: #fff" not in body, (
+            f"{selector} still hardcodes 'color: #fff' — must use var(--negative-ink)"
+        )
+        assert "var(--negative-ink)" in body, (
+            f"{selector} must reference 'var(--negative-ink)' for its text color"
+        )
 
 
 @pytest.mark.parametrize("token", _OKLCH_ONLY_TOKENS)

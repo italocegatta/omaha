@@ -51,4 +51,3 @@ This change does not introduce any user-facing feature. It tightens the test lay
 - No production code (`src/omaha/**`) touched.
 - No user-facing behavior changes.
 - CI gate (`task check`) runs the same set of assertions in fewer files; runs faster by ~30-60s (less duplicated work).
-

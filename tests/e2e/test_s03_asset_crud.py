@@ -131,9 +131,9 @@ class TestS03AssetCRUD:
 
         page.goto(f"{live_url}/assets")
 
-        assert (
-            "/assets" not in page.url
-        ), f"expected redirect away from /assets, got URL: {page.url}"
+        assert "/assets" not in page.url, (
+            f"expected redirect away from /assets, got URL: {page.url}"
+        )
         profile_header = page.locator('[data-testid="profile-name"]')
         profile_header.wait_for(state="visible", timeout=5000)
         assert "Bem-vindo" in profile_header.inner_text()

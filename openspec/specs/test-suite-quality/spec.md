@@ -143,4 +143,3 @@ i18n-correctness, but the structural anchor MUST come first.
   without an accompanying `data-testid` or structural anchor
 - **THEN** code review rejects with the reason "i18n copy is not
   a stable test anchor; pair with `data-testid`"
-

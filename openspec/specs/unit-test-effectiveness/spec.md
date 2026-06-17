@@ -156,4 +156,3 @@ path rule (already supported by the existing
 - **THEN** no test in `tests/e2e/` carries either `@pytest.mark.unit`
   or `@pytest.mark.integration` (Playwright tests are filtered
   separately by path)
-

@@ -88,4 +88,3 @@ be addressed in this change or rolled back.
 - **THEN** the 7 pre-existing failures catalogued in
   `proposal.md` all pass
 - **AND** no test that passed before this change starts failing
-

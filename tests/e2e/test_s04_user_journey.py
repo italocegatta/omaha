@@ -424,9 +424,9 @@ class TestS04ImportJourney:
 
         # Read the preview_id from the Alpine store.
         preview_id: int | None = page.evaluate("() => Alpine.store('importModal').previewId")
-        assert preview_id is not None and isinstance(
-            preview_id, int
-        ), f"expected preview_id, got {preview_id!r}"
+        assert preview_id is not None and isinstance(preview_id, int), (
+            f"expected preview_id, got {preview_id!r}"
+        )
 
         # Backdate the preview to 2 hours ago (PREVIEW_TTL is 1h).
         conn = sqlite3.connect(TEST_DB_PATH)
@@ -448,9 +448,9 @@ class TestS04ImportJourney:
             preview_id,
         )
         assert resp["status"] == 404, f"expected 404 for expired preview, got {resp}"
-        assert (
-            "expirado" in resp["detail"].lower()
-        ), f"expected 'expirado' in error, got {resp['detail']!r}"
+        assert "expirado" in resp["detail"].lower(), (
+            f"expected 'expirado' in error, got {resp['detail']!r}"
+        )
 
         # Verify commit rejects the expired preview.
         commit_resp = page.evaluate(
@@ -468,6 +468,6 @@ class TestS04ImportJourney:
             preview_id,
         )
         assert commit_resp["status"] == 400, f"expected 400 for expired commit, got {commit_resp}"
-        assert (
-            "expirado" in commit_resp["detail"].lower()
-        ), f"expected 'expirado' in error, got {commit_resp['detail']!r}"
+        assert "expirado" in commit_resp["detail"].lower(), (
+            f"expected 'expirado' in error, got {commit_resp['detail']!r}"
+        )

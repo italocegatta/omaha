@@ -91,9 +91,9 @@ def _bootstrap_omaha_for_db(
         capture_output=True,
         text=True,
     )
-    assert (
-        result.returncode == 0
-    ), f"alembic upgrade head failed: stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert result.returncode == 0, (
+        f"alembic upgrade head failed: stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
 
     for mod_name in list(sys.modules):
         if mod_name == "omaha" or mod_name.startswith("omaha."):

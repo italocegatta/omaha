@@ -96,9 +96,9 @@ def _bootstrap_omaha_for_db(
         capture_output=True,
         text=True,
     )
-    assert (
-        result.returncode == 0
-    ), f"alembic upgrade head failed: stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert result.returncode == 0, (
+        f"alembic upgrade head failed: stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
 
     for mod_name in list(sys.modules):
         if mod_name == "omaha" or mod_name.startswith("omaha."):
@@ -313,9 +313,9 @@ def test_deleting_asset_class_cascades_to_assets(omaha_db) -> None:
         from omaha.models import Asset
 
         remaining = session.query(Asset).filter(Asset.asset_class_id == class_id).count()
-        assert (
-            remaining == 0
-        ), f"deleting asset_class {class_id} should cascade to assets, but {remaining} rows remain"
+        assert remaining == 0, (
+            f"deleting asset_class {class_id} should cascade to assets, but {remaining} rows remain"
+        )
 
 
 def test_deleting_profile_cascades_to_assets(omaha_db) -> None:
