@@ -290,7 +290,7 @@ class TestSuggestClassId:
     @pytest.mark.parametrize(
         "category,expected_id",
         [
-            ("Internacional", None),
+            ("Internacional", 4),
             ("RF Pós", None),
             ("RF Dinâmica", None),
             ("Ações", None),
@@ -304,13 +304,22 @@ class TestSuggestClassId:
     def test_suggest_class_id_real_categories(
         self, category: str | None, expected_id: int | None
     ) -> None:
-        """No real CSV category matches 'Renda Fixa' / 'Renda Variavel' / 'Fundos Imobiliarios' via exact/substring/word (>2 chars)."""
+        """CSV categories do not match the base 3 classes by exact/substring/word.
+
+        The ``"Internacional"`` case is a positive parametrization: a
+        fourth class named ``"Internacional"`` is added (id=4) so the
+        exact-match path in :func:`suggest_class_id` returns a concrete
+        id. Without this positive case the parametrize block would be
+        all-``None`` and the test would still pass if ``suggest_class_id``
+        were deleted entirely (false-positive bait).
+        """
         from omaha.csv_import import suggest_class_id
 
         classes = [
             _FakeClass(1, "Renda Fixa"),
             _FakeClass(2, "Renda Variavel"),
             _FakeClass(3, "Fundos Imobiliarios"),
+            _FakeClass(4, "Internacional"),
         ]
         assert suggest_class_id(category, classes) == expected_id
 

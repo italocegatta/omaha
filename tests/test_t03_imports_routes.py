@@ -180,28 +180,6 @@ def test_review_redirects_to_dashboard(logged_in: TestClient) -> None:
     assert r.headers["location"] == "/"
 
 
-def test_review_preselects_class_via_preview_api(
-    logged_in: TestClient,
-) -> None:
-    """The preview API returns suggested_category for each unmatched row.
-    The modal uses this to pre-select the class dropdown on the client side.
-
-    GET /import/review is retired (now redirects to dashboard), so the
-    pre-selection logic is tested at the API level. Category matching
-    coverage lives in test_s04_t01_import_preview.py.
-    """
-    _ensure_class_with_asset(logged_in, 1, "RF P\xf3s", ["PETR4"])
-    _ensure_class_with_asset(logged_in, 1, "Acoes", ["VALE3"])
-    logged_in.post(
-        "/import",
-        files={"file": ("broker.csv", SAMPLE_CSV.encode("utf-8"), "text/csv")},
-        follow_redirects=False,
-    )
-    r = logged_in.get("/import/review", follow_redirects=False)
-    assert r.status_code == 302, r.text
-    assert r.headers["location"] == "/"
-
-
 def test_confirm_commits_positions(logged_in: TestClient) -> None:
     _ensure_class_with_asset(logged_in, 1, "Renda Fixa", ["PETR4"])
     logged_in.post(

@@ -1,21 +1,32 @@
-"""T02: POST /api/classes for adding a single class with per-profile sum validation.
+"""T02: POST /api/classes for adding a single class.
 
 The dashboard's Alpine ``+`` component sends a JSON POST with
 ``{"name": "...", "target_pct": "..."}`` to create a new class.
 ``display_order`` is optional and defaults to appending after all
 existing rows.
 
-Three tests:
+**Allocation is informational, never blocking.** The POST route
+accepts any target_pct value, even when the per-profile sum drifts
+above or below 100. The user builds the portfolio incrementally
+and the per-class "Alvo X%" badge surfaces the delta in real time
+but never aborts the request.
+
+Four tests:
   1. ``test_post_class_creates_row`` — 2 existing classes at 60/30
      (sum = 90); POST a 3rd with name "Bonds", target_pct 10; expect
      201; the response has the new class's id, name, and target_pct;
      DB has 3 rows for the profile; sum is 100.
-  2. ``test_post_class_invalid_sum_returns_422`` — 2 existing at 60/30
-     (sum = 90); POST a 3rd with target_pct 30 (new sum = 120); expect
-     422; body ``{"detail": "Sobra 20%"}``; DB unchanged (2 rows).
-  3. ``test_post_class_duplicate_name_returns_409`` — 2 existing, one
-     named "Stocks"; POST another "Stocks"; expect 409; DB unchanged
-     (2 rows).
+  2. ``test_post_class_creates_even_with_non_100_sum`` — 2 existing
+     at 60/30 (sum = 90); POST a 3rd with target_pct 30 (new sum =
+     120); expect 201 (NOT 422) because allocation is informational.
+     DB has 3 rows.
+  3. ``test_post_first_class_at_60_percent`` — 0 existing classes.
+     POST a class at 60% directly. Expect 201. The first class can
+     be at any value (the original "Falta X%" bug was removed when
+     per-profile sum validation was dropped).
+  4. ``test_post_class_duplicate_name_returns_409`` — 2 existing,
+     one named "Stocks"; POST another "Stocks"; expect 409; DB
+     unchanged (2 rows).
 """
 
 from __future__ import annotations

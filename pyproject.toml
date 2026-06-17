@@ -96,9 +96,9 @@ serve-prod  = { cmd = "uv run uvicorn {app_target} --host 0.0.0.0 --port 8000", 
 
 # ── Tests ───────────────────────────────────────────────────────────────────
 test             = { cmd = "uv run pytest",                                           help = "Run the full test suite (unit + integration + e2e)" }
-test-unit        = { cmd = "uv run pytest -m unit",                                   help = "Run unit tests only (pure functions, no DB no HTTP)" }
-test-integration = { cmd = "uv run pytest -m integration",                            help = "Run integration tests (DB, TestClient, audit pipeline)" }
-test-e2e         = { cmd = "uv run pytest tests/e2e -v",                             help = "Run end-to-end (Playwright) tests" }
+test-unit        = { cmd = "uv run pytest -m unit",                                   help = "pure-function tests, no DB no HTTP, no Playwright" }
+test-integration = { cmd = "uv run pytest -m integration",                            help = "tests requiring DB, TestClient, or audit pipeline (full S0* + T0* route families)" }
+test-e2e         = { cmd = "uv run pytest tests/e2e -v",                             help = "Playwright tests under tests/e2e/" }
 test-file        = { cmd = "uv run pytest -v",                                        help = "Run a specific test file:  task test-file tests/test_X.py" }
 test-pattern     = { cmd = "uv run pytest -v -k",                                     help = "Run tests matching a name substring:  task test-pattern \"smoke\"" }
 test-one         = { cmd = "uv run pytest -v",                                        help = "Run a single test by node id:  task test-one tests/test_X.py::test_y" }

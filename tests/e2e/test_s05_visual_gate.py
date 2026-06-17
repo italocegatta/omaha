@@ -2,11 +2,12 @@
 
 Captures a full-page screenshot of the dashboard with 3 classes
 (one expanded with 2 assets, one with 1, one empty) and asserts
-the screenshot file is non-empty.
+structural content is present BEFORE saving the screenshot.
 
-The screenshot is the canonical evidence — pixel diffing against
-an M001 baseline is a future follow-up (the baseline was not
-captured during M001).
+The structural checks (class count, asset count, BRL formatting)
+are the gate. The screenshot is the human-readable evidence —
+pixel diffing against an M001 baseline is a future follow-up
+(the baseline was not captured during M001).
 """
 
 from __future__ import annotations
@@ -91,8 +92,11 @@ class TestS05VisualGate:
         """Capture a full-page screenshot of the polished dashboard.
 
         The dashboard has 3 classes (one expanded with 2 assets, one
-        with 1, one empty). The screenshot is saved to
-        /tmp/s05_e2e_screenshots/s05_dashboard_polish.png.
+        with 1, one empty). Structural checks run BEFORE the screenshot
+        is captured (class-summary-row count == 3, dashboard-asset-row
+        count >= 1, BRL formatting present). The screenshot is saved to
+        /tmp/s05_e2e_screenshots/s05_dashboard_polish.png for human
+        review only — the file-size assertion is removed.
         """
         _login_and_select_italo(page, live_url)
         _create_seeded_classes(page, live_url)
@@ -109,13 +113,33 @@ class TestS05VisualGate:
             timeout=5000,
         )
 
-        # Capture the screenshot
+        # ------------------------------------------------------------------
+        # Structural pre-assertions (D4): the gate is the DOM, not the
+        # file size. Run these BEFORE the screenshot so a regression in
+        # class/asset rendering fails fast with a clear assertion.
+        # ------------------------------------------------------------------
+        class_rows = page.locator('[data-testid="class-summary-row"]')
+        assert class_rows.count() == 3, (
+            f"expected 3 class-summary-row, got {class_rows.count()}"
+        )
+
+        asset_rows = page.locator('[data-testid="dashboard-asset-row"]')
+        assert asset_rows.count() >= 1, (
+            f"expected >= 1 dashboard-asset-row, got {asset_rows.count()}"
+        )
+
+        main_text = page.locator("main").inner_text()
+        assert "R$" in main_text, "expected BRL formatting (R$) in dashboard main text"
+
+        # ------------------------------------------------------------------
+        # Capture the screenshot AFTER the structural checks pass so the
+        # human-readable artifact survives a green run.
+        # ------------------------------------------------------------------
         SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
         screenshot_path = SCREENSHOT_DIR / "s05_dashboard_polish.png"
         page.screenshot(path=str(screenshot_path), full_page=True)
 
-        # Assert the screenshot file is non-empty
+        # The screenshot is human-readable evidence, not the gate. The
+        # structural assertions above already proved the page renders;
+        # the file just needs to exist.
         assert screenshot_path.exists(), f"Screenshot not created at {screenshot_path}"
-        assert (
-            screenshot_path.stat().st_size > 1024
-        ), f"Screenshot too small: {screenshot_path.stat().st_size} bytes"

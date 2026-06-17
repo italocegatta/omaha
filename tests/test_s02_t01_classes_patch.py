@@ -1,25 +1,28 @@
-"""T01: PATCH /api/classes/{id} for inline class target_pct edits with per-profile sum validation.
+"""T01: PATCH /api/classes/{id} for inline class target_pct edits.
 
 The dashboard's Alpine component clicks the % cell, turns it into an
 input, and on blur sends a PATCH with ``{"target_pct": "<new>"}``.
 Only the ``target_pct`` field is accepted — name changes and other
 mutations go through the snapshot ``POST /classes`` editor.
 
-Three tests:
-  1. ``test_patch_class_updates_target_pct`` — 3 classes at 33.33/33.33/33.34
-     (sum = 100.00); PATCH the first from 33.33 to 33.34 (new sum = 100.01,
-     within 0.01 tolerance); expect 200; response has
-     ``{"target_pct": "33.34"}``; DB row updated.
-  2. ``test_patch_class_invalid_sum_returns_422`` — 3 classes at 30/30/40
-     (sum = 100); PATCH the first to 60 (sum becomes 60+30+40=130); expect
-     422; body ``{"detail": "Sobra 30%"}``; DB row unchanged.
-  3. ``test_patch_class_cross_profile_404`` — log in as profile A; PATCH a
-     class belonging to profile B; expect 404.
+**Allocation is informational, never blocking.** The PATCH route
+accepts any target_pct value, even when the per-profile sum drifts
+above or below 100. The user adjusts incrementally; the per-class
+"Alvo X%" badge surfaces the delta in real time but never aborts
+the request.
 
-The plan originally specified 30/30/40 → PATCH first to 50 for test 1,
-but 50+30+40=120 exceeds the 100 ± 0.01 tolerance and would fail with
-"Sobra 20%". The plan's numerical example is corrected here using
-33.33/33.33/33.34 → PATCH 33.33 to 33.34 (delta 0.01, within tolerance).
+Three tests:
+  1. ``test_patch_class_updates_target_pct`` — 3 classes at
+     33.33/33.33/33.34 (sum = 100.00). PATCH the first from 33.33 to
+     33.34 (new sum = 100.01, within 0.01 tolerance). Expect 200,
+     response ``{"target_pct": "33.34"}``, DB row updated.
+  2. ``test_patch_class_allows_any_target_pct`` — 3 classes at
+     30/30/40 (sum = 100). PATCH the first to 60 → new sum = 130.
+     Expect 200 (NOT 422) because allocation is informational, not
+     blocking. The ``Sobra 30%`` delta shows in the UI badge but
+     the row commits.
+  3. ``test_patch_class_cross_profile_404`` — log in as profile A;
+     PATCH a class belonging to profile B; expect 404.
 """
 
 from __future__ import annotations

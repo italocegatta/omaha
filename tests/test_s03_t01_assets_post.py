@@ -1,10 +1,16 @@
-"""T01: POST /api/assets for adding a single asset with per-class sum validation.
+"""T01: POST /api/assets for adding a single asset.
 
 The dashboard's Alpine ``+`` component (S03/T03) sends a JSON POST with
 ``{"name": "...", "asset_class_id": ..., "target_pct": "..."}`` to create a
 new asset under the selected class. ``target_pct`` is optional and
 defaults to ``0`` (matches the S01 D015 contract: an asset can exist
 in a class at 0% while the user is still building the allocation).
+
+**Per-class sum is still blocking.** The asset-level validator
+(:func:`omaha.validators.validate_target_pct_sum`) returns 422 when
+the per-class sum exceeds 100 — the user must redistribute before
+adding. The per-profile sum gate is informational only (see T01/T02
+in ``test_s02_t01_classes_patch.py``); per-class is enforced.
 
 Five tests:
   1. ``test_post_api_asset_creates_row_with_zero_target`` — empty class;
@@ -14,7 +20,9 @@ Five tests:
   2. ``test_post_api_asset_per_class_sum_returns_422`` — class already
      has one asset at ``target_pct=100`` (sum = 100); POST a 2nd
      with ``target_pct="50"`` (new sum = 150); expect 422 with
-     ``{"detail": "Sobra 50%"}``; DB unchanged (1 row).
+     ``{"detail": "Sobra 50%"}`` (the per-class validator is the single
+     source of truth — the route re-emits the message verbatim). DB
+     unchanged (1 row).
   3. ``test_post_api_asset_duplicate_name_returns_409`` — POST
      "PETR4" → 201; POST another "PETR4" → 409; DB has 1 row.
   4. ``test_post_api_asset_empty_name_returns_422`` — POST ``{"name":

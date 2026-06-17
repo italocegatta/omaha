@@ -145,3 +145,45 @@ via the modal that this project is fixing).
   attempt); the live code uses the `x-init $nextTick` + `x-effect`
   pattern. Do not "fix" the code to match the change artifacts — fix
   the change artifacts.
+
+## Test marker rule — explicit allow-list, not pattern matching
+
+**Rule:** `tests/conftest.py::pytest_collection_modifyitems` partitions
+the suite via two lists:
+
+- `_INTEGRATION_PREFIXES` — full path prefixes for files that hit DB,
+  TestClient, or the audit pipeline. Currently S02/S03/S04 + T01 model
+  tests + T02 routes/seed + T03 routes/auth/e2e + T04 e2e + T06
+  backup/healthz + T99.
+- `_UNIT_FILES` — full file basenames for the small set of pure-function
+  tests (audit, parsers, validators, dockerfile smoke, logging). These
+  predate the integration list and would otherwise trip
+  `UnknownTestPath`.
+- `tests/e2e/*.py` — no marker, run by `task test-e2e`.
+- `tests/audit_integration/*.py` — `@pytest.mark.integration`.
+- A module-level `pytestmark` wins over the path rule (already
+  supported; `test_audit_inventory.py` uses this).
+
+Any `tests/test_*.py` file that hits DB/TestClient but is NOT in
+`_INTEGRATION_PREFIXES` emits a `UnknownTestPath` warning. The warning
+is the loud-future-drift signal: if you add `tests/test_t07_*.py` that
+hits DB, you MUST also add its prefix to `_INTEGRATION_PREFIXES`,
+otherwise the file silently becomes `unit` and pollutes the unit subset.
+
+### Why
+
+The previous rule used a coarse "default everything to `unit`" branch
+with carve-outs for `tests/e2e/` and `tests/audit_integration/`. Net
+effect: ~25 files that hit DB + TestClient (S02/S03/S04 + T0* families)
+were silently tagged `unit`, defeating the purpose of
+`task test-integration`. `task test-unit` ran 277 tests in 44s; with
+the explicit allow-list it runs 121 tests in 1.3s.
+
+### When this applies
+
+- Adding a new `tests/test_*.py` file that hits DB / TestClient — add
+  the prefix to `_INTEGRATION_PREFIXES` in `tests/conftest.py`.
+- Adding a new pure-function test under `tests/` — add the file basename
+  to `_UNIT_FILES` to silence the `UnknownTestPath` warning.
+- Reviewing a PR that introduces a new test file in `tests/` — verify
+  the marker assignment matches what the test does.

@@ -52,16 +52,22 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
+from omaha.csv_import import parse_positions
+
 from .test_s04_user_journey import _login_and_select_italo
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 FIXTURE_PATH = REPO_ROOT / "tests" / "fixtures" / "posicao_italo.csv"
 
-# Total parsed positions from posicao_italo.csv:
-# 48 rows - 7 with "-" (invalid qty) = ~41 valid rows.
-# All are "unmatched" since the test creates no pre-existing assets.
-# The exact count depends on the CSV's row structure.
-EXPECTED_MIN_PARSED = 38
+# Per-ticker expected class map. The M002/S06 fixture has 48 unique tickers;
+# each ticker's expected class is derived from its broker category, with
+# manual overrides for the 3 categories the matcher cannot resolve
+# (BR Dividendos / Cripto / (Nao configurado)).
+_MANUAL_OVERRIDES: dict[str, str] = {
+    "BR Dividendos": "FII",
+    "Cripto": "Internacional",
+    "(Não configurado)": "RF Pos",
+}
 
 # The 5 classes the test creates, matching CSV categories.
 CLASS_NAMES = [
@@ -210,6 +216,21 @@ class TestS06PosicaoItaloImport:
         # ------------------------------------------------------------------
         _login_and_select_italo(page, live_url)
 
+        # Derive the expected parsed-row count + per-ticker expected class
+        # from the fixture + the matcher rules. The fixture has 48 unique
+        # tickers; each one maps to a class via its broker category, with
+        # manual overrides for the 3 unmatched categories.
+        parsed_positions = parse_positions(FIXTURE_PATH.read_text())
+        expected_count = len(parsed_positions)
+        expected_ticker_class: dict[str, str] = {}
+        for p in parsed_positions:
+            cat = (p.suggested_category or "").strip()
+            expected = CATEGORY_CLASS_MAP.get(cat)
+            if expected is None:
+                expected = _MANUAL_OVERRIDES.get(cat)
+            assert expected is not None, f"no class rule for category {cat!r}"
+            expected_ticker_class[p.broker_ticker] = expected
+
         # Create 5 classes at 20% each (sum = 100).
         _create_seed_classes(page, [(name, 20) for name in CLASS_NAMES])
 
@@ -275,8 +296,8 @@ class TestS06PosicaoItaloImport:
         asset_classes = store_data["assetClasses"]
 
         assert (
-            len(unmatched) >= EXPECTED_MIN_PARSED
-        ), f"expected at least {EXPECTED_MIN_PARSED} unmatched rows, got {len(unmatched)}"
+            len(unmatched) == expected_count
+        ), f"expected exactly {expected_count} unmatched rows, got {len(unmatched)}"
 
         # Build a ticker -> category lookup from the raw data.
         ticker_category: dict[str, str] = {}
@@ -286,7 +307,7 @@ class TestS06PosicaoItaloImport:
         # Build a class name -> id map from the server response.
         ac_map: dict[str, int] = {ac["name"]: ac["id"] for ac in asset_classes}
 
-        # ----- Verify suggested_class_id for each category -----
+        # ----- Verify suggested_class_id for each category (exact equality) -----
         mismatches: list[str] = []
         for r in unmatched:
             cat = (r["suggested_category"] or "").strip()
@@ -312,19 +333,18 @@ class TestS06PosicaoItaloImport:
                         f"but got {r['suggested_class_id']}"
                     )
 
-        # Allow some mismatches for edge cases (e.g. a category label
-        # in the CSV that happens to match a different class name).
-        # The key assertion is that MOST rows got correct suggestions.
-        mismatch_ratio = len(mismatches) / max(len(unmatched), 1)
-        assert mismatch_ratio < 0.15, (
+        assert not mismatches, (
             f"{len(mismatches)}/{len(unmatched)} rows have incorrect "
             f"suggested_class_id. First 10: {mismatches[:10]}"
         )
 
         # ----- Verify the Alpine store assignments use suggested_class_id -----
-        # For rows with a suggested_class_id, the assignment should match it.
-        # For rows without (None), the assignment should be the first class.
-        default_id = asset_classes[0]["id"] if asset_classes else ""
+        # For rows with a suggested_class_id, the assignment must match it.
+        # For rows without (None), the assignment must be the empty string
+        # — the user picks a class in the modal before commit. The commit
+        # function (see src/omaha/templates/dashboard.html) skips rows with
+        # empty class_id, so the test must override the empty ones before
+        # calling commit. (See the page.evaluate block below.)
         wrong_assignments: list[str] = []
         for r in unmatched:
             ticker = r["broker_ticker"]
@@ -334,16 +354,16 @@ class TestS06PosicaoItaloImport:
                 continue
 
             expected = (
-                r["suggested_class_id"] if r["suggested_class_id"] is not None else default_id
+                r["suggested_class_id"] if r["suggested_class_id"] is not None else ""
             )
             if assignment["class_id"] != expected:
                 wrong_assignments.append(
-                    f"{ticker}: assignment={assignment['class_id']} "
-                    f"expected={expected} "
-                    f"(suggested={r['suggested_class_id']}, default={default_id})"
+                    f"{ticker}: assignment={assignment['class_id']!r} "
+                    f"expected={expected!r} "
+                    f"(suggested={r['suggested_class_id']!r})"
                 )
 
-        assert len(wrong_assignments) < 5, (
+        assert not wrong_assignments, (
             f"{len(wrong_assignments)} wrong Alpine assignments. "
             f"First 10: {wrong_assignments[:10]}"
         )
@@ -435,24 +455,64 @@ class TestS06PosicaoItaloImport:
 
         try:
             page.wait_for_function(
-                "() => document.querySelectorAll("
-                "'[data-testid=\"dashboard-asset-row\"]').length >= 10",
-                timeout=10000,
+                f"() => document.querySelectorAll("
+                f"'[data-testid=\"dashboard-asset-row\"]').length === {expected_count}",
+                timeout=15000,
             )
         except Exception:
             _debug_dump(page, "post_commit_asset_count")
             raise
 
         row_count = dashboard_rows.count()
-        assert row_count >= 10, f"expected at least 10 asset rows after import, " f"got {row_count}"
+        assert row_count == expected_count, (
+            f"expected exactly {expected_count} asset rows after import, got {row_count}"
+        )
 
         # Verify asset rows have position counts.
-        for i in range(min(row_count, 10)):
+        for i in range(row_count):
             row = dashboard_rows.nth(i)
             count_str = row.get_attribute("data-position-count")
             assert count_str is not None, f"row {i} missing data-position-count"
             count = int(count_str)
             assert count >= 1, f"row {i} has {count} positions, expected >= 1"
+
+        # Verify every parsed ticker landed in the expected class.
+        # Walk the dashboard DOM: each asset row lives inside a
+        # .class-section whose data-testid="class-summary-row" carries
+        # the class name in a [data-testid="class-section-name"] child.
+        asset_class_map: dict[str, str] = page.evaluate(
+            """() => {
+                const out = {};
+                document.querySelectorAll('.class-section').forEach((sec) => {
+                    const nameEl = sec.querySelector('[data-testid="class-section-name"]');
+                    if (!nameEl) return;
+                    const className = nameEl.textContent.trim();
+                    sec.querySelectorAll('[data-testid="dashboard-asset-row"]').forEach((row) => {
+                        const assetNameEl = row.querySelector('[data-testid="asset-row-name"]');
+                        if (assetNameEl) {
+                            out[assetNameEl.textContent.trim()] = className;
+                        }
+                    });
+                });
+                return out;
+            }"""
+        )
+
+        ticker_class_mismatches: list[str] = []
+        for ticker, expected_class in expected_ticker_class.items():
+            actual = asset_class_map.get(ticker)
+            if actual is None:
+                ticker_class_mismatches.append(f"{ticker}: not found on dashboard")
+            elif actual != expected_class:
+                ticker_class_mismatches.append(
+                    f"{ticker}: expected class={expected_class!r} got {actual!r}"
+                )
+
+        assert not ticker_class_mismatches, (
+            f"{len(ticker_class_mismatches)}/{len(expected_ticker_class)} "
+            f"tickers landed in the wrong class. First 10: "
+            f"{ticker_class_mismatches[:10]}"
+        )
 
         # Verify some expected tickers appear on the dashboard.
         dashboard_text = page.locator("main").inner_text()

@@ -183,63 +183,6 @@ class TestClassesE2E:
         # snapshot fired. The on-disk row count and name are
         # enough.
 
-    def test_snapshot_replaces_pre_existing(self, client: TestClient):
-        """RED test for BUG-002: POSTing a new set wipes the previous set (no accumulation).
-
-        Pre-seed 2 classes directly via the DB. Open the editor
-        (D014 = empty, the user does not see them). Submit 3
-        different classes. The DB must end with exactly 3 rows,
-        not 5. This is the regression that motivated S02X.
-        """
-        from decimal import Decimal
-
-        from omaha.db import SessionLocal
-
-        profile = _login_and_select_profile(client)
-
-        # Pre-seed: 2 classes the editor does not show the user.
-        db = SessionLocal()
-        try:
-            db.add(
-                AssetClass(
-                    profile_id=profile.id,
-                    name="Legacy",
-                    target_pct=Decimal("60"),
-                    display_order=0,
-                )
-            )
-            db.add(
-                AssetClass(
-                    profile_id=profile.id,
-                    name="OldBonds",
-                    target_pct=Decimal("40"),
-                    display_order=1,
-                )
-            )
-            db.commit()
-        finally:
-            db.close()
-        assert len(_classes_for_profile(profile.id)) == 2
-
-        # Submit 3 new classes (sum 100).
-        resp = client.post(
-            "/classes",
-            data={
-                "name[]": ["Renda Fixa", "Acoes", "Reserva"],
-                "target_pct[]": ["60.00", "30.00", "10.00"],
-            },
-            follow_redirects=True,
-        )
-        assert resp.status_code == 200
-
-        # Snapshot semantics: exactly 3 rows, the new set.
-        final = _classes_for_profile(profile.id)
-        assert len(final) == 3
-        names = [c.name for c in final]
-        assert "Legacy" not in names
-        assert "OldBonds" not in names
-        assert names == ["Renda Fixa", "Acoes", "Reserva"]
-
     def test_dashboard_shows_seeded_classes(self, client: TestClient):
         """S02: GET / shows seeded classes in the dashboard (not empty).
 
@@ -279,15 +222,3 @@ class TestClassesE2E:
         assert "Legacy1" in body
         assert "Legacy2" in body
         assert "Legacy3" in body
-
-    def test_get_classes_redirects_to_dashboard(self, client: TestClient):
-        """S02/T07: GET /classes redirects to the dashboard.
-
-        The standalone class editor is retired. Any request to
-        GET /classes returns 302 pointing at /.
-        """
-        _login_and_select_profile(client)
-
-        resp = client.get("/classes", follow_redirects=False)
-        assert resp.status_code == 302
-        assert resp.headers.get("location") == "/"

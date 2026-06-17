@@ -123,15 +123,70 @@ def client(_omaha_test_env: dict[str, str]) -> TestClient:
 # Two markers partition the suite: ``unit`` (pure functions, no DB no HTTP)
 # and ``integration`` (boots the FastAPI app, hits a SQLite DB, uses
 # TestClient, or reads the live ``app.css`` / templates).  The rule is
-# location-based so we don't have to touch every existing test file:
+# location-based so we don't have to touch every existing test file.
 #
-# * tests/e2e/*.py             → no marker, run via ``task test-e2e``
-# * tests/audit_integration/*  → @pytest.mark.integration
-# * tests/*.py (everything else) → @pytest.mark.unit
+# * tests/e2e/*.py                       → no marker (Playwright, run via
+#                                          ``task test-e2e``)
+# * tests/audit_integration/*            → @pytest.mark.integration
+# * explicit integration prefix list     → @pytest.mark.integration
+# * everything else in tests/*.py        → @pytest.mark.unit
 #
-# The hook runs once per collection and tags every item.  ``task test-unit``
-# and ``task test-integration`` then become plain ``-m unit`` /
-# ``-m integration`` invocations.
+# The explicit integration prefix list (see ``_INTEGRATION_PREFIXES`` below)
+# is the single source of truth: any new ``tests/test_*.py`` that hits DB
+# or TestClient MUST be added there, or it silently gets the ``unit``
+# marker and pollutes the unit subset.
+#
+# A new file in ``tests/*.py`` that matches neither set triggers a
+# ``UnknownTestPath`` warning so future drift is loud.
+
+
+class UnknownTestPath(UserWarning):
+    """Raised when a ``tests/*.py`` file matches neither the integration
+    prefix list nor the e2e carve-out.  This is a soft warning, not a
+    hard error: the file is still tagged ``unit`` so the test runs, but
+    the next agent will see the warning and decide whether the prefix
+    list needs updating.
+    """
+
+
+_INTEGRATION_PREFIXES = (
+    "tests/test_s02_",
+    "tests/test_s03_",
+    "tests/test_s04_",
+    "tests/test_t01_assets_model.py",
+    "tests/test_t01_classes_model.py",
+    "tests/test_t01_positions_model.py",
+    "tests/test_t02_assets_routes.py",
+    "tests/test_t02_classes_routes.py",
+    "tests/test_t02_seed.py",
+    "tests/test_t03_assets_e2e.py",
+    "tests/test_t03_auth.py",
+    "tests/test_t03_classes_e2e.py",
+    "tests/test_t03_imports_routes.py",
+    "tests/test_t03_pages_routes.py",
+    "tests/test_t04_e2e.py",
+    "tests/test_t06_backup.py",
+    "tests/test_t06_healthz.py",
+    "tests/test_t99_assets_patch.py",
+)
+
+
+# Unit allow-list: files that are pure functions, no DB no HTTP no Playwright.
+# These predate the explicit integration prefix list and would otherwise
+# trip the ``UnknownTestPath`` warning. Adding them here silences the
+# warning for the legitimate unit set.
+_UNIT_FILES = frozenset(
+    {
+        "tests/test_audit_color_resolver.py",
+        "tests/test_audit_css_parser.py",
+        "tests/test_audit_report.py",
+        "tests/test_phase02_tokens.py",
+        "tests/test_t01_asset_target.py",
+        "tests/test_t02_csv_import.py",
+        "tests/test_t06_dockerfile.py",
+        "tests/test_t06_logging.py",
+    }
+)
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
@@ -142,7 +197,16 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     skipped — the file author wins over the location rule. This lets
     tests that genuinely depend on production files opt out of the
     unit subset without renaming or moving files.
+
+    Files in ``tests/e2e/`` are left un-marker'd (Playwright tests
+    are filtered separately by path). Files in
+    ``tests/audit_integration/`` and any path matching
+    ``_INTEGRATION_PREFIXES`` are tagged ``integration``. Everything
+    else in ``tests/*.py`` is tagged ``unit`` — and if it does not
+    match any of the prefixes above, a ``UnknownTestPath`` warning
+    is emitted so the operator can update the prefix list.
     """
+    warned_paths: set[str] = set()
     for item in items:
         existing = {m.name for m in item.iter_markers()}
         if "unit" in existing or "integration" in existing:
@@ -152,5 +216,24 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             continue
         if "/tests/audit_integration/" in path:
             item.add_marker(pytest.mark.integration)
-        else:
+            continue
+        if any(prefix in path for prefix in _INTEGRATION_PREFIXES):
+            item.add_marker(pytest.mark.integration)
+            continue
+        if path.endswith("/tests/conftest.py"):
+            continue
+        if any(path.endswith(p) for p in _UNIT_FILES):
             item.add_marker(pytest.mark.unit)
+            continue
+        item.add_marker(pytest.mark.unit)
+        if path not in warned_paths:
+            warned_paths.add(path)
+            import warnings
+
+            warnings.warn(
+                f"{path} matches no integration prefix and is not in tests/e2e/. "
+                f"Tagged as unit. If this file hits DB / TestClient, "
+                f"add its prefix to _INTEGRATION_PREFIXES in tests/conftest.py.",
+                UnknownTestPath,
+                stacklevel=2,
+            )
