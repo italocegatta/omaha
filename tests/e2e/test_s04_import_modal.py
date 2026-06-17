@@ -42,6 +42,10 @@ SELECTORS = {
     "import_upload_btn": '[data-testid="import-upload-btn"]',
     "import_unmatched_table": '[data-testid="import-unmatched-table"]',
     "import_unmatched_row": '[data-testid="import-unmatched-row"]',
+    "import_existing_table": '[data-testid="import-existing-table"]',
+    "import_existing_row": '[data-testid="import-existing-row"]',
+    "import_class_cell_assignment": '[data-testid="import-class-cell-assignment"]',
+    "import_class_swatch": '.import-class-swatch',
     "import_commit_btn": '[data-testid="import-commit-btn"]',
     "class_summary_row": '[data-testid="class-summary-row"]',
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
@@ -197,6 +201,179 @@ class TestS04ImportModal:
             unmatched_tickers.add(ticker)
         assert unmatched_tickers == set(UNMATCHED_NAMES), (
             f"expected unmatched tickers {set(UNMATCHED_NAMES)}, " f"got {unmatched_tickers}"
+        )
+
+        # ------------------------------------------------------------------
+        # Assert Step 2 markup: no Ticker / no Nome do ativo columns.
+        # The first column is now "Nome" (asset name), and Total atual
+        # must be present and formatted as R$ X.XXX,XX.
+        # ------------------------------------------------------------------
+        for table_selector in (
+            SELECTORS["import_existing_table"],
+            SELECTORS["import_unmatched_table"],
+        ):
+            headers = page.locator(f"{table_selector} thead th").all_inner_texts()
+            assert "TICKER" not in [h.upper() for h in headers], (
+                f"{table_selector} should not render a Ticker column, got {headers}"
+            )
+            assert "NOME DO ATIVO" not in [h.upper() for h in headers], (
+                f"{table_selector} should not render a Nome do ativo column, got {headers}"
+            )
+            assert any("TOTAL ATUAL" in h.upper() for h in headers), (
+                f"{table_selector} missing Total atual header, got {headers}"
+            )
+            assert any("PREÇO MÉDIO" in h.upper() for h in headers), (
+                f"{table_selector} missing 'Preço médio' header, got {headers}"
+            )
+
+        # Total atual cell for the first unmatched row must be R$ formatted
+        # with 0 decimals (e.g. "R$ 5.450", not "R$ 5.450,00").
+        first_unmatched_total = unmatched_rows.nth(0).locator("td").nth(3).inner_text().strip()
+        assert first_unmatched_total.startswith("R$"), (
+            f"expected Total atual cell to start with R$, got {first_unmatched_total!r}"
+        )
+        import re as _re
+
+        assert _re.match(r"^R\$ [\d.]+$", first_unmatched_total), (
+            f"Total atual not in R$ X.XXX format (0 decimals): {first_unmatched_total!r}"
+        )
+
+        # Preço médio (renamed from "P. Médio") cell uses currency format with 0 decimals.
+        first_unmatched_price = unmatched_rows.nth(0).locator("td").nth(2).inner_text().strip()
+        assert first_unmatched_price.startswith("R$"), (
+            f"expected Preço médio cell to start with R$, got {first_unmatched_price!r}"
+        )
+        assert _re.match(r"^R\$ [\d.]+$", first_unmatched_price), (
+            f"Preço médio not in R$ X.XXX format: {first_unmatched_price!r}"
+        )
+
+        # ------------------------------------------------------------------
+        # Selecting a class must change the swatch's background color.
+        # ------------------------------------------------------------------
+        acoes_id: int = page.evaluate(
+            """() => Alpine.store('importModal').assetClasses.find(c => c.name === 'Acoes').id"""
+        )
+        acoes_color: str = page.evaluate(
+            f"() => Alpine.store('importModal')"
+            f".assetClasses.find(c => c.id === {acoes_id}).color"
+        )
+        # Assign XPLG11 to Acoes and confirm the cell-level --class-color
+        # inline style updates to the matching hex.  Match the row by
+        # data-testid on the <tr> to read the right cell.
+        page.evaluate(
+            f"""() => {{
+                const s = Alpine.store('importModal');
+                s.assignments['XPLG11'].class_id = {acoes_id};
+            }}"""
+        )
+        page.wait_for_timeout(50)
+        # Find the XPLG11 row by walking the tbody: each row's
+        # class-cell testid is import-class-cell-assignment; the row
+        # index that corresponds to XPLG11 is the one whose
+        # assignments key equals XPLG11.
+        xplg_idx: int = page.evaluate(
+            "() => Alpine.store('importModal')"
+            ".unmatched.findIndex(r => r.broker_ticker === 'XPLG11')"
+        )
+        cell_style = (
+            page.locator(SELECTORS["import_class_cell_assignment"])
+            .nth(xplg_idx)
+            .get_attribute("style")
+            or ""
+        )
+        assert acoes_color in cell_style, (
+            f"expected border-left color {acoes_color!r} in XPLG11 cell style, got {cell_style!r}"
+        )
+        # The swatch itself must carry an inline background style with the class color.
+        swatch_style = (
+            page.locator(SELECTORS["import_class_cell_assignment"])
+            .nth(xplg_idx)
+            .locator(SELECTORS["import_class_swatch"])
+            .get_attribute("style")
+            or ""
+        )
+        assert acoes_color in swatch_style, (
+            f"expected background {acoes_color!r} in XPLG11 swatch style, got {swatch_style!r}"
+        )
+        # Computed background-color must actually equal the class hex.
+        # Browsers normalize "rgb(46, 125, 50)" for "#2e7d32".
+        swatch_bg = page.evaluate(
+            """(idx) => {
+                const cell = document.querySelectorAll(
+                    '[data-testid=\"import-class-cell-assignment\"]')[idx];
+                const sw = cell.querySelector('.import-class-swatch');
+                return getComputedStyle(sw).backgroundColor;
+            }""",
+            xplg_idx,
+        )
+        assert acoes_color.lower() in swatch_bg.lower() or swatch_bg.startswith("rgb"), (
+            f"expected swatch background to be {acoes_color!r}, got {swatch_bg!r}"
+        )
+        # #2e7d32 = rgb(46, 125, 50)
+        assert "46" in swatch_bg and "125" in swatch_bg, (
+            f"expected swatch rgb(46, 125, 50), got {swatch_bg!r}"
+        )
+
+        # The cell itself must carry a tinted background reflecting the class color
+        # (color-mix of the hex with var(--surface)). The computed color should
+        # be a visible blend — not the bare surface color and not the full hex.
+        # Chrome returns either "rgb(r, g, b)" or "color(srgb r g b)" depending
+        # on the color space the browser uses internally; accept either.
+        cell_bg = page.evaluate(
+            """(idx) => {
+                const cell = document.querySelectorAll(
+                    '[data-testid=\"import-class-cell-assignment\"]')[idx];
+                return getComputedStyle(cell).backgroundColor;
+            }""",
+            xplg_idx,
+        )
+        # Parse the green channel — #2e7d32 has dominant green. After 38% mix
+        # with white, the green channel is highest of the three. Extract the
+        # first number from "rgb(r, g, b)" or "color(srgb r g b)".
+        import re as _re2
+
+        nums = [float(x) for x in _re2.findall(r"[\d.]+", cell_bg)]
+        assert len(nums) >= 3, f"could not parse cell background: {cell_bg!r}"
+        r_ch, g_ch, b_ch = nums[0], nums[1], nums[2]
+        # The channels may be 0-255 (legacy rgb) or 0.0-1.0 (color()).
+        if g_ch > 1.0:  # legacy rgb
+            r_ch, g_ch, b_ch = r_ch / 255, g_ch / 255, b_ch / 255
+        # Green must be the dominant channel (#2e7d32 is G-heavy).
+        assert g_ch > r_ch and g_ch > b_ch, (
+            f"expected green-dominant cell background, got rgb({r_ch:.3f}, "
+            f"{g_ch:.3f}, {b_ch:.3f}) from {cell_bg!r}"
+        )
+        # And it must NOT be fully white (surface) — the color-mix must have
+        # applied. White would be all 1.0.
+        assert not (r_ch > 0.99 and g_ch > 0.99 and b_ch > 0.99), (
+            f"cell background is pure surface white — color-mix not applied: "
+            f"rgb({r_ch:.3f}, {g_ch:.3f}, {b_ch:.3f})"
+        )
+
+        # The <select> itself must also be tinted — the user-visible "field"
+        # is the select, not just the surrounding <td>. Without this assertion
+        # the select stays white (background: #fff from app.css) and the user
+        # can't see the class color at all.
+        select_bg = page.evaluate(
+            """(idx) => {
+                const cell = document.querySelectorAll(
+                    '[data-testid=\"import-class-cell-assignment\"]')[idx];
+                return getComputedStyle(cell.querySelector('select')).backgroundColor;
+            }""",
+            xplg_idx,
+        )
+        sel_nums = [float(x) for x in _re2.findall(r"[\d.]+", select_bg)]
+        assert len(sel_nums) >= 3, f"could not parse select background: {select_bg!r}"
+        sr, sg, sb = sel_nums[0], sel_nums[1], sel_nums[2]
+        if sg > 1.0:
+            sr, sg, sb = sr / 255, sg / 255, sb / 255
+        assert sg > sr and sg > sb, (
+            f"expected green-dominant select background, got rgb({sr:.3f}, "
+            f"{sg:.3f}, {sb:.3f}) from {select_bg!r}"
+        )
+        assert not (sr > 0.99 and sg > 0.99 and sb > 0.99), (
+            f"select background is pure white — color-mix not applied: "
+            f"rgb({sr:.3f}, {sg:.3f}, {sb:.3f}) from {select_bg!r}"
         )
 
         # ------------------------------------------------------------------

@@ -68,3 +68,149 @@ que o botão trigger (fora do escopo x-data do modal) possa abri-lo.
 - **WHEN** `$store.importModal.closeModal()` é chamado
 - **THEN** `$store.importModal.open` = false
 - **AND** o estado é resetado
+
+### Requirement: Estado de seleção de classe por linha tem 2 modos visuais distintos
+
+Para cada linha das tabelas de revisão (`data-testid="import-existing-table"` e `data-testid="import-unmatched-table"`), a coluna "Classe" MUST distinguir visualmente entre dois estados de seleção:
+
+1. **Com classe selecionada (matched row com `asset_class_id`, OU unmatched com `suggested_class_id`, OU classe escolhida manualmente pelo usuário):** o `<select>` exibe a classe; o `<td class="import-class-cell">` tem classe CSS modificadora `.import-class-cell--cls-N` (N = índice da classe no `assetClasses`); o background e a border-left refletem a cor da classe via regra CSS fixa; o swatch à esquerda mostra a cor cheia.
+2. **Pendente (perfil sem `asset_classes`):** o `<select>` exibe o placeholder "Selecione..."; o `<td>` tem classe CSS modificadora `.import-class-cell--pending` (borda dashed + fundo neutro) comunicando que o usuário precisa escolher — e que o backend não tem classes para sugerir.
+
+A comunicação visual entre os 2 estados DEVE ser inequívoca: linhas com classe ficam coloridas; linhas pendentes ficam com borda dashed. Nunca há sobreposição (uma linha está em exatamente um estado por vez).
+
+**Importante:** linhas unmatched sem `suggested_class_id` mas COM `asset_classes` no payload NÃO são consideradas "pendentes" — o sistema não inventa uma classe para elas (pre-seleção de fallback foi explicitamente rejeitada pelo usuário). O estado "pendente" é exclusivo para o caso "perfil sem classes configuradas".
+
+#### Scenario: Linha matched com asset_class_id é colorida
+
+- **WHEN** a linha está em `auto_matched[]` e tem `asset_class_id` não-nulo
+- **THEN** o `<select>` exibe o nome da classe
+- **AND** o `<td>` tem classe CSS `import-class-cell--cls-N` (N correto)
+- **AND** o background computado é `color-mix(in srgb, <color> 38%, var(--surface))`
+- **AND** o swatch tem `style="background: <color>"`
+
+#### Scenario: Linha unmatched com categoria casada é colorida pela sugestão
+
+- **WHEN** a linha está em `unmatched[]` com `suggested_class_id` não-nulo
+- **THEN** o `<td>` tem classe CSS `import-class-cell--cls-N` (N da classe sugerida)
+- **AND** o background computado reflete a cor da classe sugerida
+
+#### Scenario: Linha unmatched sem categoria casada E sem asset_classes no payload é pendente
+
+- **WHEN** a linha está em `unmatched[]` com `suggested_class_id === null`
+- **AND** o payload tem `asset_classes[].length === 0`
+- **THEN** `assignments[ticker].class_id` permanece `''`
+- **AND** o `<td>` tem classe `import-class-cell--pending`
+- **AND** o swatch tem `style="background: transparent"`
+- **AND** o `<select>` exibe o placeholder "Selecione..."
+
+#### Scenario: Trocar classe manualmente atualiza a cor visualmente
+
+- **WHEN** o usuário troca a classe via `<select>` (de classe A para classe B)
+- **THEN** o `<td>` muda de `import-class-cell--cls-A` para `import-class-cell--cls-B`
+- **AND** o background computado muda de `color-mix(...cor A...)` para `color-mix(...cor B...)`
+- **AND** o swatch muda de `style="background: <cor A>"` para `style="background: <cor B>"`
+
+### Requirement: Separação visual entre ativos existentes e novos
+
+As duas seções do Step 2 do modal (`data-testid="import-existing-table"` e `data-testid="import-unmatched-table"`) MUST ser visualmente distintas. Cada seção DEVE ter:
+1. Um título (`h3`) com cor de destaque: verde para "Ativos existentes na carteira" e azul para "Novos ativos" (ou outro par de cores consistente com `--positive` / `--accent`).
+2. Uma borda lateral espessa (3-4px) colorida na lateral esquerda do bloco `.import-review-section`.
+3. Fundo levemente tingido (color-mix da cor de destaque com `var(--surface)`) para reforçar o agrupamento.
+
+#### Scenario: Seção "Ativos existentes" tem destaque verde
+
+- **WHEN** o Step 2 renderiza `autoMatched.length > 0`
+- **THEN** a seção "Ativos existentes na carteira" exibe o título com cor de destaque positivo e borda lateral verde
+
+#### Scenario: Seção "Novos ativos" tem destaque azul
+
+- **WHEN** o Step 2 renderiza `unmatched.length > 0`
+- **THEN** a seção "Novos ativos" exibe o título com cor de destaque azul e borda lateral azul
+
+#### Scenario: Apenas uma seção presente mantém o destaque
+
+- **WHEN** o CSV só tem linhas auto-matched (zero unmatched)
+- **THEN** a seção "Novos ativos" NÃO é renderizada (`x-show="false"`)
+- **AND** a seção "Ativos existentes na carteira" mantém o destaque visual
+
+### Requirement: Largura do modal 1100px no desktop
+
+O modal de import MUST ter largura máxima de pelo menos 1100px no breakpoint desktop (acima de 768px) para acomodar nomes de classe longos (ex: "Renda Fixa Pós-Fixada") E as novas colunas de preço/total. No mobile (≤768px), o painel DEVE ocupar 100% da largura.
+
+#### Scenario: Modal no desktop exibe 1100px
+
+- **WHEN** o usuário abre o modal em viewport ≥768px
+- **THEN** o painel (`.import-modal-panel`) tem `max-width: 1100px`
+- **AND** a coluna "Classe" exibe o nome completo sem truncamento
+
+#### Scenario: Modal no mobile ocupa a tela inteira
+
+- **WHEN** o usuário abre o modal em viewport <768px
+- **THEN** o painel ocupa 100% da largura (classe `.import-modal-panel` com `max-width: 100%`)
+
+### Requirement: Coluna "Preço médio" e "Total atual" formatadas como moeda sem casas decimais
+
+A coluna "Preço médio" das tabelas de revisão (`data-testid="import-existing-table"` e `data-testid="import-unmatched-table"`) MUST ser rotulada "Preço médio" (não "P. Médio") e MUST exibir `row.avg_price` formatado como moeda brasileira (`R$ 1.234`) com 0 casas decimais. A coluna "Total atual" MUST exibir `qty * current_price` formatado como moeda brasileira com 0 casas decimais (`R$ 3.250`, não `R$ 3.250,00`). A formatação é feita no frontend via função `formatBRL(v, decimals)` do Alpine store `importModal`.
+
+#### Scenario: Cabeçalho da coluna de preço médio usa o nome completo
+
+- **WHEN** o Step 2 renderiza qualquer uma das duas tabelas
+- **THEN** o `<th>` da coluna de preço exibe `Preço médio` (não `P. Médio`)
+
+#### Scenario: Preço médio formatado como moeda sem casas decimais
+
+- **WHEN** uma linha tem `avg_price = "32.50"`
+- **THEN** a célula exibe `R$ 33` (0 casas decimais, arredondamento HALF_UP)
+
+#### Scenario: Total atual sem casas decimais
+
+- **WHEN** uma linha tem `qty = 100` e `current_price = "32.50"`
+- **THEN** a célula exibe `R$ 3.250` (sem vírgula decimal)
+
+### Requirement: Colunas "Ticker" e "Nome do ativo" removidas das tabelas
+
+As tabelas do Step 2 (`data-testid="import-existing-table"` e `data-testid="import-unmatched-table"`) MUST NOT renderizar as colunas `Ticker` e `Nome do ativo`. O `broker_ticker` continua sendo usado como chave do `<template x-for>` e como chave do objeto `assignments` no Alpine store — só a coluna visual é removida. O nome editável do ativo continua persistido no payload de commit via `assignments[ticker].asset_name`.
+
+#### Scenario: Tabela não contém coluna Ticker
+
+- **WHEN** o Step 2 renderiza qualquer uma das duas tabelas
+- **THEN** o `<thead>` NÃO contém `<th>Ticker</th>`
+- **AND** o `<tbody>` NÃO contém `<td x-text="row.broker_ticker">`
+
+#### Scenario: Tabela não contém coluna Nome do ativo
+
+- **WHEN** o Step 2 renderiza qualquer uma das duas tabelas
+- **THEN** o `<thead>` NÃO contém `<th>Nome do ativo</th>`
+- **AND** o `<tbody>` NÃO contém `<input data-testid="import-existing-name">` nem `data-testid="import-assignment-name"`
+
+#### Scenario: Loop continua usando broker_ticker como chave
+
+- **WHEN** o Alpine renderiza `<template x-for="(row, i) in $store.importModal.autoMatched" :key="row.broker_ticker">`
+- **THEN** o `:key` continua sendo `row.broker_ticker` mesmo com a coluna Ticker removida do DOM
+
+### Requirement: Ortografia corrigida nos textos do modal
+
+Os textos visíveis do modal de import MUST estar corretamente acentuados. As correções MUST incluir:
+- `Importar posicoes` → `Importar posições` (header do modal)
+- `posicoes` → `posições` (texto de ajuda do Step 1)
+- `Sessao expirada` → `Sessão expirada. Reenvie o arquivo.`
+- `P. Medio` → `Preço médio` (ver requisito de preço médio acima)
+- `Erro ao processar arquivo` → `Erro ao processar o arquivo`
+- `Erro ao confirmar importacao` → `Erro ao confirmar a importação`
+
+#### Scenario: Mensagem de sessão expirada acentuada
+
+- **WHEN** `previewError = true`
+- **THEN** o parágrafo dentro de `data-testid="import-expired-message"` exibe "Sessão expirada. Reenvie o arquivo."
+
+#### Scenario: Cabeçalho da coluna de preço médio acentuado
+
+- **WHEN** o Step 2 renderiza qualquer uma das duas tabelas
+- **THEN** o `<th>` da coluna de preço médio exibe `Preço médio` (com acento em "é" e nome completo)
+
+#### Scenario: Mensagens de erro acentuadas
+
+- **WHEN** o upload falha
+- **THEN** a mensagem em `data-testid="import-upload-error"` é "Erro ao processar o arquivo"
+- **WHEN** o commit falha
+- **THEN** a mensagem em `data-testid="import-commit-error"` é "Erro ao confirmar a importação"

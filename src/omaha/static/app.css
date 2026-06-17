@@ -1249,7 +1249,7 @@ main { max-width: 760px; }
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: 10px;
-  max-width: 720px;
+  max-width: 1100px;
   width: 100%;
   max-height: 85vh;
   overflow-y: auto;
@@ -1355,6 +1355,44 @@ main { max-width: 760px; }
   font-size: 0.95rem;
   font-weight: 600;
   margin: 1rem 0 0.5rem 0;
+}
+
+.import-review-section--existing {
+  border-left: 4px solid var(--positive);
+  background: color-mix(in srgb, var(--positive) 5%, var(--surface));
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+.import-review-section--existing h3 {
+  color: var(--positive);
+}
+
+.import-review-section--new {
+  border-left: 4px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+.import-review-section--new h3 {
+  color: var(--accent);
+}
+
+.import-class-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-left: 0.5rem;
+  transition: border-color 0.15s;
+}
+.import-class-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+  display: inline-block;
 }
 
 .import-review-table {

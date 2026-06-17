@@ -47,6 +47,7 @@ from omaha.csv_import import (
     suggest_class_id,
 )
 from omaha.models import Asset, AssetClass, ImportPreview, Profile, User
+from omaha.routes.pages import _CLASS_COLORS
 
 router = APIRouter(tags=["imports"])
 
@@ -358,7 +359,14 @@ def _build_preview_response(
         .order_by(AssetClass.display_order)
         .all()
     )
-    asset_classes = [{"id": ac.id, "name": ac.name} for ac in class_rows]
+    asset_classes = [
+        {
+            "id": ac.id,
+            "name": ac.name,
+            "color": _CLASS_COLORS[index % len(_CLASS_COLORS)],
+        }
+        for index, ac in enumerate(class_rows)
+    ]
 
     asset_class_of: dict[int, int] = {}
     for asset in existing_assets:

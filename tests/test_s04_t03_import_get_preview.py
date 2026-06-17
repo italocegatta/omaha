@@ -218,6 +218,13 @@ class TestGetImportPreview:
         assert "current_price" in um
         assert "suggested_category" in um
 
+        # asset_classes carry color (hex string)
+        assert len(data["asset_classes"]) == 3
+        for ac in data["asset_classes"]:
+            assert "color" in ac
+            assert isinstance(ac["color"], str)
+            assert ac["color"].startswith("#")
+
     def test_get_preview_nonexistent_returns_404(self, client: TestClient) -> None:
         """Fetching a non-existent preview returns 404."""
         _login_and_select(client)

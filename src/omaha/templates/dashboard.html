@@ -433,7 +433,7 @@
      data-testid="import-modal-overlay">
   <div class="import-modal-panel" @click.stop>
     <div class="import-modal-header">
-      <h2>Importar posicoes</h2>
+      <h2>Importar posições</h2>
       <button type="button" class="import-modal-close" @click="$store.importModal.closeModal()">&times;</button>
     </div>
 
@@ -443,7 +443,7 @@
          x-transition:enter.duration.200ms>
       <div class="import-modal-upload-area">
         <p style="font-size:0.85rem;color:var(--muted);margin:0;">
-          Selecione um arquivo CSV com as posicoes do seu corretor
+          Selecione um arquivo CSV com as posições do seu corretor
         </p>
         <input type="file"
                accept=".csv"
@@ -475,7 +475,7 @@
       <div class="import-expired-message"
            x-show="$store.importModal.previewError"
            data-testid="import-expired-message">
-        <p>Sessao expirada. Reenvie o arquivo.</p>
+        <p>Sessão expirada. Reenvie o arquivo.</p>
         <button type="button"
                 class="import-btn import-btn-primary"
                 @click="$store.importModal.goBackToStep1()">
@@ -486,28 +486,41 @@
       <template x-if="!$store.importModal.previewError">
         <div>
           <!-- Existing assets (auto-matched) -->
-          <div class="import-review-section" x-show="$store.importModal.autoMatched.length > 0">
+          <div class="import-review-section import-review-section--existing" x-show="$store.importModal.autoMatched.length > 0">
             <h3>Ativos existentes na carteira</h3>
             <table class="import-review-table" data-testid="import-existing-table">
               <thead>
                 <tr>
-                  <th>Ticker</th>
                   <th>Nome</th>
                   <th>Qtde</th>
-                  <th>P. Medio</th>
+                  <th>Preço médio</th>
+                  <th>Total atual</th>
                   <th>Classe</th>
-                  <th>Nome do ativo</th>
                 </tr>
               </thead>
               <tbody>
                 <template x-for="(row, i) in $store.importModal.autoMatched" :key="row.broker_ticker">
-                  <tr data-testid="import-existing-row">
-                    <td x-text="row.broker_ticker"></td>
+                  <tr data-testid="import-existing-row"
+                      x-data="{
+                        cellColor: 'transparent',
+                        cellStyle() {
+                          if (this.cellColor === 'transparent') return '';
+                          return `background: color-mix(in srgb, ${this.cellColor} 38%, var(--surface)); border-left: 4px solid ${this.cellColor}`;
+                        }
+                      }">
                     <td x-text="row.name"></td>
                     <td x-text="row.qty"></td>
-                    <td x-text="row.avg_price"></td>
-                    <td>
-                      <select x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })"
+                    <td>R$ <span x-text="$store.importModal.formatBRL(row.avg_price, 0)"></span></td>
+                    <td>R$ <span x-text="$store.importModal.formatBRL(Number(row.qty) * Number(row.current_price), 0)"></span></td>
+                    <td class="import-class-cell"
+                        :style="cellStyle()"
+                        data-testid="import-class-cell-existing">
+                      <span class="class-color-swatch import-class-swatch"
+                            :style="`background: ${cellColor}`"
+                            x-init="cellColor = $store.importModal.getClassColor(($store.importModal.assignments[row.broker_ticker] || {}).class_id)"
+                            x-effect="cellColor = $store.importModal.getClassColor(($store.importModal.assignments[row.broker_ticker] || {}).class_id)"></span>
+                      <select :style="cellColor === 'transparent' ? '' : `background: color-mix(in srgb, ${cellColor} 30%, white); border-color: ${cellColor}`"
+                              x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })"
                               x-effect="(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })()"
                               @change="$store.importModal.assignments[row.broker_ticker].class_id = $event.target.value"
                               data-testid="import-existing-class">
@@ -517,13 +530,6 @@
                         </template>
                       </select>
                     </td>
-                    <td>
-                      <input type="text"
-                             :value="$store.importModal.getAssetName(row.broker_ticker)"
-                             @input="$store.importModal.setAssetName(row.broker_ticker, $event.target.value)"
-                             placeholder="Nome do ativo"
-                             data-testid="import-existing-name">
-                    </td>
                   </tr>
                 </template>
               </tbody>
@@ -531,28 +537,41 @@
           </div>
 
           <!-- New assets (unmatched) -->
-          <div class="import-review-section" x-show="$store.importModal.unmatched.length > 0">
+          <div class="import-review-section import-review-section--new" x-show="$store.importModal.unmatched.length > 0">
             <h3>Novos ativos</h3>
             <table class="import-review-table" data-testid="import-unmatched-table">
               <thead>
                 <tr>
-                  <th>Ticker</th>
                   <th>Nome</th>
                   <th>Qtde</th>
-                  <th>P. Medio</th>
+                  <th>Preço médio</th>
+                  <th>Total atual</th>
                   <th>Classe</th>
-                  <th>Nome do ativo</th>
                 </tr>
               </thead>
               <tbody>
                 <template x-for="(row, i) in $store.importModal.unmatched" :key="row.broker_ticker">
-                  <tr data-testid="import-unmatched-row">
-                    <td x-text="row.broker_ticker"></td>
+                  <tr data-testid="import-unmatched-row"
+                      x-data="{
+                        cellColor: 'transparent',
+                        cellStyle() {
+                          if (this.cellColor === 'transparent') return '';
+                          return `background: color-mix(in srgb, ${this.cellColor} 38%, var(--surface)); border-left: 4px solid ${this.cellColor}`;
+                        }
+                      }">
                     <td x-text="row.name"></td>
                     <td x-text="row.qty"></td>
-                    <td x-text="row.avg_price"></td>
-                    <td>
-                      <select x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })"
+                    <td>R$ <span x-text="$store.importModal.formatBRL(row.avg_price, 0)"></span></td>
+                    <td>R$ <span x-text="$store.importModal.formatBRL(Number(row.qty) * Number(row.current_price), 0)"></span></td>
+                    <td class="import-class-cell"
+                        :style="cellStyle()"
+                        data-testid="import-class-cell-assignment">
+                      <span class="class-color-swatch import-class-swatch"
+                            :style="`background: ${cellColor}`"
+                            x-init="cellColor = $store.importModal.getClassColor(($store.importModal.assignments[row.broker_ticker] || {}).class_id)"
+                            x-effect="cellColor = $store.importModal.getClassColor(($store.importModal.assignments[row.broker_ticker] || {}).class_id)"></span>
+                      <select :style="cellColor === 'transparent' ? '' : `background: color-mix(in srgb, ${cellColor} 30%, white); border-color: ${cellColor}`"
+                              x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })"
                               x-effect="(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })()"
                               @change="$store.importModal.assignments[row.broker_ticker].class_id = $event.target.value"
                               data-testid="import-assignment-class">
@@ -561,13 +580,6 @@
                           <option :value="ac.id" x-text="ac.name"></option>
                         </template>
                       </select>
-                    </td>
-                    <td>
-                      <input type="text"
-                             :value="$store.importModal.getAssetName(row.broker_ticker)"
-                             @input="$store.importModal.setAssetName(row.broker_ticker, $event.target.value)"
-                             placeholder="Nome do ativo"
-                             data-testid="import-assignment-name">
                     </td>
                   </tr>
                 </template>
@@ -1142,6 +1154,17 @@
         this.assignments = Object.assign({}, this.assignments);
       },
 
+      formatBRL: function (v, decimals) {
+        var n = Number(v) || 0;
+        var d = (decimals === undefined || decimals === null) ? 2 : decimals;
+        return n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+      },
+      getClassColor: function (classId) {
+        if (!classId) return 'transparent';
+        var c = this.assetClasses.find(function (a) { return String(a.id) === String(classId); });
+        return c ? c.color : 'transparent';
+      },
+
       openModal: function () {
         this.resetState();
         this.open = true;
@@ -1217,7 +1240,7 @@
             self.step = 2;
           })
           .catch(function (err) {
-            self.step1Error = err && err.message ? err.message : 'Erro ao processar arquivo';
+            self.step1Error = err && err.message ? err.message : 'Erro ao processar o arquivo';
           })
           .then(function () {
             self.uploading = false;
@@ -1262,7 +1285,7 @@
             });
           })
           .catch(function (err) {
-            self.error = err && err.message ? err.message : 'Erro ao confirmar importacao';
+            self.error = err && err.message ? err.message : 'Erro ao confirmar a importação';
           })
           .then(function () {
             self.committing = false;

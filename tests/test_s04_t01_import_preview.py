@@ -279,8 +279,16 @@ class TestPostImportPreview:
         ac = data["asset_classes"][0]
         assert "id" in ac
         assert "name" in ac
+        assert "color" in ac
         assert isinstance(ac["id"], int)
         assert isinstance(ac["name"], str)
+        assert isinstance(ac["color"], str)
+        assert ac["color"].startswith("#") and len(ac["color"]) in (4, 7)
+
+        for item in data["asset_classes"]:
+            assert "color" in item
+            assert isinstance(item["color"], str)
+            assert item["color"].startswith("#")
 
         # Verify all auto_matched have asset_id values
         for item in data["auto_matched"]:
