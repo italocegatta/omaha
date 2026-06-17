@@ -275,14 +275,23 @@ class TestS04ImportModal:
             "() => Alpine.store('importModal')"
             ".unmatched.findIndex(r => r.broker_ticker === 'XPLG11')"
         )
-        cell_style = (
+        acoes_idx: int = page.evaluate(
+            f"() => Alpine.store('importModal')"
+            f".assetClasses.findIndex(c => c.id === {acoes_id})"
+        )
+        # The <td> must carry the modifier class for the Acoes index
+        # (e.g. import-class-cell--cls-1) — the visual color is now
+        # applied via a fixed CSS rule keyed by class index, not via
+        # inline :style (see investigate-import-class-color change).
+        cell_class = (
             page.locator(SELECTORS["import_class_cell_assignment"])
             .nth(xplg_idx)
-            .get_attribute("style")
+            .get_attribute("class")
             or ""
         )
-        assert acoes_color in cell_style, (
-            f"expected border-left color {acoes_color!r} in XPLG11 cell style, got {cell_style!r}"
+        expected_modifier = f"import-class-cell--cls-{acoes_idx}"
+        assert expected_modifier in cell_class, (
+            f"expected {expected_modifier!r} in XPLG11 cell class, got {cell_class!r}"
         )
         # The swatch itself must carry an inline background style with the class color.
         swatch_style = (
@@ -348,6 +357,30 @@ class TestS04ImportModal:
         assert not (r_ch > 0.99 and g_ch > 0.99 and b_ch > 0.99), (
             f"cell background is pure surface white — color-mix not applied: "
             f"rgb({r_ch:.3f}, {g_ch:.3f}, {b_ch:.3f})"
+        )
+
+        # The cell border-left must equal the class color (full opacity,
+        # not the 38% tint). The .import-class-cell--cls-N rule sets
+        # border-left: 4px solid <hex>; verifying the computed color
+        # confirms the modifier class is winning over the base
+        # .import-class-cell style.
+        cell_border = page.evaluate(
+            """(idx) => {
+                const cell = document.querySelectorAll(
+                    '[data-testid=\"import-class-cell-assignment\"]')[idx];
+                return getComputedStyle(cell).borderLeftColor;
+            }""",
+            xplg_idx,
+        )
+        # #2e7d32 → rgb(46, 125, 50).
+        border_nums = [float(x) for x in _re2.findall(r"[\d.]+", cell_border)]
+        assert len(border_nums) >= 3, f"could not parse border-left: {cell_border!r}"
+        br, bg, bb = border_nums[0], border_nums[1], border_nums[2]
+        if bg > 1.0:
+            br, bg, bb = br / 255, bg / 255, bb / 255
+        assert 0.15 < br < 0.22 and 0.45 < bg < 0.55 and 0.15 < bb < 0.22, (
+            f"expected border-left rgb(46, 125, 50), got rgb({br:.0f}, "
+            f"{bg:.0f}, {bb:.0f}) from {cell_border!r}"
         )
 
         # The <select> itself must also be tinted — the user-visible "field"
@@ -451,3 +484,108 @@ class TestS04ImportModal:
         profile_header = page.locator(SELECTORS["profile_name"])
         profile_header.wait_for(state="visible", timeout=5000)
         assert "Bem-vindo" in profile_header.inner_text()
+
+    def test_import_modal_pending_visual(self, page: Page, live_url: str) -> None:
+        """With zero AssetClasses on the profile, every row in the modal
+        must render with the ``import-class-cell--pending`` modifier
+        (dashed border + sunk background), so the operator can see that
+        the system has nothing to suggest.
+
+        Setup: clean Italo has zero classes (the autouse ``clean_italo``
+        fixture wipes them before every test). We do NOT create classes
+        in this test — the point is the empty-classes case.
+        """
+        _login_and_select_italo(page, live_url)
+
+        # Sanity: the dashboard should show no class sections.
+        assert page.locator(SELECTORS["class_summary_row"]).count() == 0, (
+            "expected zero class sections on dashboard before import"
+        )
+
+        # Open the modal and upload the same fixture the happy-path
+        # test uses. Without classes the matcher falls through to the
+        # unmatched bucket for every row, which is what we want to
+        # inspect.
+        page.click(SELECTORS["dashboard_import_btn"])
+        page.wait_for_selector(SELECTORS["import_modal_overlay"], state="visible", timeout=5000)
+        page.set_input_files(SELECTORS["import_file_input"], str(FIXTURE_PATH))
+        page.wait_for_timeout(200)
+        page.evaluate("Alpine.store('importModal').uploadFile()")
+        page.wait_for_timeout(500)
+
+        # Step 2 loads once the commit button becomes visible.
+        page.wait_for_selector(SELECTORS["import_commit_btn"], state="visible", timeout=15000)
+        page.wait_for_selector(SELECTORS["import_unmatched_table"], state="visible", timeout=5000)
+
+        # assetClasses must be empty (profile has no classes).
+        ac_count: int = page.evaluate(
+            "() => Alpine.store('importModal').assetClasses.length"
+        )
+        assert ac_count == 0, (
+            f"expected empty assetClasses for profile with zero classes, got {ac_count}"
+        )
+
+        # Every unmatched row's <td> must carry the --pending modifier.
+        unmatched_rows = page.locator(SELECTORS["import_unmatched_row"])
+        n_unmatched = unmatched_rows.count()
+        assert n_unmatched > 0, (
+            "expected at least one unmatched row when importing without classes"
+        )
+
+        for i in range(n_unmatched):
+            cell_class = (
+                page.locator(SELECTORS["import_class_cell_assignment"])
+                .nth(i)
+                .get_attribute("class")
+                or ""
+            )
+            assert "import-class-cell--pending" in cell_class, (
+                f"row {i}: expected import-class-cell--pending in class, got {cell_class!r}"
+            )
+
+        # First-row computed style: dashed border + background equal to
+        # the body background (var(--surface-sunk) → close to body).
+        first_cell_style = page.evaluate(
+            """() => {
+                const cell = document.querySelector(
+                    '[data-testid=\"import-class-cell-assignment\"]');
+                const cs = getComputedStyle(cell);
+                return {
+                    borderTopStyle: cs.borderTopStyle,
+                    borderRightStyle: cs.borderRightStyle,
+                    backgroundColor: cs.backgroundColor,
+                };
+            }"""
+        )
+        # The .import-class-cell--pending rule sets a 1px dashed border
+        # (top/right/bottom) with a 4px solid-transparent border-left.
+        # borderTopStyle == "dashed" is the load-bearing visual signal
+        # — border-right and border-bottom may pick up solid from the
+        # cell's own background style, so we only assert top.
+        assert first_cell_style["borderTopStyle"] == "dashed", (
+            f"expected dashed top border on pending cell, got {first_cell_style!r}"
+        )
+        # surface-sunk and body bg may differ slightly but both are
+        # neutral; the cell must NOT show any class tint (no
+        # color-mix of a palette hex over --surface would look neutral).
+        # Chromium may emit the value as ``rgb(...)`` or ``oklch(...)``
+        # depending on the color space the stylesheet uses; accept any
+        # color-function form, just not ``transparent``.
+        bg = first_cell_style["backgroundColor"]
+        assert bg != "transparent" and ("(" in bg and ")" in bg), (
+            f"expected a color function for background, got {bg!r}"
+        )
+        # Pending swatch background must be transparent (no class color
+        # to display).
+        swatch_style = page.evaluate(
+            """() => {
+                const cell = document.querySelector(
+                    '[data-testid=\"import-class-cell-assignment\"]');
+                const sw = cell.querySelector('.import-class-swatch');
+                return getComputedStyle(sw).backgroundColor;
+            }"""
+        )
+        # "transparent" or "rgba(0, 0, 0, 0)" — both indicate no color.
+        assert "transparent" in swatch_style or swatch_style.startswith("rgba(0, 0, 0, 0"), (
+            f"expected transparent swatch background, got {swatch_style!r}"
+        )

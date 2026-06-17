@@ -406,3 +406,59 @@ def test_dashboard_renders_class_summary_with_no_positions(client: TestClient) -
     assert "Renda Fixa" in body, body
     # The portfolio header is hidden when current_value is 0.
     assert 'data-testid="portfolio-header"' not in body, body
+
+
+def test_dashboard_sends_no_store_cache_control(client: TestClient) -> None:
+    """The dashboard HTML MUST come back with ``Cache-Control: no-store`` so
+    the browser never serves a stale template after we ship a fix (e.g.
+    the import-modal class color change — see
+    ``investigate-import-class-color``). The middleware is the only
+    source of this header; static assets and the login page are
+    intentionally exempt.
+    """
+    _login_and_select(client, profile_name="Italo")
+
+    dashboard = client.get("/")
+    assert dashboard.status_code == 200, dashboard.text
+    assert dashboard.headers.get("cache-control") == "no-store", (
+        f"expected Cache-Control: no-store on dashboard, got "
+        f"{dashboard.headers.get('cache-control')!r}"
+    )
+
+    # Static assets are served by Starlette's StaticFiles — the
+    # middleware must NOT inject no-store on them (production nginx
+    # is responsible for the long-lived cache header).
+    css = client.get("/static/app.css")
+    assert css.status_code == 200, css.text
+    assert css.headers.get("cache-control") != "no-store", (
+        f"middleware unexpectedly injected no-store on /static/app.css: "
+        f"{css.headers.get('cache-control')!r}"
+    )
+
+    # JSON API responses are exempt (REST caching semantics).
+    api = client.get("/api/classes")
+    # 401 / 405 / 200 are all fine for this assertion — what matters
+    # is the header is not no-store.
+    assert api.headers.get("cache-control") != "no-store", (
+        f"middleware unexpectedly injected no-store on /api/classes: "
+        f"{api.headers.get('cache-control')!r}"
+    )
+
+    # /login is on the explicit skip list (no authenticated data to
+    # protect; let the browser use its default heuristic). When the
+    # caller is already authenticated the route redirects to /, so
+    # we need an UNAUTHENTICATED client to actually exercise the
+    # /login code path. Use a fresh client from a new context manager
+    # — the per-test ``client`` fixture was already logged in by
+    # ``_login_and_select`` above.
+    from fastapi.testclient import TestClient as _TestClient
+
+    from omaha.main import app as _app
+
+    with _TestClient(_app) as anon_client:
+        login_page = anon_client.get("/login", follow_redirects=False)
+    assert login_page.status_code == 200, login_page.text
+    assert login_page.headers.get("cache-control") != "no-store", (
+        f"middleware unexpectedly injected no-store on /login: "
+        f"{login_page.headers.get('cache-control')!r}"
+    )

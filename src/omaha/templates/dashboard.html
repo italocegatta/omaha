@@ -503,9 +503,13 @@
                   <tr data-testid="import-existing-row"
                       x-data="{
                         cellColor: 'transparent',
-                        cellStyle() {
-                          if (this.cellColor === 'transparent') return '';
-                          return `background: color-mix(in srgb, ${this.cellColor} 38%, var(--surface)); border-left: 4px solid ${this.cellColor}`;
+                        getClassIndex(color) {
+                          if (!color || color === 'transparent') return -1;
+                          var list = Alpine.store('importModal').assetClasses;
+                          for (var i = 0; i < list.length; i++) {
+                            if (list[i].color === color) return i;
+                          }
+                          return -1;
                         }
                       }">
                     <td x-text="row.name"></td>
@@ -513,7 +517,7 @@
                     <td>R$ <span x-text="$store.importModal.formatBRL(row.avg_price, 0)"></span></td>
                     <td>R$ <span x-text="$store.importModal.formatBRL(Number(row.qty) * Number(row.current_price), 0)"></span></td>
                     <td class="import-class-cell"
-                        :style="cellStyle()"
+                        :class="cellColor === 'transparent' ? 'import-class-cell--pending' : 'import-class-cell--cls-' + getClassIndex(cellColor)"
                         data-testid="import-class-cell-existing">
                       <span class="class-color-swatch import-class-swatch"
                             :style="`background: ${cellColor}`"
@@ -554,9 +558,13 @@
                   <tr data-testid="import-unmatched-row"
                       x-data="{
                         cellColor: 'transparent',
-                        cellStyle() {
-                          if (this.cellColor === 'transparent') return '';
-                          return `background: color-mix(in srgb, ${this.cellColor} 38%, var(--surface)); border-left: 4px solid ${this.cellColor}`;
+                        getClassIndex(color) {
+                          if (!color || color === 'transparent') return -1;
+                          var list = Alpine.store('importModal').assetClasses;
+                          for (var i = 0; i < list.length; i++) {
+                            if (list[i].color === color) return i;
+                          }
+                          return -1;
                         }
                       }">
                     <td x-text="row.name"></td>
@@ -564,7 +572,7 @@
                     <td>R$ <span x-text="$store.importModal.formatBRL(row.avg_price, 0)"></span></td>
                     <td>R$ <span x-text="$store.importModal.formatBRL(Number(row.qty) * Number(row.current_price), 0)"></span></td>
                     <td class="import-class-cell"
-                        :style="cellStyle()"
+                        :class="cellColor === 'transparent' ? 'import-class-cell--pending' : 'import-class-cell--cls-' + getClassIndex(cellColor)"
                         data-testid="import-class-cell-assignment">
                       <span class="class-color-swatch import-class-swatch"
                             :style="`background: ${cellColor}`"

@@ -40,7 +40,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from omaha.config import settings
 from omaha.logging_config import configure_logging
-from omaha.middleware import AccessLogMiddleware
+from omaha.middleware import AccessLogMiddleware, NoStoreHTMLMiddleware
 from omaha.routes import assets as assets_routes
 from omaha.routes import auth as auth_routes
 from omaha.routes import classes as classes_routes
@@ -132,7 +132,12 @@ def create_app() -> FastAPI:
     # 303 redirect that SessionMiddleware issues for an
     # unauthenticated GET / therefore flows through wrapped_send and
     # shows up as a single ``status=303`` line in the access log.
+    # NoStoreHTMLMiddleware is added AFTER AccessLogMiddleware so it
+    # sits just outside the app (closer to the client) — the access
+    # log sees the final response status, but the no-store header is
+    # injected on the way OUT to the browser.
     app.add_middleware(AccessLogMiddleware)
+    app.add_middleware(NoStoreHTMLMiddleware)
 
     # Bind a single Jinja2Templates to app.state so every route can
     # reach it via ``request.app.state.templates``. Sharing one

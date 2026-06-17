@@ -1384,7 +1384,7 @@ main { max-width: 760px; }
   align-items: center;
   gap: 0.5rem;
   padding-left: 0.5rem;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, background 0.15s;
 }
 .import-class-swatch {
   width: 18px;
@@ -1393,6 +1393,62 @@ main { max-width: 760px; }
   border: 1px solid var(--border);
   flex-shrink: 0;
   display: inline-block;
+}
+
+/* Class-color modifier classes for the import modal table cells.
+   Index N (0-7) MUST stay in sync with _CLASS_COLORS in
+   src/omaha/routes/pages.py — that tuple is the canonical server-
+   side palette and the same indices drive the swatches. If the
+   palette grows beyond 8 colors, add the next --cls-N rule here
+   AND extend _CLASS_COLORS in pages.py; the colors wrap modulo
+   len(_CLASS_COLORS) on the server so anything past index 7
+   aliases back to an existing rule. The hex values come straight
+   from _CLASS_COLORS (no OKLCH remap like --class-N has) because
+   these are used at 38% tint over --surface, where the contrast
+   difference vs the accessibility-tuned --class-N tokens is
+   imperceptible. */
+.import-class-cell--cls-0 {
+  background: color-mix(in srgb, #0a66c2 38%, var(--surface));
+  border-left: 4px solid #0a66c2;
+}
+.import-class-cell--cls-1 {
+  background: color-mix(in srgb, #2e7d32 38%, var(--surface));
+  border-left: 4px solid #2e7d32;
+}
+.import-class-cell--cls-2 {
+  background: color-mix(in srgb, #c62828 38%, var(--surface));
+  border-left: 4px solid #c62828;
+}
+.import-class-cell--cls-3 {
+  background: color-mix(in srgb, #ef6c00 38%, var(--surface));
+  border-left: 4px solid #ef6c00;
+}
+.import-class-cell--cls-4 {
+  background: color-mix(in srgb, #6a1b9a 38%, var(--surface));
+  border-left: 4px solid #6a1b9a;
+}
+.import-class-cell--cls-5 {
+  background: color-mix(in srgb, #00838f 38%, var(--surface));
+  border-left: 4px solid #00838f;
+}
+.import-class-cell--cls-6 {
+  background: color-mix(in srgb, #5d4037 38%, var(--surface));
+  border-left: 4px solid #5d4037;
+}
+.import-class-cell--cls-7 {
+  background: color-mix(in srgb, #455a64 38%, var(--surface));
+  border-left: 4px solid #455a64;
+}
+
+/* Pending state — assigned only when the active profile has zero
+   AssetClass rows (so getClassColor() always returns 'transparent'
+   for every row in the modal). Dashed border + sunk background
+   signals "you need to pick a class but the system has nothing to
+   suggest", without inventing a phantom color. */
+.import-class-cell--pending {
+  border: 1px dashed var(--border-strong);
+  background: var(--surface-sunk);
+  border-left: 4px solid transparent;
 }
 
 .import-review-table {
