@@ -42,6 +42,8 @@ from omaha.csv_import import (
     suggest_class_id,
 )
 
+pytestmark = pytest.mark.unit
+
 FIXTURE_PATH = Path(__file__).resolve().parent / "fixtures" / "sample_broker.csv"
 FIXTURE_TEXT = FIXTURE_PATH.read_text(encoding="utf-8")
 

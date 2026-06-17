@@ -104,23 +104,6 @@ class Stylesheet:
 
 
 # ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-
-def parse_stylesheet(path: Path) -> Stylesheet:
-    """Read a CSS file and return a parsed :class:`Stylesheet`.
-
-    Uses ``tinycss2.parse_stylesheet`` with comments and whitespace
-    nodes skipped so the rule list contains only qualified rules and
-    at-rules.
-    """
-    css_text = path.read_text(encoding="utf-8")
-    rules = tinycss2.parse_stylesheet(css_text, skip_comments=True, skip_whitespace=True)
-    return Stylesheet(rules=rules, raw_text=css_text)
-
-
-# ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
 

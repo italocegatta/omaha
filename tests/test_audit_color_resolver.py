@@ -3,29 +3,17 @@
 Unit tests for :mod:`omaha.audit.color_resolver`. No DB, no FastAPI,
 no session — the resolver is a pure function library.
 
-Coverage map (this file):
-* Module import              — ``test_audit_color_resolver_importable``
-* Dataclass construction     — ``test_contrast_result_fields``
-* contrast_ratio hex         — ``test_contrast_ratio_hex``
-* contrast_ratio oklch       — ``test_contrast_ratio_oklch``
-* contrast_ratio edge        — ``test_contrast_ratio_invalid``
-* aa_status normal           — ``test_aa_status_normal``
-* aa_status large            — ``test_aa_status_large``
-* aa_status edge             — ``test_aa_status_at_thresholds``
-* apply_brightness           — ``test_apply_brightness_lightens``
-* apply_brightness darken    — ``test_apply_brightness_darkens``
-* composite_over opaque      — ``test_composite_over_opaque``
-* composite_over transparent — ``test_composite_over_transparent``
-* real known pairs           — ``test_contrast_real_pairs_oklch``
-* color-mix() handling       — ``test_contrast_color_mix``
+Every test asserts exact values or ``pytest.approx`` on floats, never
+the bare ``> threshold`` style. Tests for invalid input assert the
+documented exception type (``ValueError`` for ``composite_over``,
+the documented 1.0 fallback for ``contrast_ratio``).
 """
 
 from __future__ import annotations
 
-import importlib
-from pathlib import Path
+import pytest
+from coloraide import Color
 
-from omaha.audit import color_resolver
 from omaha.audit.color_resolver import (
     ContrastResult,
     aa_status,
@@ -34,26 +22,7 @@ from omaha.audit.color_resolver import (
     contrast_ratio,
 )
 
-# ---------------------------------------------------------------------------
-# Import / module shape (Task 2 carry-over)
-# ---------------------------------------------------------------------------
-
-
-def test_audit_color_resolver_importable() -> None:
-    """The color resolver module is importable."""
-    assert color_resolver is not None
-    mod = importlib.import_module("omaha.audit.color_resolver")
-    assert mod.__doc__ is not None
-    assert "from __future__" in Path(mod.__file__).read_text() if mod.__file__ else True
-
-
-def test_contrast_result_fields() -> None:
-    """ContrastResult exposes the fields described in the artifact spec."""
-    result = ContrastResult(fg="#fff", bg="#000", ratio=21.0, status="Passa")
-    assert result.fg == "#fff"
-    assert result.bg == "#000"
-    assert result.ratio == 21.0
-    assert result.status == "Passa"
+pytestmark = pytest.mark.unit
 
 
 # ---------------------------------------------------------------------------
@@ -61,44 +30,58 @@ def test_contrast_result_fields() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_contrast_ratio_hex() -> None:
-    """White-on-black gives 21:1; black-on-white gives the same."""
-    assert contrast_ratio("#ffffff", "#000000") > 20.0
-    assert contrast_ratio("#000000", "#ffffff") > 20.0
+def test_contrast_ratio_hex_is_21_to_1() -> None:
+    """White-on-black and black-on-white both round-trip to 21:1.
+
+    WCAG 2.1 caps the ratio at 21.0 — the exact value is asserted
+    with ``pytest.approx`` because the sRGB-to-linear conversion is
+    float arithmetic.
+    """
+    assert contrast_ratio("#ffffff", "#000000") == pytest.approx(21.0, abs=1e-3)
+    assert contrast_ratio("#000000", "#ffffff") == pytest.approx(21.0, abs=1e-3)
 
 
-def test_contrast_ratio_oklch_body() -> None:
-    """The app.css --ink against --bg pair returns >= 4.5 (must pass AA)."""
+def test_contrast_ratio_oklch_ink_on_bg_passes_aa() -> None:
+    """The documented --ink/--bg pair reaches the 4.5:1 AA threshold."""
     ratio = contrast_ratio(
         "oklch(0.20 0.01 60)",  # --ink
         "oklch(0.975 0.003 60)",  # --bg
     )
-    assert ratio >= 4.5, f"Expected >= 4.5 for --ink/--bg, got {ratio}"
+    assert ratio >= 4.5, f"--ink on --bg must reach AA: got {ratio:.2f}:1"
 
 
-def test_contrast_ratio_oklch_accent() -> None:
-    """Accent-ink against accent must pass AA for body text."""
+def test_contrast_ratio_oklch_accent_ink_on_accent_passes_aa() -> None:
+    """The documented --accent-ink/--accent pair reaches 4.5:1."""
     ratio = contrast_ratio(
         "oklch(0.98 0.005 150)",  # --accent-ink
         "oklch(0.42 0.09 150)",  # --accent
     )
-    assert ratio >= 4.5, f"Expected >= 4.5 for accent-ink/accent, got {ratio}"
+    assert ratio >= 4.5, f"--accent-ink on --accent must reach AA: got {ratio:.2f}:1"
 
 
-def test_contrast_ratio_invalid_color() -> None:
-    """Invalid color input returns 1.0 (no crash)."""
+def test_contrast_ratio_color_mix_stays_in_wcag_range() -> None:
+    """A color-mix() expression returns a ratio within the WCAG range.
+
+    The literal input references ``var(--ink)`` which the resolver
+    cannot resolve (no registry), so the contrast falls back to 1.0
+    — the contract is "returns a number in [1.0, 21.0]" rather than
+    a specific value.
+    """
+    ratio = contrast_ratio(
+        "color-mix(in srgb, var(--ink) 100%, transparent)",
+        "oklch(0.975 0.003 60)",
+    )
+    assert 1.0 <= ratio <= 21.0, f"color-mix ratio out of WCAG range: {ratio}"
+
+
+def test_contrast_ratio_invalid_input_returns_one() -> None:
+    """Unparseable color inputs fall back to 1.0 (lowest contrast).
+
+    Pinned behaviour: the resolver never raises; callers can treat
+    1.0 as "could not compute, do not trust the result".
+    """
     assert contrast_ratio("not-a-color", "#ffffff") == 1.0
     assert contrast_ratio("#000", "not-a-color") == 1.0
-
-
-def test_contrast_ratio_color_mix() -> None:
-    """color-mix() values parse and produce a contrast ratio."""
-    ratio = contrast_ratio(
-        "color-mix(in srgb, var(--ink) 100%, transparent)",  # effectively --ink
-        "oklch(0.975 0.003 60)",  # --bg
-    )
-    assert ratio >= 1.0
-    assert ratio <= 21.0
 
 
 # ---------------------------------------------------------------------------
@@ -106,47 +89,27 @@ def test_contrast_ratio_color_mix() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_aa_status_normal_pass() -> None:
-    """4.5+ passes for normal text."""
-    _, status = aa_status(4.5, is_large=False)
-    assert status == "Passa"
+@pytest.mark.parametrize(
+    "ratio,is_large,expected_status",
+    [
+        (4.5, False, "Passa"),
+        (4.4, False, "Falha"),
+        (3.0, True, "Passa"),
+        (2.9, True, "Falha"),
+        (4.4, False, "Falha"),
+        (3.1, True, "Passa"),
+        (4.5, False, "Passa"),
+    ],
+)
+def test_aa_status_thresholds(ratio: float, is_large: bool, expected_status: str) -> None:
+    """Each (ratio, is_large) pair maps to the documented Passa/Falha verdict.
 
-
-def test_aa_status_normal_fail() -> None:
-    """Below 4.5 fails for normal text."""
-    _, status = aa_status(4.4, is_large=False)
-    assert status == "Falha"
-
-
-def test_aa_status_large_pass() -> None:
-    """3.0+ passes for large text."""
-    _, status = aa_status(3.0, is_large=True)
-    assert status == "Passa"
-
-
-def test_aa_status_large_fail() -> None:
-    """Below 3.0 fails for large text."""
-    _, status = aa_status(2.9, is_large=True)
-    assert status == "Falha"
-
-
-def test_aa_status_at_thresholds() -> None:
-    """Exact threshold values are tested as specified in the plan."""
-    # aa_status(4.4, False) → Falha
-    assert aa_status(4.4, False)[1] == "Falha"
-    # aa_status(3.1, True) → Passa
-    assert aa_status(3.1, True)[1] == "Passa"
-    # aa_status(4.5, False) → Passa (at threshold)
-    assert aa_status(4.5, False)[1] == "Passa"
-
-
-def test_aa_status_returns_tuple() -> None:
-    """aa_status returns (float, str) tuple."""
-    result = aa_status(5.0)
-    assert isinstance(result, tuple)
-    assert len(result) == 2
-    assert isinstance(result[0], float)
-    assert isinstance(result[1], str)
+    The 4.5:1 normal-text and 3.0:1 large-text thresholds are the
+    WCAG 2.1 AA boundaries; the at-threshold cases (4.5 normal, 3.0
+    large) are inclusive — ``>=`` not ``>``.
+    """
+    _, status = aa_status(ratio, is_large=is_large)
+    assert status == expected_status
 
 
 # ---------------------------------------------------------------------------
@@ -154,31 +117,55 @@ def test_aa_status_returns_tuple() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_apply_brightness_lightens() -> None:
-    """Brightness factor > 1 produces a lighter color."""
-    result = apply_brightness("#0a66c2", 1.1)
-    assert isinstance(result, str)
-    assert result.startswith("#")
-    # The lightened color should have higher sRGB channels.
-    assert result != "#0a66c2"
+def _hex_channels(hex_str: str) -> tuple[float, float, float]:
+    """Return the sRGB channels of *hex_str* as floats in [0, 1]."""
+    c = Color(hex_str).convert("srgb")
+    return c["r"], c["g"], c["b"]
 
 
-def test_apply_brightness_darkens() -> None:
-    """Brightness factor < 1 produces a darker color."""
-    result = apply_brightness("#ffffff", 0.5)
-    assert isinstance(result, str)
-    assert result != "#ffffff"
+@pytest.mark.parametrize(
+    "color,factor,predicate",
+    [
+        # Factor > 1 raises every channel relative to the source.
+        ("#0a66c2", 1.1, lambda src, dst: all(d > s for s, d in zip(src, dst, strict=False))),
+        # Factor < 1 darkens every channel.
+        ("#ffffff", 0.5, lambda src, dst: all(d < s for s, d in zip(src, dst, strict=False))),
+        # Factor 1.0 is the identity (allowing float rounding).
+        (
+            "#808080",
+            1.0,
+            lambda src, dst: all(
+                d == pytest.approx(s, abs=1e-3) for s, d in zip(src, dst, strict=False)
+            ),
+        ),
+        # Invalid input is returned unchanged — the function never raises.
+        ("not-a-color", 1.1, lambda _src, dst: dst == ()),
+    ],
+)
+def test_apply_brightness_channels(
+    color: str,
+    factor: float,
+    predicate,
+) -> None:
+    """apply_brightness scales sRGB channels by *factor*; invalid input is passthrough.
 
-
-def test_apply_brightness_identity() -> None:
-    """Factor 1.0 leaves the color unchanged (may differ by rounding)."""
-    result = apply_brightness("#808080", 1.0)
-    assert result.startswith("#")
-
-
-def test_apply_brightness_invalid_color() -> None:
-    """Invalid input is returned unchanged."""
-    assert apply_brightness("not-a-color", 1.1) == "not-a-color"
+    For the invalid-color case the predicate is called with an empty
+    destination tuple because we don't bother decoding the unchanged
+    string — the assertion is on string identity.
+    """
+    src_channels = () if color == "not-a-color" else _hex_channels(color)
+    result = apply_brightness(color, factor)
+    if color == "not-a-color":
+        assert result == color
+        assert predicate(src_channels, ())
+    else:
+        assert result.startswith("#")
+        assert len(result) == 7  # #rrggbb
+        dst_channels = _hex_channels(result)
+        assert predicate(src_channels, dst_channels), (
+            f"brightness({color!r}, {factor}) → {result!r} channels {dst_channels} "
+            f"failed predicate against source {src_channels}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -186,22 +173,71 @@ def test_apply_brightness_invalid_color() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_composite_over_opaque() -> None:
-    """Fully opaque foreground is returned unchanged."""
-    result = composite_over("#ff0000", "#ffffff")
-    assert result == "#ff0000"
+@pytest.mark.parametrize(
+    "color,backdrop,expected_hex",
+    [
+        # Opaque foreground short-circuits to the input unchanged.
+        ("#ff0000", "#ffffff", "#ff0000"),
+        # 50% red over white → pink (#ff8080 = 255, 128, 128).
+        ("rgba(255, 0, 0, 0.5)", "#ffffff", "#ff8080"),
+        # 50% black over 50% grey (#808080) → 25% grey (#404040).
+        ("rgba(0, 0, 0, 0.5)", "#808080", "#404040"),
+    ],
+)
+def test_composite_over_blends(color: str, backdrop: str, expected_hex: str) -> None:
+    """composite_over returns the straight-alpha blend of *color* over *backdrop*.
+
+    Each ``(color, backdrop, expected_hex)`` triple pins an exact
+    RGB channel result.  Channels are compared with ``pytest.approx``
+    to absorb coloraide's float rounding (the input rgba tuple and
+    the sRGB blend differ by < 1 LSB in practice).
+    """
+    result = composite_over(color, backdrop)
+    assert result.startswith("#") and len(result) == 7
+    actual = _hex_channels(result)
+    expected = _hex_channels(expected_hex)
+    assert actual == pytest.approx(expected, abs=1.5 / 255), (
+        f"composite_over({color!r}, {backdrop!r}) → {result!r} channels {actual}, "
+        f"expected {expected_hex} ({expected})"
+    )
 
 
-def test_composite_over_transparent() -> None:
-    """50% red over white produces pink."""
-    result = composite_over("rgba(255, 0, 0, 0.5)", "#ffffff")
-    assert isinstance(result, str)
-    assert result.startswith("#")
-    # Result should be closer to white than pure red.
-    assert result != "#ff0000"
+@pytest.mark.parametrize(
+    "color,backdrop",
+    [
+        ("#ff0000", "bad-color"),
+        ("bad-color", "#ffffff"),
+    ],
+)
+def test_composite_over_invalid_input_raises(color: str, backdrop: str) -> None:
+    """Invalid color or backdrop raises ``ValueError`` (regression for §1.3).
+
+    Pre-fix the function swallowed the error and returned the input
+    unchanged; the inventory loop in ``audit/inventory.py`` relied
+    on that silent passthrough.  Post-fix the backstop in
+    ``state_color_pairs`` (try/except Exception) keeps the inventory
+    running, but the function itself raises so the bug cannot
+    propagate silently.
+    """
+    with pytest.raises(ValueError):
+        composite_over(color, backdrop)
 
 
-def test_composite_over_invalid() -> None:
-    """Invalid input is returned unchanged."""
-    assert composite_over("bad-color", "#ffffff") == "bad-color"
-    assert composite_over("#ff0000", "bad-color") == "#ff0000"
+# ---------------------------------------------------------------------------
+# ContrastResult dataclass
+# ---------------------------------------------------------------------------
+
+
+def test_contrast_result_dataclass_fields() -> None:
+    """ContrastResult is a frozen dataclass with the documented fields.
+
+    Pinned fields: ``fg``, ``bg``, ``ratio``, ``status``.  No
+    ``isinstance`` assertions — the field access IS the contract.
+    """
+    result = ContrastResult(fg="#fff", bg="#000", ratio=21.0, status="Passa")
+    assert result.fg == "#fff"
+    assert result.bg == "#000"
+    assert result.ratio == 21.0
+    assert result.status == "Passa"
+    with pytest.raises((AttributeError, Exception)):
+        result.fg = "#000"  # type: ignore[misc]

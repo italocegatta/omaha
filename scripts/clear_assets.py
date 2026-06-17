@@ -1,4 +1,5 @@
 """Delete all Asset rows, keep classes intact."""
+
 from __future__ import annotations
 
 from omaha.db import SessionLocal

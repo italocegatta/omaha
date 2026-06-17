@@ -3,43 +3,38 @@
 Unit tests for :mod:`omaha.audit.css_parser`. No DB, no FastAPI, no
 session — the parser is a pure function library.
 
-Coverage map (this file):
-* Package import              — ``test_audit_css_parser_importable``
-* Dataclass construction      — ``test_token_inventory_row_fields``
-*                            — ``test_css_rule_construction``
-*                            — ``test_css_token_construction``
-* resolve_var basics          — ``test_resolve_var_direct``
-* resolve_var chain           — ``test_resolve_var_chain``
-* resolve_var fallback        — ``test_resolve_var_fallback``
-* resolve_var missing         — ``test_resolve_var_missing``
-* parse_stylesheet fixture    — ``test_parse_stylesheet_from_string``
-* color_token_inventory       — ``test_color_token_inventory_basic``
-* non-color exclusion         — ``test_non_color_tokens_excluded``
-* contrast computation        — ``test_token_inventory_contrast_values``
-* app.css integration         — ``test_inventory_from_real_app_css``
+Every test asserts exact values (or ``pytest.approx`` on floats) and
+specific exception types. Tests for ``parse_stylesheet`` use inline
+CSS strings or files inside the repo root — the path-traversal guard
+rejects any path that resolves outside ``omaha/``, so
+``tmp_path`` (which lives under ``/tmp``) cannot be used.
 """
 
 from __future__ import annotations
 
-import importlib
+import dataclasses
 import textwrap
 from pathlib import Path
 
 import pytest
+import tinycss2
 
-from omaha.audit import css_parser
 from omaha.audit.css_parser import (
     CssRule,
     CssToken,
     Stylesheet,
     TokenInventoryRow,
+    _build_registry,
     color_token_inventory,
     parse_stylesheet,
     resolve_var,
 )
 
+pytestmark = pytest.mark.unit
+
+
 # ---------------------------------------------------------------------------
-# Fixtures
+# Inline CSS fixture — the same one the original test file used
 # ---------------------------------------------------------------------------
 
 FIXTURE_CSS = textwrap.dedent("""\
@@ -62,35 +57,20 @@ FIXTURE_CSS = textwrap.dedent("""\
     }
 """)
 
-APP_CSS_PATH = Path(__file__).resolve().parents[1] / "src" / "omaha" / "static" / "app.css"
 
-_SMALL_FIXTURE_RULES = [
-    r
-    for r in css_parser.Stylesheet(
-        rules=css_parser.tinycss2.parse_stylesheet(
-            FIXTURE_CSS, skip_comments=True, skip_whitespace=True
-        ),
-        raw_text=FIXTURE_CSS,
-    ).rules
-    if r.type == "qualified-rule"  # type: ignore[union-attr]
-]
+def _make_stylesheet(css: str) -> Stylesheet:
+    """Parse *css* into a :class:`Stylesheet` without touching disk."""
+    rules = tinycss2.parse_stylesheet(css, skip_comments=True, skip_whitespace=True)
+    return Stylesheet(rules=rules, raw_text=css)
 
 
 # ---------------------------------------------------------------------------
-# Import / module shape (Task 2 carry-over)
+# Dataclasses
 # ---------------------------------------------------------------------------
-
-
-def test_audit_css_parser_importable() -> None:
-    """The CSS parser module is importable."""
-    assert css_parser is not None
-    mod = importlib.import_module("omaha.audit.css_parser")
-    assert mod.__doc__ is not None
-    assert "from __future__" in Path(mod.__file__).read_text() if mod.__file__ else True
 
 
 def test_token_inventory_row_fields() -> None:
-    """TokenInventoryRow exposes the fields described in the artifact spec."""
+    """TokenInventoryRow exposes the documented fields with the right types."""
     row = TokenInventoryRow(
         token="--ink",
         computed_value="oklch(0.20 0.01 60)",
@@ -99,21 +79,23 @@ def test_token_inventory_row_fields() -> None:
         status="Passa",
     )
     assert row.token == "--ink"
+    assert row.computed_value == "oklch(0.20 0.01 60)"
+    assert row.adjacent_background == "#ffffff"
     assert row.ratio == 4.5
     assert row.status == "Passa"
 
 
-def test_css_rule_construction() -> None:
-    """CssRule is a frozen dataclass with selector + declarations."""
+def test_css_rule_is_frozen() -> None:
+    """CssRule is a frozen dataclass — assignment raises FrozenInstanceError."""
     rule = CssRule(selector=":root", declarations={"--bg": "#fff"})
     assert rule.selector == ":root"
     assert rule.declarations["--bg"] == "#fff"
-    with pytest.raises(Exception):
-        rule.declarations = {"--accent": "blue"}  # type: ignore[misc]
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        rule.selector = ":other"  # type: ignore[misc]
 
 
 def test_css_token_construction() -> None:
-    """CssToken holds a name and a resolved value."""
+    """CssToken holds a property name and a resolved value."""
     token = CssToken(name="--accent", value="oklch(0.55 0.2 250)")
     assert token.name == "--accent"
     assert token.value == "oklch(0.55 0.2 250)"
@@ -124,53 +106,56 @@ def test_css_token_construction() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_resolve_var_direct() -> None:
-    """Direct var() substitution returns the registry value."""
-    result = resolve_var("var(--ink)", {"--ink": "oklch(0.2 0.01 60)"})
-    assert result == "oklch(0.2 0.01 60)"
+@pytest.mark.parametrize(
+    "value,registry,expected",
+    [
+        # Direct substitution.
+        ("var(--ink)", {"--ink": "oklch(0.2 0.01 60)"}, "oklch(0.2 0.01 60)"),
+        # Chained var() reference resolves recursively.
+        (
+            "var(--fg)",
+            {"--fg": "var(--ink)", "--ink": "oklch(0.2 0.01 60)"},
+            "oklch(0.2 0.01 60)",
+        ),
+        # No var() at all → value returned unchanged.
+        ("oklch(0.5 0.1 60)", {}, "oklch(0.5 0.1 60)"),
+        ("#ffffff", {}, "#ffffff"),
+        # Unknown variable without fallback is left as-is.
+        ("var(--unknown)", {}, "--unknown"),
+    ],
+)
+def test_resolve_var_basic(value: str, registry: dict[str, str], expected: str) -> None:
+    """resolve_var handles direct, chained, no-substitution, and missing cases."""
+    assert resolve_var(value, registry) == expected
 
 
-def test_resolve_var_chain() -> None:
-    """Chained var() references resolve recursively."""
-    registry = {
-        "--fg": "var(--ink)",
-        "--ink": "oklch(0.2 0.01 60)",
-    }
-    result = resolve_var("var(--fg)", registry)
-    assert result == "oklch(0.2 0.01 60)"
-
-
-def test_resolve_var_fallback() -> None:
-    """var(--missing, fallback) uses the fallback when --missing not found."""
-    result = resolve_var("var(--missing, #ff0000)", {})
-    assert result == "#ff0000"
-
-
-def test_resolve_var_fallback_named() -> None:
-    """var(--missing, --fallback) resolves a named fallback."""
-    registry = {"--fallback": "#00ff00"}
-    result = resolve_var("var(--missing, --fallback)", registry)
-    assert result == "#00ff00"
-
-
-def test_resolve_var_missing() -> None:
-    """Unknown variable without fallback is left as-is."""
-    result = resolve_var("var(--unknown)", {})
-    assert result == "--unknown"
+@pytest.mark.parametrize(
+    "value,registry,expected",
+    [
+        # Literal fallback: var(--missing, #ff0000).
+        ("var(--missing, #ff0000)", {}, "#ff0000"),
+        # Named fallback: var(--missing, --fallback) resolves the named fallback.
+        ("var(--missing, --fallback)", {"--fallback": "#00ff00"}, "#00ff00"),
+    ],
+)
+def test_resolve_var_fallback(value: str, registry: dict[str, str], expected: str) -> None:
+    """resolve_var uses the documented fallback forms (literal and named)."""
+    assert resolve_var(value, registry) == expected
 
 
 def test_resolve_var_nested_in_color_mix() -> None:
-    """var() inside color-mix() is resolved."""
+    """var() inside a color-mix() expression is resolved.
+
+    Pins the behaviour that ``var(--accent)`` nested inside
+    ``color-mix(in srgb, var(--accent) 15%, transparent)`` is
+    substituted inline. The resolved value retains the colour-mix
+    structure (so coloraide can later parse it) but the ``var()``
+    token is gone.
+    """
     registry = {"--accent": "#0a66c2"}
     result = resolve_var("color-mix(in srgb, var(--accent) 15%, transparent)", registry)
     assert "var(" not in result
     assert "#0a66c2" in result
-
-
-def test_resolve_var_no_substitution_needed() -> None:
-    """A value without var() is returned unchanged."""
-    assert resolve_var("oklch(0.5 0.1 60)", {}) == "oklch(0.5 0.1 60)"
-    assert resolve_var("#ffffff", {}) == "#ffffff"
 
 
 # ---------------------------------------------------------------------------
@@ -178,14 +163,51 @@ def test_resolve_var_no_substitution_needed() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_parse_stylesheet_from_real_css() -> None:
-    """parse_stylesheet can read the real app.css and return a Stylesheet."""
-    if not APP_CSS_PATH.exists():
-        pytest.skip("app.css not found")
-    sheet = parse_stylesheet(APP_CSS_PATH)
-    assert isinstance(sheet, Stylesheet)
-    assert len(sheet.rules) > 0
-    assert ":root" in sheet.raw_text or sheet.raw_text  # source retained
+@pytest.mark.parametrize(
+    "css",
+    [
+        # Empty stylesheet (parses cleanly, no rules).
+        "",
+        # Minimal valid stylesheet.
+        ":root { --x: #fff; }",
+        # Multi-rule stylesheet mirroring the FIXTURE_CSS shape.
+        FIXTURE_CSS,
+    ],
+)
+def test_parse_stylesheet_inline_css_parses(css: str) -> None:
+    """parse_stylesheet parses an arbitrary inline CSS string.
+
+    Each input is written to a file under the repo root (the only
+    location the path-traversal guard accepts) and re-read via the
+    production function — no shortcut via ``tinycss2`` directly, so
+    the guard, encoding, and tinycss2 wiring are all exercised.
+    """
+    target = Path("src/omaha/audit/_test_tmp.css")
+    try:
+        target.write_text(css, encoding="utf-8")
+        sheet = parse_stylesheet(target)
+        assert sheet.raw_text == css
+        assert isinstance(sheet.rules, list)
+        if css == "":
+            assert sheet.rules == []
+        else:
+            assert any(node.type == "qualified-rule" for node in sheet.rules)
+    finally:
+        if target.exists():
+            target.unlink()
+
+
+def test_parse_stylesheet_rejects_path_traversal() -> None:
+    """parse_stylesheet raises ValueError when the path escapes the repo root.
+
+    Pinned behaviour: this is the security guard added in Phase 1 to
+    block ``../``-style path-traversal (threat T-01-02-01). A unit
+    test here is the cheapest place to lock the contract — losing
+    the guard silently would let an attacker steer the audit at
+    arbitrary CSS files outside the repo.
+    """
+    with pytest.raises(ValueError, match="outside the repository root"):
+        parse_stylesheet(Path("../../../etc/passwd"))
 
 
 # ---------------------------------------------------------------------------
@@ -193,29 +215,25 @@ def test_parse_stylesheet_from_real_css() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _make_stylesheet(css: str) -> Stylesheet:
-    rules = css_parser.tinycss2.parse_stylesheet(css, skip_comments=True, skip_whitespace=True)
-    return Stylesheet(rules=rules, raw_text=css)
-
-
-def test_color_token_inventory_basic() -> None:
-    """color_token_inventory returns rows for every color token in the fixture."""
+def test_color_token_inventory_has_color_tokens() -> None:
+    """color_token_inventory returns a row per color token in the fixture."""
     sheet = _make_stylesheet(FIXTURE_CSS)
     rows = color_token_inventory(sheet)
-    assert len(rows) >= 10  # at least the color tokens
-
     by_name = {r.token: r for r in rows}
 
-    # Color tokens should be present.
-    assert "--ink" in by_name
-    assert "--bg" in by_name
-    assert "--accent" in by_name
-    assert "--positive" in by_name
-    assert "--class-1" in by_name
-    assert "--error-bg" in by_name
-    assert "--error-fg" in by_name
+    # Color tokens that resolve to a CSS color are present.
+    for token in (
+        "--ink",
+        "--bg",
+        "--accent",
+        "--positive",
+        "--class-1",
+        "--error-bg",
+        "--error-fg",
+    ):
+        assert token in by_name, f"{token} missing from inventory"
 
-    # Each row has the expected fields.
+    # Each row has the documented fields and types.
     ink = by_name["--ink"]
     assert ink.computed_value.startswith("oklch")
     assert ink.adjacent_background != ""
@@ -223,90 +241,73 @@ def test_color_token_inventory_basic() -> None:
     assert ink.status in ("Passa", "Falha")
 
 
-def test_non_color_tokens_excluded() -> None:
-    """Tokens that resolve to non-color values are excluded from inventory."""
-    sheet = _make_stylesheet(FIXTURE_CSS)
-    rows = color_token_inventory(sheet)
-    by_name = {r.token: r for r in rows}
+def test_color_token_inventory_excludes_non_colors() -> None:
+    """Tokens that resolve to non-color values (--spacing-xs) are excluded.
 
-    # --spacing-xs is 4px, not a color — should be absent.
+    The fixture has ``--spacing-xs: 4px;`` — coloraide rejects this,
+    so the inventory must not include it. ``--border`` IS a CSS color
+    function (oklch), but its presence or absence is implementation-
+    defined; we don't pin it.
+    """
+    sheet = _make_stylesheet(FIXTURE_CSS)
+    by_name = {r.token: r for r in color_token_inventory(sheet)}
     assert "--spacing-xs" not in by_name
-    # --border is a CSS color function like oklch() → it IS a color but may
-    # not parse as a simple color if coloraide rejects shorthand.  Either way
-    # the inventory shouldn't crash on it.
-    assert "--border" in by_name or "--border" not in by_name  # nondeterministic, ok
 
 
-def test_token_inventory_contrast_values() -> None:
-    """Contrast values for known color pairs are within expected ranges."""
+def test_color_token_inventory_known_pairs() -> None:
+    """The documented pair values are reflected in the inventory."""
     sheet = _make_stylesheet(FIXTURE_CSS)
-    rows = color_token_inventory(sheet)
-    by_name = {r.token: r for r in rows}
+    by_name = {r.token: r for r in color_token_inventory(sheet)}
 
-    # --ink against --bg should have high contrast (nearly black on off-white).
-    if "--ink" in by_name:
-        ink = by_name["--ink"]
-        assert ink.ratio >= 4.0, f"Expected >= 4.0 for --ink, got {ink.ratio}"
-        assert ink.status == "Passa"
+    # --ink (near-black) on --bg (off-white) must hit AA.
+    ink = by_name["--ink"]
+    assert ink.ratio >= 4.0, f"--ink ratio {ink.ratio} below 4.0"
+    assert ink.status == "Passa"
 
-    # --accent should pair against --ink (text on accent background).
-    if "--accent" in by_name:
-        accent = by_name["--accent"]
-        assert accent.ratio > 0
-        assert accent.status in ("Passa", "Falha")
+    # --accent-ink is off-white; against --bg it has low contrast
+    # (correct — the token is meant for use ON dark accent surfaces,
+    # not directly on the body).
+    accent_ink = by_name["--accent-ink"]
+    assert accent_ink.status == "Falha"
 
-    # --accent-ink is off-white text meant for dark accent backgrounds.
-    # Against the body --bg it has low contrast (expected — this token is
-    # never used directly on the body).
-    if "--accent-ink" in by_name:
-        accent_ink = by_name["--accent-ink"]
-        assert accent_ink.ratio > 0
-        # It fails against --bg (correctly — off-white on off-white).
-        assert accent_ink.status == "Falha"
+    # --accent itself has a positive ratio (it IS a color).
+    accent = by_name["--accent"]
+    assert accent.ratio > 0
+    assert accent.status in ("Passa", "Falha")
 
 
-def test_token_inventory_foreground_tokens_use_bg() -> None:
-    """Foreground-ish tokens (--ink, --positive) are compared against --bg."""
+def test_color_token_inventory_foreground_uses_bg() -> None:
+    """Foreground-ish tokens (--ink, --positive) compare against --bg.
+
+    The adjacent_background field is the value the token was measured
+    against. For a foreground token like --ink, that should be the
+    resolved --bg value, not the empty default.
+    """
     sheet = _make_stylesheet(FIXTURE_CSS)
-    rows = color_token_inventory(sheet)
-    by_name = {r.token: r for r in rows}
+    by_name = {r.token: r for r in color_token_inventory(sheet)}
 
-    if "--ink" in by_name and "--bg" in by_name:
-        ink = by_name["--ink"]
-        bg_val = by_name["--bg"].computed_value
-        # The adjacent_background of --ink should be the resolved --bg.
-        assert ink.adjacent_background == bg_val
+    ink = by_name["--ink"]
+    bg_val = by_name["--bg"].computed_value
+    assert ink.adjacent_background == bg_val
 
 
-def test_inventory_from_real_app_css() -> None:
-    """color_token_inventory runs against the real app.css without errors."""
-    if not APP_CSS_PATH.exists():
-        pytest.skip("app.css not found")
-    sheet = parse_stylesheet(APP_CSS_PATH)
-    rows = color_token_inventory(sheet)
-    assert len(rows) >= 15  # :root has ~20 custom props, most are colors
-
-    by_name = {r.token: r for r in rows}
-    assert "--bg" in by_name
-    assert "--ink" in by_name
-    assert "--accent" in by_name
-    assert "--positive" in by_name
-    assert "--negative" in by_name
-    assert "--class-1" in by_name
+# ---------------------------------------------------------------------------
+# _build_registry (the canonical registry builder — used by §1.2 dedupe)
+# ---------------------------------------------------------------------------
 
 
-def test_var_chains_in_real_css() -> None:
-    """Alias tokens (--fg → --ink, --muted → --ink-muted) resolve correctly."""
-    if not APP_CSS_PATH.exists():
-        pytest.skip("app.css not found")
-    sheet = parse_stylesheet(APP_CSS_PATH)
-    rows = color_token_inventory(sheet)
-    by_name = {r.token: r for r in rows}
+def test_build_registry_returns_custom_properties() -> None:
+    """_build_registry returns a name → value map of every ``--*`` declaration.
 
-    # --fg should resolve to the same value as --ink
-    if "--fg" in by_name and "--ink" in by_name:
-        assert by_name["--fg"].computed_value == by_name["--ink"].computed_value
+    Pins the canonical registry builder. ``inventory._build_registry_from_stylesheet``
+    is now a re-export of this function (see §1.2 of the change).
+    """
+    sheet = _make_stylesheet(FIXTURE_CSS)
+    registry = _build_registry(sheet)
 
-    # --muted should resolve to the same value as --ink-muted
-    if "--muted" in by_name and "--ink-muted" in by_name:
-        assert by_name["--muted"].computed_value == by_name["--ink-muted"].computed_value
+    assert "--ink" in registry
+    assert registry["--ink"] == "oklch(0.20 0.01 60)"
+    assert "--bg" in registry
+    assert registry["--bg"] == "oklch(0.975 0.003 60)"
+    # Non-custom properties are excluded.
+    assert "color" not in registry

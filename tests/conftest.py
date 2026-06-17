@@ -115,3 +115,42 @@ def client(_omaha_test_env: dict[str, str]) -> TestClient:
 
     with TestClient(app) as test_client:
         yield test_client
+
+
+# ---------------------------------------------------------------------------
+# Pytest marker convention
+# ---------------------------------------------------------------------------
+# Two markers partition the suite: ``unit`` (pure functions, no DB no HTTP)
+# and ``integration`` (boots the FastAPI app, hits a SQLite DB, uses
+# TestClient, or reads the live ``app.css`` / templates).  The rule is
+# location-based so we don't have to touch every existing test file:
+#
+# * tests/e2e/*.py             → no marker, run via ``task test-e2e``
+# * tests/audit_integration/*  → @pytest.mark.integration
+# * tests/*.py (everything else) → @pytest.mark.unit
+#
+# The hook runs once per collection and tags every item.  ``task test-unit``
+# and ``task test-integration`` then become plain ``-m unit`` /
+# ``-m integration`` invocations.
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Apply the location-based marker rule documented above.
+
+    Items that already carry an explicit ``unit`` or ``integration``
+    marker (via ``pytestmark = pytest.mark.X`` at module top) are
+    skipped — the file author wins over the location rule. This lets
+    tests that genuinely depend on production files opt out of the
+    unit subset without renaming or moving files.
+    """
+    for item in items:
+        existing = {m.name for m in item.iter_markers()}
+        if "unit" in existing or "integration" in existing:
+            continue
+        path = str(item.fspath)
+        if "/tests/e2e/" in path:
+            continue
+        if "/tests/audit_integration/" in path:
+            item.add_marker(pytest.mark.integration)
+        else:
+            item.add_marker(pytest.mark.unit)

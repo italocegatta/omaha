@@ -24,6 +24,9 @@ from omaha.audit.color_resolver import (
     contrast_ratio,
 )
 from omaha.audit.css_parser import Stylesheet, resolve_var
+from omaha.audit.css_parser import (
+    _build_registry as _build_registry_from_stylesheet,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -428,26 +431,6 @@ def _resolve_declared_value(value: str, registry: dict[str, str]) -> str:
     if "var(" in value:
         return resolve_var(value, registry)
     return value
-
-
-def _build_registry_from_stylesheet(stylesheet: Stylesheet) -> dict[str, str]:
-    """Build a custom-property registry from the stylesheet's ``:root``
-    and component-scoped rules."""
-    import tinycss2
-
-    registry: dict[str, str] = {}
-    for node in stylesheet.rules:
-        if node.type != "qualified-rule":
-            continue
-        selector = tinycss2.serialize(node.prelude).strip()
-        decls = tinycss2.parse_declaration_list(node.content, skip_whitespace=True)
-        for decl in decls:
-            if decl.type == "declaration" and decl.name.startswith("--"):
-                name = decl.name
-                value = tinycss2.serialize(decl.value).strip()
-                if name not in registry:
-                    registry[name] = value
-    return registry
 
 
 def _is_color(value: str) -> bool:

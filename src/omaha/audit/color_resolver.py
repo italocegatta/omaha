@@ -103,19 +103,22 @@ def composite_over(color: str, backdrop: str) -> str:
     When a computed background has alpha < 1 (e.g. from
     ``color-mix()``), the effective color must be blended over the
     nearest opaque ancestor. Returns a CSS hex string.
+
+    Raises ``ValueError`` when *color* or *backdrop* fails to parse
+    as a CSS color. The backstop in :mod:`omaha.audit.inventory`
+    (``state_color_pairs``) wraps the call in a broad
+    ``try/except Exception`` so a malformed inline style does not
+    abort the whole inventory.
     """
+    fg_c = Color(color).convert("srgb")
+    bg_c = Color(backdrop).convert("srgb")
     try:
-        fg_c = Color(color).convert("srgb")
-        bg_c = Color(backdrop).convert("srgb")
-        try:
-            alpha = min(1.0, max(0.0, fg_c["alpha"]))
-        except (KeyError, TypeError):
-            alpha = 1.0
-        if alpha >= 1.0:
-            return color
-        r = fg_c["r"] * alpha + bg_c["r"] * (1 - alpha)
-        g = fg_c["g"] * alpha + bg_c["g"] * (1 - alpha)
-        b = fg_c["b"] * alpha + bg_c["b"] * (1 - alpha)
-        return Color("srgb", [r, g, b]).to_string(hex=True)
-    except (ValueError, TypeError):
+        alpha = min(1.0, max(0.0, fg_c["alpha"]))
+    except (KeyError, TypeError):
+        alpha = 1.0
+    if alpha >= 1.0:
         return color
+    r = fg_c["r"] * alpha + bg_c["r"] * (1 - alpha)
+    g = fg_c["g"] * alpha + bg_c["g"] * (1 - alpha)
+    b = fg_c["b"] * alpha + bg_c["b"] * (1 - alpha)
+    return Color("srgb", [r, g, b]).to_string(hex=True)

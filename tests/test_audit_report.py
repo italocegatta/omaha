@@ -1,19 +1,25 @@
-"""Tests for the audit report generator (AUDT-01).
+"""Tests for the audit report generator (AUDT-01) — pure-function subset.
 
-Covers ``render_report`` and ``generate_report`` with fixture data.
-Asserts the generated HTML is self-contained, Portuguese, and
-contains all expected sections.
+Unit tests for :mod:`omaha.audit.report` that do not touch the live
+``omaha.main.app`` or ``app.css``.  The full end-to-end pipeline
+(``generate_report`` + ``cli.main``) lives in
+``tests/audit_integration/test_report_pipeline.py``.
+
+Tests in this file use a 12-row fixture set; assertions match
+specific HTML substrings paired with a label so a failure points at
+the missing piece without dumping the whole report.
 """
 
 from __future__ import annotations
-
-from pathlib import Path
 
 import pytest
 
 from omaha.audit.css_parser import TokenInventoryRow
 from omaha.audit.inventory import InteractiveStateRow
-from omaha.audit.report import generate_report, render_report
+from omaha.audit.report import render_report
+
+pytestmark = pytest.mark.unit
+
 
 # ---------------------------------------------------------------------------
 # Fixture data
@@ -21,7 +27,7 @@ from omaha.audit.report import generate_report, render_report
 
 
 def _make_sample_rows() -> list[InteractiveStateRow]:
-    """Build a small set of inventory rows for testing."""
+    """Build a small inventory set for the report tests."""
     return [
         InteractiveStateRow(
             template="dashboard.html",
@@ -60,7 +66,7 @@ def _make_sample_rows() -> list[InteractiveStateRow]:
 
 
 def _make_token_rows() -> list[TokenInventoryRow]:
-    """Build a small set of token rows for testing."""
+    """Build a small token set for the report tests."""
     return [
         TokenInventoryRow(
             token="--ink",
@@ -79,202 +85,123 @@ def _make_token_rows() -> list[TokenInventoryRow]:
     ]
 
 
-# ---------------------------------------------------------------------------
-# render_report tests
-# ---------------------------------------------------------------------------
-
-
-class TestRenderReport:
-    """Verify the HTML report generation from fixture data."""
-
-    @pytest.fixture(scope="class")
-    def report_html(self) -> str:
-        rows = _make_sample_rows()
-        tokens = _make_token_rows()
-        return render_report(rows, tokens, "13/06/2026 14:00 UTC")
-
-    def test_report_contains_title(self, report_html):
-        assert "Inventário de contraste — Omaha" in report_html
-
-    def test_report_contains_summary_cards(self, report_html):
-        assert "Elementos interativos" in report_html
-        assert "Tokens de cor" in report_html
-        assert "Falhas WCAG AA" in report_html
-
-    def test_report_is_self_contained(self, report_html):
-        # No external stylesheet or script references.
-        assert '<link rel="stylesheet"' not in report_html
-        assert "<script src=" not in report_html
-        # Inline <style> is present.
-        assert "<style>" in report_html.lower()
-
-    def test_report_uses_portuguese_lang(self, report_html):
-        assert 'lang="pt-BR"' in report_html
-
-    def test_report_contains_toc_anchors(self, report_html):
-        assert 'id="page-' in report_html
-        assert '<a href="#page-' in report_html
-
-    def test_report_contains_per_page_sections(self, report_html):
-        assert "dashboard.html" in report_html
-        assert "login.html" in report_html
-
-    def test_report_contains_token_section(self, report_html):
-        assert "Inventário de tokens CSS" in report_html
-        assert "--ink" in report_html
-        assert "--accent" in report_html
-
-    def test_report_contains_status_badges(self, report_html):
-        assert "Passa" in report_html
-        assert "Falha" in report_html
-        assert "badge--pass" in report_html
-        assert "badge--fail" in report_html
-
-    def test_report_contains_failure_log(self, report_html):
-        assert "Registro de falhas" in report_html
-        assert "login.html" in report_html
-
-    def test_report_contains_swatches(self, report_html):
-        assert 'class="swatch"' in report_html
-
-    def test_report_contains_show_only_failures_toggle(self, report_html):
-        assert "Mostrar apenas falhas" in report_html
-        assert 'id="show-only-failures"' in report_html
-
-    def test_report_contains_empty_state_when_no_failures(self):
-        # When no failures, empty state should appear.
-        rows = [
-            InteractiveStateRow(
-                template="test.html",
-                selector="button.ok",
-                element_snippet="<button>OK</button>",
-                state="default",
-                fg="#fff",
-                bg="#000",
-                ratio=21.0,
-                status="Passa",
-                hidden_by_default=False,
-            )
-        ]
-        html = render_report(rows, [], "13/06/2026 14:00 UTC")
-        assert "Nenhuma falha de contraste encontrada" in html
-        assert "Todos os pares de cores auditados" in html
-
-    def test_report_timestamp_present(self, report_html):
-        assert "13/06/2026 14:00 UTC" in report_html
-
-    def test_summary_counts_accurate(self, report_html):
-        rows = _make_sample_rows()
-        tokens = _make_token_rows()
-        html = render_report(rows, tokens, "13/06/2026 14:00 UTC")
-        # 2 unique (template, selector) combinations: button.import-btn-primary on dashboard, button on login
-        assert "2" in html  # At least the values appear somewhere
+@pytest.fixture(scope="module")
+def report_html() -> str:
+    """A rendered report with both inventory and token data."""
+    return render_report(
+        _make_sample_rows(),
+        _make_token_rows(),
+        "13/06/2026 14:00 UTC",
+    )
 
 
 # ---------------------------------------------------------------------------
-# generate_report integration test
+# render_report — substring sweep
 # ---------------------------------------------------------------------------
 
 
-class TestGenerateReport:
-    """Integration test for the full pipeline."""
-
-    def test_generate_report_writes_file(self, tmp_path):
-        css_path = Path("src/omaha/static/app.css")
-        templates_dir = Path("src/omaha/templates")
-        output_path = tmp_path / "contrast_audit.html"
-
-        result = generate_report(css_path, templates_dir, output_path)
-        assert result == output_path
-        assert output_path.exists()
-        content = output_path.read_text(encoding="utf-8")
-        assert "Inventário de contraste — Omaha" in content
-        assert len(content) > 5000  # Must be a substantial report
-
-    def test_generate_report_is_self_contained(self, tmp_path):
-        css_path = Path("src/omaha/static/app.css")
-        templates_dir = Path("src/omaha/templates")
-        output_path = tmp_path / "contrast_audit.html"
-
-        result = generate_report(css_path, templates_dir, output_path)
-        content = result.read_text(encoding="utf-8")
-        assert '<link rel="stylesheet"' not in content
-        assert "<script src=" not in content
-
-    def test_generate_report_larger_than_10kb(self, tmp_path):
-        css_path = Path("src/omaha/static/app.css")
-        templates_dir = Path("src/omaha/templates")
-        output_path = tmp_path / "contrast_audit.html"
-
-        generate_report(css_path, templates_dir, output_path)
-        size = output_path.stat().st_size
-        assert size > 10_000, f"Report should be larger than 10 KB, got {size} bytes"
+@pytest.mark.parametrize(
+    "substring,label",
+    [
+        ("Inventário de contraste — Omaha", "title"),
+        ("Elementos interativos", "summary card — interactive elements"),
+        ("Tokens de cor", "summary card — color tokens"),
+        ("Falhas WCAG AA", "summary card — AA failures"),
+        ('lang="pt-BR"', "Portuguese lang attribute"),
+        ('id="page-', "TOC anchor id"),
+        ('<a href="#page-', "TOC anchor link"),
+        ("dashboard.html", "per-page section: dashboard"),
+        ("login.html", "per-page section: login"),
+        ("Inventário de tokens CSS", "token inventory section"),
+        ("badge--pass", "pass badge class"),
+        ("badge--fail", "fail badge class"),
+    ],
+)
+def test_render_report_contains_substring(report_html: str, substring: str, label: str) -> None:
+    """render_report emits each expected structural substring (label-tagged)."""
+    assert substring in report_html, f"missing {label!r}: {substring!r}"
 
 
-# ---------------------------------------------------------------------------
-# CLI integration tests
-# ---------------------------------------------------------------------------
+def test_render_report_contains_timestamp(report_html: str) -> None:
+    """render_report embeds the generation_time string verbatim."""
+    assert "13/06/2026 14:00 UTC" in report_html
 
 
-class TestCLI:
-    """Verify the CLI entry point produces the expected output."""
+def test_render_report_is_self_contained(report_html: str) -> None:
+    """No external stylesheet or script references; inline <style> present."""
+    assert '<link rel="stylesheet"' not in report_html
+    assert "<script src=" not in report_html
+    assert "<style>" in report_html.lower()
 
-    def test_cli_writes_report(self, tmp_path):
-        from omaha.audit.cli import main
 
-        output_path = tmp_path / "contrast_audit.html"
-        exit_code = main(
-            [
-                "--css",
-                "src/omaha/static/app.css",
-                "--templates-dir",
-                "src/omaha/templates",
-                "--output",
-                str(output_path),
-            ]
+def test_render_report_no_failures_shows_empty_state() -> None:
+    """When every row passes, the report shows the documented empty-state copy."""
+    rows = [
+        InteractiveStateRow(
+            template="test.html",
+            selector="button.ok",
+            element_snippet="<button>OK</button>",
+            state="default",
+            fg="#fff",
+            bg="#000",
+            ratio=21.0,
+            status="Passa",
+            hidden_by_default=False,
         )
-        assert exit_code == 0
-        assert output_path.exists()
-        content = output_path.read_text(encoding="utf-8")
-        assert "Inventário de contraste — Omaha" in content
+    ]
+    html = render_report(rows, [], "13/06/2026 14:00 UTC")
+    assert "Nenhuma falha de contraste encontrada" in html
+    assert "Todos os pares de cores auditados" in html
 
-    def test_cli_default_args(self):
-        from omaha.audit.cli import _parse_args
 
-        args = _parse_args([])
-        assert args.css == "src/omaha/static/app.css"
-        assert args.templates_dir == "src/omaha/templates"
-        assert args.output == "reports/contrast_audit.html"
+# ---------------------------------------------------------------------------
+# CLI _parse_args
+# ---------------------------------------------------------------------------
 
-    def test_cli_custom_args(self):
-        from omaha.audit.cli import _parse_args
 
-        args = _parse_args(
-            [
-                "--css",
-                "custom.css",
-                "--templates-dir",
-                "custom/templates",
-                "--output",
-                "out.html",
-            ]
-        )
-        assert args.css == "custom.css"
-        assert args.templates_dir == "custom/templates"
-        assert args.output == "out.html"
+def test_parse_args_defaults() -> None:
+    """``_parse_args([])`` returns the documented default paths."""
+    from omaha.audit.cli import _parse_args
 
-    def test_cli_missing_css_returns_nonzero(self, tmp_path):
-        from omaha.audit.cli import main
+    args = _parse_args([])
+    assert args.css == "src/omaha/static/app.css"
+    assert args.templates_dir == "src/omaha/templates"
+    assert args.output == "reports/contrast_audit.html"
 
-        output_path = tmp_path / "out.html"
-        exit_code = main(
-            [
-                "--css",
-                "nonexistent.css",
-                "--templates-dir",
-                "src/omaha/templates",
-                "--output",
-                str(output_path),
-            ]
-        )
-        assert exit_code == 1
+
+@pytest.mark.parametrize(
+    "argv,expected_css,expected_templates,expected_output",
+    [
+        (
+            ["--css", "custom.css"],
+            "custom.css",
+            "src/omaha/templates",
+            "reports/contrast_audit.html",
+        ),
+        (
+            ["--css", "x.css", "--templates-dir", "t/", "--output", "o.html"],
+            "x.css",
+            "t/",
+            "o.html",
+        ),
+        (
+            ["--templates-dir", "alt/templates"],
+            "src/omaha/static/app.css",
+            "alt/templates",
+            "reports/contrast_audit.html",
+        ),
+    ],
+)
+def test_parse_args_custom_values(
+    argv: list[str],
+    expected_css: str,
+    expected_templates: str,
+    expected_output: str,
+) -> None:
+    """``_parse_args`` honours each documented flag independently."""
+    from omaha.audit.cli import _parse_args
+
+    args = _parse_args(argv)
+    assert args.css == expected_css
+    assert args.templates_dir == expected_templates
+    assert args.output == expected_output
