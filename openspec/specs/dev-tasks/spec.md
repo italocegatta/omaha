@@ -74,3 +74,15 @@ The system SHALL provide a taskipy shortcut for generating a cryptographically r
 #### Scenario: Generate secret key
 - **WHEN** user runs `uv run task secret-key`
 - **THEN** a 50-char URL-safe base64 token is printed to stdout
+
+### Requirement: Git-hook installation
+The system SHALL provide a taskipy shortcut for installing the prek git hooks into `.git/hooks/`.
+
+#### Scenario: Install prek hooks
+- **WHEN** user runs `uv run task prek-install`
+- **THEN** `prek install` populates `.git/hooks/` with the configured `pre-commit`, `pre-push`, and `commit-msg` hooks
+- **AND** the hooks are active for subsequent `git commit` and `git push` invocations
+
+#### Scenario: Install is idempotent
+- **WHEN** user runs `uv run task prek-install` more than once
+- **THEN** prek updates the existing hooks in place (does not error or duplicate)

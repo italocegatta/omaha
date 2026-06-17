@@ -35,4 +35,4 @@
 - [x] 5.1 Commit the change with a Conventional Commits message: `chore(prek): expand prek config with stage split, pytest gate, pyright, gitleaks, commitizen`
 
 **Note:** prek 0.4.4 does not support `continue-on-error` at hook level. Ruff/pyright failures will block pre-push until pre-existing issues are resolved. Documentation/design note: a follow-up change should either fix the 197 issues or find a prek-compatible mechanism (e.g., entry wrapper) for non-blocking hooks.
-- [ ] 5.2 After the change lands and the user has run the new hooks at least once, sync the spec deltas via `openspec sync-specs --change "expand-prek-hooks"` and archive the change
+- [x] 5.2 After the change lands and the user has run the new hooks at least once, sync the spec deltas via `openspec sync-specs --change "expand-prek-hooks"` and archive the change
