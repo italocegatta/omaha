@@ -49,7 +49,6 @@ resolves) — same pattern as ``test_s05_user_journey.py``.
 
 from __future__ import annotations
 
-import re
 import sqlite3
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -57,10 +56,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
-from .test_s04_user_journey import (
-    SELECTORS,
-    _login_and_select_italo,
-)
+from .test_s04_user_journey import _login_and_select_italo
 from .test_s05_user_journey import S05_SELECTORS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -101,31 +97,32 @@ def _debug_dump(page: Page, tag: str) -> None:
 
 
 def _create_one_class(page: Page) -> None:
-    """Create a single class "Renda Fixa" at 60% via the Alpine class editor + DB adjustment.
+    """Create a single class "Renda Fixa" at 60% via POST /classes + DB adjustment.
 
-    The class editor's save button is disabled when the
-    per-class sum is not 100 (template:
-    ``:disabled="Math.abs(total - 100) >= 0.01"``). A single
-    class at 60% sums to 60, so the save button stays disabled.
-    We create the class at 100% (enables save), then UPDATE
-    its target_pct to 60 via direct sqlite3 write so the
-    downstream math (target_pct_total = 40 * 60 / 100 = 24) is
-    testable. The dashboard reads target_pct from the DB on
-    every render, so the next page.goto("/") picks up the new
+    S02/T07 retired the dedicated ``/classes`` page; the
+    dashboard's class editor is now the only class surface.
+    We POST to ``/classes`` (the same JSON-less form endpoint
+    used by ``tests/e2e/test_s03_asset_crud.py::_create_seed_classes``)
+    to create a 100% class, then UPDATE its ``target_pct`` to
+    60 via direct sqlite3 write so the downstream math
+    (``target_pct_total = 40 * 60 / 100 = 24``) is testable.
+    The dashboard reads ``target_pct`` from the DB on every
+    render, so the next ``page.goto("/")`` picks up the new
     value.
     """
-    page.click(SELECTORS["nav_classes"])
-    page.wait_for_url(re.compile(r"/classes$"))
-    name_inputs = page.locator(SELECTORS["class_editor_name"])
-    pct_inputs = page.locator(SELECTORS["class_editor_pct"])
-    name_inputs.nth(0).fill("Renda Fixa")
-    pct_inputs.nth(0).fill("100")
-    page.wait_for_function(
-        f"() => !document.querySelector('{SELECTORS['class_editor_save']}').disabled",
-        timeout=3000,
+    page.evaluate(
+        """async () => {
+            const fd = new FormData();
+            fd.append('name[]', 'Renda Fixa');
+            fd.append('target_pct[]', '100');
+            const r = await fetch('/classes', { method: 'POST', body: fd });
+            if (!r.ok) {
+                throw new Error('POST /classes ' + r.status + ': ' + await r.text());
+            }
+        }"""
     )
-    page.click(SELECTORS["class_editor_save"])
-    page.wait_for_url(re.compile(r"/$"))
+    page.goto(page.url)
+    page.wait_for_selector('[data-testid="class-summary-row"]', timeout=8000)
 
     # Adjust the class's target_pct to 60 so the inline-edit
     # math exercises a 60% class.
@@ -143,22 +140,55 @@ def _create_one_class(page: Page) -> None:
 
 
 def _create_n_assets(page: Page, names: list[str]) -> None:
-    """Add N assets to the single class "Renda Fixa" via the asset editor."""
-    page.click(SELECTORS["nav_assets"])
-    page.wait_for_url(re.compile(r"/assets$"))
-    for i, name in enumerate(names):
-        page.fill(SELECTORS["asset_editor_name"], name)
-        page.select_option(SELECTORS["asset_editor_class"], label="Renda Fixa")
-        page.click(SELECTORS["asset_editor_add"])
-        try:
-            page.wait_for_function(
-                f"() => document.querySelectorAll('{SELECTORS['asset_row']}').length === {i + 1}",
-                timeout=5000,
+    """Add N assets to the single class "Renda Fixa" via POST /api/assets.
+
+    S03/T05 retired the dedicated ``/assets`` page; the
+    dashboard's inline editor (``POST /api/assets``) is the
+    canonical asset-creation surface. We use ``page.evaluate`` +
+    ``fetch`` (same pattern as
+    ``tests/e2e/test_s03_asset_crud.py::_create_seed_assets``)
+    to bypass the inline form's Alpine initialization timing —
+    the dashboard renders the new asset row on the next reload
+    regardless of how it was inserted.
+    """
+    class_map: dict[str, int] = page.evaluate(
+        """() => {
+            const out = {};
+            document.querySelectorAll('[data-testid="class-summary-row"]').forEach((row) => {
+                const nameEl = row.querySelector('[data-testid="class-section-name"]');
+                const id = row.dataset.classId;
+                if (nameEl && id) out[nameEl.textContent.trim()] = parseInt(id, 10);
+            });
+            return out;
+        }"""
+    )
+    class_id = class_map.get("Renda Fixa")
+    if class_id is None:
+        raise RuntimeError("class 'Renda Fixa' not found on the dashboard")
+    for name in names:
+        resp = page.evaluate(
+            """async ({classId, assetName}) => {
+                const r = await fetch('/api/assets', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        name: assetName,
+                        asset_class_id: classId,
+                        target_pct: '0',
+                    }),
+                });
+                return { status: r.status, body: await r.text() };
+            }""",
+            {"classId": class_id, "assetName": name},
+        )
+        if resp["status"] != 201:
+            raise RuntimeError(
+                f"POST /api/assets failed for {name!r}: {resp['status']} {resp['body']}"
             )
-        except Exception:
-            _debug_dump(page, f"asset_iter_{i}_{name}")
-            raise
-    assert page.locator(SELECTORS["asset_row"]).count() == len(names)
+    page.goto(page.url)
+    page.wait_for_selector(S01_SELECTORS["dashboard_asset_row"], state="attached", timeout=8000)
+    rows = page.locator(S01_SELECTORS["dashboard_asset_row"])
+    assert rows.count() == len(names), f"expected {len(names)} asset rows, got {rows.count()}"
 
 
 def _seed_target_pct(profile_name: str, asset_name_to_pct: dict[str, int]) -> None:
@@ -318,6 +348,18 @@ class TestS01InlineEdit:
                 break
         assert target_row is not None, "Ativo A row not found on dashboard"
 
+        # Expand the class section (D016: collapsed by default).
+        # The inline edit cell lives inside the section body;
+        # without expanding, the click is intercepted by the
+        # section header overlay. Mirrors the test_s03 pattern.
+        page.evaluate(
+            """() => {
+                const row = document.querySelector('[data-testid="class-summary-row"]');
+                if (row) { const d = Alpine.$data(row); if (d && !d.isOpen) d.isOpen = true; }
+            }"""
+        )
+        page.wait_for_timeout(350)
+
         # Click the "alvo % classe" cell to enter edit mode. The
         # Alpine ``startEdit`` toggles ``editingAssetId`` to the
         # asset's id, which reveals the input.
@@ -430,6 +472,18 @@ class TestS01InlineEdit:
                 target_row = row
                 break
         assert target_row is not None, "Ativo B row not found on dashboard"
+
+        # Expand the class section (D016: collapsed by default).
+        # The inline edit cell lives inside the section body;
+        # without expanding, the click is intercepted by the
+        # section header overlay. Mirrors the test_s03 pattern.
+        page.evaluate(
+            """() => {
+                const row = document.querySelector('[data-testid="class-summary-row"]');
+                if (row) { const d = Alpine.$data(row); if (d && !d.isOpen) d.isOpen = true; }
+            }"""
+        )
+        page.wait_for_timeout(350)
 
         # Click to start editing.
         cell = target_row.locator(S01_SELECTORS["asset_target_pct_class"]).first

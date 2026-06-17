@@ -111,10 +111,20 @@ def _clean_assets_and_classes(_omaha_test_env: dict[str, str]) -> None:
 
 
 def _login_and_select(client: TestClient, profile_id: int = 1) -> None:
-    """Log in with the seed credentials and bind ``active_profile_id``."""
+    """Log in with the seed credentials and bind ``active_profile_id``.
+
+    The seed (``src/omaha/seed.py``) creates only ``Italo`` and
+    ``Ana`` — there is no ``family`` user. Logging in as
+    ``family`` silently fails (the login route returns 200 with
+    a form error and no session cookie), so the subsequent
+    ``/profiles/{id}/select`` is unauthenticated and the PATCH
+    route's ``require_active_profile`` dependency raises 404
+    before the handler ever reads the asset. ``Italo`` is the
+    profile-1 owner per the seed.
+    """
     client.post(
         "/login",
-        data={"username": "family", "password": "test-password"},
+        data={"username": "Italo", "password": "test-password"},
         follow_redirects=False,
     )
     client.post(f"/profiles/{profile_id}/select", follow_redirects=False)

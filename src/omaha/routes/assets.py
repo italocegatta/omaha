@@ -84,39 +84,20 @@ def _templates(request: Request):
     return request.app.state.templates
 
 
-@router.get("/assets", response_class=HTMLResponse, response_model=None)
-def get_assets(
-    request: Request,
-    db: DbSession,
-    user: User = Depends(require_user),
-    profile: Profile = Depends(require_active_profile),
-) -> Response:
-    """Render the dedicated asset editor page.
+@router.get("/assets")
+def get_assets() -> Response:
+    """S03/T05 retired: the dedicated asset page is replaced by dashboard inline editing.
 
-    Loads the profile's classes (ordered by ``display_order``) and
-    each class's assets for the table view. If the profile has no
-    classes yet, the template shows the "Crie classes antes"
-    empty state with a link to ``/classes``; the add-asset form
-    is hidden because there is no class to add an asset to.
+    Any request to ``GET /assets`` returns a 302 redirect to ``/``
+    so any stale bookmark or stale browser tab lands on the
+    dashboard, which now hosts the inline asset-target editor
+    (S03/T03) and the inline add-asset form (S03/T03) and delete
+    button (S03/T04). The form-encoded ``POST /assets`` (create)
+    and ``POST /assets/{id}/delete`` (delete) handlers below
+    remain wired; they are dead code that a future polish slice
+    may prune.
     """
-    classes = (
-        db.query(AssetClass)
-        .filter(AssetClass.profile_id == profile.id)
-        .order_by(AssetClass.display_order)
-        .all()
-    )
-    assets_by_class: dict[int, list[Asset]] = {cls.id: list(cls.assets) for cls in classes}
-    return _templates(request).TemplateResponse(
-        request,
-        "assets.html",
-        {
-            "user": user,
-            "profile": profile,
-            "classes": classes,
-            "assets_by_class": assets_by_class,
-            "error": None,
-        },
-    )
+    return RedirectResponse("/", status_code=302)
 
 
 @router.post("/assets", response_class=HTMLResponse, response_model=None)
