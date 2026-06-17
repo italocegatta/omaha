@@ -61,6 +61,16 @@ markers = [
     "integration: tests requiring DB, TestClient, or external services",
 ]
 
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+include = ["src/omaha"]
+exclude = ["**/alembic/*"]
+venvPath = "."
+venv = ".venv"
+reportMissingImports = "error"
+reportMissingTypeStubs = "none"
+
 [tool.uv]
 package = true
 
@@ -123,6 +133,7 @@ db-downgrade = { cmd = "uv run alembic downgrade -1",                           
 # ── Install / setup ─────────────────────────────────────────────────────────
 install     = { cmd = "uv sync",                                       help = "Install / sync locked dependencies into .venv" }
 install-e2e = { cmd = "uv run playwright install chromium",            help = "Download the Playwright Chromium browser (one-time)" }
+prek-install = { cmd = "uv run prek install --hook-type pre-commit --hook-type pre-push --hook-type commit-msg", help = "Install prek git hooks (pre-commit, pre-push, commit-msg) into .git/hooks/" }
 
 # ── Backup ──────────────────────────────────────────────────────────────────
 backup      = { cmd = "docker compose -f prod.yml run --rm backup",    help = "Snapshot the prod DB to ./backups/ (one-off container)" }
