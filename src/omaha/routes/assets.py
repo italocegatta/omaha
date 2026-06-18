@@ -376,7 +376,7 @@ def patch_asset(
     parsed = _parse_pct(raw)
     if parsed is None or parsed < PCT_MIN or parsed > PCT_MAX:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"A alocação do ativo deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
         )
 
@@ -390,7 +390,7 @@ def patch_asset(
     ok, error = validate_target_pct_sum(candidate)
     if not ok:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=error,
         )
 
