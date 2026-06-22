@@ -203,7 +203,47 @@
                   <span data-testid="asset-pct" hidden x-text="a.current_pct_class"></span>
                   <span x-text="$parent.formatPct(a.current_pct_class)"></span>
                 </td>
-                <td data-testid="asset-target-pct-total" x-text="$parent.formatPct(a.target_pct_total)"></td>
+                <td data-testid="asset-target-pct-total">
+                  <button type="button"
+                          class="asset-pct-cell asset-pct-cell--editable"
+                          @click="$parent.startEditTotal(a.id)"
+                          x-show="$parent.editingTotalAssetId !== a.id"
+                          title="Clique para editar">
+                    <span x-text="$parent.formatPct(a.target_pct_total)"></span>
+                  </button>
+                  <div class="asset-pct-cell asset-pct-cell--editing"
+                       data-testid="asset-target-pct-total-editing"
+                       x-show="$parent.editingTotalAssetId === a.id"
+                       x-cloak>
+                    <input type="number"
+                           step="0.01"
+                           min="0"
+                           max="100"
+                           class="asset-inline-edit-input"
+                           data-testid="asset-target-pct-total-edit-input"
+                           :data-asset-id="a.id"
+                           x-model="$parent.editingTotalValue"
+                           @keyup.enter="$parent.commitEditTotal()"
+                           @keyup.escape.window="$parent.cancelEditTotal()"
+                           :class="{'asset-inline-edit-input--error': $parent.errorTotal}"
+                           :disabled="$parent.savingTotal"
+                           @click.stop>
+                    <div class="asset-inline-edit-actions">
+                      <button type="button" class="asset-inline-edit-commit" data-testid="asset-target-pct-total-edit-commit" @click.stop="$parent.commitEditTotal()" :disabled="$parent.savingTotal">salvar</button>
+                      <button type="button" class="asset-inline-edit-cancel" data-testid="asset-target-pct-total-edit-cancel" @click.stop="$parent.cancelEditTotal()" :disabled="$parent.savingTotal">cancelar</button>
+                    </div>
+                    <span class="asset-inline-edit-hint"
+                          data-testid="asset-target-pct-total-edit-hint"
+                          x-show="$parent.editingTotalValue !== '' && !isNaN(parseFloat($parent.editingTotalValue))">
+                      Isso ajusta o alvo desta classe para <span x-text="Number((parseFloat($parent.editingTotalValue) * 100) / $parent.classTargetPct).toFixed(2)"></span>%
+                    </span>
+                    <span class="asset-inline-edit-error"
+                          data-testid="asset-target-pct-total-edit-error"
+                          x-show="$parent.errorTotal"
+                          x-text="$parent.errorTotal"
+                          x-cloak></span>
+                  </div>
+                </td>
                 <td data-testid="asset-current-pct-total" x-text="$parent.formatPct(a.current_pct_total)"></td>
               </tr>
               <tr>
@@ -578,12 +618,18 @@
           current_pct_class: a.current_pct_class,
           current_pct_total: a.current_pct_total,
           target_pct_total: a.target_pct_total,
+          position_count: a.position_count,
+          current_value: a.current_value,
         };
       }),
       editingAssetId: null,
       editingValue: '',
       saving: false,
       error: '',
+      editingTotalAssetId: null,
+      editingTotalValue: '',
+      savingTotal: false,
+      errorTotal: '',
 
       // Collapse/expand state (D016: default closed on every load).
       isOpen: false,
@@ -760,11 +806,29 @@
       },
 
       startEdit: function (id) {
+        if (this.editingTotalAssetId !== null) {
+          this.cancelEditTotal();
+        }
         var asset = this.assets.find(function (a) { return a.id === id; });
         if (!asset) return;
         this.editingAssetId = id;
         this.editingValue = String(asset.target_pct);
         this.error = '';
+      },
+      startEditTotal: function (id) {
+        if (this.editingAssetId !== null) {
+          this.cancelEdit();
+        }
+        var asset = this.assets.find(function (a) { return a.id === id; });
+        if (!asset) return;
+        this.editingTotalAssetId = id;
+        this.editingTotalValue = String(asset.target_pct_total);
+        this.errorTotal = '';
+      },
+      cancelEditTotal: function () {
+        this.editingTotalAssetId = null;
+        this.editingTotalValue = '';
+        this.errorTotal = '';
       },
       cancelEdit: function () {
         this.editingAssetId = null;
@@ -831,6 +895,70 @@
           })
           .then(function () {
             self.saving = false;
+          });
+      },
+
+      // asset-table-view 7.1/7.2: inline edit of ``alvo % total``.
+      // The user edits the total allocation; the client back-solves
+      // ``target_pct = total * 100 / classTargetPct`` and PATCHes the
+      // server with the derived class-level percentage. The same
+      // local update + classSum store push pattern as ``commitEdit``
+      // keeps the per-class badge and portfolio alert reactive.
+      commitEditTotal: function () {
+        if (this.editingTotalAssetId === null) return;
+        var self = this;
+        var parsed = parseFloat(self.editingTotalValue);
+        if (isNaN(parsed) || parsed < 0 || parsed > 100) {
+          self.errorTotal = 'Valor deve ser entre 0 e 100';
+          return;
+        }
+        if (self.classTargetPct <= 0) {
+          self.errorTotal = 'Classe com alvo 0%';
+          return;
+        }
+        var newTargetPct = (parsed * 100) / self.classTargetPct;
+        if (newTargetPct < 0 || newTargetPct > 100) {
+          self.errorTotal = 'Alvo % classe resultante deve ser entre 0 e 100';
+          return;
+        }
+        var id = self.editingTotalAssetId;
+        self.savingTotal = true;
+        self.errorTotal = '';
+        fetch('/api/assets/' + id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target_pct: newTargetPct.toFixed(2) }),
+        })
+          .then(function (r) {
+            if (r.status === 200) {
+              return r.json();
+            }
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao salvar';
+              throw new Error(detail);
+            });
+          })
+          .then(function (payload) {
+            var parsedPct = parseFloat(payload.target_pct);
+            var asset = self.assets.find(function (a) { return a.id === id; });
+            if (asset) {
+              asset.target_pct = isNaN(parsedPct) ? asset.target_pct : parsedPct;
+              asset.target_pct_total = (asset.target_pct * self.classTargetPct) / 100;
+            }
+            if (Alpine.store('classSum')) {
+              var store = Alpine.store('classSum');
+              store.update(self.classId, self.classTargetPct);
+              store.setClassSum(self.classId, self.classSum);
+            }
+            self.editingTotalAssetId = null;
+            self.editingTotalValue = '';
+            self.errorTotal = '';
+          })
+          .catch(function (err) {
+            self.errorTotal = err && err.message ? err.message : 'Erro ao salvar';
+          })
+          .then(function () {
+            self.savingTotal = false;
           });
       },
 
@@ -1002,18 +1130,15 @@
       classColor: initial.color,
       classTargetPct: initial.target_pct,
       classCurrentPct: initial.current_pct,
-      assets: initial.assets.map(function (a) {
-        return {
-          id: a.id,
-          name: a.name,
-          target_pct: a.target_pct,
-          current_pct_class: a.current_pct_class,
-          current_pct_total: a.current_pct_total,
-          target_pct_total: a.target_pct_total,
-          position_count: a.position_count,
-          current_value: a.current_value,
-        };
-      }),
+      // asset-table-view 7.x: share the asset row model with the
+      // parent classSection so inline edits update the rendered
+      // table without a page reload. The parent map now carries
+      // ``position_count`` and ``current_value`` alongside the
+      // percentage fields needed by the sortable rows.
+      assets: [],
+      init: function () {
+        this.assets = this.$parent.assets;
+      },
 
       sortKey: 'class',
       sortDir: 'asc',
