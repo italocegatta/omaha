@@ -1,99 +1,4 @@
-## Purpose
-
-Inline asset class and asset management on the dashboard — edit target
-percentages, add/remove assets, remove classes, and collapse sections
-without leaving the dashboard view. Replaces the standalone editor
-pages.
-## Requirements
-### Requirement: Inline editing de target % da classe
-
-The dashboard MUST allow editing the class target % by clicking the percentage
-value, which becomes an inline input. O save faz PATCH /api/classes/{id} e atualiza o
-valor local sem recarregar a página. The editor SHALL accept numeric input and
-MUST update the displayed value on a 200 response.
-
-#### Scenario: Clique no % abre input inline
-
-- **WHEN** usuário clica no target % da classe (data-testid="class-target-pct-view")
-- **THEN** o span some e um input numérico (data-testid="class-inline-edit-input") aparece
-- **AND** o input contém o valor atual preenchido
-
-#### Scenario: Enter salva e atualiza localmente
-
-- **WHEN** usuário digita novo valor e pressiona Enter
-- **THEN** PATCH /api/classes/{id} é enviado
-- **AND** em caso de 200, o valor local (classTargetPct) é atualizado
-- **AND** o input some e o novo valor aparece no span
-
-### Requirement: Remoção de classe com confirmação
-
-The dashboard MUST display a × button in the class header that, when clicked,
-shows a "Remover classe {nome}?" confirmation. Confirmar faz DELETE /api/classes/{id}
-e recarrega a página. The confirmation prompt SHALL display the class name and the
-delete action MUST reload the page on a 204 response.
-
-#### Scenario: Confirmar exclusão recarrega
-
-- **WHEN** usuário clica × (data-testid="class-delete-btn")
-- **THEN** div de confirmação (data-testid="class-delete-confirm") aparece
-- **AND** ao clicar "Sim, remover", DELETE /api/classes/{id} é enviado
-- **AND** em 204, página recarrega
-
-### Requirement: Remoção de ativo com confirmação
-
-The dashboard MUST display a × button per asset that, when clicked, shows a
-"Remover ativo {nome}?" confirmation. Confirmar faz DELETE /api/assets/{id} e
-recarrega a página. The confirmation prompt SHALL display the asset name and the
-delete action MUST reload the page on a 204 response.
-
-#### Scenario: Confirmar exclusão de ativo recarrega
-
-- **WHEN** usuário clica × no ativo (data-testid="dashboard-asset-delete-btn")
-- **THEN** div de confirmação (data-testid="dashboard-asset-delete-confirm") aparece
-- **AND** ao clicar "Sim, remover", DELETE /api/assets/{id} é enviado
-- **AND** em 204, página recarrega
-- **AND** em 409, exibe erro (classe tem posições)
-
-### Requirement: Criação inline de ativo
-
-The previous per-class `+ Ativo` button and inline form MUST be
-removed. A single dashboard-level button
-(data-testid="dashboard-add-asset-open") SHALL open a modal
-(data-testid="dashboard-add-asset-modal") carrying the class
-selector, asset name, and target_pct inputs. The form MUST POST to
-`/api/assets` and the page MUST reload on a 201 response.
-
-#### Scenario: Single dashboard-level add button
-
-- **WHEN** the dashboard renders the "Ativos" section header
-- **THEN** a single `+ Ativo` button (data-testid="dashboard-add-asset-open")
-  is visible
-- **AND** no per-class `+ Ativo` button is rendered
-
-#### Scenario: Modal opens with empty form
-
-- **WHEN** the user clicks the dashboard-level `+ Ativo` button
-- **THEN** the modal is visible
-- **AND** the class selector, name input, and target_pct input are
-  empty (or default to the first available class)
-- **AND** submitting the form POSTs to /api/assets
-- **AND** on 201, the page reloads and the new asset appears in the
-  table
-
-### Requirement: Seções colapsáveis
-
-The dashboard SHALL remove the previous D016 default-closed behavior
-and the chevron toggle. The dashboard MUST NOT render a chevron to
-collapse a class group. Every per-class group MUST be visible on every
-load. The "Default expandido e permanece expandido após edição"
-requirement above is the source of truth for this behavior; the
-chevron toggle scenario is no longer applicable.
-
-#### Scenario: No chevron rendered
-
-- **WHEN** the dashboard renders the asset table
-- **THEN** no chevron control is present in any group header
-- **AND** no `data-testid="class-chevron"` element exists in the DOM
+## ADDED Requirements
 
 ### Requirement: Asset table with sortable columns
 
@@ -238,3 +143,61 @@ resulting deviation, if any, is surfaced through the
 - **AND** the new row is added to the table
 - **AND** the per-class badge reflects the new deviation
 
+## MODIFIED Requirements
+
+### Requirement: Seções colapsáveis
+
+The dashboard SHALL remove the previous D016 default-closed behavior
+and the chevron toggle. The dashboard MUST NOT render a chevron to
+collapse a class group. Every per-class group MUST be visible on every
+load. The "Default expandido e permanece expandido após edição"
+requirement above is the source of truth for this behavior; the
+chevron toggle scenario is no longer applicable.
+
+#### Scenario: No chevron rendered
+
+- **WHEN** the dashboard renders the asset table
+- **THEN** no chevron control is present in any group header
+- **AND** no `data-testid="class-chevron"` element exists in the DOM
+
+### Requirement: Criação inline de ativo
+
+The previous per-class `+ Ativo` button and inline form MUST be
+removed. A single dashboard-level button
+(data-testid="dashboard-add-asset-open") SHALL open a modal
+(data-testid="dashboard-add-asset-modal") carrying the class
+selector, asset name, and target_pct inputs. The form MUST POST to
+`/api/assets` and the page MUST reload on a 201 response.
+
+#### Scenario: Single dashboard-level add button
+
+- **WHEN** the dashboard renders the "Ativos" section header
+- **THEN** a single `+ Ativo` button (data-testid="dashboard-add-asset-open")
+  is visible
+- **AND** no per-class `+ Ativo` button is rendered
+
+#### Scenario: Modal opens with empty form
+
+- **WHEN** the user clicks the dashboard-level `+ Ativo` button
+- **THEN** the modal is visible
+- **AND** the class selector, name input, and target_pct input are
+  empty (or default to the first available class)
+- **AND** submitting the form POSTs to /api/assets
+- **AND** on 201, the page reloads and the new asset appears in the
+  table
+
+## REMOVED Requirements
+
+### Requirement: Total da soma de classes
+
+**Reason:** the per-class sum and portfolio total deviation are
+subsumed by the `asset-allocation-alerts` spec, which renders the
+same data in a more accessible sticky alert card with severity
+coloring and a per-class breakdown.
+
+**Migration:** the previous `data-testid="class-summary-total"`
+element is removed from the top of "Distribuicao". The same data is
+surfaced through `data-testid="asset-allocation-alert-portfolio"`
+inside the new sticky alert card. Tests that asserted the
+`class-summary-total` text (in `tests/test_t03_pages_routes.py`)
+move to assert the alert card content.
