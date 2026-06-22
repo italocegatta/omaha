@@ -36,35 +36,14 @@
 
     <section class="dashboard-distribution" data-testid="dashboard-distribution">
       <h2>Distribuicao</h2>
-      <div class="class-summary-total"
-           data-testid="class-summary-total"
-           x-data
-           x-show="$store.classSum.message"
-           x-cloak>
-        <span class="class-summary-total-label">Total classes:</span>
-        <span class="class-summary-total-value" x-text="$store.classSum.totalPct.toFixed(2) + '%'"></span>
-        <span class="class-summary-total-delta"
-              x-text="$store.classSum.message"
-              :class="$store.classSum.delta < 0 ? 'class-delta-badge--short' : 'class-delta-badge--long'"></span>
-      </div>
       {% for c in class_aggregates %}
       {% set class_data = {"id": c.id, "name": c.name, "target_pct": (c.target_pct | float), "assets": []} %}
       {% for a in c.assets %}
       {% set _ = class_data.assets.append({"id": a.id, "name": a.name, "target_pct": (a.target_pct_class | float), "current_pct_class": (a.current_pct_class | float), "current_pct_total": (a.current_pct_total | float), "target_pct_total": (a.target_pct_total | float)}) %}
       {% endfor %}
       <article class="class-section" data-testid="class-summary-row" data-class-id="{{ c.id }}" x-data='classSection({{ class_data | tojson }})'>
-        <header class="class-section-header" data-testid="dashboard-class-section" @click="isOpen = !isOpen">
+        <header class="class-section-header" data-testid="dashboard-class-section">
           <span class="class-color-swatch" data-testid="class-color-swatch" style="background:{{ c.color }}"></span>
-          <button type="button"
-                  class="class-chevron"
-                  data-testid="class-chevron"
-                  :class="{'is-open': isOpen}"
-                  title="Expandir/recolher"
-                  @click.stop="isOpen = !isOpen">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M4 2L8 6L4 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
           <span class="class-section-name" data-testid="class-section-name">{{ c.name }}</span>
           <button type="button"
                   class="class-section-delete-btn"
@@ -133,7 +112,7 @@
              x-text="deleteError"
              x-cloak></p>
         </div>
-        <div class="class-section-body" :class="{'class-section-body--collapsed': !isOpen}">
+        <div class="class-section-body">
         <div class="compare-bar" data-testid="class-compare-bar">
           <div class="compare-bar-track compare-bar-target-track">
             <div class="compare-bar-fill compare-bar-target-fill" style="--final-width:{{ c.target_pct }}%"></div>
@@ -143,20 +122,12 @@
           </div>
         </div>
         {% if c.assets %}
-        {# asset-table-view 4.1 — replace the per-class card list
-           with the new asset-table shell. The <thead> carries the
-           eight sortable columns (Ativo / Classe / Qtd / Valor /
-           Alvo % classe / Atual % classe / Alvo % total / Atual %
-           total); each <th> has a sortable testid plus a sort
-           indicator span (the indicator is populated by task 6.2's
-           sort logic). The existing <li> rows stay inside a <tbody>
-           in this transitional state — task 4.3 (next chunk)
-           migrates them to proper <tr> + <td> cells. Keeping the
-           <li> markup unchanged here is what lets the unit tests in
-           tests/test_t03_pages_routes.py (which assert the
-           ``dashboard-asset-row`` / ``asset-row-name`` /
-           ``asset-pct-grid`` / etc. testids) keep passing until
-           11.1 updates them. #}
+        {# asset-table-view 4.2-4.4 — group header + proper <tr> rows.
+           The <thead> with eight sortable columns came from 4.1; the
+           <tbody> now carries one group header per class followed by
+           one <tr> per asset with one <td> per column. The legacy
+           per-class `+ Ativo` button/form, the chevron toggle, and the
+           `class-section-body--collapsed` hook are removed in 4.4. #}
         <table class="asset-table" data-testid="asset-table">
           <thead>
             <tr>
@@ -171,27 +142,44 @@
             </tr>
           </thead>
           <tbody>
-          {% for a in c.assets %}
-          <li data-testid="dashboard-asset-row" data-asset-id="{{ a.id }}" data-position-count="{{ a.position_count }}" style="--i:{{ loop.index0 }}">
-            <div class="asset-row-line">
-              <span class="asset-row-name" data-testid="asset-row-name">{{ a.name }}</span>
-              <span class="asset-row-value" data-testid="asset-current-value">{{ a.current_value | brl }}</span>
-              <div class="asset-pct-grid" data-testid="asset-pct-grid">
+            <tr class="asset-group-header" data-testid="asset-group-header">
+              <td colspan="8">
+                <span class="class-color-swatch" data-testid="class-color-swatch" style="background:{{ c.color }}"></span>
+                <span class="class-section-name" data-testid="class-section-name">{{ c.name }}</span>
+                <span class="pct-target" data-testid="class-target-pct-view">Alvo {{ c.target_pct | round(2) }}%</span>
+                <span class="pct-current" data-testid="class-current-pct">Atual {{ c.current_pct | round(2) }}%</span>
+                <span class="asset-group-header-alert"
+                      data-testid="asset-group-header-alert"
+                      x-text="$store.classSum.classDeltas[classId] ? $store.classSum.classDeltas[classId].message : 'OK'"
+                      :class="'asset-group-header-alert--' + ($store.classSum.classDeltas[classId] ? $store.classSum.classDeltas[classId].severity : 'ok')"></span>
+              </td>
+            </tr>
+            {% for a in c.assets %}
+            <tr data-testid="dashboard-asset-row" data-asset-id="{{ a.id }}" data-position-count="{{ a.position_count }}" style="--i:{{ loop.index0 }}">
+              <td data-testid="asset-row-name">
+                <span>{{ a.name }}</span>
+                <button type="button"
+                        class="dashboard-asset-delete-btn"
+                        data-testid="dashboard-asset-delete-btn"
+                        @click="askDeleteAsset({{ a.id }}, '{{ a.name }}')"
+                        x-show="showDeleteAssetId !== {{ a.id }} && !deletingAssetId"
+                        title="Remover ativo">×</button>
+              </td>
+              <td data-testid="asset-row-class">{{ c.name }}</td>
+              <td data-testid="asset-position-count">{{ a.position_count }}</td>
+              <td data-testid="asset-current-value">{{ a.current_value | brl }}</td>
+              <td data-testid="asset-target-pct-class">
                 <button type="button"
                         class="asset-pct-cell asset-pct-cell--editable"
-                        data-testid="asset-target-pct-class"
-                        data-asset-id="{{ a.id }}"
                         @click="startEdit({{ a.id }})"
                         x-show="editingAssetId !== {{ a.id }}"
                         title="Clique para editar">
-                  <span class="asset-pct-cell-label">alvo % classe</span>
-                  <span class="asset-pct-cell-value" x-text="formatPct({{ a.target_pct_class | round(2) }})"></span>
+                  <span x-text="formatPct({{ a.target_pct_class | round(2) }})"></span>
                 </button>
                 <div class="asset-pct-cell asset-pct-cell--editing"
                      data-testid="asset-target-pct-class-editing"
                      x-show="editingAssetId === {{ a.id }}"
                      x-cloak>
-                  <span class="asset-pct-cell-label">alvo % classe</span>
                   <input type="number"
                          step="0.01"
                          min="0"
@@ -210,156 +198,61 @@
                     <button type="button" class="asset-inline-edit-cancel" data-testid="asset-inline-edit-cancel" @click.stop="cancelEdit()" :disabled="saving">cancelar</button>
                   </div>
                 </div>
-                <span class="asset-pct-cell" data-testid="asset-current-pct-class">
-                  <span class="asset-pct-cell-label">atual % classe</span>
-                  <span class="asset-pct-cell-value">{{ a.current_pct_class | round(2) }}%</span>
-                </span>
-                <span class="asset-pct-cell" data-testid="asset-target-pct-total">
-                  <span class="asset-pct-cell-label">alvo % total</span>
-                  <span class="asset-pct-cell-value">{{ a.target_pct_total | round(2) }}%</span>
-                </span>
-                <span class="asset-pct-cell" data-testid="asset-current-pct-total">
-                  <span class="asset-pct-cell-label">atual % total</span>
-                  <span class="asset-pct-cell-value">{{ a.current_pct_total | round(2) }}%</span>
-                </span>
-                {# Legacy S05 data-testid kept for the existing test:
-                   ``asset-pct`` aliases ``current_pct_class`` so the
-                   test_aggregates_per_asset_pct_is_share_of_class
-                   round-trip still resolves the same percentage. #}
+              </td>
+              <td data-testid="asset-current-pct-class">
                 <span data-testid="asset-pct" hidden>{{ a.current_pct_class | round(2) }}</span>
-              </div>
-              {# S03/T04: per-asset × delete button. Lives inside the
-                 asset-row-line (next to the 4-pct grid) so the layout
-                 stays tight. Visibility tracks the row's per-class
-                 confirm state — only one row per class section can
-                 have the confirm dialog open at a time
-                 (showDeleteAssetId matches a single id). #}
-              <button type="button"
-                      class="dashboard-asset-delete-btn"
-                      data-testid="dashboard-asset-delete-btn"
-                      @click="askDeleteAsset({{ a.id }}, '{{ a.name }}')"
-                      x-show="showDeleteAssetId !== {{ a.id }} && !deletingAssetId"
-                      title="Remover ativo">×</button>
-            </div>
-            <div class="asset-progress-bar" data-testid="asset-progress-bar">
-              <div class="asset-progress-fill" style="--final-width:{{ a.current_pct_class }}%"></div>
-            </div>
-            {# S03/T04: per-row confirm dialog for asset deletion.
-               Positions cascade (no 409) so the confirm is always
-               "are you sure" + delete. Hidden by [x-cloak] and
-               toggled by the same showDeleteAssetId / deletingAssetId
-               pair the × button reads. #}
-            <div class="dashboard-asset-delete-confirm"
-                 data-testid="dashboard-asset-delete-confirm"
-                 x-show="showDeleteAssetId === {{ a.id }}"
-                 x-cloak>
-              <p class="dashboard-asset-delete-confirm-text">Remover ativo <strong>{{ a.name }}</strong>?</p>
-              <div class="dashboard-asset-delete-confirm-actions">
-                <button type="button"
-                        class="btn dashboard-asset-delete-confirm-yes"
-                        data-testid="dashboard-asset-delete-confirm-yes"
-                        @click="confirmDeleteAsset()"
-                        :disabled="deletingAssetId === {{ a.id }}">
-                  <span x-show="deletingAssetId !== {{ a.id }}">Sim, remover</span>
-                  <span x-show="deletingAssetId === {{ a.id }}">Removendo...</span>
-                </button>
-                <button type="button"
-                        class="btn dashboard-asset-delete-confirm-no"
-                        data-testid="dashboard-asset-delete-confirm-no"
-                        @click="cancelDeleteAsset()"
-                        :disabled="deletingAssetId === {{ a.id }}">Cancelar</button>
-              </div>
-              <p class="dashboard-asset-delete-confirm-error"
-                 data-testid="dashboard-asset-delete-confirm-error"
-                 x-show="deleteAssetError"
-                 x-text="deleteAssetError"
-                 x-cloak></p>
-            </div>
-            {# S05 legacy marker: keep the data-testid present so
-               downstream tests (asset-progress-bar fill assertions)
-               still find the row, but the visible position count is
-               no longer surfaced per M002 D015. #}
-             <span data-testid="asset-position-count" hidden></span>
-          </li>
-          {% endfor %}
+                {{ a.current_pct_class | round(2) }}%
+              </td>
+              <td data-testid="asset-target-pct-total">{{ a.target_pct_total | round(2) }}%</td>
+              <td data-testid="asset-current-pct-total">{{ a.current_pct_total | round(2) }}%</td>
+            </tr>
+            <tr>
+              <td colspan="8">
+                <div class="asset-progress-bar" data-testid="asset-progress-bar">
+                  <div class="asset-progress-fill" style="--final-width:{{ a.current_pct_class }}%"></div>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="8">
+                <div class="dashboard-asset-delete-confirm"
+                     data-testid="dashboard-asset-delete-confirm"
+                     x-show="showDeleteAssetId === {{ a.id }}"
+                     x-cloak>
+                  <p class="dashboard-asset-delete-confirm-text">Remover ativo <strong>{{ a.name }}</strong>?</p>
+                  <div class="dashboard-asset-delete-confirm-actions">
+                    <button type="button"
+                            class="btn dashboard-asset-delete-confirm-yes"
+                            data-testid="dashboard-asset-delete-confirm-yes"
+                            @click="confirmDeleteAsset()"
+                            :disabled="deletingAssetId === {{ a.id }}">
+                      <span x-show="deletingAssetId !== {{ a.id }}">Sim, remover</span>
+                      <span x-show="deletingAssetId === {{ a.id }}">Removendo...</span>
+                    </button>
+                    <button type="button"
+                            class="btn dashboard-asset-delete-confirm-no"
+                            data-testid="dashboard-asset-delete-confirm-no"
+                            @click="cancelDeleteAsset()"
+                            :disabled="deletingAssetId === {{ a.id }}">Cancelar</button>
+                  </div>
+                  <p class="dashboard-asset-delete-confirm-error"
+                     data-testid="dashboard-asset-delete-confirm-error"
+                     x-show="deleteAssetError"
+                     x-text="deleteAssetError"
+                     x-cloak></p>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
           </tbody>
         </table>
         {% else %}
         <div class="empty-state empty-state--inline" data-testid="empty-assets">
           <p>Nenhum ativo nesta classe.</p>
-          <button type="button"
-                  class="new-class-plus-btn"
-                  data-testid="empty-state-create-asset"
-                  @click="showAddAsset = true">
-            + Ativo
-          </button>
         </div>
         {% endif %}
 
         </div><!-- /.class-section-body -->
-
-        {# S03/T03: inline "+ Ativo" toggle button + create form.
-           Lives OUTSIDE class-section-body (Bug 2 fix) so it's
-           always visible even when the section is collapsed. #}
-        <button type="button"
-                class="new-class-plus-btn dashboard-add-asset-btn"
-                data-testid="dashboard-add-asset-btn"
-                x-show="!showAddAsset"
-                @click="showAddAsset = true">
-          + Ativo
-        </button>
-        <div class="new-class-form dashboard-add-asset-form"
-             data-testid="dashboard-add-asset-form"
-             x-show="showAddAsset"
-             x-cloak>
-          <div class="new-class-form-body">
-            <div class="new-class-form-field">
-              <label for="dashboard-add-asset-name-{{ c.id }}">Nome</label>
-              <input type="text"
-                     id="dashboard-add-asset-name-{{ c.id }}"
-                     class="new-class-input"
-                     data-testid="dashboard-add-asset-name-input"
-                     x-model="newAssetName"
-                     placeholder="Ex: PETR4"
-                     :disabled="addingAsset"
-                     @keyup.enter="addAsset()">
-            </div>
-            <div class="new-class-form-field">
-              <label for="dashboard-add-asset-pct-{{ c.id }}">Alvo %</label>
-              <input type="number"
-                     id="dashboard-add-asset-pct-{{ c.id }}"
-                     class="new-class-input new-class-input--pct"
-                     data-testid="dashboard-add-asset-pct-input"
-                     x-model="newAssetTargetPct"
-                     step="0.01"
-                     min="0"
-                     max="100"
-                     placeholder="0"
-                     :disabled="addingAsset"
-                     @keyup.enter="addAsset()">
-            </div>
-            <div class="new-class-form-actions">
-              <button type="button"
-                      class="btn btn-primary new-class-form-save dashboard-add-asset-save"
-                      data-testid="dashboard-add-asset-save"
-                      @click="addAsset()"
-                      :disabled="addingAsset">
-                <span x-show="!addingAsset">Salvar</span>
-                <span x-show="addingAsset">Salvando...</span>
-              </button>
-              <button type="button"
-                      class="btn new-class-form-cancel dashboard-add-asset-cancel"
-                      data-testid="dashboard-add-asset-cancel"
-                      @click="cancelAddAsset()"
-                      :disabled="addingAsset">Cancelar</button>
-            </div>
-          </div>
-          <p class="new-class-form-error dashboard-add-asset-error"
-             data-testid="dashboard-add-asset-error"
-             x-show="addAssetError"
-             x-text="addAssetError"
-             x-cloak></p>
-        </div>
       </article>
       {% endfor %}
 
