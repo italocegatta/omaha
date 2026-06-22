@@ -143,7 +143,34 @@
           </div>
         </div>
         {% if c.assets %}
-        <ul class="dashboard-asset-list">
+        {# asset-table-view 4.1 — replace the per-class card list
+           with the new asset-table shell. The <thead> carries the
+           eight sortable columns (Ativo / Classe / Qtd / Valor /
+           Alvo % classe / Atual % classe / Alvo % total / Atual %
+           total); each <th> has a sortable testid plus a sort
+           indicator span (the indicator is populated by task 6.2's
+           sort logic). The existing <li> rows stay inside a <tbody>
+           in this transitional state — task 4.3 (next chunk)
+           migrates them to proper <tr> + <td> cells. Keeping the
+           <li> markup unchanged here is what lets the unit tests in
+           tests/test_t03_pages_routes.py (which assert the
+           ``dashboard-asset-row`` / ``asset-row-name`` /
+           ``asset-pct-grid`` / etc. testids) keep passing until
+           11.1 updates them. #}
+        <table class="asset-table" data-testid="asset-table">
+          <thead>
+            <tr>
+              <th data-testid="asset-table-th-name">Ativo <span data-testid="asset-table-sort-name"></span></th>
+              <th data-testid="asset-table-th-class">Classe <span data-testid="asset-table-sort-class"></span></th>
+              <th data-testid="asset-table-th-qty">Qtd <span data-testid="asset-table-sort-qty"></span></th>
+              <th data-testid="asset-table-th-current-value">Valor <span data-testid="asset-table-sort-current-value"></span></th>
+              <th data-testid="asset-table-th-target-pct-class">Alvo % classe <span data-testid="asset-table-sort-target-pct-class"></span></th>
+              <th data-testid="asset-table-th-current-pct-class">Atual % classe <span data-testid="asset-table-sort-current-pct-class"></span></th>
+              <th data-testid="asset-table-th-target-pct-total">Alvo % total <span data-testid="asset-table-sort-target-pct-total"></span></th>
+              <th data-testid="asset-table-th-current-pct-total">Atual % total <span data-testid="asset-table-sort-current-pct-total"></span></th>
+            </tr>
+          </thead>
+          <tbody>
           {% for a in c.assets %}
           <li data-testid="dashboard-asset-row" data-asset-id="{{ a.id }}" data-position-count="{{ a.position_count }}" style="--i:{{ loop.index0 }}">
             <div class="asset-row-line">
@@ -252,10 +279,11 @@
                downstream tests (asset-progress-bar fill assertions)
                still find the row, but the visible position count is
                no longer surfaced per M002 D015. #}
-            <span data-testid="asset-position-count" hidden></span>
+             <span data-testid="asset-position-count" hidden></span>
           </li>
           {% endfor %}
-        </ul>
+          </tbody>
+        </table>
         {% else %}
         <div class="empty-state empty-state--inline" data-testid="empty-assets">
           <p>Nenhum ativo nesta classe.</p>
@@ -639,9 +667,14 @@
 
       // Register with the class allocation sum store on init so the
       // Distribution header shows the live total across all classes.
+      // 3.3: also push the per-class asset-sum so the store's
+      // ``classDeltas[this.classId]`` is populated on the first
+      // reactive tick (the sticky alert card reads it).
       init: function () {
         if (Alpine.store('classSum')) {
-          Alpine.store('classSum').register(this.classId, this.classTargetPct);
+          var store = Alpine.store('classSum');
+          store.register(this.classId, this.classTargetPct);
+          store.setClassSum(this.classId, this.classSum);
         }
       },
       assets: initial.assets.map(function (a) {
@@ -798,8 +831,15 @@
             self.classTargetPct = parseFloat(payload.target_pct);
             // Update the class-level allocation sum store so the
             // Distribution header reflects the new total reactively.
+            // 3.3: also push the per-class asset-sum so the sticky
+            // alert card's per-class entry stays in sync — class PATCH
+            // recomputes target_pct_total for every asset, which can
+            // change the per-class delta even when the per-asset
+            // target_pcts didn't move (the class anchor changed).
             if (Alpine.store('classSum')) {
-              Alpine.store('classSum').update(self.classId, self.classTargetPct);
+              var store = Alpine.store('classSum');
+              store.update(self.classId, self.classTargetPct);
+              store.setClassSum(self.classId, self.classSum);
             }
             // Recompute each asset's target_pct_total in the local
             // model so the dashboard reflects the new class-level
@@ -870,6 +910,18 @@
             if (asset) {
               asset.target_pct = isNaN(parsed) ? asset.target_pct : parsed;
               asset.target_pct_total = (asset.target_pct * self.classTargetPct) / 100;
+            }
+            // 3.3: push the new per-class sum to the store on every
+            // successful asset PATCH so the per-class badge and the
+            // portfolio sticky alert card stay reactive without a
+            // page reload. ``update()`` on the class pct is a no-op
+            // here (asset PATCH doesn't move the class anchor) but
+            // it's part of the 3.3 contract — the store sees the
+            // post-PATCH class state on every write.
+            if (Alpine.store('classSum')) {
+              var store = Alpine.store('classSum');
+              store.update(self.classId, self.classTargetPct);
+              store.setClassSum(self.classId, self.classSum);
             }
             self.editingAssetId = null;
             self.editingValue = '';
@@ -1097,16 +1149,44 @@
   // dashboard-actions div (which has no x-data of its own) can
   // open it via $store.importModal.openModal().
   document.addEventListener('alpine:init', function () {
-    // S02/D006: Class-level allocation sum tracker — shows "Falta X%" /
-    // "Sobra X%" for the total of all class target_pcts. Never blocks
-    // creation or editing (informational only). Each classSection
-    // registers via register() on init and update() after a PATCH
-    // succeeds so the display is reactive without page reloads.
+    // S02/D006 + asset-table-view 3.1/3.2/3.3: Class-level allocation
+    // sum tracker. Shows "Falta X%" / "Sobra X%" for the total of all
+    // class target_pcts AND, per the asset-table-view extension, the
+    // per-class asset-sum deviation in ``classDeltas[id] = {delta,
+    // message, severity}``. The asset-table-view spec uses both
+    // severities (per-class badge + portfolio sticky card) and reads
+    // them from this single store so the dashboard reacts without a
+    // page reload.
+    //
+    // API
+    // ---
+    // * ``register(id, pct)`` / ``update(id, pct)`` — the original
+    //   per-class ``target_pct`` setter (portfolio-level sum).
+    // * ``setClassSum(id, assetSum)`` — new in 3.1: pushes the
+    //   per-class sum of asset ``target_pct``s and writes the
+    //   ``{delta, message, severity}`` triple into
+    //   ``classDeltas[id]``. The task text only names
+    //   ``register/update/_recalc``; ``setClassSum`` is the missing
+    //   push API that lets the ``classSection`` component feed the
+    //   per-class deviation in (the store has no other channel — the
+    //   assets live inside ``classSection``).
+    // * ``severityForDelta(delta)`` — new in 3.2: pure helper, exported
+    //   on the store, tier table ``<=0.01 ok``, ``<=5 warn``, ``>5
+    //   danger``.
+    // * ``_recalc()`` — now recomputes both the portfolio total /
+    //   delta / message / severity, in one pass.
+    //
+    // The store never blocks creation or editing (informational only).
+    // Each ``classSection`` registers via ``register()`` on init and
+    // calls ``update()`` + ``setClassSum()`` after a successful PATCH
+    // so the display is reactive without page reloads.
     Alpine.store('classSum', {
       items: {},
       totalPct: 0,
       delta: 0,
       message: '',
+      severity: 'ok',
+      classDeltas: {},
       register: function (id, pct) {
         this.items[id] = pct;
         this._recalc();
@@ -1114,6 +1194,38 @@
       update: function (id, pct) {
         this.items[id] = pct;
         this._recalc();
+      },
+      // 3.1 — push the per-class asset ``target_pct`` sum into the
+      // store. The store has no other channel for this data (the
+      // assets live inside ``classSection``), so the component must
+      // call this explicitly on init + after every PATCH.
+      setClassSum: function (id, assetSum) {
+        var sum = parseFloat(assetSum) || 0;
+        var delta = Math.round((100 - sum) * 100) / 100;
+        var message = 'OK';
+        if (Math.abs(delta) > 0.01) {
+          if (delta < 0) {
+            message = 'Sobra ' + Math.round(-delta) + '%';
+          } else {
+            message = 'Falta ' + Math.round(delta) + '%';
+          }
+        }
+        this.classDeltas[id] = {
+          delta: delta,
+          message: message,
+          severity: this.severityForDelta(delta),
+        };
+        this._recalc();
+      },
+      // 3.2 — pure severity helper. ``<=0.01`` → ok, ``<=5`` →
+      // warn, else danger. Exported on the store so the per-class
+      // badge and the portfolio sticky card reuse the same tier
+      // table (single source of truth).
+      severityForDelta: function (delta) {
+        var abs = Math.abs(delta);
+        if (abs <= 0.01) return 'ok';
+        if (abs <= 5) return 'warn';
+        return 'danger';
       },
       _recalc: function () {
         var sum = 0;
@@ -1134,6 +1246,10 @@
           this.delta = d;
           this.message = 'Falta ' + Math.round(d) + '%';
         }
+        // 3.1/3.2 — derive the portfolio-level severity from the
+        // same delta so the sticky alert card can read it as
+        // ``$store.classSum.severity`` (no second helper needed).
+        this.severity = this.severityForDelta(d);
       },
     });
 
