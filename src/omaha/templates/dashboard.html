@@ -631,8 +631,9 @@
       savingTotal: false,
       errorTotal: '',
 
-      // Collapse/expand state (D016: default closed on every load).
-      isOpen: false,
+      // asset-table-view 8.1: class groups are always visible; the
+      // chevron toggle was removed in 4.4.
+      isOpen: true,
 
       // Delete button state — confirm dialog visibility, in-flight
       // flag, and server error message (409 when class has assets).
@@ -773,6 +774,7 @@
             });
           })
           .then(function (payload) {
+            self.isOpen = true;
             self.classTargetPct = parseFloat(payload.target_pct);
             // Update the class-level allocation sum store so the
             // Distribution header reflects the new total reactively.
@@ -865,6 +867,7 @@
             });
           })
           .then(function (payload) {
+            self.isOpen = true;
             // Update the local row's target_pct and recompute
             // target_pct_total in-place so the user sees the
             // change immediately without a page reload.
@@ -939,6 +942,7 @@
             });
           })
           .then(function (payload) {
+            self.isOpen = true;
             var parsedPct = parseFloat(payload.target_pct);
             var asset = self.assets.find(function (a) { return a.id === id; });
             if (asset) {

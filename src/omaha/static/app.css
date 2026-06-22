@@ -513,32 +513,6 @@ main { max-width: 760px; }
 }
 .class-section-name { font-weight: 600; font-size: 0.95rem; flex: 1; }
 
-/* Collapse chevron (S05 T01). Points right by default (collapsed),
-   rotates 90deg when isOpen. The 200ms ease-out matches the body
-   collapse duration so chevron and body animate together. */
-.class-chevron {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--muted);
-  transition: transform 200ms ease-out, color 200ms ease-out;
-  flex-shrink: 0;
-}
-.class-chevron:hover {
-  color: var(--ink);
-  background: var(--surface-sunk);
-}
-.class-chevron.is-open {
-  transform: rotate(90deg);
-}
-
 /* Class section body collapse animation (S05 T01). Uses
    max-height transition with a generous upper bound so the
    content animates in/out smoothly. The collapsed state
