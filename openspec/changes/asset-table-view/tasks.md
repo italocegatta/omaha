@@ -56,9 +56,9 @@
 
 ## 10. Frontend: dashboard-level add-asset modal
 
-- [ ] 10.1 Add a single `+ Ativo` button above the table with `data-testid="dashboard-add-asset-open"`.
-- [ ] 10.2 Add a modal component (over the table, behind a backdrop) with `data-testid="dashboard-add-asset-modal"`, a class `<select>` (using the established `x-init $nextTick` + `x-effect` pattern for dynamic options), name input, target_pct input, submit and cancel buttons.
-- [ ] 10.3 Wire the modal to POST `/api/assets`. On 201, reload the page. On 409/422, surface the error inline. Off-100 sums are accepted (per task 1).
+- [x] 10.1 Add a single `+ Ativo` button above the table with `data-testid="dashboard-add-asset-open"`.
+- [x] 10.2 Add a modal component (over the table, behind a backdrop) with `data-testid="dashboard-add-asset-modal"`, a class `<select>` (using the established `x-init $nextTick` + `x-effect` pattern for dynamic options), name input, target_pct input, submit and cancel buttons.
+- [x] 10.3 Wire the modal to POST `/api/assets`. On 201, reload the page. On 409/422, surface the error inline. Off-100 sums are accepted (per task 1).
 
 ## 11. Test updates for new testids
 

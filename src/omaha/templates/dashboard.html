@@ -37,6 +37,19 @@
     <section class="dashboard-distribution" data-testid="dashboard-distribution">
       <h2>Distribuicao</h2>
 
+      {# asset-table-view 10.1 — single dashboard-level "+ Ativo" control
+         that opens the modal add-asset form. #}
+      <div class="dashboard-add-asset-actions">
+        <span x-data>
+          <button type="button"
+                  class="btn btn-primary dashboard-add-asset-open"
+                  data-testid="dashboard-add-asset-open"
+                  @click="$store.addAssetModal.openModal()">
+            + Ativo
+          </button>
+        </span>
+      </div>
+
       {# asset-table-view 9.x — sticky alert card with portfolio + per-class deviations. #}
       <template x-if="$store.classSum.deviatingClasses.length > 0 || Math.abs($store.classSum.delta) > 0.01">
         <div class="asset-allocation-alert"
@@ -404,6 +417,94 @@
   </div>
 </div>
 
+<!-- asset-table-view 10.2/10.3 — dashboard-level add-asset modal.
+     Overlay + panel with class select, name, and target_pct inputs.
+     State lives in a global Alpine store ($store.addAssetModal) so
+     the trigger button above (in a different x-data scope) can open
+     it without nesting. -->
+<div class="add-asset-modal-overlay"
+     x-data
+     x-show="$store.addAssetModal.open"
+     x-cloak
+     x-transition.opacity.duration.200ms
+     @click.self="$store.addAssetModal.closeModal()"
+     data-testid="dashboard-add-asset-modal">
+  <div class="add-asset-modal-panel" @click.stop>
+    <div class="add-asset-modal-header">
+      <h2>Novo ativo</h2>
+      <button type="button"
+              class="add-asset-modal-close"
+              @click="$store.addAssetModal.closeModal()">&times;</button>
+    </div>
+
+    <div class="add-asset-modal-form">
+      <div class="add-asset-modal-field">
+        <label for="add-asset-class">Classe</label>
+        <select id="add-asset-class"
+                class="add-asset-modal-input"
+                data-testid="dashboard-add-asset-modal-class"
+                x-init="$nextTick(() => { const cid = $store.addAssetModal.classId; if (cid) $el.value = cid; })"
+                x-effect="(() => { const cid = $store.addAssetModal.classId; if (cid) $el.value = cid; })()"
+                @change="$store.addAssetModal.classId = $event.target.value">
+          <option value="">Selecione...</option>
+          <template x-for="c in $store.addAssetModal.assetClasses" :key="c.id">
+            <option :value="c.id" x-text="c.name"></option>
+          </template>
+        </select>
+      </div>
+
+      <div class="add-asset-modal-field">
+        <label for="add-asset-name">Nome</label>
+        <input type="text"
+               id="add-asset-name"
+               class="add-asset-modal-input"
+               data-testid="dashboard-add-asset-name"
+               x-model="$store.addAssetModal.name"
+               placeholder="Ex: PETR4"
+               :disabled="$store.addAssetModal.saving"
+               @keyup.enter="$store.addAssetModal.submit()">
+      </div>
+
+      <div class="add-asset-modal-field">
+        <label for="add-asset-target">Alvo % (dentro da classe)</label>
+        <input type="number"
+               id="add-asset-target"
+               class="add-asset-modal-input"
+               data-testid="dashboard-add-asset-target-pct"
+               x-model="$store.addAssetModal.targetPct"
+               step="0.01"
+               min="0"
+               max="100"
+               placeholder="0"
+               :disabled="$store.addAssetModal.saving"
+               @keyup.enter="$store.addAssetModal.submit()">
+      </div>
+
+      <div class="add-asset-modal-actions">
+        <button type="button"
+                class="btn"
+                data-testid="dashboard-add-asset-cancel"
+                @click="$store.addAssetModal.closeModal()"
+                :disabled="$store.addAssetModal.saving">Cancelar</button>
+        <button type="button"
+                class="btn btn-primary"
+                data-testid="dashboard-add-asset-submit"
+                @click="$store.addAssetModal.submit()"
+                :disabled="$store.addAssetModal.saving">
+          <span x-show="!$store.addAssetModal.saving">Salvar</span>
+          <span x-show="$store.addAssetModal.saving">Salvando...</span>
+        </button>
+      </div>
+    </div>
+
+    <p class="add-asset-modal-error"
+       data-testid="dashboard-add-asset-error"
+       x-show="$store.addAssetModal.error"
+       x-text="$store.addAssetModal.error"
+       x-cloak></p>
+  </div>
+</div>
+
 <!-- S04/T03: Import modal overlay. x-data is on the overlay so the
      backdrop click handler fires correctly. State lives in a global
      Alpine store ($store.importModal) so the trigger button above
@@ -608,6 +709,11 @@
 </div>
 
 <script>
+  // asset-table-view 10.x: class list for the dashboard-level add-asset
+  // modal. The modal options are rendered by Alpine via <template x-for>,
+  // so the source list is injected here as a plain JS array.
+  window.__assetClasses = [{% for c in class_aggregates %}{id: {{ c.id }}, name: {{ c.name | tojson }}}{% if not loop.last %},{% endif %}{% endfor %}];
+
   // Alpine.js component for the per-class section: 4-percentage
   // view + inline editor for the asset ``target_pct_class`` column.
   //
@@ -1592,6 +1698,77 @@
         this.step1Error = '';
       },
     });
+
+    // asset-table-view 10.2/10.3 — global Alpine store for the dashboard-
+    // level add-asset modal. A store (not a component function) so the
+    // trigger button in the dashboard-actions area can open it via
+    // $store.addAssetModal.openModal() even though the button lives in a
+    // different x-data scope.
+    Alpine.store('addAssetModal', {
+      open: false,
+      assetClasses: [],
+      classId: '',
+      name: '',
+      targetPct: '',
+      saving: false,
+      error: '',
+
+      openModal: function () {
+        this.error = '';
+        this.name = '';
+        this.targetPct = '';
+        this.classId = '';
+        this.open = true;
+      },
+
+      closeModal: function () {
+        this.open = false;
+        this.error = '';
+      },
+
+      submit: function () {
+        var self = this;
+        self.saving = true;
+        self.error = '';
+
+        var payload = {
+          name: self.name,
+          asset_class_id: self.classId,
+        };
+        if (self.targetPct !== '') {
+          payload.target_pct = self.targetPct;
+        }
+
+        fetch('/api/assets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+          .then(function (r) {
+            if (r.status === 201) {
+              // Reload so the new asset row renders with server-side
+              // aggregate data (display_order, current_value, percentages).
+              window.location.reload();
+              return;
+            }
+            // 409 (duplicate name) or 422 (validation error). Body shape:
+            // {"detail": "<message>"}.
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao criar ativo';
+              throw new Error(detail);
+            });
+          })
+          .catch(function (err) {
+            self.error = err && err.message ? err.message : 'Erro ao criar ativo';
+          })
+          .then(function () {
+            self.saving = false;
+          });
+      },
+    });
+
+    // Hydrate the modal's class list from the server-rendered data.
+    Alpine.store('addAssetModal').assetClasses = window.__assetClasses || [];
   });
 </script>
 {% endblock %}
