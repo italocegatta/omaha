@@ -789,12 +789,48 @@ main { max-width: 760px; }
   border: 1px solid transparent;
 }
 
+.asset-allocation-alert {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.asset-allocation-alert-portfolio {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.asset-allocation-alert-classes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.asset-allocation-alert-class {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid transparent;
+}
+
 .asset-allocation-alert,
+.asset-allocation-alert-class,
 .asset-group-header-alert {
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .asset-allocation-alert--ok,
+.asset-allocation-alert-class--ok,
 .asset-group-header-alert--ok {
   background: color-mix(in srgb, var(--alert-ok) 10%, var(--surface));
   border-color: var(--alert-ok);
@@ -802,6 +838,7 @@ main { max-width: 760px; }
 }
 
 .asset-allocation-alert--warn,
+.asset-allocation-alert-class--warn,
 .asset-group-header-alert--warn {
   background: color-mix(in srgb, var(--alert-warn) 12%, var(--surface));
   border-color: var(--alert-warn);
@@ -809,6 +846,7 @@ main { max-width: 760px; }
 }
 
 .asset-allocation-alert--danger,
+.asset-allocation-alert-class--danger,
 .asset-group-header-alert--danger {
   background: color-mix(in srgb, var(--alert-danger) 10%, var(--surface));
   border-color: var(--alert-danger);
