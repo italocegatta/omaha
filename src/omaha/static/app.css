@@ -59,6 +59,14 @@
      focus borders. Override by setting --color-focus on a container
      (e.g. a dark backdrop). */
   --color-focus: #2563eb;
+
+  /* Alert severity tokens (asset-table-view 5.2). */
+  --alert-ok: var(--positive);
+  --alert-warn: oklch(0.70 0.12 85);
+  --alert-danger: var(--negative);
+
+  /* Hover surface for editable table cells (asset-table-view 5.3). */
+  --bg-hover: oklch(0.93 0.003 60);
 }
 
 /* Cycle beyond 6 classes: nth-of-type selectors reuse tokens 1-6.
@@ -752,6 +760,112 @@ main { max-width: 760px; }
 
 .asset-inline-edit-cancel {
   background: var(--surface);
+}
+
+/* =============================================================
+   asset-table-view 5.x — Table polish + severity tokens
+   ============================================================= */
+
+.asset-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.asset-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--surface);
+}
+
+.asset-table th {
+  text-align: left;
+  padding: 0.5rem 0.4rem;
+  border-bottom: 2px solid var(--border);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.asset-table td {
+  padding: 0.4rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.asset-table tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--border) 25%, var(--surface));
+}
+
+.asset-group-header td {
+  font-weight: 600;
+  background: var(--surface-sunk);
+  border-left: 4px solid var(--accent);
+  padding-left: calc(0.4rem - 4px);
+}
+
+.asset-group-header-alert {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  margin-left: 0.4rem;
+  border: 1px solid transparent;
+}
+
+.asset-allocation-alert,
+.asset-group-header-alert {
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.asset-allocation-alert--ok,
+.asset-group-header-alert--ok {
+  background: color-mix(in srgb, var(--alert-ok) 10%, var(--surface));
+  border-color: var(--alert-ok);
+  color: var(--alert-ok);
+}
+
+.asset-allocation-alert--warn,
+.asset-group-header-alert--warn {
+  background: color-mix(in srgb, var(--alert-warn) 12%, var(--surface));
+  border-color: var(--alert-warn);
+  color: oklch(0.45 0.10 80);
+}
+
+.asset-allocation-alert--danger,
+.asset-group-header-alert--danger {
+  background: color-mix(in srgb, var(--alert-danger) 10%, var(--surface));
+  border-color: var(--alert-danger);
+  color: var(--alert-danger);
+}
+
+.asset-table .asset-pct-cell--editable {
+  cursor: pointer;
+}
+
+.asset-table .asset-pct-cell--editable:hover,
+.asset-table .asset-pct-cell--editing,
+[data-testid="asset-target-pct-class-editing"],
+[data-testid="asset-target-pct-total-editing"],
+td.editing {
+  background: var(--bg-hover);
+}
+
+.asset-table .asset-pct-cell--editing,
+[data-testid="asset-target-pct-class-editing"],
+[data-testid="asset-target-pct-total-editing"],
+td.editing {
+  border: 1px solid var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: 4px;
+}
+
+.asset-table .asset-inline-edit-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 /* R12: Class inline edit — mirrors the asset inline edit pattern
