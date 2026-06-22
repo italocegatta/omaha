@@ -93,7 +93,7 @@
 
 - [x] 6.1 `task lint` (ou `ruff check src tests`) — corrigir warnings.
 - [ ] 6.2 Subir dev server: `uv run uvicorn omaha.main:app --host 0.0.0.0 --port 8000`.
-- [ ] 6.3 Em `http://192.168.1.7:8000`, importar um CSV com ~5 linhas mistas (3 matched + 2 novas). Verificar:
+- [ ] 6.3 Em `http://192.168.1.6:8000`, importar um CSV com ~5 linhas mistas (3 matched + 2 novas). Verificar:
   - Modal tem ~1100px de largura.
   - Tabelas mostram Preço médio e Total atual formatados em R$ sem casas decimais.
   - Swatch à esquerda do `<select>` muda de cor ao escolher classe (cor inline `style="background:..."`).

@@ -20,6 +20,12 @@ client.
    write `http://localhost:8000` or `http://127.0.0.1:8000` in
    chat output, in documentation, or in test instructions meant for a
    human.
+
+> **Verifique o IP da máquina antes de usar:** rode
+> `ip -4 addr | grep "inet " | grep -v 127.0.0.1` para descobrir o IP real.
+> Se este host é `192.168.1.6`, use `http://192.168.1.6:8000`. O
+> `192.168.1.7` aqui é referência histórica; o IP pode variar entre máquinas.
+
 3. **README "Network access" section is the source of truth** for
    bind + address. Read it before any "start the app" instruction.
 

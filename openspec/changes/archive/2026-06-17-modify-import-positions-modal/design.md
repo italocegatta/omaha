@@ -77,7 +77,7 @@ A modal de import (`src/omaha/templates/dashboard.html` linhas 427-603) tem dois
 3. Atualizar CSS em `src/omaha/static/app.css` (`.import-modal-panel`, swatch, variantes de seção).
 4. Adicionar/atualizar testes: `tests/test_s04_t01_import_preview.py` (assert `color` em `asset_classes`); `tests/e2e/test_s04_import_modal.py` (assert nova coluna, swatch, ausência das colunas removidas).
 5. Verificar lint (`task lint` se disponível) e suíte (`task test-unit && task test-integration`).
-6. Manual smoke: subir dev server (`uv run uvicorn omaha.main:app --host 0.0.0.0 --port 8000`), abrir dashboard em `http://192.168.1.7:8000`, clicar "Importar CSV", enviar CSV com posições mistas (algumas matched, outras novas).
+6. Manual smoke: subir dev server (`uv run uvicorn omaha.main:app --host 0.0.0.0 --port 8000`), abrir dashboard em `http://192.168.1.6:8000`, clicar "Importar CSV", enviar CSV com posições mistas (algumas matched, outras novas).
 
 Rollback: reverter os 3 arquivos (`imports.py`, `dashboard.html`, `app.css`). Sem migration de banco, sem dado corrompido.
 

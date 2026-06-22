@@ -65,7 +65,7 @@ The family opens the app, sees where the portfolio is, trusts the numbers, and c
 - **Network access (non-negotiable)**: The app is always opened from
   another machine on the LAN — the dev host is a server, not a client.
   The dev server MUST be bound with `--host 0.0.0.0`; the canonical
-  URL the user opens is `http://192.168.1.7:8000`. Never `localhost`,
+  URL the user opens is `http://192.168.1.6:8000`. Never `localhost`,
   never `127.0.0.1`. See `AGENTS.md` and README "Network access".
 
 ## Key Decisions
