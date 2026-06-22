@@ -205,14 +205,16 @@ container. Stop the dev server first, then `cp ./backups/<file>.db
 > **Always start the server with `--host 0.0.0.0`.** The default
 > `uvicorn` bind is `127.0.0.1` (loopback only), which is unreachable
 > from any other machine on the network. The dev host has three
-> LAN-eligible IPs (LAN `192.168.1.7`, Tailscale `10.255.255.254`,
-> Docker bridge `172.17.0.1`); the app is accessed from a separate
-> client machine, so `localhost` will not work there.
+> LAN-eligible IPs (LAN IP via `bash scripts/print_lan_url.sh`,
+> Tailscale `10.255.255.254`, Docker bridge `172.17.0.1`); the app is
+> accessed from a separate client machine, so `localhost` will not work
+> there.
 
-The dev host's LAN IP is `192.168.1.7` on this network. Open the app at:
+The dev host's LAN IP is detected via `bash scripts/print_lan_url.sh`.
+Open the app at the URL it prints:
 
-```
-http://192.168.1.7:8000
+```bash
+bash scripts/print_lan_url.sh  # → http://192.168.1.6:8000 (or IP atual)
 ```
 
 If you move to a different network, re-detect the IP with
@@ -237,8 +239,8 @@ uv run task db-reset
 
 Then in the browser:
 
-1. Open `http://192.168.1.7:8000/login` and sign in as `family` with the
-   `ADMIN_PASSWORD` from your `.env`.
+1. Run `URL=$(bash scripts/print_lan_url.sh)/login` and open `$URL` in
+   the browser. Sign in as `family` with the `ADMIN_PASSWORD` from your `.env`.
 2. Pick the **Italo** profile. The dashboard renders the polished
    distribution view: portfolio header (invested / current / gain, BRL
    + %, color-coded), per-class sections with color swatches and a
@@ -259,7 +261,7 @@ For **Ana Livia** the dashboard is empty — all CRUD is per-profile and
 isolated. Sign out from the top-right menu; `/` then redirects to
 `/login`.
 
-Health check: `curl http://192.168.1.7:8000/healthz` returns
+Health check: `curl "$(bash scripts/print_lan_url.sh)/healthz"` returns
 `{"status": "ok"}`.
 
 ---

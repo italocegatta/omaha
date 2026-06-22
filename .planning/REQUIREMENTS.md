@@ -8,9 +8,9 @@
 ### Infrastructure (non-negotiable)
 
 - [x] **INFRA-01**: Dev server binds `--host 0.0.0.0`; the canonical
-      URL is `http://192.168.1.7:8000` (LAN IP). `localhost` /
-      `127.0.0.1` are never correct for a manual UI test session.
-      Documented in README "Network access" and `AGENTS.md`.
+      URL is detected via `bash scripts/print_lan_url.sh` (LAN IP).
+      `localhost` / `127.0.0.1` are never correct for a manual UI test
+      session. Documented in README "Network access" and `AGENTS.md`.
 
 ### Audit
 

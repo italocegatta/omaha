@@ -14,8 +14,9 @@ client.
 1. **Bind `--host 0.0.0.0` always.** Never `127.0.0.1`, never
    `--host localhost`. The dev uvicorn command is:
    `uv run uvicorn omaha.main:app --host 0.0.0.0 --port 8000`.
-2. **Report the LAN IP, never `localhost`.** The canonical address is
-   `http://192.168.1.7:8000`. If the host IP changes, re-detect with
+2. **Report the LAN IP, never `localhost`.** The canonical address was
+   historically `http://192.168.1.7:8000`. Discover the current URL with
+   `bash scripts/print_lan_url.sh`. If the host IP changes, re-detect with
    `ip -4 addr | grep inet` and use the LAN/Tailscale address. Never
    write `http://localhost:8000` or `http://127.0.0.1:8000` in
    chat output, in documentation, or in test instructions meant for a
@@ -67,8 +68,8 @@ via the modal that this project is fixing).
 - Reviewing a PR that introduces asset creation outside the import
   flow — flag it.
 - Loading fixtures in tests is fine (tests have their own scope), but
-  the dev DB the user inspects at `http://192.168.1.7:8000` must stay
-  asset-free until the user runs an import.
+  the dev DB the user inspects (URL via `bash scripts/print_lan_url.sh`)
+  must stay asset-free until the user runs an import.
 
 ## Alpine `<select>` + dynamic `<template x-for>` options — binding gotcha
 
