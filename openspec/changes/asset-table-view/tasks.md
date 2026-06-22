@@ -68,8 +68,8 @@
 
 ## 12. Final verification
 
-- [ ] 12.1 Run `uv run task lint` and resolve any format / lint regressions.
-- [ ] 12.2 Run `uv run task test-unit` and confirm all unit tests pass.
-- [ ] 12.3 Run `uv run task test-integration` and confirm the inverted server tests + updated route tests pass.
-- [ ] 12.4 Run `uv run task test-e2e` and confirm the new e2e scenarios pass against the dev server bound to `0.0.0.0:8000`.
+- [x] 12.1 Run `uv run task lint` and resolve any format / lint regressions.
+- [x] 12.2 Run `uv run task test-unit` and confirm all unit tests pass.
+- [x] 12.3 Run `uv run task test-integration` and confirm the inverted server tests + updated route tests pass.
+- [x] 12.4 Run `uv run task test-e2e` and confirm the new e2e scenarios pass against the dev server bound to `0.0.0.0:8000`.
 - [ ] 12.5 Manual smoke: open the dashboard at `http://192.168.1.7:8000`, edit an asset to push the class sum to 110%, confirm the alert card shows "Sobra 10%" in danger color and the per-class badge mirrors. Edit another asset in the same class to bring the sum back to 100%, confirm the card disappears. Edit `alvo % total` on a row, confirm the `alvo % classe` updates via the back-solve and the per-class sum reflects the new value.
