@@ -1,4 +1,4 @@
-"""T02: PATCH /api/assets/{id} route — per-class sum validation.
+"""T02: PATCH /api/assets/{id} route — per-row range check (D006).
 
 Three test cases, each backed by the session-scoped ``_omaha_test_env``
 from ``tests/conftest.py`` (per-test :class:`TestClient` for cookie
@@ -8,21 +8,23 @@ the T01 ``target_pct`` column is in scope).
 
 The route is the only network path that can mutate
 ``assets.target_pct`` — locking its behavior in three tests means
-the T03 Alpine inline editor can call it from the browser and trust
+the Alpine inline editor can call it from the browser and trust
 the contract:
 
-* **200** with ``{"id", "target_pct"}`` on a valid edit.
-* **422** with ``{"detail": "<Sobra/Falta X%>"}`` on a per-class
-  sum violation, and the row is NOT mutated on disk.
+* **200** with ``{"id", "target_pct"}`` on a valid edit (including
+  off-100 per-class sums — the sum gate was removed by D006).
 * **404** for a non-existent or cross-profile asset id.
+* **422** for a per-row range/out-of-range violation only.
 
 Per-row model (T02)
 -------------------
 Unlike S02's snapshot semantics on ``asset_classes`` (delete-all-
 then-insert on every save), the asset list is per-row: a PATCH
-updates one row's ``target_pct`` and the validator re-checks the
-class-level invariant against the class's other assets' current
-values plus the new value.
+updates one row's ``target_pct``. The per-class sum check that
+used to fire here was removed by ``asset-table-view`` (D006):
+every commit is accepted within the per-row 0-100 range and the
+resulting deviation is surfaced through the dashboard's
+class-delta badge + sticky allocation alert card rather than a 422.
 
 The flow exercised by every test:
 
@@ -41,9 +43,10 @@ Helper conventions
   asset's id; the remaining assets' values feed the per-class
   sum.
 - :func:`_read_asset_target_pct` opens a fresh session and reads
-  the column directly so a test can assert that a rejected PATCH
-  did not commit (the in-flight session from the test client is
-  bound to the request lifecycle and would mask the result).
+  the column directly so a test can assert the on-disk state after
+  a successful (or rejected) PATCH (the in-flight session from the
+  test client is bound to the request lifecycle and would mask
+  the result).
 """
 
 from __future__ import annotations
@@ -256,17 +259,25 @@ def test_patch_asset_updates_target_pct(
     assert _read_asset_target_pct(asset_id, _omaha_test_env) == Decimal("100")
 
 
-def test_patch_asset_invalid_sum_returns_422(
+def test_patch_asset_off_sum_accepts_and_persists(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
-    """A PATCH that would push the per-class sum over 100 returns 422 and commits nothing.
+    """A PATCH that pushes the per-class sum over 100 returns 200 and commits the new value.
 
     Seeds 3 assets at 30/30/30 (sum 90). PATCH one to 50 → per-class
-    sum becomes 30 + 30 + 50 = 110 (Sobra 10%). The response is a
-    JSON ``{"detail": "Sobra 10%"}`` so the T03 Alpine editor can
-    paint the input red; the on-disk ``target_pct`` must remain
-    30 (the original value) so a failed edit never silently
-    advances the column.
+    sum becomes 30 + 30 + 50 = 110 (off 100 by 10). Per the
+    ``asset-table-view`` change (D006), the per-class sum gate
+    was removed: every commit is accepted within the per-row
+    0-100 range, and the resulting deviation is surfaced through
+    the dashboard's class-delta badge + sticky allocation alert
+    card rather than a 422.
+
+    Asserts
+    -------
+    - PATCH returns 200 with ``{"id", "target_pct": "50"}``.
+    - The on-disk ``target_pct`` is 50 (the new value committed).
+    - The other two assets are untouched (still 30 each).
+    - The resulting per-class sum on disk is 110 (> 100).
     """
     _login_and_select(client, profile_id=1)
     class_id, asset_ids = _seed_class_with_assets(
@@ -278,14 +289,20 @@ def test_patch_asset_invalid_sum_returns_422(
 
     response = _patch_asset(client, target_asset_id, "50")
 
-    assert response.status_code == 422
+    assert response.status_code == 200
     body = response.json()
-    assert body == {"detail": "Sobra 10%"}
-    # The failed edit must not have committed.
-    assert _read_asset_target_pct(target_asset_id, _omaha_test_env) == Decimal("30")
+    assert body == {"id": target_asset_id, "target_pct": "50"}
+    # The new value committed.
+    assert _read_asset_target_pct(target_asset_id, _omaha_test_env) == Decimal("50")
     # The other assets are untouched.
     for aid in other_ids:
         assert _read_asset_target_pct(aid, _omaha_test_env) == Decimal("30")
+    # Resulting per-class sum is 110 (> 100) — the alert UI surfaces
+    # this on the dashboard.
+    on_disk = sum(
+        _read_asset_target_pct(aid, _omaha_test_env) for aid in asset_ids
+    )
+    assert on_disk == Decimal("110")
 
 
 def test_patch_asset_cross_profile_404(client: TestClient, _omaha_test_env: dict[str, str]) -> None:

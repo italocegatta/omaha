@@ -6,23 +6,25 @@ new asset under the selected class. ``target_pct`` is optional and
 defaults to ``0`` (matches the S01 D015 contract: an asset can exist
 in a class at 0% while the user is still building the allocation).
 
-**Per-class sum is still blocking.** The asset-level validator
-(:func:`omaha.validators.validate_target_pct_sum`) returns 422 when
-the per-class sum exceeds 100 — the user must redistribute before
-adding. The per-profile sum gate is informational only (see T01/T02
-in ``test_s02_t01_classes_patch.py``); per-class is enforced.
+**Per-class sum is informational only (D006).** The
+``asset-table-view`` change removed the per-class sum gate
+from ``POST /api/assets`` and ``PATCH /api/assets/{id}``:
+off-100 sums are accepted on both endpoints, and the resulting
+deviation is surfaced through the dashboard's class-delta badge
+and the sticky allocation alert card. ``test_post_api_asset_per_class_sum_accepted``
+asserts the new contract.
 
 Five tests:
   1. ``test_post_api_asset_creates_row_with_zero_target`` — empty class;
      POST a new asset with ``target_pct="0"``; expect 201; response has
      the new asset's id, name, target_pct; DB has 1 row with
      ``display_order=0``.
-  2. ``test_post_api_asset_per_class_sum_returns_422`` — class already
+  2. ``test_post_api_asset_per_class_sum_accepted`` — class already
      has one asset at ``target_pct=100`` (sum = 100); POST a 2nd
-     with ``target_pct="50"`` (new sum = 150); expect 422 with
-     ``{"detail": "Sobra 50%"}`` (the per-class validator is the single
-     source of truth — the route re-emits the message verbatim). DB
-     unchanged (1 row).
+     with ``target_pct="50"`` (new sum = 150); expect 201, response
+     carries the new id/name/target_pct; DB has 2 rows and the
+     per-class sum on disk is 150. The alert UI surfaces the
+     deviation; the route no longer blocks.
   3. ``test_post_api_asset_duplicate_name_returns_409`` — POST
      "PETR4" → 201; POST another "PETR4" → 409; DB has 1 row.
   4. ``test_post_api_asset_empty_name_returns_422`` — POST ``{"name":
@@ -238,14 +240,22 @@ def test_post_api_asset_creates_row_with_zero_target(client: TestClient) -> None
     assert asset.target_pct == Decimal("0")
 
 
-def test_post_api_asset_per_class_sum_returns_422(client: TestClient) -> None:
-    """POST an asset that pushes the class sum over 100; expect 422 with "Sobra X%".
+def test_post_api_asset_per_class_sum_accepted(client: TestClient) -> None:
+    """POST an asset that pushes the class sum over 100; expect 201 (D006).
 
-    Initial: 1 asset at ``target_pct=100`` (sum = 100). POST a 2nd
-    with ``target_pct=50`` (new sum = 150). Expect 422 with
-    ``{"detail": "Sobra 50%"}`` (the validator is the single source
-    of truth — the route re-emits the message verbatim). DB
-    unchanged (1 row).
+    Per the ``asset-table-view`` change (D006), the per-class sum
+    gate was removed from ``POST /api/assets``. Initial: 1 asset at
+    ``target_pct=100`` (sum = 100). POST a 2nd with ``target_pct=50``
+    (new sum = 150). The route accepts the write and returns 201
+    with the new asset's id/name/target_pct; DB has 2 rows and the
+    on-disk per-class sum is 150. The alert UI surfaces the
+    deviation; the route no longer blocks.
+
+    Asserts
+    -------
+    - 201 with the new asset's id, name, and target_pct.
+    - DB has 2 rows for the class (the seeded one + the new one).
+    - The on-disk per-class sum is 150 (> 100).
     """
     _login_and_select(client, profile_id=1)
     [class_id] = _seed_classes(profile_id=1, rows=[("Renda Fixa", "100")])
@@ -257,6 +267,7 @@ def test_post_api_asset_per_class_sum_returns_422(client: TestClient) -> None:
     )
 
     # POST a 2nd asset at 50% → class sum becomes 150 → Sobra 50%
+    # The route no longer blocks (D006). Expect 201.
     response = _post_api_asset(
         client,
         name="Tesouro IPCA",
@@ -264,12 +275,32 @@ def test_post_api_asset_per_class_sum_returns_422(client: TestClient) -> None:
         target_pct="50",
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 201
     data = response.json()
-    assert "Sobra 50%" in data["detail"]
+    assert data["name"] == "Tesouro IPCA"
+    assert Decimal(data["target_pct"]) == Decimal("50")
+    assert isinstance(data["id"], int)
 
-    # DB unchanged — still 1 row (the seeded one)
-    assert _count_assets(asset_class_id=class_id) == 1
+    # DB has 2 rows now (the seeded one + the new one).
+    assert _count_assets(asset_class_id=class_id) == 2
+
+    # The on-disk per-class sum is 150 (> 100). The dashboard's
+    # class-delta badge + sticky allocation alert card surface
+    # this deviation.
+    from omaha.db import SessionLocal
+    from omaha.models import Asset
+
+    db = SessionLocal()
+    try:
+        rows = (
+            db.query(Asset)
+            .filter(Asset.asset_class_id == class_id)
+            .all()
+        )
+        on_disk = sum((a.target_pct for a in rows), Decimal("0"))
+    finally:
+        db.close()
+    assert on_disk == Decimal("150")
 
 
 def test_post_api_asset_duplicate_name_returns_409(client: TestClient) -> None:

@@ -187,3 +187,74 @@ the explicit allow-list it runs 121 tests in 1.3s.
   to `_UNIT_FILES` to silence the `UnknownTestPath` warning.
 - Reviewing a PR that introduces a new test file in `tests/` — verify
   the marker assignment matches what the test does.
+
+## Taskipy — use `task <name>`, not raw commands
+
+**Rule:** prefer `uv run task <name>` (or `task <name>` with venv
+active) over typing the underlying command. Tasks live in
+`pyproject.toml` under `[tool.taskipy.tasks]`. `use_vars = true` means
+`{app_target}` and friends get expanded — literal braces in commands
+must be written as `{{}}`.
+
+Canonical tasks (full list: `uv run task --list`):
+
+| Task              | Purpose                                                  |
+|-------------------|----------------------------------------------------------|
+| `serve`           | uvicorn `--host 0.0.0.0 --port 8000 --reload`            |
+| `serve-prod`      | uvicorn `--host 0.0.0.0 --port 8000` (no reload)         |
+| `test`            | full suite (unit + integration + e2e)                    |
+| `test-unit`       | `pytest -m unit` — pure-function, no DB / no HTTP         |
+| `test-integration`| `pytest -m integration` — DB + TestClient + audit        |
+| `test-e2e`        | `pytest tests/e2e -v` — Playwright                       |
+| `test-file`       | `task test-file tests/test_X.py`                         |
+| `test-pattern`    | `task test-pattern "smoke"` — `-k` substring match        |
+| `test-one`        | `task test-one tests/test_X.py::test_y` — single node    |
+| `lint`            | `prek run --all-files` (ruff format check + ruff --fix)  |
+| `format`          | `ruff format .`                                          |
+| `check`           | `lint && test-unit` — CI gate                            |
+| `db-migrate`      | `alembic upgrade head`                                   |
+| `db-revision`     | `alembic revision --autogenerate` (pass `-m "msg"`)       |
+| `db-seed`         | idempotent family + profiles seed                        |
+| `db-reset`        | wipe + reseed Italo for manual import-flow testing       |
+| `db-clear-assets` | delete ALL asset rows (keeps classes)                    |
+| `db-current`      | show Alembic head                                        |
+| `db-history`      | show full migration timeline                             |
+| `db-downgrade`    | revert last migration                                    |
+| `install`         | `uv sync`                                                |
+| `install-e2e`     | Playwright Chromium download (one-time)                  |
+| `prek-install`    | install prek git hooks                                   |
+| `docker-up`       | `docker compose up -d` (dev stack)                       |
+| `docker-down`     | `docker compose down`                                    |
+| `prod-up`         | `docker compose -f prod.yml up -d`                       |
+| `prod-down`       | `docker compose -f prod.yml down` — `down -v` wipes DB   |
+| `prod-logs`       | stream prod logs                                         |
+| `prod-rebuild`    | rebuild prod image + restart stack                       |
+| `backup`          | one-off snapshot to `./backups/` (`prod.yml` profile)    |
+| `clean`           | wipe `__pycache__`, `.pytest_cache`, `.ruff_cache`        |
+| `coverage`        | pytest + coverage report                                 |
+| `secret-key`      | generate cryptographically random `SECRET_KEY`           |
+
+### Why
+
+Typing `uv run uvicorn omaha.main:app --host 0.0.0.0 --port 8000`
+inline burns cycles re-deriving the bind flags every session, and
+risks dropping `--host 0.0.0.0` (see "Network access" above).
+`task serve` is the canonical entrypoint; it always binds correctly
+and picks up new tasks automatically as they're added.
+
+### When this applies
+
+- Starting/stopping the dev server for any manual test.
+- Running tests, lint, format, or coverage during dev.
+- Any DB operation (migrate, seed, reset, clear, downgrade).
+- Docker / prod stack control.
+- First-time setup (`install`, `install-e2e`, `prek-install`).
+
+### Gotchas
+
+- `task serve` blocks the foreground — for parallel work, background it
+  with `nohup ... &` or run `serve-prod` in a detached terminal.
+- `docker compose -f prod.yml down` preserves the `omaha-data` named
+  volume; only `down -v` wipes the DB.
+- `db-clear-assets` is the asset wipe, NOT `db-reset` (which reseeds
+  the full family + profile).

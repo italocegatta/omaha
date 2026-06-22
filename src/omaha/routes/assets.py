@@ -65,7 +65,6 @@ from sqlalchemy.exc import IntegrityError
 
 from omaha.auth import DbSession, require_active_profile, require_user
 from omaha.models import Asset, AssetClass, Profile, User
-from omaha.validators import validate_target_pct_sum
 
 router = APIRouter(tags=["assets"])
 
@@ -289,14 +288,11 @@ def post_api_asset(
             )
 
     if parsed_pct > Decimal("0"):
-        other_pcts = [a.target_pct for a in target_class.assets]
-        candidate = other_pcts + [parsed_pct]
-        ok, error = validate_target_pct_sum(candidate)
-        if not ok:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=error,
-            )
+        # Sum gate removed by D006: off-100 per-class sums are
+        # accepted on POST /api/assets; the alert UI surfaces the
+        # deviation through the dashboard's class-delta badge and
+        # the sticky allocation alert card.
+        pass
 
     existing_assets = list(target_class.assets)
     next_order = (existing_assets[-1].display_order + 1) if existing_assets else 0
@@ -328,15 +324,20 @@ def patch_asset(
     profile: Profile = Depends(require_active_profile),
     body: Annotated[dict[str, Any], Body()] = {},  # noqa: B006
 ) -> dict[str, Any]:
-    """Update one asset's ``target_pct`` and validate the per-class sum.
+    """Update one asset's ``target_pct`` (per-row range check only; D006).
 
-    The route is the server-side source of truth for the T03
+    Per the ``asset-table-view`` change (D006), the per-class sum
+    gate was removed from this route: every commit is accepted
+    within the per-row 0-100 range, and the resulting deviation
+    (if any) is surfaced through the dashboard's class-delta badge
+    and the sticky allocation alert card rather than a 422.
+
+    The route is the server-side source of truth for the
     Alpine inline editor: PATCH 200 returns ``{"id", "target_pct"}``
     so the editor can refresh the row without a full page reload;
-    PATCH 422 returns ``{"detail": "<Sobra/Falta X%>"}`` so the
-    editor can paint the input red and surface the class-delta
-    badge. The 422 vs 404 split lets the UI differentiate "bad
-    input" from "stale URL".
+    PATCH 422 is reserved for per-row range violations and
+    cross-profile / cross-class ownership errors. The 422 vs 404
+    split lets the UI differentiate "bad input" from "stale URL".
 
     Body
     ----
@@ -349,24 +350,15 @@ def patch_asset(
     ---------------
     The asset id is resolved with a single ``db.get`` and the
     ownership check walks the FK back to the active profile —
-    cross-profile is 404, never silent. The T03 editor only
+    cross-profile is 404, never silent. The inline editor only
     targets the active profile's own assets, so a 404 here means
     a stale URL or a hand-crafted id.
-
-    Validation
-    ----------
-    The per-class sum is recomputed as ``[other_assets.target_pct] + [new_value]``
-    and passed to :func:`omaha.validators.validate_target_pct_sum`.
-    The validator is the single source of truth for the error
-    message; the route re-emits it verbatim so the T03 preview
-    and the T02 commit show identical wording.
 
     Returns
     -------
     - 200 with ``{"id": asset.id, "target_pct": "<new_value>"}`` on success.
     - 404 if the asset doesn't exist or doesn't belong to the active profile.
-    - 422 with ``{"detail": "<validator error>"}`` on a per-class
-      sum violation or a per-row range/out-of-range violation.
+    - 422 with ``{"detail": "..."}`` on a per-row range/out-of-range violation.
     """
     asset = db.get(Asset, asset_id)
     if asset is None or asset.asset_class.profile_id != profile.id:
@@ -380,19 +372,10 @@ def patch_asset(
             detail=f"A alocação do ativo deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
         )
 
-    # Per-class sum: take every OTHER asset's current target_pct
-    # plus the new value, and ask the validator. The validator
-    # is the single source of truth for the message — the route
-    # never re-formats it, so the T03 preview and the T02 commit
-    # display identical wording.
-    other_pcts = [a.target_pct for a in asset.asset_class.assets if a.id != asset.id]
-    candidate = other_pcts + [parsed]
-    ok, error = validate_target_pct_sum(candidate)
-    if not ok:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=error,
-        )
+    # Per-class sum: sum gate removed by D006 — off-100 per-class
+    # sums are accepted on PATCH /api/assets/{id}; the dashboard's
+    # alert UI (the class-delta badge + sticky allocation alert
+    # card) surfaces the resulting deviation.
 
     asset.target_pct = parsed
     db.commit()
