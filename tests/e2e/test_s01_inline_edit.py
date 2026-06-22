@@ -68,7 +68,6 @@ TEST_DB_PATH = REPO_ROOT / "data" / "test_e2e.db"
 # buttons + the class-delta badge in the section header.
 S01_SELECTORS = {
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
-    "asset_pct_grid": '[data-testid="asset-pct-grid"]',
     "asset_target_pct_class": '[data-testid="asset-target-pct-class"]',
     "asset_current_pct_class": '[data-testid="asset-current-pct-class"]',
     "asset_target_pct_total": '[data-testid="asset-target-pct-total"]',
@@ -348,17 +347,8 @@ class TestS01InlineEdit:
                 break
         assert target_row is not None, "Ativo A row not found on dashboard"
 
-        # Expand the class section (D016: collapsed by default).
-        # The inline edit cell lives inside the section body;
-        # without expanding, the click is intercepted by the
-        # section header overlay. Mirrors the test_s03 pattern.
-        page.evaluate(
-            """() => {
-                const row = document.querySelector('[data-testid="class-summary-row"]');
-                if (row) { const d = Alpine.$data(row); if (d && !d.isOpen) d.isOpen = true; }
-            }"""
-        )
-        page.wait_for_timeout(350)
+        # asset-table-view 8.x: class sections are always visible, so
+        # no chevron expand step is needed.
 
         # Click the "alvo % classe" cell to enter edit mode. The
         # Alpine ``startEdit`` toggles ``editingAssetId`` to the
@@ -473,17 +463,7 @@ class TestS01InlineEdit:
                 break
         assert target_row is not None, "Ativo B row not found on dashboard"
 
-        # Expand the class section (D016: collapsed by default).
-        # The inline edit cell lives inside the section body;
-        # without expanding, the click is intercepted by the
-        # section header overlay. Mirrors the test_s03 pattern.
-        page.evaluate(
-            """() => {
-                const row = document.querySelector('[data-testid="class-summary-row"]');
-                if (row) { const d = Alpine.$data(row); if (d && !d.isOpen) d.isOpen = true; }
-            }"""
-        )
-        page.wait_for_timeout(350)
+        # asset-table-view 8.x: class sections are always visible.
 
         # Click to start editing.
         cell = target_row.locator(S01_SELECTORS["asset_target_pct_class"]).first

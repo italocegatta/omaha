@@ -35,10 +35,12 @@ SELECTORS = {
     "class_summary_row": '[data-testid="class-summary-row"]',
     "dashboard_class_section": '[data-testid="dashboard-class-section"]',
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
-    "dashboard_add_asset_btn": '[data-testid="dashboard-add-asset-btn"]',
-    "dashboard_add_asset_name": '[data-testid="dashboard-add-asset-name-input"]',
-    "dashboard_add_asset_pct": '[data-testid="dashboard-add-asset-pct-input"]',
-    "dashboard_add_asset_save": '[data-testid="dashboard-add-asset-save"]',
+    "dashboard_add_asset_open": '[data-testid="dashboard-add-asset-open"]',
+    "dashboard_add_asset_modal": '[data-testid="dashboard-add-asset-modal"]',
+    "dashboard_add_asset_class": '[data-testid="dashboard-add-asset-modal-class"]',
+    "dashboard_add_asset_name": '[data-testid="dashboard-add-asset-name"]',
+    "dashboard_add_asset_pct": '[data-testid="dashboard-add-asset-target-pct"]',
+    "dashboard_add_asset_submit": '[data-testid="dashboard-add-asset-submit"]',
     "dashboard_asset_delete_btn": '[data-testid="dashboard-asset-delete-btn"]',
     "dashboard_asset_delete_confirm_yes": '[data-testid="dashboard-asset-delete-confirm-yes"]',
     "asset_row_name": '[data-testid="asset-row-name"]',
@@ -77,23 +79,6 @@ def _create_three_classes(page: Page, base_url: str) -> None:
     assert page.locator(SELECTORS["class_summary_row"]).count() == 3
 
 
-def _expand_section(page: Page, class_name: str) -> None:
-    """Expand a class section by clicking its chevron.
-
-    Sections collapse on every page reload (D016). Use force=True to
-    bypass pointer-event interception checks in the stacked layout.
-    """
-    page.wait_for_function("() => typeof Alpine !== 'undefined'", timeout=5000)
-    page.wait_for_timeout(300)
-    class_sections = page.locator(SELECTORS["class_summary_row"])
-    for i in range(class_sections.count()):
-        name_el = class_sections.nth(i).locator('[data-testid="class-section-name"]')
-        if name_el.inner_text().strip() == class_name:
-            class_sections.nth(i).locator('[data-testid="class-chevron"]').click(force=True)
-            break
-    page.wait_for_timeout(350)
-
-
 def _debug_dump(page: Page, tag: str) -> None:
     """Write a screenshot + main-text + URL to /tmp for post-mortem."""
     import os
@@ -119,46 +104,24 @@ def _debug_dump(page: Page, tag: str) -> None:
 def _add_asset_via_dashboard(
     page: Page, base_url: str, class_name: str, asset_name: str, target_pct: str = "10"
 ) -> None:
-    """Add an asset to a class via the dashboard inline form.
+    """Add an asset to a class via the dashboard add-asset modal.
 
-    Uses the ``+ Ativo`` button inside the class section, fills
-    the name and target % inputs, clicks Save, and waits for the
-    page reload on success.
-
-    The class section starts collapsed (D016: default closed). We click
-    the chevron button to expand it before clicking ``+ Ativo``.
+    Opens the dashboard-level ``+ Ativo`` modal, selects the target
+    class, fills the name and target % inputs, clicks Salvar, and
+    waits for the page reload on success.
     """
-    # Find the class section by its name.
-    page.wait_for_selector(SELECTORS["class_summary_row"], timeout=5000)
-    class_sections = page.locator(SELECTORS["class_summary_row"])
-    section = None
-    for i in range(class_sections.count()):
-        name_el = class_sections.nth(i).locator('[data-testid="class-section-name"]')
-        if name_el.inner_text().strip() == class_name:
-            section = class_sections.nth(i)
-            break
-    assert section is not None, f"Class section '{class_name}' not found"
+    page.locator(SELECTORS["dashboard_add_asset_open"]).click()
+    modal = page.locator(SELECTORS["dashboard_add_asset_modal"])
+    modal.wait_for(state="visible", timeout=5000)
 
-    # Wait for Alpine to initialize after page reload, then expand
-    # the section by clicking the chevron with force=True.
-    page.wait_for_function("() => typeof Alpine !== 'undefined'", timeout=5000)
-    page.wait_for_timeout(300)
-    section.locator('[data-testid="class-chevron"]').click(force=True)
-    page.wait_for_timeout(350)  # transition: 200ms ease-out + buffer
+    modal.locator(SELECTORS["dashboard_add_asset_class"]).select_option(label=class_name)
+    modal.locator(SELECTORS["dashboard_add_asset_name"]).fill(asset_name)
+    modal.locator(SELECTORS["dashboard_add_asset_pct"]).fill(target_pct)
 
-    # Click the + Ativo button inside this class section.
-    add_btn = section.locator(SELECTORS["dashboard_add_asset_btn"])
-    add_btn.click()
-    page.wait_for_timeout(300)  # let Alpine x-show toggle
+    # Click Salvar — this triggers a POST /api/assets and reloads on 201.
+    modal.locator(SELECTORS["dashboard_add_asset_submit"]).click()
 
-    # Fill the form.
-    section.locator(SELECTORS["dashboard_add_asset_name"]).fill(asset_name)
-    section.locator(SELECTORS["dashboard_add_asset_pct"]).fill(target_pct)
-
-    # Click Save — this triggers a POST /api/assets and reloads on 201.
-    section.locator(SELECTORS["dashboard_add_asset_save"]).click()
-
-    # Wait for the page to reload (the addAsset() function calls
+    # Wait for the page to reload (the modal calls
     # window.location.reload() on 201). wait_for_url returns
     # immediately when the URL was already /, so use load_state
     # to wait for the actual reload to complete.
@@ -212,9 +175,7 @@ class TestS03UserJourney:
         asset_rows = page.locator(SELECTORS["dashboard_asset_row"])
 
         # --- 3. Delete the second asset (PETR4 in Acoes).
-        # Expand the Acoes section first (collapsed after page reload, D016).
-        _expand_section(page, "Acoes")
-        page.wait_for_timeout(300)
+        # asset-table-view 8.x: class sections are always visible.
 
         # Locate the row whose name is "PETR4" and click its delete button.
         petr4_row = asset_rows.filter(has_text="PETR4")

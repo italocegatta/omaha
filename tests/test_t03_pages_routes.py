@@ -352,19 +352,33 @@ def test_dashboard_renders_distribution_layout(client: TestClient) -> None:
     assert 'data-testid="asset-pct"' in body, body
     assert 'data-testid="asset-progress-bar"' in body, body
 
-    # M002 S01/T03: 4-percentage grid + Alpine inline editor
-    # (D012 — 1 storage, 2 views; D015 — visual affordance for
-    # the migration gap). Each cell carries its own data-testid;
-    # the editor's input is the save affordance.
-    assert 'data-testid="asset-pct-grid"' in body, body
+    # asset-table-view 4.x/6.x/7.x/9.x/10.x: proper <table>,
+    # group header, sortable <th> cells, inline editor for both
+    # alvo % classe and alvo % total, sticky alert card, and the
+    # dashboard-level add-asset modal trigger.
+    assert 'data-testid="asset-table"' in body, body
+    assert 'data-testid="asset-table-th-name"' in body, body
+    assert 'data-testid="asset-table-sort-name"' in body, body
+    assert 'data-testid="asset-group-header"' in body, body
     assert 'data-testid="asset-target-pct-class"' in body, body
     assert 'data-testid="asset-current-pct-class"' in body, body
     assert 'data-testid="asset-target-pct-total"' in body, body
     assert 'data-testid="asset-current-pct-total"' in body, body
     assert 'data-testid="asset-inline-edit-input"' in body, body
+    assert 'data-testid="asset-target-pct-total-edit-input"' in body, body
+    assert 'data-testid="asset-target-pct-total-edit-commit"' in body, body
     assert 'data-testid="class-delta-badge"' in body, body
+    assert 'data-testid="asset-allocation-alert"' in body, body
+    assert 'data-testid="asset-allocation-alert-portfolio"' in body, body
+    assert 'data-testid="asset-allocation-alert-class"' in body, body
+    assert 'data-testid="dashboard-add-asset-open"' in body, body
+    assert 'data-testid="dashboard-add-asset-modal"' in body, body
+    assert 'data-testid="dashboard-add-asset-name"' in body, body
+    assert 'data-testid="dashboard-add-asset-target-pct"' in body, body
+    assert 'data-testid="dashboard-add-asset-submit"' in body, body
     # Alpine x-data wrapper on each class section.
     assert "x-data='classSection(" in body, body
+    assert "x-data='assetTable(" in body, body
     # The new template never renders the visible "N posicao(oes)"
     # line — D015 task scope.
     assert "posicao(oes)" not in body, body

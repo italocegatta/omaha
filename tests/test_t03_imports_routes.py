@@ -341,9 +341,9 @@ def test_dashboard_shows_position_counts(logged_in: TestClient) -> None:
 
     M002 S01/T03: the visible "N posicao(oes)" line is removed (D015
     — the 4-percentage grid replaces the position-count text). The
-    count is still carried on the ``<li>`` as ``data-position-count``
-    so downstream e2e selectors and future copy edits can find it
-    without re-introducing the visible text.
+    count is still carried on the asset row as ``data-position-count``
+    (bound by Alpine in the ``<template x-for>`` loop) so downstream
+    e2e selectors can read it without re-introducing the visible text.
     """
     _ensure_class_with_asset(logged_in, 1, "Renda Fixa", ["PETR4"])
     logged_in.post(
@@ -356,14 +356,22 @@ def test_dashboard_shows_position_counts(logged_in: TestClient) -> None:
     assert r.status_code == 200
     # The visible "posicao(oes)" text is gone (D015).
     assert "posicao(oes)" not in r.text
-    # The count is still on the <li> as an attribute, so any
-    # downstream selector that wants it can read it.
-    assert 'data-position-count="' in r.text
-    # And at least one row has a count > 0.
-    import re
+    # The attribute binding is present on the server-rendered row template.
+    assert ':data-position-count="a.position_count"' in r.text
+    assert 'data-testid="dashboard-asset-row"' in r.text
+    # Verify positions were actually created (the binding value is only
+    # materialized in the browser by Alpine).
+    from omaha.db import SessionLocal
+    from omaha.models import Asset, Position
 
-    counts = [int(m) for m in re.findall(r'data-position-count="(\d+)"', r.text)]
-    assert any(c > 0 for c in counts), f"no positive position counts: {counts}"
+    db = SessionLocal()
+    try:
+        asset = db.query(Asset).filter(Asset.name == "PETR4").first()
+        assert asset is not None
+        positions = db.query(Position).filter(Position.asset_id == asset.id).all()
+        assert len(positions) > 0, "expected at least one position for PETR4 after import"
+    finally:
+        db.close()
 
 
 def test_nav_link_to_import_removed(logged_in: TestClient) -> None:

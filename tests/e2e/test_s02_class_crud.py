@@ -70,10 +70,12 @@ S02_SELECTORS = {
     "empty_state": '[data-testid="empty-state"]',
     "class_target_pct": '[data-testid="class-target-pct"]',
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
-    "dashboard_add_asset_btn": '[data-testid="dashboard-add-asset-btn"]',
-    "dashboard_add_asset_name": '[data-testid="dashboard-add-asset-name-input"]',
-    "dashboard_add_asset_pct": '[data-testid="dashboard-add-asset-pct-input"]',
-    "dashboard_add_asset_save": '[data-testid="dashboard-add-asset-save"]',
+    "dashboard_add_asset_open": '[data-testid="dashboard-add-asset-open"]',
+    "dashboard_add_asset_modal": '[data-testid="dashboard-add-asset-modal"]',
+    "dashboard_add_asset_class": '[data-testid="dashboard-add-asset-modal-class"]',
+    "dashboard_add_asset_name": '[data-testid="dashboard-add-asset-name"]',
+    "dashboard_add_asset_pct": '[data-testid="dashboard-add-asset-target-pct"]',
+    "dashboard_add_asset_submit": '[data-testid="dashboard-add-asset-submit"]',
 }
 
 
@@ -369,23 +371,17 @@ class TestS02ClassCRUD:
         # Create a single class at 100% via the seed helper.
         _create_seed_classes(page, [["Renda Fixa", 100]])
 
-        # Add an asset to the class via the dashboard inline form
-        # (the old /assets page redirects to /, so use the inline form).
+        # Add an asset to the class via the dashboard add-asset modal
+        # (the old /assets page redirects to /, so use the modal flow).
         page.wait_for_selector(S02_SELECTORS["class_summary_row"], timeout=5000)
-        # Expand the section by clicking the chevron (D016: collapsed by default).
-        page.evaluate(
-            """() => {
-                const row = document.querySelector('[data-testid="class-summary-row"]');
-                if (row) { const d = Alpine.$data(row); if (d && !d.isOpen) d.isOpen = true; }
-            }"""
-        )
-        page.wait_for_timeout(350)
-        # Click + Ativo, fill form, save.
-        page.locator(S02_SELECTORS["dashboard_add_asset_btn"]).first.click(force=True)
-        page.wait_for_timeout(300)
-        page.locator(S02_SELECTORS["dashboard_add_asset_name"]).first.fill("Tesouro Selic")
-        page.locator(S02_SELECTORS["dashboard_add_asset_pct"]).first.fill("100")
-        page.locator(S02_SELECTORS["dashboard_add_asset_save"]).first.click(force=True)
+
+        page.locator(S02_SELECTORS["dashboard_add_asset_open"]).click()
+        modal = page.locator(S02_SELECTORS["dashboard_add_asset_modal"])
+        modal.wait_for(state="visible", timeout=5000)
+        modal.locator(S02_SELECTORS["dashboard_add_asset_class"]).select_option(label="Renda Fixa")
+        modal.locator(S02_SELECTORS["dashboard_add_asset_name"]).fill("Tesouro Selic")
+        modal.locator(S02_SELECTORS["dashboard_add_asset_pct"]).fill("100")
+        modal.locator(S02_SELECTORS["dashboard_add_asset_submit"]).click()
         # Wait for the page reload (201 -> window.location.reload()).
         page.wait_for_load_state("networkidle", timeout=10000)
         page.wait_for_selector(S02_SELECTORS["class_summary_row"], timeout=5000)

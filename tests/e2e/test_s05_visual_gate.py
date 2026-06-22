@@ -105,9 +105,7 @@ class TestS05VisualGate:
         page.goto(live_url + "/")
         page.wait_for_selector('[data-testid="class-summary-row"]', timeout=5000)
 
-        # Expand the first class section to show assets
-        first_chevron = page.locator('[data-testid="class-chevron"]').first
-        first_chevron.click()
+        # asset-table-view 8.x: class sections are always visible.
         page.wait_for_selector(
             '[data-testid="dashboard-asset-row"]',
             timeout=5000,

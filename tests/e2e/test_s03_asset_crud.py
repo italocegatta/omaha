@@ -27,11 +27,12 @@ if TYPE_CHECKING:
 from .test_s04_user_journey import _login_and_select_italo
 
 S03_SELECTORS = {
-    "dashboard_add_asset_btn": '[data-testid="dashboard-add-asset-btn"]',
-    "dashboard_add_asset_form": '[data-testid="dashboard-add-asset-form"]',
-    "dashboard_add_asset_name_input": '[data-testid="dashboard-add-asset-name-input"]',
-    "dashboard_add_asset_pct_input": '[data-testid="dashboard-add-asset-pct-input"]',
-    "dashboard_add_asset_save": '[data-testid="dashboard-add-asset-save"]',
+    "dashboard_add_asset_open": '[data-testid="dashboard-add-asset-open"]',
+    "dashboard_add_asset_modal": '[data-testid="dashboard-add-asset-modal"]',
+    "dashboard_add_asset_name": '[data-testid="dashboard-add-asset-name"]',
+    "dashboard_add_asset_target_pct": '[data-testid="dashboard-add-asset-target-pct"]',
+    "dashboard_add_asset_class": '[data-testid="dashboard-add-asset-modal-class"]',
+    "dashboard_add_asset_submit": '[data-testid="dashboard-add-asset-submit"]',
     "dashboard_add_asset_cancel": '[data-testid="dashboard-add-asset-cancel"]',
     "dashboard_add_asset_error": '[data-testid="dashboard-add-asset-error"]',
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
@@ -138,46 +139,31 @@ class TestS03AssetCRUD:
         profile_header.wait_for(state="visible", timeout=5000)
         assert "Bem-vindo" in profile_header.inner_text()
 
-    def test_add_asset_via_inline_form(self, page: Page, live_url: str) -> None:
-        """Click + Ativo → fill form → save → asset row appears.
+    def test_add_asset_via_modal(self, page: Page, live_url: str) -> None:
+        """Click + Ativo → fill modal → save → asset row appears.
 
         Setup: login + select Italo; create 1 class via snapshot.
         """
         _login_and_select_italo(page, live_url)
         _create_seed_classes(page, [["Renda Fixa", 100]])
 
-        class_section = page.locator(S03_SELECTORS["class_summary_row"]).first
+        # asset-table-view 8.x/10.x: class sections are always visible,
+        # and the add-asset flow uses a dashboard-level modal.
+        page.locator(S03_SELECTORS["dashboard_add_asset_open"]).click()
+        modal = page.locator(S03_SELECTORS["dashboard_add_asset_modal"])
+        modal.wait_for(state="visible", timeout=5000)
 
-        # Expand the section (D016: collapsed by default).
-        page.evaluate(
-            """() => {
-                const row = document.querySelector('[data-testid="class-summary-row"]');
-                if (row) { const d = Alpine.$data(row); if (d && !d.isOpen) d.isOpen = true; }
-            }"""
-        )
-        page.wait_for_timeout(350)
-
-        class_section.locator(S03_SELECTORS["dashboard_add_asset_btn"]).click(force=True)
-        page.wait_for_timeout(300)
-        class_section.locator(S03_SELECTORS["dashboard_add_asset_name_input"]).fill("PETR4")
-        class_section.locator(S03_SELECTORS["dashboard_add_asset_pct_input"]).fill("0")
-        class_section.locator(S03_SELECTORS["dashboard_add_asset_save"]).click(force=True)
+        modal.locator(S03_SELECTORS["dashboard_add_asset_class"]).select_option(label="Renda Fixa")
+        modal.locator(S03_SELECTORS["dashboard_add_asset_name"]).fill("PETR4")
+        modal.locator(S03_SELECTORS["dashboard_add_asset_target_pct"]).fill("0")
+        modal.locator(S03_SELECTORS["dashboard_add_asset_submit"]).click()
 
         # Wait for page reload (201 -> window.location.reload()).
         page.wait_for_load_state("networkidle", timeout=10000)
         page.wait_for_selector(S03_SELECTORS["dashboard_asset_row"], state="attached", timeout=8000)
 
         rows = page.locator(S03_SELECTORS["dashboard_asset_row"])
-        # After reload the section is collapsed again. Count via DOM presence.
         assert rows.count() == 1
-        # Expand again to read the name text.
-        page.evaluate(
-            """() => {
-                const row = document.querySelector('[data-testid="class-summary-row"]');
-                if (row) { const d = Alpine.$data(row); if (d && !d.isOpen) d.isOpen = true; }
-            }"""
-        )
-        page.wait_for_timeout(350)
         assert "PETR4" in rows.first.locator(S03_SELECTORS["asset_row_name"]).inner_text()
 
     def test_delete_asset_via_x_button(self, page: Page, live_url: str) -> None:
@@ -190,14 +176,7 @@ class TestS03AssetCRUD:
         _create_seed_classes(page, [["Renda Fixa", 100]])
         _create_seed_assets(page, [("Renda Fixa", "PETR4", 0)])
 
-        # Expand the section (D016: collapsed by default after page reload).
-        page.evaluate(
-            """() => {
-                const row = document.querySelector('[data-testid="class-summary-row"]');
-                if (row) { const d = Alpine.$data(row); if (d && !d.isOpen) d.isOpen = true; }
-            }"""
-        )
-        page.wait_for_timeout(350)
+        # asset-table-view 8.x: class sections are always visible.
 
         asset_row = page.locator(S03_SELECTORS["dashboard_asset_row"]).first
         assert asset_row.count() == 1
@@ -223,36 +202,28 @@ class TestS03AssetCRUD:
         assert page.locator(S03_SELECTORS["dashboard_asset_row"]).count() == 0
 
     def test_full_asset_crud_journey(self, page: Page, live_url: str) -> None:
-        """Add 2 assets via the inline form, delete the first, keep the second.
+        """Add 2 assets via the modal, delete the first, keep the second.
 
-        Setup: login + select Italo; create 1 class; drive the inline
-        form twice; delete the first asset; assert the second remains.
+        Setup: login + select Italo; create 1 class; drive the modal
+        add-asset flow twice; delete the first asset; assert the second
+        remains.
         """
         _login_and_select_italo(page, live_url)
         _create_seed_classes(page, [["Renda Fixa", 100]])
 
-        # Helper: expand class section by clicking the chevron.
-        def expand_section():
-            page.wait_for_function("() => typeof Alpine !== 'undefined'", timeout=5000)
-            page.wait_for_timeout(300)
-            page.locator('[data-testid="class-chevron"]').first.click(force=True)
-            page.wait_for_timeout(350)
-
-        expand_section()
-
-        section = page.locator(S03_SELECTORS["class_summary_row"]).first
-        # First inline add.
-        section.locator(S03_SELECTORS["dashboard_add_asset_btn"]).click(force=True)
-        page.wait_for_timeout(300)
-        section.locator(S03_SELECTORS["dashboard_add_asset_name_input"]).fill("PETR4")
-        section.locator(S03_SELECTORS["dashboard_add_asset_pct_input"]).fill("0")
-        section.locator(S03_SELECTORS["dashboard_add_asset_save"]).click(force=True)
+        # First modal add.
+        page.locator(S03_SELECTORS["dashboard_add_asset_open"]).click()
+        modal = page.locator(S03_SELECTORS["dashboard_add_asset_modal"])
+        modal.wait_for(state="visible", timeout=5000)
+        modal.locator(S03_SELECTORS["dashboard_add_asset_class"]).select_option(label="Renda Fixa")
+        modal.locator(S03_SELECTORS["dashboard_add_asset_name"]).fill("PETR4")
+        modal.locator(S03_SELECTORS["dashboard_add_asset_target_pct"]).fill("0")
+        modal.locator(S03_SELECTORS["dashboard_add_asset_submit"]).click()
 
         page.wait_for_load_state("networkidle", timeout=10000)
         page.wait_for_timeout(500)
 
-        # Second inline add via direct API (the inline form after page reload
-        # has timing issues with Alpine initialization).
+        # Second add via direct API.
         _create_seed_assets(page, [("Renda Fixa", "VALE3", 100)])
 
         page.wait_for_load_state("networkidle", timeout=10000)
@@ -261,7 +232,6 @@ class TestS03AssetCRUD:
         assert rows.count() == 2
 
         # Delete the first row (PETR4 — display_order 0).
-        expand_section()
         first_row = page.locator(S03_SELECTORS["dashboard_asset_row"]).first
         first_row.locator(S03_SELECTORS["dashboard_asset_delete_btn"]).click(force=True)
         first_row.locator(S03_SELECTORS["dashboard_asset_delete_confirm"]).wait_for(
@@ -276,7 +246,6 @@ class TestS03AssetCRUD:
         # Only VALE3 remains.
         remaining = page.locator(S03_SELECTORS["dashboard_asset_row"])
         assert remaining.count() == 1
-        expand_section()
         remaining_name = remaining.first.locator(S03_SELECTORS["asset_row_name"]).inner_text()
         assert "VALE3" in remaining_name, f"expected VALE3 to remain, got {remaining_name!r}"
         page_text = page.locator("main").inner_text()

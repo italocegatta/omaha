@@ -62,9 +62,9 @@
 
 ## 11. Test updates for new testids
 
-- [ ] 11.1 In `tests/test_t03_pages_routes.py`, update the dashboard testid assertions: drop `data-testid="asset-pct-grid"` (replaced by per-cell layout), drop `data-testid="class-chevron"`, drop `data-testid="class-summary-total"` (moved to alert card), add `data-testid="asset-table"`, `data-testid="asset-group-header"`, `data-testid="asset-allocation-alert"`, `data-testid="dashboard-add-asset-open"`.
-- [ ] 11.2 In `tests/e2e/test_s01_inline_edit.py`, `test_s03_asset_crud.py`, `test_s03_user_journey.py`, `test_s05_user_journey.py`, `test_s06_full_journey.py`: replace `data-testid="dashboard-add-asset-btn"` clicks with the modal flow. Replace any chevron toggles with the always-visible assumption. Add the new sort and edit-%-total scenarios.
-- [ ] 11.3 Add new e2e tests covering: (a) table sort by each column, (b) edit `alvo % total` back-solves `alvo % classe`, (c) alert card appears with the right severity for small and large deviations, (d) alert card disappears on convergence, (e) modal add-asset flow.
+- [x] 11.1 In `tests/test_t03_pages_routes.py`, update the dashboard testid assertions: drop `data-testid="asset-pct-grid"` (replaced by per-cell layout), drop `data-testid="class-chevron"`, drop `data-testid="class-summary-total"` (moved to alert card), add `data-testid="asset-table"`, `data-testid="asset-group-header"`, `data-testid="asset-allocation-alert"`, `data-testid="dashboard-add-asset-open"`.
+- [x] 11.2 In `tests/e2e/test_s01_inline_edit.py`, `test_s03_asset_crud.py`, `test_s03_user_journey.py`, `test_s05_user_journey.py`, `test_s06_full_journey.py`: replace `data-testid="dashboard-add-asset-btn"` clicks with the modal flow. Replace any chevron toggles with the always-visible assumption. Add the new sort and edit-%-total scenarios.
+- [x] 11.3 Add new e2e tests covering: (a) table sort by each column, (b) edit `alvo % total` back-solves `alvo % classe`, (c) alert card appears with the right severity for small and large deviations, (d) alert card disappears on convergence, (e) modal add-asset flow.
 
 ## 12. Final verification
 
