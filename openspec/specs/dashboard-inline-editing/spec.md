@@ -237,4 +237,3 @@ resulting deviation, if any, is surfaced through the
 - **THEN** the POST /api/assets call returns 201
 - **AND** the new row is added to the table
 - **AND** the per-class badge reflects the new deviation
-
