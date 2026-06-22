@@ -498,7 +498,8 @@ class TestPreviewChangesAfterAddingAssets:
     """Preview re-match reflects new assets."""
 
     def test_preview_real_csv_changes_after_adding_assets(self, client: TestClient) -> None:
-        """Initial preview shows 43 auto + 5 unmatched; after creating all 48 assets, new preview shows 48 auto."""
+        """Initial preview shows 43 auto + 5 unmatched; after creating all 48 assets,
+        new preview shows 48 auto."""
         _login_and_select(client)
         class_map = _create_asset_classes(1)
         _create_assets(class_map, _AUTO_MATCH_NAMES)

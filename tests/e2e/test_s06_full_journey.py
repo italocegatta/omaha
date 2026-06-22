@@ -317,9 +317,8 @@ class TestS06PosicaoItaloImport:
             if expected_class is not None:
                 # This category should have a specific class suggestion.
                 expected_id = ac_map.get(expected_class)
-                if expected_id is not None:
-                    if r["suggested_class_id"] != expected_id:
-                        mismatches.append(
+                if expected_id is not None and r["suggested_class_id"] != expected_id:
+                    mismatches.append(
                             f"{ticker}: cat={cat!r} "
                             f"suggested={r['suggested_class_id']} "
                             f"expected={expected_id} ({expected_class})"
@@ -407,12 +406,20 @@ class TestS06PosicaoItaloImport:
         page.evaluate(
             """() => {
                 const s = Alpine.store('importModal');
-                const fii = s.assetClasses.find(function(c) { return c.name === 'FII'; });
-                const intl = s.assetClasses.find(function(c) { return c.name === 'Internacional'; });
-                const rfPos = s.assetClasses.find(function(c) { return c.name === 'RF Pos'; });
+                const fii = s.assetClasses.find(function(c) {
+                    return c.name === 'FII';
+                });
+                const intl = s.assetClasses.find(function(c) {
+                    return c.name === 'Internacional';
+                });
+                const rfPos = s.assetClasses.find(function(c) {
+                    return c.name === 'RF Pos';
+                });
                 for (var ticker in s.assignments) {
                     if (s.assignments.hasOwnProperty(ticker)) {
-                        var row = s.unmatched.find(function(r) { return r.broker_ticker === ticker; });
+                        var row = s.unmatched.find(function(r) {
+                            return r.broker_ticker === ticker;
+                        });
                         if (row) {
                             var cat = (row.suggested_category || '').trim();
                             if (cat === 'BR Dividendos' && fii) {
@@ -485,7 +492,9 @@ class TestS06PosicaoItaloImport:
                     if (!nameEl) return;
                     const className = nameEl.textContent.trim();
                     sec.querySelectorAll('[data-testid="dashboard-asset-row"]').forEach((row) => {
-                        const assetNameEl = row.querySelector('[data-testid="asset-row-name-text"]');
+                        const assetNameEl = row.querySelector(
+                            '[data-testid="asset-row-name-text"]'
+                        );
                         if (assetNameEl) {
                             out[assetNameEl.textContent.trim()] = className;
                         }

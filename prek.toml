@@ -63,7 +63,7 @@ repo = "https://github.com/astral-sh/ruff-pre-commit"
 rev = "v0.14.3"
 hooks = [
     { id = "ruff-format", stages = ["pre-push"], priority = 1, continue-on-error = true },
-    { id = "ruff", args = ["--fix"], stages = ["pre-push"], priority = 2, continue-on-error = true },
+    { id = "ruff", args = ["check"], stages = ["pre-push"], priority = 2 },
 ]
 
 [[repos]]
@@ -102,7 +102,7 @@ hooks = [
 [[repos]]
 repo = "local"
 hooks = [
-    { id = "pytest", name = "pytest", entry = "./.venv/bin/python -m pytest", language = "system", pass_filenames = false, types = ["python"], stages = ["pre-push"], priority = 4 },
+    { id = "pytest", name = "pytest", entry = "./.venv/bin/python -m pytest", language = "system", pass_filenames = false, stages = ["pre-push"], priority = 4 },
 ]
 
 # ── commit-msg stage ─────────────────────────────────────────────────────────
