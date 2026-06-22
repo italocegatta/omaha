@@ -37,9 +37,9 @@
     <section class="dashboard-distribution" data-testid="dashboard-distribution">
       <h2>Distribuicao</h2>
       {% for c in class_aggregates %}
-      {% set class_data = {"id": c.id, "name": c.name, "target_pct": (c.target_pct | float), "assets": []} %}
+      {% set class_data = {"id": c.id, "name": c.name, "target_pct": (c.target_pct | float), "color": c.color, "current_pct": (c.current_pct | float), "assets": []} %}
       {% for a in c.assets %}
-      {% set _ = class_data.assets.append({"id": a.id, "name": a.name, "target_pct": (a.target_pct_class | float), "current_pct_class": (a.current_pct_class | float), "current_pct_total": (a.current_pct_total | float), "target_pct_total": (a.target_pct_total | float)}) %}
+      {% set _ = class_data.assets.append({"id": a.id, "name": a.name, "target_pct": (a.target_pct_class | float), "current_pct_class": (a.current_pct_class | float), "current_pct_total": (a.current_pct_total | float), "target_pct_total": (a.target_pct_total | float), "position_count": a.position_count, "current_value": (a.current_value | float)}) %}
       {% endfor %}
       <article class="class-section" data-testid="class-summary-row" data-class-id="{{ c.id }}" x-data='classSection({{ class_data | tojson }})'>
         <header class="class-section-header" data-testid="dashboard-class-section">
@@ -128,122 +128,122 @@
            one <tr> per asset with one <td> per column. The legacy
            per-class `+ Ativo` button/form, the chevron toggle, and the
            `class-section-body--collapsed` hook are removed in 4.4. #}
-        <table class="asset-table" data-testid="asset-table">
+        <table class="asset-table" data-testid="asset-table" x-data='assetTable({{ class_data|tojson }})'>
           <thead>
             <tr>
-              <th data-testid="asset-table-th-name">Ativo <span data-testid="asset-table-sort-name"></span></th>
-              <th data-testid="asset-table-th-class">Classe <span data-testid="asset-table-sort-class"></span></th>
-              <th data-testid="asset-table-th-qty">Qtd <span data-testid="asset-table-sort-qty"></span></th>
-              <th data-testid="asset-table-th-current-value">Valor <span data-testid="asset-table-sort-current-value"></span></th>
-              <th data-testid="asset-table-th-target-pct-class">Alvo % classe <span data-testid="asset-table-sort-target-pct-class"></span></th>
-              <th data-testid="asset-table-th-current-pct-class">Atual % classe <span data-testid="asset-table-sort-current-pct-class"></span></th>
-              <th data-testid="asset-table-th-target-pct-total">Alvo % total <span data-testid="asset-table-sort-target-pct-total"></span></th>
-              <th data-testid="asset-table-th-current-pct-total">Atual % total <span data-testid="asset-table-sort-current-pct-total"></span></th>
+              <th data-testid="asset-table-th-name" @click="sortBy('name')">Ativo <span data-testid="asset-table-sort-name" x-text="sortIndicator('name')"></span></th>
+              <th data-testid="asset-table-th-class" @click="sortBy('class')">Classe <span data-testid="asset-table-sort-class" x-text="sortIndicator('class')"></span></th>
+              <th data-testid="asset-table-th-qty" @click="sortBy('qty')">Qtd <span data-testid="asset-table-sort-qty" x-text="sortIndicator('qty')"></span></th>
+              <th data-testid="asset-table-th-current-value" @click="sortBy('current-value')">Valor <span data-testid="asset-table-sort-current-value" x-text="sortIndicator('current-value')"></span></th>
+              <th data-testid="asset-table-th-target-pct-class" @click="sortBy('target-pct-class')">Alvo % classe <span data-testid="asset-table-sort-target-pct-class" x-text="sortIndicator('target-pct-class')"></span></th>
+              <th data-testid="asset-table-th-current-pct-class" @click="sortBy('current-pct-class')">Atual % classe <span data-testid="asset-table-sort-current-pct-class" x-text="sortIndicator('current-pct-class')"></span></th>
+              <th data-testid="asset-table-th-target-pct-total" @click="sortBy('target-pct-total')">Alvo % total <span data-testid="asset-table-sort-target-pct-total" x-text="sortIndicator('target-pct-total')"></span></th>
+              <th data-testid="asset-table-th-current-pct-total" @click="sortBy('current-pct-total')">Atual % total <span data-testid="asset-table-sort-current-pct-total" x-text="sortIndicator('current-pct-total')"></span></th>
             </tr>
           </thead>
           <tbody>
             <tr class="asset-group-header" data-testid="asset-group-header">
               <td colspan="8">
-                <span class="class-color-swatch" data-testid="class-color-swatch" style="background:{{ c.color }}"></span>
-                <span class="class-section-name" data-testid="class-section-name">{{ c.name }}</span>
-                <span class="pct-target" data-testid="class-target-pct-view">Alvo {{ c.target_pct | round(2) }}%</span>
-                <span class="pct-current" data-testid="class-current-pct">Atual {{ c.current_pct | round(2) }}%</span>
+                <span class="class-color-swatch" data-testid="class-color-swatch" :style="'background:' + classColor"></span>
+                <span class="class-section-name" data-testid="class-section-name" x-text="className"></span>
+                <span class="pct-target" data-testid="class-target-pct-view">Alvo <span x-text="Number(classTargetPct).toFixed(2)"></span>%</span>
+                <span class="pct-current" data-testid="class-current-pct">Atual <span x-text="Number(classCurrentPct).toFixed(2)"></span>%</span>
                 <span class="asset-group-header-alert"
                       data-testid="asset-group-header-alert"
                       x-text="$store.classSum.classDeltas[classId] ? $store.classSum.classDeltas[classId].message : 'OK'"
                       :class="'asset-group-header-alert--' + ($store.classSum.classDeltas[classId] ? $store.classSum.classDeltas[classId].severity : 'ok')"></span>
               </td>
             </tr>
-            {% for a in c.assets %}
-            <tr data-testid="dashboard-asset-row" data-asset-id="{{ a.id }}" data-position-count="{{ a.position_count }}" style="--i:{{ loop.index0 }}">
-              <td data-testid="asset-row-name">
-                <span>{{ a.name }}</span>
-                <button type="button"
-                        class="dashboard-asset-delete-btn"
-                        data-testid="dashboard-asset-delete-btn"
-                        @click="askDeleteAsset({{ a.id }}, '{{ a.name }}')"
-                        x-show="showDeleteAssetId !== {{ a.id }} && !deletingAssetId"
-                        title="Remover ativo">×</button>
-              </td>
-              <td data-testid="asset-row-class">{{ c.name }}</td>
-              <td data-testid="asset-position-count">{{ a.position_count }}</td>
-              <td data-testid="asset-current-value">{{ a.current_value | brl }}</td>
-              <td data-testid="asset-target-pct-class">
-                <button type="button"
-                        class="asset-pct-cell asset-pct-cell--editable"
-                        @click="startEdit({{ a.id }})"
-                        x-show="editingAssetId !== {{ a.id }}"
-                        title="Clique para editar">
-                  <span x-text="formatPct({{ a.target_pct_class | round(2) }})"></span>
-                </button>
-                <div class="asset-pct-cell asset-pct-cell--editing"
-                     data-testid="asset-target-pct-class-editing"
-                     x-show="editingAssetId === {{ a.id }}"
-                     x-cloak>
-                  <input type="number"
-                         step="0.01"
-                         min="0"
-                         max="100"
-                         class="asset-inline-edit-input"
-                         data-testid="asset-inline-edit-input"
-                         data-asset-id="{{ a.id }}"
-                         x-model="editingValue"
-                         @keyup.enter="commitEdit()"
-                         @keyup.escape.window="cancelEdit()"
-                         :class="{'asset-inline-edit-input--error': error}"
-                         :disabled="saving"
-                         @click.stop>
-                  <div class="asset-inline-edit-actions">
-                    <button type="button" class="asset-inline-edit-commit" data-testid="asset-inline-edit-commit" @click.stop="commitEdit()" :disabled="saving || classDeltaMessage !== ''">salvar</button>
-                    <button type="button" class="asset-inline-edit-cancel" data-testid="asset-inline-edit-cancel" @click.stop="cancelEdit()" :disabled="saving">cancelar</button>
+            <template x-for="(a, idx) in sortedAssets" :key="a.id">
+              <tr data-testid="dashboard-asset-row" :data-asset-id="a.id" :data-position-count="a.position_count" :style="'--i:' + idx">
+                <td data-testid="asset-row-name">
+                  <span x-text="a.name"></span>
+                  <button type="button"
+                          class="dashboard-asset-delete-btn"
+                          data-testid="dashboard-asset-delete-btn"
+                          @click="$parent.askDeleteAsset(a.id, a.name)"
+                          x-show="$parent.showDeleteAssetId !== a.id && !$parent.deletingAssetId"
+                          title="Remover ativo">×</button>
+                </td>
+                <td data-testid="asset-row-class" x-text="className"></td>
+                <td data-testid="asset-position-count" x-text="a.position_count"></td>
+                <td data-testid="asset-current-value" x-text="$parent.formatBRL(a.current_value)"></td>
+                <td data-testid="asset-target-pct-class">
+                  <button type="button"
+                          class="asset-pct-cell asset-pct-cell--editable"
+                          @click="$parent.startEdit(a.id)"
+                          x-show="$parent.editingAssetId !== a.id"
+                          title="Clique para editar">
+                    <span x-text="$parent.formatPct(a.target_pct)"></span>
+                  </button>
+                  <div class="asset-pct-cell asset-pct-cell--editing"
+                       data-testid="asset-target-pct-class-editing"
+                       x-show="$parent.editingAssetId === a.id"
+                       x-cloak>
+                    <input type="number"
+                           step="0.01"
+                           min="0"
+                           max="100"
+                           class="asset-inline-edit-input"
+                           data-testid="asset-inline-edit-input"
+                           :data-asset-id="a.id"
+                           x-model="$parent.editingValue"
+                           @keyup.enter="$parent.commitEdit()"
+                           @keyup.escape.window="$parent.cancelEdit()"
+                           :class="{'asset-inline-edit-input--error': $parent.error}"
+                           :disabled="$parent.saving"
+                           @click.stop>
+                    <div class="asset-inline-edit-actions">
+                      <button type="button" class="asset-inline-edit-commit" data-testid="asset-inline-edit-commit" @click.stop="$parent.commitEdit()" :disabled="$parent.saving || $parent.classDeltaMessage !== ''">salvar</button>
+                      <button type="button" class="asset-inline-edit-cancel" data-testid="asset-inline-edit-cancel" @click.stop="$parent.cancelEdit()" :disabled="$parent.saving">cancelar</button>
+                    </div>
                   </div>
-                </div>
-              </td>
-              <td data-testid="asset-current-pct-class">
-                <span data-testid="asset-pct" hidden>{{ a.current_pct_class | round(2) }}</span>
-                {{ a.current_pct_class | round(2) }}%
-              </td>
-              <td data-testid="asset-target-pct-total">{{ a.target_pct_total | round(2) }}%</td>
-              <td data-testid="asset-current-pct-total">{{ a.current_pct_total | round(2) }}%</td>
-            </tr>
-            <tr>
-              <td colspan="8">
-                <div class="asset-progress-bar" data-testid="asset-progress-bar">
-                  <div class="asset-progress-fill" style="--final-width:{{ a.current_pct_class }}%"></div>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td colspan="8">
-                <div class="dashboard-asset-delete-confirm"
-                     data-testid="dashboard-asset-delete-confirm"
-                     x-show="showDeleteAssetId === {{ a.id }}"
-                     x-cloak>
-                  <p class="dashboard-asset-delete-confirm-text">Remover ativo <strong>{{ a.name }}</strong>?</p>
-                  <div class="dashboard-asset-delete-confirm-actions">
-                    <button type="button"
-                            class="btn dashboard-asset-delete-confirm-yes"
-                            data-testid="dashboard-asset-delete-confirm-yes"
-                            @click="confirmDeleteAsset()"
-                            :disabled="deletingAssetId === {{ a.id }}">
-                      <span x-show="deletingAssetId !== {{ a.id }}">Sim, remover</span>
-                      <span x-show="deletingAssetId === {{ a.id }}">Removendo...</span>
-                    </button>
-                    <button type="button"
-                            class="btn dashboard-asset-delete-confirm-no"
-                            data-testid="dashboard-asset-delete-confirm-no"
-                            @click="cancelDeleteAsset()"
-                            :disabled="deletingAssetId === {{ a.id }}">Cancelar</button>
+                </td>
+                <td data-testid="asset-current-pct-class">
+                  <span data-testid="asset-pct" hidden x-text="a.current_pct_class"></span>
+                  <span x-text="$parent.formatPct(a.current_pct_class)"></span>
+                </td>
+                <td data-testid="asset-target-pct-total" x-text="$parent.formatPct(a.target_pct_total)"></td>
+                <td data-testid="asset-current-pct-total" x-text="$parent.formatPct(a.current_pct_total)"></td>
+              </tr>
+              <tr>
+                <td colspan="8">
+                  <div class="asset-progress-bar" data-testid="asset-progress-bar">
+                    <div class="asset-progress-fill" :style="'--final-width:' + a.current_pct_class + '%'"></div>
                   </div>
-                  <p class="dashboard-asset-delete-confirm-error"
-                     data-testid="dashboard-asset-delete-confirm-error"
-                     x-show="deleteAssetError"
-                     x-text="deleteAssetError"
-                     x-cloak></p>
-                </div>
-              </td>
-            </tr>
-            {% endfor %}
+                </td>
+              </tr>
+              <tr>
+                <td colspan="8">
+                  <div class="dashboard-asset-delete-confirm"
+                       data-testid="dashboard-asset-delete-confirm"
+                       x-show="$parent.showDeleteAssetId === a.id"
+                       x-cloak>
+                    <p class="dashboard-asset-delete-confirm-text">Remover ativo <strong x-text="a.name"></strong>?</p>
+                    <div class="dashboard-asset-delete-confirm-actions">
+                      <button type="button"
+                              class="btn dashboard-asset-delete-confirm-yes"
+                              data-testid="dashboard-asset-delete-confirm-yes"
+                              @click="$parent.confirmDeleteAsset()"
+                              :disabled="$parent.deletingAssetId === a.id">
+                        <span x-show="$parent.deletingAssetId !== a.id">Sim, remover</span>
+                        <span x-show="$parent.deletingAssetId === a.id">Removendo...</span>
+                      </button>
+                      <button type="button"
+                              class="btn dashboard-asset-delete-confirm-no"
+                              data-testid="dashboard-asset-delete-confirm-no"
+                              @click="$parent.cancelDeleteAsset()"
+                              :disabled="$parent.deletingAssetId === a.id">Cancelar</button>
+                    </div>
+                    <p class="dashboard-asset-delete-confirm-error"
+                       data-testid="dashboard-asset-delete-confirm-error"
+                       x-show="$parent.deleteAssetError"
+                       x-text="$parent.deleteAssetError"
+                       x-cloak></p>
+                  </div>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
         {% else %}
@@ -680,6 +680,12 @@
         if (!value || Math.abs(value) < 0.005) return '—';
         return Number(value).toFixed(2) + '%';
       },
+      formatBRL: function (value) {
+        // BRL formatter reused by the asset-table rows after the
+        // per-class iteration moved to the assetTable component.
+        var n = Number(value) || 0;
+        return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      },
 
       // R12: Class inline edit — click the Alvo NN% span to show an
       // input, PATCH on blur/Enter, update the local target_pct on
@@ -978,6 +984,106 @@
         this.deletingAssetId = null;
         this.deleteAssetError = '';
         this.deletingAssetName = '';
+      },
+    };
+  }
+
+  // asset-table-view 6.1/6.2/6.3: Alpine component that owns the
+  // asset table sort state. It is instantiated per class table
+  // (the class bands themselves stay in the active profile's order
+  // via the outer Jinja loop). The component groups the class's
+  // assets (trivially one group here) and sorts them by the active
+  // key/direction. Clicking a <th> toggles direction on the same key
+  // or switches to the new key ascending (two-state rule).
+  function assetTable(initial) {
+    return {
+      classId: initial.id,
+      className: initial.name,
+      classColor: initial.color,
+      classTargetPct: initial.target_pct,
+      classCurrentPct: initial.current_pct,
+      assets: initial.assets.map(function (a) {
+        return {
+          id: a.id,
+          name: a.name,
+          target_pct: a.target_pct,
+          current_pct_class: a.current_pct_class,
+          current_pct_total: a.current_pct_total,
+          target_pct_total: a.target_pct_total,
+          position_count: a.position_count,
+          current_value: a.current_value,
+        };
+      }),
+
+      sortKey: 'class',
+      sortDir: 'asc',
+
+      sortBy: function (key) {
+        if (this.sortKey === key) {
+          this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+          this.sortKey = key;
+          this.sortDir = 'asc';
+        }
+      },
+      sortIndicator: function (key) {
+        if (this.sortKey !== key) return '';
+        return this.sortDir === 'asc' ? '↑' : '↓';
+      },
+
+      get sortedAssets() {
+        var key = this.sortKey;
+        var dir = this.sortDir;
+        var self = this;
+        return this.assets.slice().sort(function (a, b) {
+          var cmp = 0;
+          if (key === 'class') {
+            // Within a single class the class name is equal; use the
+            // spec's default secondary key (alvo % classe asc).
+            cmp = (a.target_pct || 0) - (b.target_pct || 0);
+            if (cmp === 0) {
+              cmp = String(a.name).localeCompare(String(b.name));
+            }
+          } else if (key === 'name') {
+            cmp = String(a.name).localeCompare(String(b.name));
+          } else {
+            var av, bv;
+            switch (key) {
+              case 'qty':
+                av = a.position_count || 0;
+                bv = b.position_count || 0;
+                break;
+              case 'current-value':
+                av = a.current_value || 0;
+                bv = b.current_value || 0;
+                break;
+              case 'target-pct-class':
+                av = a.target_pct || 0;
+                bv = b.target_pct || 0;
+                break;
+              case 'current-pct-class':
+                av = a.current_pct_class || 0;
+                bv = b.current_pct_class || 0;
+                break;
+              case 'target-pct-total':
+                av = a.target_pct_total || 0;
+                bv = b.target_pct_total || 0;
+                break;
+              case 'current-pct-total':
+                av = a.current_pct_total || 0;
+                bv = b.current_pct_total || 0;
+                break;
+              default:
+                av = 0;
+                bv = 0;
+            }
+            cmp = av - bv;
+            if (cmp === 0) {
+              cmp = String(a.name).localeCompare(String(b.name));
+            }
+          }
+          return dir === 'asc' ? cmp : -cmp;
+        });
       },
     };
   }
