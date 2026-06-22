@@ -855,6 +855,9 @@ main { max-width: 760px; }
 
 .asset-table .asset-pct-cell--editable {
   cursor: pointer;
+  width: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
 }
 
 .asset-table .asset-pct-cell--editable:hover,
