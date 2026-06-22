@@ -292,11 +292,7 @@ def test_post_api_asset_per_class_sum_accepted(client: TestClient) -> None:
 
     db = SessionLocal()
     try:
-        rows = (
-            db.query(Asset)
-            .filter(Asset.asset_class_id == class_id)
-            .all()
-        )
+        rows = db.query(Asset).filter(Asset.asset_class_id == class_id).all()
         on_disk = sum((a.target_pct for a in rows), Decimal("0"))
     finally:
         db.close()
