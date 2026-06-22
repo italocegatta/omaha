@@ -76,6 +76,14 @@ venv = ".venv"
 reportMissingImports = "error"
 reportMissingTypeStubs = "none"
 
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.1.0"
+tag_format = "v$version"
+version_files = ["pyproject.toml"]
+update_changelog_on_bump = true
+target_branch = "main"
+
 [tool.uv]
 package = true
 

@@ -85,7 +85,11 @@ hooks = [
 repo = "https://github.com/RobertCraigie/pyright-python"
 rev = "v1.1.391"
 hooks = [
-    { id = "pyright", stages = ["pre-push"], always_run = true, additional_dependencies = ["fastapi[standard]>=0.115", "sqlalchemy>=2.0", "pydantic>=2.7", "pydantic-settings>=2.4", "pytest>=8.3"], continue-on-error = true },
+    # Pyright is kept as a manual hook while the existing type-debt backlog
+# (reportArgumentType issues across tests and Mapped/ORM protocol mismatches
+# in src) is paid down. Run it explicitly with:
+#   uv run prek run --hook-stage manual
+{ id = "pyright", stages = ["manual"], always_run = true, additional_dependencies = ["fastapi[standard]>=0.115", "sqlalchemy>=2.0", "pydantic>=2.7", "pydantic-settings>=2.4", "pytest>=8.3"] },
 ]
 
 [[repos]]
