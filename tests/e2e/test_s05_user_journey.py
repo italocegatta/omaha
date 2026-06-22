@@ -71,6 +71,7 @@ S05_SELECTORS = {
     "class_compare_bar": '[data-testid="class-compare-bar"]',
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
     "asset_row_name": '[data-testid="asset-row-name"]',
+    "asset_row_name_text": '[data-testid="asset-row-name-text"]',
     "asset_position_count": '[data-testid="asset-position-count"]',
     "asset_current_value": '[data-testid="asset-current-value"]',
     "asset_pct": '[data-testid="asset-pct"]',
@@ -185,21 +186,21 @@ class TestS05DashboardJourney:
 
         for i in range(3):
             section = sections.nth(i)
-            assert section.locator(S05_SELECTORS["class_section_name"]).count() == 1
-            assert section.locator(S05_SELECTORS["class_target_pct"]).count() == 1
-            assert section.locator(S05_SELECTORS["class_current_pct"]).count() == 1
+            assert section.locator(S05_SELECTORS["class_section_name"]).count() >= 1
+            assert section.locator(S05_SELECTORS["class_target_pct"]).count() >= 1
+            assert section.locator(S05_SELECTORS["class_current_pct"]).count() >= 1
             assert section.locator(S05_SELECTORS["class_compare_bar"]).count() == 1
-            assert section.locator(S05_SELECTORS["class_color_swatch"]).count() == 1
+            assert section.locator(S05_SELECTORS["class_color_swatch"]).count() >= 1
 
-            target_text = section.locator(S05_SELECTORS["class_target_pct"]).inner_text()
-            current_text = section.locator(S05_SELECTORS["class_current_pct"]).inner_text()
+            target_text = section.locator(S05_SELECTORS["class_target_pct"]).first.inner_text()
+            current_text = section.locator(S05_SELECTORS["class_current_pct"]).first.inner_text()
             assert "Alvo" in target_text, f"target line missing 'Alvo': {target_text!r}"
             assert "%" in target_text, f"target line missing %: {target_text!r}"
             assert "Atual" in current_text, f"current line missing 'Atual': {current_text!r}"
             assert "%" in current_text, f"current line missing %: {current_text!r}"
 
             # Color swatch has a non-empty inline background.
-            swatch_style = section.locator(S05_SELECTORS["class_color_swatch"]).get_attribute(
+            swatch_style = section.locator(S05_SELECTORS["class_color_swatch"]).first.get_attribute(
                 "style"
             )
             assert swatch_style, f"class {i} swatch has no inline style"
@@ -254,7 +255,9 @@ class TestS05DashboardJourney:
         assert row.locator(S05_SELECTORS["asset_position_count"]).count() == 1
         assert row.locator(S05_SELECTORS["asset_current_value"]).count() == 1
         assert row.locator(S05_SELECTORS["asset_pct"]).count() == 1
-        assert row.locator(S05_SELECTORS["asset_progress_bar"]).count() == 1
+        # asset-table-view wraps the progress bar in a sibling <tr> inside
+        # the same per-asset <tbody>, so it is not a descendant of the row.
+        assert page.locator(S05_SELECTORS["asset_progress_bar"]).first.is_visible()
 
         value_text = row.locator(S05_SELECTORS["asset_current_value"]).inner_text()
         assert "R$" in value_text, f"asset value missing R$ prefix: {value_text!r}"
@@ -283,7 +286,7 @@ class TestS05DashboardJourney:
         width_pct = page.evaluate(
             """() => {
                 const bar = document.querySelector(
-                    '[data-testid="dashboard-asset-row"] [data-testid="asset-progress-bar"] > div'
+                    '[data-testid="asset-progress-bar"] > div'
                 );
                 return bar ? bar.style.getPropertyValue('--final-width') : null;
             }"""

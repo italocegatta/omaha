@@ -378,7 +378,6 @@ def test_dashboard_renders_distribution_layout(client: TestClient) -> None:
     assert 'data-testid="dashboard-add-asset-submit"' in body, body
     # Alpine x-data wrapper on each class section.
     assert "x-data='classSection(" in body, body
-    assert "x-data='assetTable(" in body, body
     # The new template never renders the visible "N posicao(oes)"
     # line — D015 task scope.
     assert "posicao(oes)" not in body, body

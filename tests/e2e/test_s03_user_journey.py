@@ -180,11 +180,15 @@ class TestS03UserJourney:
         # Locate the row whose name is "PETR4" and click its delete button.
         petr4_row = asset_rows.filter(has_text="PETR4")
         assert petr4_row.count() == 1, "PETR4 row should exist before delete"
+        petr4_asset_id = petr4_row.get_attribute("data-asset-id")
         petr4_row.locator(SELECTORS["dashboard_asset_delete_btn"]).click()
         page.wait_for_timeout(300)  # let Alpine x-show toggle the confirm dialog
 
         # Click the confirm button in the per-row delete dialog.
-        petr4_row.locator(SELECTORS["dashboard_asset_delete_confirm_yes"]).click()
+        confirm = page.locator(
+            f'[data-testid="dashboard-asset-delete-confirm"][data-asset-id="{petr4_asset_id}"]'
+        )
+        confirm.locator(SELECTORS["dashboard_asset_delete_confirm_yes"]).click()
 
         # Wait for the page reload (confirmDeleteAsset() calls
         # window.location.reload() on 204). Use load_state to wait

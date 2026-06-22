@@ -485,7 +485,7 @@ class TestS06PosicaoItaloImport:
                     if (!nameEl) return;
                     const className = nameEl.textContent.trim();
                     sec.querySelectorAll('[data-testid="dashboard-asset-row"]').forEach((row) => {
-                        const assetNameEl = row.querySelector('[data-testid="asset-row-name"]');
+                        const assetNameEl = row.querySelector('[data-testid="asset-row-name-text"]');
                         if (assetNameEl) {
                             out[assetNameEl.textContent.trim()] = className;
                         }

@@ -138,7 +138,7 @@ def _create_one_class(page: Page) -> None:
             conn.close()
 
 
-def _create_n_assets(page: Page, names: list[str]) -> None:
+def _create_n_assets(page: Page, names: list[str], target_pct: str = "0") -> None:
     """Add N assets to the single class "Renda Fixa" via POST /api/assets.
 
     S03/T05 retired the dedicated ``/assets`` page; the
@@ -166,19 +166,19 @@ def _create_n_assets(page: Page, names: list[str]) -> None:
         raise RuntimeError("class 'Renda Fixa' not found on the dashboard")
     for name in names:
         resp = page.evaluate(
-            """async ({classId, assetName}) => {
+            """async ({classId, assetName, targetPct}) => {
                 const r = await fetch('/api/assets', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         name: assetName,
                         asset_class_id: classId,
-                        target_pct: '0',
+                        target_pct: targetPct,
                     }),
                 });
                 return { status: r.status, body: await r.text() };
             }""",
-            {"classId": class_id, "assetName": name},
+            {"classId": class_id, "assetName": name, "targetPct": target_pct},
         )
         if resp["status"] != 201:
             raise RuntimeError(
@@ -341,7 +341,7 @@ class TestS01InlineEdit:
         target_row = None
         for i in range(rows.count()):
             row = rows.nth(i)
-            name_text = row.locator(S05_SELECTORS["asset_row_name"]).inner_text()
+            name_text = row.locator(S05_SELECTORS["asset_row_name_text"]).inner_text()
             if name_text.strip() == "Ativo A":
                 target_row = row
                 break
@@ -394,7 +394,7 @@ class TestS01InlineEdit:
         updated_row = None
         for i in range(rows.count()):
             row = rows.nth(i)
-            name_text = row.locator(S05_SELECTORS["asset_row_name"]).inner_text()
+            name_text = row.locator(S05_SELECTORS["asset_row_name_text"]).inner_text()
             if name_text.strip() == "Ativo A":
                 updated_row = row
                 break
@@ -457,7 +457,7 @@ class TestS01InlineEdit:
         target_row = None
         for i in range(rows.count()):
             row = rows.nth(i)
-            name_text = row.locator(S05_SELECTORS["asset_row_name"]).inner_text()
+            name_text = row.locator(S05_SELECTORS["asset_row_name_text"]).inner_text()
             if name_text.strip() == "Ativo B":
                 target_row = row
                 break
@@ -517,7 +517,7 @@ class TestS01InlineEdit:
         rows = page.locator(S01_SELECTORS["dashboard_asset_row"])
         for i in range(rows.count()):
             row = rows.nth(i)
-            name_text = row.locator(S05_SELECTORS["asset_row_name"]).inner_text()
+            name_text = row.locator(S05_SELECTORS["asset_row_name_text"]).inner_text()
             if name_text.strip() == "Ativo B":
                 text = row.locator(S01_SELECTORS["asset_target_pct_class"]).first.inner_text()
                 assert "30.00" in text, f"after reload expected '30.00% classe', got {text!r}"
@@ -552,7 +552,7 @@ class TestS01InlineEdit:
         """
         _login_and_select_italo(page, live_url)
         _create_one_class(page)
-        _create_n_assets(page, ["Ativo A"])
+        _create_n_assets(page, ["Ativo A"], target_pct="10")
         _seed_one_position_for_asset(page, live_url, "Ativo A")
 
         page.goto(f"{live_url}/")

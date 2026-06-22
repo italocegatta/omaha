@@ -238,7 +238,7 @@ class TestS10AssetTable:
         modal = page.locator(S10_SELECTORS["dashboard_add_asset_modal"])
         modal.wait_for(state="visible", timeout=5000)
 
-        modal.locator(S10_SELECTORS["dashboard_add_asset_class"]).select_option(label="Renda Fixa")
+        modal.locator(S10_SELECTORS["dashboard_add_asset_class"]).select_option(label="RF Pós")
         modal.locator(S10_SELECTORS["dashboard_add_asset_name"]).fill("NOVO_ATIVO")
         modal.locator(S10_SELECTORS["dashboard_add_asset_target_pct"]).fill("10")
         modal.locator(S10_SELECTORS["dashboard_add_asset_submit"]).click()

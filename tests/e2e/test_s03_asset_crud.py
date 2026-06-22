@@ -180,12 +180,15 @@ class TestS03AssetCRUD:
 
         asset_row = page.locator(S03_SELECTORS["dashboard_asset_row"]).first
         assert asset_row.count() == 1
+        asset_id = asset_row.get_attribute("data-asset-id")
 
         # First × click → confirm visible → cancel → confirm hidden.
         asset_row.locator(S03_SELECTORS["dashboard_asset_delete_btn"]).click(force=True)
-        confirm = asset_row.locator(S03_SELECTORS["dashboard_asset_delete_confirm"])
+        confirm = page.locator(
+            f'[data-testid="dashboard-asset-delete-confirm"][data-asset-id="{asset_id}"]'
+        )
         confirm.wait_for(state="visible", timeout=2000)
-        asset_row.locator(S03_SELECTORS["dashboard_asset_delete_confirm_no"]).click(force=True)
+        confirm.locator(S03_SELECTORS["dashboard_asset_delete_confirm_no"]).click(force=True)
         confirm.wait_for(state="hidden", timeout=2000)
 
         # Row still present after cancel.
@@ -194,7 +197,7 @@ class TestS03AssetCRUD:
         # Second × click → confirm visible → yes → row removed.
         asset_row.locator(S03_SELECTORS["dashboard_asset_delete_btn"]).click(force=True)
         confirm.wait_for(state="visible", timeout=2000)
-        asset_row.locator(S03_SELECTORS["dashboard_asset_delete_confirm_yes"]).click(force=True)
+        confirm.locator(S03_SELECTORS["dashboard_asset_delete_confirm_yes"]).click(force=True)
 
         # Wait for page reload (204 -> window.location.reload()).
         page.wait_for_load_state("networkidle", timeout=10000)
@@ -233,11 +236,13 @@ class TestS03AssetCRUD:
 
         # Delete the first row (PETR4 — display_order 0).
         first_row = page.locator(S03_SELECTORS["dashboard_asset_row"]).first
+        first_asset_id = first_row.get_attribute("data-asset-id")
         first_row.locator(S03_SELECTORS["dashboard_asset_delete_btn"]).click(force=True)
-        first_row.locator(S03_SELECTORS["dashboard_asset_delete_confirm"]).wait_for(
-            state="visible", timeout=2000
+        confirm = page.locator(
+            f'[data-testid="dashboard-asset-delete-confirm"][data-asset-id="{first_asset_id}"]'
         )
-        first_row.locator(S03_SELECTORS["dashboard_asset_delete_confirm_yes"]).click(force=True)
+        confirm.wait_for(state="visible", timeout=2000)
+        confirm.locator(S03_SELECTORS["dashboard_asset_delete_confirm_yes"]).click(force=True)
 
         # Wait for page reload (204 -> window.location.reload()).
         page.wait_for_load_state("networkidle", timeout=10000)

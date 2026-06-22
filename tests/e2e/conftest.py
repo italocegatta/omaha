@@ -162,6 +162,16 @@ def _wipe_classes_for(profile_name: str) -> None:
         if row is None:
             return
         pid = row[0]
+        # Wipe positions first — SQLite without PRAGMA foreign_keys=ON
+        # does not cascade, and orphan position rows collide with the
+        # UNIQUE (asset_id, broker_ticker) constraint in later tests.
+        conn.execute(
+            "DELETE FROM positions WHERE asset_id IN "
+            "(SELECT a.id FROM assets a "
+            " JOIN asset_classes ac ON a.asset_class_id = ac.id "
+            " WHERE ac.profile_id = ?)",
+            (pid,),
+        )
         conn.execute(
             "DELETE FROM assets WHERE asset_class_id IN "
             "(SELECT id FROM asset_classes WHERE profile_id = ?)",
