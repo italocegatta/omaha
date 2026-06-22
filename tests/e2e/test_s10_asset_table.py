@@ -170,7 +170,9 @@ class TestS10AssetTable:
             .inner_text()
             .strip()
         )
-        assert "Abacaxi" in first_name, f"expected Abacaxi first after name sort, got {first_name!r}"
+        assert "Abacaxi" in first_name, (
+            f"expected Abacaxi first after name sort, got {first_name!r}"
+        )
 
     def test_edit_alvo_pct_total_updates_class_sum_and_alert(
         self, page: Page, live_url: str

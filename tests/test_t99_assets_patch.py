@@ -299,9 +299,7 @@ def test_patch_asset_off_sum_accepts_and_persists(
         assert _read_asset_target_pct(aid, _omaha_test_env) == Decimal("30")
     # Resulting per-class sum is 110 (> 100) — the alert UI surfaces
     # this on the dashboard.
-    on_disk = sum(
-        _read_asset_target_pct(aid, _omaha_test_env) for aid in asset_ids
-    )
+    on_disk = sum(_read_asset_target_pct(aid, _omaha_test_env) for aid in asset_ids)
     assert on_disk == Decimal("110")
 
 
