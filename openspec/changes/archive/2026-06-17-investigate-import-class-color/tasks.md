@@ -75,7 +75,7 @@
 
 - [x] 5.1 `uv run ruff check src tests` — sem novos warnings.
 - [x] 5.2 Reiniciar dev server: `uv run uvicorn omaha.main:app --host 0.0.0.0 --port 8000` (matar o antigo primeiro).
-- [x] 5.3 Em `http://192.168.1.6:8000`, **janela anônima** (Ctrl+Shift+N) para descartar cache, hard refresh (Ctrl+Shift+R), importar CSV misto. Verificar:
+- [x] 5.3 Em `http://192.168.1.7:8000`, **janela anônima** (Ctrl+Shift+N) para descartar cache, hard refresh (Ctrl+Shift+R), importar CSV misto. Verificar:
   - Linhas matched (43): todas com cor visível, swatch com cor, border-left colorida.
   - Linhas unmatched com sugestão (MXRF11, XPLG11): com cor da classe correspondente.
   - Linhas unmatched sem sugestão (BPAC11, HGLG11, VINO11): com cor da PRIMEIRA classe (pre-selecionada pelo sistema via `suggested_class_id` ou — se não houver — devem ter a primeira classe pré-selecionada? NÃO, conforme correção: sem pre-seleção, ficam com a primeira classe sugerida pelo sistema, que é `null` para essas linhas, então ficam "pendentes" COM classe configurada → comportamento atual).

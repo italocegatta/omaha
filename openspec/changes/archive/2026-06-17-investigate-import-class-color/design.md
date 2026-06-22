@@ -184,7 +184,7 @@ usuário.
    `GET /` autenticado.
 6. Rodar suíte: `pytest -m unit && pytest -m integration &&
    pytest tests/e2e/test_s04_import_modal.py`.
-7. Manual smoke: hard refresh em `http://192.168.1.6:8000`, importar
+7. Manual smoke: hard refresh em `http://192.168.1.7:8000`, importar
    CSV misto, verificar que todas as linhas COM classe têm cor
    visível.
 
