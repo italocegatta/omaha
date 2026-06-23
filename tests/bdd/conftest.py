@@ -38,11 +38,17 @@ TEST_ADMIN_PASSWORD = "test-password"
 TEST_SECRET_KEY = "test-secret-bdd-do-not-use-in-prod"
 TEST_BASE_URL = f"http://127.0.0.1:{BDD_PORT}"
 
-# Reuse the seeded profile names from the legacy e2e conftest
-# (Italo is the operator, Ana Livia is the viewer). The seed
-# runs on startup so both profiles exist before the first BDD
-# test fires its first request.
-BDD_SEEDED_PROFILES = ("Italo", "Ana Livia")
+# The seed creates exactly two profiles (see src/omaha/seed.py
+# DEFAULT_USERS — usernames ``Italo`` and ``Ana`` are used as
+# both user name and profile name). The autouse
+# ``clean_seeded_profiles`` fixture wipes both before each
+# scenario so parametrized tests that pick either profile start
+# from an empty baseline. Note: a previous revision of this
+# fixture listed ``"Ana Livia"`` here, which never matched the
+# actual seeded profile name and silently left Ana's classes in
+# place across tests — that's the bug this comment is here to
+# prevent from coming back.
+BDD_SEEDED_PROFILES = ("Italo", "Ana")
 
 
 def _wait_for_bdd_port(
