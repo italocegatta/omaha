@@ -1,5 +1,32 @@
 ## Contexto
 
+> **Editado em 2026-06-23** por
+> [`fix-bdd-workflow-reuse-gaps`](../../fix-bdd-workflow-reuse-gaps/):
+>
+> - §Decisão 1 reescrita — o ``POST /classes`` snapshot
+>   editor foi retirado pelo S02/T07 (endpoint agora 302
+>   → ``/``); ``create_two_default_classes`` loopa
+>   :func:`create_one_class` (inline add form). Ver
+>   tasks.md #5.2.
+> - §Decisão 2 mantida — per-workflow carve-out table
+>   substituída por marker-based enforcement via
+>   :func:`tests.bdd.step_defs._carve_out.carve_out`
+>   decorator. Ver tasks.md #5.2 + tasks #8.
+> - §Decisão 5 reescrita — distingue "redução de linhas
+>   Gherkin" (1 wrapper no .feature) de "trabalho de UI"
+>   (4 ações inline × 2 iterações = 8 ações escondidas
+>   atrás do wrapper). Ver tasks.md #5.3.
+> - §Decisão 6 adicionada — documenta que ``add_one_asset``
+>   usa 1 botão global (``dashboard-add-asset-open``) +
+>   ``<select>`` picker, NÃO per-class button.
+> - Workflows ``switch_profile`` e ``create_four_assets``
+>   removidas em 2026-06-23 por violarem a regra ≥2
+>   cenários (0 e 1 callers respectivamente). Ver
+>   tasks.md #2 + #3.
+> - Threshold unificado como "≥2 cenários com tendência
+>   de crescimento" (sem qualificação extra "≥3 cenários
+>   totais"). Ver tasks.md #4.
+
 A suite BDD (`tests/bdd/`) tem 30 cenários em PT-BR. Os cenários
 seguem um padrão recorrente de setup:
 
@@ -117,11 +144,31 @@ def _w_logged_in_as(page, live_url, profile):
 -    E preencho o campo "password" com "test-password"
 -    E clico em "Entrar"
 -    E clico no botão do perfil "<profile>"
+-    E abro o editor de classes
+-    E clico em "Adicionar classe"
+-    E preencho o campo "Nome da classe" da linha 0 com "RF Pós"
+-    E preencho o campo "Alocação alvo" da linha 0 com "50"
+-    E clico em "Adicionar classe"
+-    E preencho o campo "Nome da classe" da linha 1 com "RF Dinâmica"
+-    E preencho o campo "Alocação alvo" da linha 1 com "50"
+-    E clico em "Salvar classes"
 +  Esquema do Cenário: Snapshot create 2 classes
 +    Dado que estou logado como "<profile>"
-     Quando abro o editor de classes
++    E criei as 2 classes padrão RF Pós 50% e RF Dinâmica 50%
      ...
 ```
+
+**Importante (atualizado 2026-06-23):** o design original
+desta change previa encapsular o editor de snapshot em
+``POST /classes``. Esse endpoint foi retirado pelo
+S02/T07 — agora retorna 302 → ``/``. A única via para
+criar classes via UI é o formulário inline ``+ Nova
+classe`` do dashboard. A implementação real do workflow
+``create_two_default_classes`` loopa
+:func:`tests.bdd.step_defs._workflows.create_one_class`
+(4 ações inline × N classes = 4N ações escondidas atrás
+do wrapper) — ver :func:`create_one_class` em
+``tests/bdd/step_defs/_workflows.py``.
 
 **Alternativas consideradas:**
 
@@ -137,29 +184,48 @@ def _w_logged_in_as(page, live_url, profile):
   só** (sem step wrapper) — perde a legibilidade do Gherkin.
   Step texts são o "contrato" lido por humanos.
 
-### Decisão 2: Tabela de carve-out per-workflow
+### Decisão 2: Carve-out per-workflow via decorator marker
 
-**Por quê:** o carve-out do spec original (login inteiro +
-profile_isolation inteiro) é restritivo demais. Um cenário em
-`login.feature` que testa "login OK + criar 1 classe" deve
-poder usar o wrapper de criar-classe. Apenas o wrapper de login
-precisa ser evitado nesse arquivo.
+**Por quê (original):** o carve-out do spec original
+(login inteiro + profile_isolation inteiro) é restritivo
+demais. Um cenário em ``login.feature`` que testa
+"login OK + criar 1 classe" deve poder usar o wrapper
+de criar-classe. Apenas o wrapper de login precisa ser
+evitado nesse arquivo.
 
-**Tabela de carve-out:**
+**Como (atualizado 2026-06-23):** cada workflow que tem
+carve-out declara seu carve-out no próprio código via
+:func:`tests.bdd.step_defs._carve_out.carve_out`
+decorator. Exemplo:
 
-| Workflow | Carve-out (arquivos que NÃO usam) |
+```python
+@carve_out(
+    files=frozenset({"login.feature", "profile_isolation.feature"}),
+    step_regex=r"estou logado como",
+)
+def login_and_pick_profile(...):
+    ...
+```
+
+O contract test
+``test_carve_out_files_use_inline_steps`` parseia esses
+decorators via AST e gera os asserts automaticamente.
+Workflows SEM ``@carve_out`` não têm constraint
+(adicionar nova workflow sem carve-out = nenhum assert
+sobre uso dela).
+
+**Workflows restantes após limpeza 2026-06-23:**
+
+| Workflow | Carve-out |
 |---|---|
-| `login_and_pick_profile` | `login.feature`, `profile_isolation.feature` |
-| `switch_profile` | `profile_isolation.feature` |
-| `create_one_class` | (nenhum) |
-| `create_two_default_classes` | (nenhum) |
-| `add_one_asset` | (nenhum) |
-| `create_four_assets` | (nenhum) |
+| ``login_and_pick_profile`` | ``login.feature``, ``profile_isolation.feature`` |
+| ``create_one_class`` | (nenhum) |
+| ``create_two_default_classes`` | (nenhum) |
+| ``add_one_asset`` | (nenhum) |
 
-**Regra per-workflow:** um cenário em arquivo carve-out pode
-usar wrappers de workflows NÃO-carved-out. Ex: cenário em
-`login.feature` que valida pós-login pode usar
-`create_one_class` sem violar o carve-out.
+``switch_profile`` e ``create_four_assets`` removidas —
+0 e 1 callers respectivamente, violavam regra ≥2
+cenários.
 
 ### Decisão 3: Pré-condições via assertion explícita no workflow
 
@@ -222,10 +288,24 @@ repetidos. Fixtures de DB/servidor ficam no conftest.
 
 ### Decisão 5: Workflows parametrizáveis via dataclasses
 
-**Por quê:** os 6 workflows têm variações reais entre cenários
-(ex: `RF Pós` 60 vs 50, distribuição 60/40 vs 30/70, switch
-de perfil). Workflows com dataclass como input (default =
-constante) escalam pra N items sem quebrar signature.
+**Por quê:** os workflows que restam após a limpeza
+(``create_two_default_classes`` e ``add_one_asset``)
+têm variações reais entre cenários — ex: ``RF Pós``
+60% vs 50%, distribuição 60/40 vs 30/70. Workflows
+com dataclass como input (default = constante) escalam
+pra N items sem quebrar signature.
+
+**Importante (atualizado 2026-06-23):** a redução
+mensurável de 38.2% nas linhas Gherkin
+(``scripts/measure_bdd_reuse.py``) é uma redução
+**na superfície Gherkin do ``.feature``**, não no
+trabalho de UI. Internamente, ``create_two_default_classes``
+performa 4 ações inline (``click +plus → fill nome →
+fill pct → click save``) × 2 classes = **8 ações de
+UI** escondidas atrás de 1 wrapper. A refatoração
+encapsulou essas 8 ações em uma função; não as
+removeu. Quem avalia "did this speed up the suite?"
+mede tempo de execução, não contagem de linhas.
 
 **Como:**
 
@@ -235,15 +315,8 @@ def create_two_default_classes(
 ):
     if classes is None:
         classes = DEFAULT_TWO_CLASSES
-    ...
-
-
-def create_four_assets(
-    page, live_url, assets: list[AssetSpec] | None = None
-):
-    if assets is None:
-        assets = DEFAULT_FOUR_ASSETS
-    ...
+    for cls in classes:
+        create_one_class(page, live_url, cls.name, cls.target_pct)
 ```
 
 **Step wrappers expõem o subconjunto útil de variações:**
@@ -255,12 +328,21 @@ def _w_default_classes(page, live_url):
     create_two_default_classes(page, live_url)
 
 
-# parametrizado
+# parametrizado (hardcoded aos nomes "RF Pós" + "RF Dinâmica")
 @given(parsers.parse('criei as 2 classes padrão RF Pós {p1:d}% e RF Dinâmica {p2:d}%'))
-def _w_default_classes_pct(page, live_url, p1, p2):
+def _w_rf_pos_rf_dinamica_pct(page, live_url, p1, p2):
     create_two_default_classes(page, live_url, [
         ClassSpec("RF Pós", p1),
         ClassSpec("RF Dinâmica", p2),
+    ])
+
+
+# Para 2 classes com nomes custom, chamar o workflow direto:
+@given(parsers.parse('criei as 2 classes "{n1}" {p1:d}% e "{n2}" {p2:d}%'))
+def _w_two_classes_custom(page, live_url, n1, p1, n2, p2):
+    create_two_default_classes(page, live_url, [
+        ClassSpec(n1, p1),
+        ClassSpec(n2, p2),
     ])
 ```
 
@@ -269,6 +351,36 @@ def _w_default_classes_pct(page, live_url, p1, p2):
 Contract test `test_wrappers_delegate_to_workflows` itera por
 todos os wrappers com esse prefixo e verifica que o body chama
 uma função de `_workflows.py`.
+
+**Workflow ``create_four_assets`` removido 2026-06-23.**
+Tinha 1 caller (``asset_crud.feature::Manual add 4 ativos
+não-igual por classe``) — violava a regra ≥2 cenários do
+próprio spec. O caller agora usa 4× :func:`add_one_asset`
+inline. Liquido: suite fica mais honesta, +2 linhas Gherkin
+no único cenário afetado, −30 linhas de workflow órfão.
+
+### Decisão 6: ``add_one_asset`` usa botão global + select picker
+
+**Por quê (atualizado 2026-06-23):** a descrição original
+na proposta da change (``bdd-workflow-reuse-helpers``)
+mencionava "per-class ``+ Ativo`` button". A
+implementação real do dashboard expõe **um único botão
+global** ``dashboard-add-asset-open`` no topo da seção
+Distribuição, que abre um modal com ``<select>`` picker
+de classe + nome + pct. O workflow
+:func:`tests.bdd.step_defs._workflows.add_one_asset` clica
+esse botão, seleciona a classe via
+``select_option(label=class_name)``, preenche nome + pct,
+submete. Não há botão per-class.
+
+**Implicação:** ``AssetSpec`` carrega ``class_name``
+para fazer o select no modal. Para N ativos na mesma
+classe, o workflow abre/fecha o modal N vezes (1 click
+por ativo). É mais lento que um botão per-class hipotético,
+mas é o que a UI expõe.
+
+**Sem mudança nesta change** (``fix-bdd-workflow-reuse-gaps``)
+— a documentação é que estava atrasada, não o código.
 
 **Trade-off aceito:** dataclass + constantes adicionam ~20
 linhas de boilerplate, mas eliminam inconsistência entre
