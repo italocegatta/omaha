@@ -331,12 +331,22 @@
   <div class="empty-state" data-testid="empty-state">
     <h2>Voce ainda nao tem classes</h2>
     <p>Classes organizam seus ativos por categoria (ex.: Acoes, FIIs, Cripto).</p>
-    <button type="button"
-            class="new-class-plus-btn"
-            data-testid="empty-state-create-class"
-            @click="document.querySelector('[data-testid=new-class-plus-btn]')?.click()">
-      + Nova classe
-    </button>
+    {# asset-table-view pre-existing issue: the original empty-state
+       button (``@click="document.querySelector(...).click()"``) was
+       dead code — Alpine 3 only processes ``@click`` directives inside
+       an ``x-data`` scope, and the empty-state div has no ``x-data``
+       ancestor. The wrapper ``<span x-data>`` gives the directive a
+       scope so ``$dispatch('open-new-class')`` actually fires. The
+       receiver is the sibling new-class-container's
+       ``@open-new-class.window`` listener. #}
+    <span x-data>
+      <button type="button"
+              class="new-class-plus-btn"
+              data-testid="empty-state-create-class"
+              @click="$dispatch('open-new-class')">
+        + Nova classe
+      </button>
+    </span>
   </div>
   {% endif %}
 
@@ -344,8 +354,14 @@
      first class even when there are zero classes in the DB. The inline
      Alpine form calls POST /api/classes and reloads the page on 201.
      The old "Gerenciar classes" link pointed to /classes which was
-     retired in S02/T07 (302 redirect to / -- a dead loop). #}
-  <div class="new-class-container" data-testid="new-class-container" x-data="newClassForm()">
+     retired in S02/T07 (302 redirect to / -- a dead loop).
+     The @open-new-class.window listener receives a CustomEvent from
+     the empty-state button (``$dispatch('open-new-class')``). Using
+     ``.window`` because the empty-state button and this container
+     are siblings, so the bubbling event only reaches the window
+     level. ``.window`` also avoids depending on Alpine's global
+     ``Alpine.$data`` API. #}
+  <div class="new-class-container" data-testid="new-class-container" x-data="newClassForm()" @open-new-class.window="showForm = true">
     <button type="button"
             class="new-class-plus-btn"
             data-testid="new-class-plus-btn"
