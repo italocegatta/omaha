@@ -12,7 +12,10 @@ Funcionalidade: CRUD manual de ativos no dashboard
   Esquema do Cenário: Manual add 4 ativos não-igual por classe
     Dado que estou logado como "<profile>"
     E criei as 2 classes padrão RF Pós 50% e RF Dinâmica 50%
-    Quando adicionei 4 ativos com distribuição não-igual
+    Quando adicionei o ativo "TESOURO_SELIC_2029" à classe "RF Pós" com "60%"
+    E adicionei o ativo "CDB_LIQUIDEZ_2027" à classe "RF Pós" com "40%"
+    E adicionei o ativo "FII_HSML11" à classe "RF Dinâmica" com "30%"
+    E adicionei o ativo "ACAIO_PETR4" à classe "RF Dinâmica" com "70%"
     Então o dashboard mostra 4 linhas de ativos
     E a seção "RF Pós" contém 2 ativos
     E a seção "RF Dinâmica" contém 2 ativos

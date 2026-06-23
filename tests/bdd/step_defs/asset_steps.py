@@ -20,7 +20,6 @@ from pytest_bdd import parsers, then, when
 
 from tests.bdd.step_defs._workflows import (
     add_one_asset,
-    create_four_assets,
 )
 
 if TYPE_CHECKING:
@@ -96,8 +95,3 @@ def asset_modal_error(page: Page, text: str):
 @when(parsers.parse('adicionei o ativo "{ticker}" à classe "{cls}" com "{pct:d}%"'))
 def _w_one_asset(page: Page, live_url: str, ticker: str, cls: str, pct: int):
     add_one_asset(page, live_url, cls, ticker, pct)
-
-
-@when("adicionei 4 ativos com distribuição não-igual")
-def _w_four_assets(page: Page, live_url: str):
-    create_four_assets(page, live_url)
