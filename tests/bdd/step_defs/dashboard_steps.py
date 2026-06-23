@@ -42,6 +42,12 @@ def section_text(page: Page, name: str, text: str):
         f'[data-testid="class-summary-row"]:has([data-testid="class-section-name"]:text-is("{name}"))'
     )
     section.first.wait_for(state="visible", timeout=5000)
+    # Wait for the section text to actually contain the expected value.
+    # Some flows (PATCH / inline edit) are async — the DOM updates
+    # only after the fetch resolves and Alpine re-renders, so a
+    # plain read immediately after the action would race the
+    # response and produce a false negative.
+    section.first.filter(has_text=text).wait_for(state="visible", timeout=10000)
     inner = section.first.inner_text()
     assert text in inner, f"esperava {text!r} na seção {name!r}, vi {inner!r}"
 
