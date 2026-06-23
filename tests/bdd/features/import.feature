@@ -10,24 +10,13 @@ Funcionalidade: Importação de posições via modal
     E os perfis "Italo" e "Ana" existem e estão sem classes e sem ativos
 
   Esquema do Cenário: Import 4-row CSV happy (auto-match por categoria)
-    Dado que estou na página "/login"
-    Quando preencho o campo "username" com "<profile>"
-    E preencho o campo "password" com "test-password"
-    E clico em "Entrar"
-    E clico no botão do perfil "<profile>"
-    E clico em "+ Nova classe"
-    E preencho o campo "Nome da classe" com "RF Pós"
-    E preencho o campo "Alocação alvo" com "50"
-    E clico em "Salvar"
-    E clico em "+ Nova classe"
-    E preencho o campo "Nome da classe" com "RF Dinâmica"
-    E preencho o campo "Alocação alvo" com "50"
-    E clico em "Salvar"
+    Dado que estou logado como "<profile>"
+    E criei as 2 classes padrão RF Pós 50% e RF Dinâmica 50%
     Quando abro o modal "Importar posições"
     E seleciono o arquivo "tiny_portfolio.csv"
     E clico em "Enviar"
     Então o modal mostra 0 linhas não correspondidas
-    E clico em "Confirmar importação"
+    Quando clico em "Confirmar"
     Então o dashboard mostra 4 linhas de ativos
     E a seção "RF Pós" contém 2 ativos
     E a seção "RF Dinâmica" contém 2 ativos
@@ -38,15 +27,11 @@ Funcionalidade: Importação de posições via modal
       | Ana |
 
   Esquema do Cenário: Import CSV vazio
-    Dado que estou na página "/login"
-    Quando preencho o campo "username" com "<profile>"
-    E preencho o campo "password" com "test-password"
-    E clico em "Entrar"
-    E clico no botão do perfil "<profile>"
+    Dado que estou logado como "<profile>"
     Quando abro o modal "Importar posições"
     E seleciono o arquivo "tiny_empty.csv"
     E clico em "Enviar"
-    Então o modal mostra a mensagem de erro "vazio"
+    Então o modal mostra a mensagem de erro "reconhecida"
 
     Exemplos:
       | profile   |
