@@ -74,6 +74,15 @@ def test_inline_create_2_classes_soma_110():
 
 
 @scenario(
+    "class_crud.feature",
+    "Inline add + PATCH class target",
+    features_base_dir="tests/bdd/features",
+)
+def test_inline_add_with_patch_target():
+    pass
+
+
+@scenario(
     "target_pct.feature",
     "PATCH per-asset total reflects in dashboard",
     features_base_dir="tests/bdd/features",
