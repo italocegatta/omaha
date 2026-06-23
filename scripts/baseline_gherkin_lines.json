@@ -1,0 +1,17 @@
+{
+  "asset_crud.feature::Manual add 4 ativos n\u00e3o-igual por classe": 25,
+  "asset_crud.feature::Per-class sum off-100 \u00e9 aceito (D006)": 19,
+  "class_crud.feature::Inline create 2 classes \u2014 soma 100%": 18,
+  "class_crud.feature::Inline create 2 classes \u2014 soma 90%": 18,
+  "class_crud.feature::Inline create 2 classes \u2014 soma 110%": 18,
+  "class_crud.feature::Inline add + PATCH class target": 14,
+  "class_crud.feature::Negative \u2014 duplicate class name": 17,
+  "derived_display.feature::Derived portfolio % recomputes on class PATCH": 14,
+  "derived_display.feature::Derived portfolio % recomputes on asset PATCH": 14,
+  "full_journey.feature::Jornada completa via modal de importa\u00e7\u00e3o (perfil \"Italo\")": 24,
+  "import.feature::Import 4-row CSV happy (auto-match por categoria)": 14,
+  "import.feature::Import CSV vazio": 9,
+  "target_pct.feature::PATCH per-class target reflects in dashboard": 14,
+  "target_pct.feature::PATCH per-asset total reflects in dashboard": 15,
+  "target_pct.feature::Per-class sum off-100 \u00e9 aceito (D006)": 18
+}
