@@ -200,8 +200,8 @@ the explicit allow-list it runs 121 tests in 1.3s.
 ## BDD workflows
 
 BDD workflows vivem em `tests/bdd/step_defs/_workflows.py`.
-Regra de extração: ≥2 cenários com tendência de crescimento
-(≥3 cenários totais). Carve-out per-workflow em
+Regra de extração: ≥2 cenários com tendência de crescimento.
+Carve-out per-workflow em
 `openspec/changes/bdd-workflow-reuse-helpers/design.md`
 Decisão 2 — `login.feature` e `profile_isolation.feature`
 ficam intactos para o wrapper de login. Contract tests em

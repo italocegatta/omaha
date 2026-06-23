@@ -36,10 +36,12 @@ documented in ``openspec/specs/bdd-workflow-reuse/spec.md``:
   ``test_workflow_contracts.py`` (runs under ``task test-unit``,
   no DB / no Playwright). Three rules:
   1. ≤10 public workflows in ``_workflows.py`` (ceiling).
-  2. ``login.feature`` + ``profile_isolation.feature`` MUST NOT
-     use the ``login_and_pick_profile`` / ``switch_profile``
-     wrappers (per-workflow carve-out — they test the flow
-     itself).
+  2. Workflows that declare ``@carve_out(...)`` in
+     ``_workflows.py`` MUST NOT be used in their declared
+     carve-out feature files. Currently
+     ``login_and_pick_profile`` is carved out from
+     ``login.feature`` + ``profile_isolation.feature``
+     (they test the auth flow itself).
   3. Every ``_w_*`` function body must ``Call`` at least one
      name defined in ``_workflows.py`` (no inlined workflow
      logic, which would silently bypass the workflow's
@@ -50,17 +52,23 @@ documented in ``openspec/specs/bdd-workflow-reuse/spec.md``:
 | Workflow | Purpose | Pre-condition | Carve-out |
 |---|---|---|---|
 | ``login_and_pick_profile`` | Bootstrap: log in + select profile | none (entry point) | ``login.feature``, ``profile_isolation.feature`` |
-| ``switch_profile`` | Log out + log in as another profile | logged in (``page.url`` ends with ``/``) | ``profile_isolation.feature`` |
 | ``create_one_class`` | Inline ``+ Nova classe`` form | logged in | none |
-| ``create_two_default_classes`` | Loop ``create_one_class`` over ``DEFAULT_TWO_CLASSES`` | logged in | none |
-| ``add_one_asset`` | Per-class ``+ Ativo`` modal | logged in + class exists | none |
-| ``create_four_assets`` | Loop ``add_one_asset`` over ``DEFAULT_FOUR_ASSETS`` | logged in + classes exist | none |
+| ``create_two_default_classes`` | Loop ``create_one_class`` over ``DEFAULT_TWO_CLASSES`` (or any ``list[ClassSpec]``) | logged in | none |
+| ``add_one_asset`` | Single ``+ Ativo`` global button + class ``<select>`` picker modal | logged in + class exists | none |
 
 Dataclasses ``ClassSpec(name, target_pct)`` and
 ``AssetSpec(class_name, ticker, target_pct)`` are the canonical
-input shapes. ``DEFAULT_TWO_CLASSES`` and ``DEFAULT_FOUR_ASSETS``
-are the "happy path" payloads used when the wrapper doesn't
-parameterize.
+input shapes. ``DEFAULT_TWO_CLASSES`` is the "happy path"
+payload used when ``create_two_default_classes`` is called
+without an explicit list.
+
+**Note:** ``_w_rf_pos_rf_dinamica_pct`` (in
+``step_defs/class_steps.py``) is hardcoded to "RF Pós" and
+"RF Dinâmica" — only the ``{p1}`` / ``{p2}`` percentages are
+parametrized. For 2 classes with custom names, call
+``create_two_default_classes(page, live_url, [ClassSpec(name1,
+pct1), ClassSpec(name2, pct2)])`` directly from a custom
+``@given`` step in ``step_defs/``.
 
 The full per-workflow data-testid list (for PR review on UI
 drift) lives in each function's docstring.
@@ -105,6 +113,13 @@ re-evaluate whether the suite really shares that much structure.
 ## Carve-out
 
 ``login.feature`` and ``profile_isolation.feature`` deliberately
-keep login / switch steps inline. The contract test
-``test_carve_out_files_use_inline_steps`` enforces this so a
-contributor can't sneak the wrapper back in.
+keep login steps inline (the wrapper step text would silently
+pass on auth-flow regressions). The carve-out is declared on
+the workflow itself via the
+``@carve_out(files=..., step_regex=...)`` decorator in
+``_workflows.py``. The contract test
+``test_carve_out_files_use_inline_steps`` parses these
+decorators via AST and asserts each carve-out file does NOT
+contain a step matching the declared regex. Adding a new
+carve-out workflow = add the decorator; the test enforces
+automatically (no hardcoded dict to maintain).
