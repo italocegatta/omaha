@@ -15,12 +15,13 @@ verify the S01 inline-edit feature end to end:
 
   2. ``test_inline_edit_blocks_when_sum_neq_100`` — click the
      asset's cell, type a value that would push the per-class
-     sum to 110; assert the commit button is disabled and the
-     class-delta badge shows the validator's "Sobra 10%"
-     wording (the unit-validator and the Alpine preview share
-     the same wording per T01/T02); cancel the edit, reload,
-     assert the DB still has the original value (no PATCH
-     happened).
+     sum to 110; assert the class-delta badge shows the
+     validator's "Sobra 10%" wording (the unit-validator and
+     the Alpine preview share the same wording per T01/T02);
+     press Enter to trigger the commit and verify the Alpine
+     ``commitEdit`` guard bails (editor stays open, no PATCH);
+     press Escape to cancel, reload, assert the DB still has
+     the original value (no PATCH happened).
 
   3. ``test_dashboard_displays_four_percentages_per_asset`` —
      create 1 class + 1 asset, seed 1 position, assert the 4
@@ -64,8 +65,10 @@ TEST_DB_PATH = REPO_ROOT / "data" / "test_e2e.db"
 
 # S01 inline-editor data-testid markers. The dashboard template
 # (``src/omaha/templates/dashboard.html``) renders these per asset
-# row: 4 cells in the pct grid + the input + the commit/cancel
-# buttons + the class-delta badge in the section header.
+# row: 4 cells in the pct grid + the input + the class-delta badge
+# in the section header. (The save/cancel buttons were removed in
+# the dashboard-width-and-inline-edit change — Enter and Escape
+# are the only triggers now.)
 S01_SELECTORS = {
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
     "asset_target_pct_class": '[data-testid="asset-target-pct-class"]',
@@ -73,8 +76,6 @@ S01_SELECTORS = {
     "asset_target_pct_total": '[data-testid="asset-target-pct-total"]',
     "asset_current_pct_total": '[data-testid="asset-current-pct-total"]',
     "asset_inline_edit_input": '[data-testid="asset-inline-edit-input"]',
-    "asset_inline_edit_commit": '[data-testid="asset-inline-edit-commit"]',
-    "asset_inline_edit_cancel": '[data-testid="asset-inline-edit-cancel"]',
     "class_delta_badge": '[data-testid="class-delta-badge"]',
     "class_summary_row": '[data-testid="class-summary-row"]',
 }
@@ -315,8 +316,8 @@ class TestS01InlineEdit:
         -------
         - The click on the cell swaps in the inline input.
         - Typing 40 and pressing Enter yields a 200 PATCH
-          (the commit button is enabled when classDeltaMessage
-          is empty).
+          (the ``commitEdit`` guard only blocks when
+          classDeltaMessage is non-empty).
         - The cell re-renders as "40.00% classe".
         - The "alvo % total" cell updates to 24.00% (60% × 40
           / 100, computed by the Alpine on-commit refresh).
@@ -361,15 +362,11 @@ class TestS01InlineEdit:
         edit_input.wait_for(state="visible", timeout=2000)
         edit_input.fill("40")
 
-        # The commit button is enabled when classDeltaMessage is
-        # empty. classSum after the fill = 0 + 30 + 40 = 100,
-        # classDelta = 0, message = ''.
-        commit = target_row.locator(S01_SELECTORS["asset_inline_edit_commit"]).first
-        _js_commit_enabled = (
-            f"() => !document.querySelector('{S01_SELECTORS['asset_inline_edit_commit']}').disabled"
-        )
-        page.wait_for_function(_js_commit_enabled, timeout=2000)
-        commit.click()
+        # classSum after the fill = 0 + 30 + 40 = 100,
+        # classDelta = 0, message = ''. The Alpine commitEdit
+        # guard (``if (this.classDeltaMessage !== '') return``)
+        # does not block, so Enter triggers the PATCH.
+        edit_input.press("Enter")
 
         # Wait for the PATCH to complete and the input to hide
         # (the editing div's x-show toggles off when
@@ -431,13 +428,16 @@ class TestS01InlineEdit:
 
         Asserts
         -------
-        - The commit button is disabled while classDeltaMessage
-          is non-empty.
         - The class-delta badge shows "Sobra 10%" (the
           validator's verbatim wording — single source of truth
           shared with the 422 response body, per T01/T02).
-        - Canceling the edit and reloading leaves the DB
-          unchanged at 30.
+        - Pressing Enter inside the input does NOT trigger a
+          PATCH: the Alpine ``commitEdit`` guard bails when
+          classDeltaMessage is non-empty, the editor stays
+          open, and the inline error span shows the message.
+        - Pressing Escape cancels the edit (editor hides, no
+          PATCH).
+        - Reloading the dashboard leaves the DB unchanged at 30.
         - A direct PATCH to the same value would be rejected by
           the server too (defense in depth).
         """
@@ -484,25 +484,25 @@ class TestS01InlineEdit:
         )
         assert "10%" in badge_text, f"expected '10%' in class-delta badge, got {badge_text!r}"
 
-        # The commit button must be disabled. Alpine
-        # ``:disabled="saving || classDeltaMessage !== ''"``
-        # toggles the disabled attribute when the message is
-        # non-empty.
-        commit = target_row.locator(S01_SELECTORS["asset_inline_edit_commit"]).first
-        is_disabled = commit.evaluate("el => el.disabled")
-        assert is_disabled, "commit button should be disabled when sum != 100"
-
-        # Try clicking anyway — defense in depth. The Alpine
-        # ``commitEdit`` method also blocks when
-        # classDeltaMessage is non-empty, so no PATCH happens.
-        commit.click(force=True)
+        # The Alpine ``commitEdit`` guard ``if (this.classDeltaMessage !== '') return``
+        # must block the PATCH when the per-class sum is off-100.
+        # The editor no longer renders a save button, so we drive
+        # the same code path by pressing Enter inside the input.
+        edit_input = target_row.locator(S01_SELECTORS["asset_inline_edit_input"]).first
+        edit_input.press("Enter")
         # Give any (incorrect) PATCH time to land and re-render.
         page.wait_for_timeout(500)
+        # The editor must still be open (editingAssetId unchanged
+        # because commitEdit bailed out) and the error span must
+        # show the classDeltaMessage.
+        assert edit_input.is_visible(), (
+            "editor must stay open when commitEdit guard blocks the PATCH"
+        )
 
         # Cancel the edit. Alpine ``cancelEdit`` sets
-        # editingAssetId=null and clears the error.
-        cancel = target_row.locator(S01_SELECTORS["asset_inline_edit_cancel"]).first
-        cancel.click()
+        # editingAssetId=null and clears the error. Escape is the
+        # remaining cancel trigger now that the cancel button is gone.
+        edit_input.press("Escape")
         _js_input_hidden = (
             "() => { const el = document.querySelector('"
             f"{S01_SELECTORS['asset_inline_edit_input']}"

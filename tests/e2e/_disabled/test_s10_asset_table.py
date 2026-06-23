@@ -25,7 +25,6 @@ S10_SELECTORS = {
     "asset_target_pct_class": '[data-testid="asset-target-pct-class"]',
     "asset_target_pct_total": '[data-testid="asset-target-pct-total"]',
     "asset_target_pct_total_edit_input": '[data-testid="asset-target-pct-total-edit-input"]',
-    "asset_target_pct_total_edit_commit": '[data-testid="asset-target-pct-total-edit-commit"]',
     "asset_table": '[data-testid="asset-table"]',
     "asset_table_th_name": '[data-testid="asset-table-th-name"]',
     "asset_table_th_class": '[data-testid="asset-table-th-class"]',
@@ -213,7 +212,7 @@ class TestS10AssetTable:
         edit_input = target_row.locator(S10_SELECTORS["asset_target_pct_total_edit_input"]).first
         edit_input.wait_for(state="visible", timeout=2000)
         edit_input.fill("50")
-        target_row.locator(S10_SELECTORS["asset_target_pct_total_edit_commit"]).first.click()
+        edit_input.press("Enter")
 
         # Wait for PATCH + local state update.
         page.wait_for_timeout(500)
@@ -310,7 +309,7 @@ class TestS10AssetTable:
         edit_input = target_row.locator('[data-testid="asset-inline-edit-input"]').first
         edit_input.wait_for(state="visible", timeout=2000)
         edit_input.fill("60")
-        target_row.locator('[data-testid="asset-inline-edit-commit"]').first.click()
+        edit_input.press("Enter")
 
         page.wait_for_timeout(500)
         alert.wait_for(state="hidden", timeout=3000)

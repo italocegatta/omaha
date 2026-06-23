@@ -470,7 +470,7 @@ p.error, .error {
 }
 
 /* Dashboard portfolio header (S05 T02) */
-main { max-width: 760px; }
+main { max-width: 1400px; }
 .portfolio-header {
   display: grid; grid-template-columns: repeat(3, 1fr);
   gap: 1rem; margin: 1.5rem 0; padding: 1.25rem;
@@ -701,41 +701,6 @@ main { max-width: 760px; }
   background: color-mix(in srgb, var(--negative) 8%, var(--surface));
 }
 
-.asset-inline-edit-actions {
-  display: flex;
-  gap: 0.25rem;
-  margin-top: 0.2rem;
-  width: 100%;
-}
-
-.asset-inline-edit-commit,
-.asset-inline-edit-cancel {
-  flex: 1;
-  font: inherit;
-  font-size: 0.7rem;
-  padding: 0.15rem 0.3rem;
-  border-radius: 3px;
-  border: 1px solid var(--border);
-  background: var(--surface-sunk);
-  cursor: pointer;
-}
-
-.asset-inline-edit-commit {
-  background: var(--accent);
-  color: var(--accent-ink);
-  border-color: var(--accent);
-}
-
-.asset-inline-edit-commit:disabled {
-  background: var(--ink-muted);
-  border-color: var(--ink-muted);
-  cursor: not-allowed;
-}
-
-.asset-inline-edit-cancel {
-  background: var(--surface);
-}
-
 /* =============================================================
    asset-table-view 5.x — Table polish + severity tokens
    ============================================================= */
@@ -898,33 +863,6 @@ td.editing {
   background: #fff;
   color: inherit;
   margin-left: 0.25rem;
-}
-
-.class-inline-edit-commit,
-.class-inline-edit-cancel {
-  font: inherit;
-  font-size: 0.7rem;
-  padding: 0.1rem 0.4rem;
-  border-radius: 3px;
-  border: 1px solid var(--border);
-  cursor: pointer;
-  margin-left: 0.25rem;
-}
-
-.class-inline-edit-commit {
-  background: var(--accent);
-  color: var(--accent-ink);
-  border-color: var(--accent);
-}
-
-.class-inline-edit-commit:disabled {
-  background: var(--ink-muted);
-  border-color: var(--ink-muted);
-  cursor: not-allowed;
-}
-
-.class-inline-edit-cancel {
-  background: var(--surface);
 }
 
 .class-inline-edit-error {

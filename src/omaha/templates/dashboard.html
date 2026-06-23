@@ -104,18 +104,9 @@
                      x-model="editClassPctValue"
                      @keyup.enter="commitEditClassPct()"
                      @keyup.escape.window="cancelEditClassPct()"
+                     @blur="commitEditClassPct()"
                      :disabled="savingClassPct"
                      @click.stop>
-              <button type="button"
-                      class="class-inline-edit-commit"
-                      data-testid="class-inline-edit-commit"
-                      @click.stop="commitEditClassPct()"
-                      :disabled="savingClassPct">salvar</button>
-              <button type="button"
-                      class="class-inline-edit-cancel"
-                      data-testid="class-inline-edit-cancel"
-                      @click.stop="cancelEditClassPct()"
-                      :disabled="savingClassPct">cancelar</button>
               <span class="class-inline-edit-error"
                     data-testid="class-inline-edit-error"
                     x-show="editClassPctError"
@@ -233,13 +224,10 @@
                            x-model="editingValue"
                            @keyup.enter="commitEdit()"
                            @keyup.escape.window="cancelEdit()"
+                           @blur="commitEdit()"
                            :class="{'asset-inline-edit-input--error': error}"
                            :disabled="saving"
                            @click.stop>
-                    <div class="asset-inline-edit-actions">
-                      <button type="button" class="asset-inline-edit-commit" data-testid="asset-inline-edit-commit" @click.stop="commitEdit()" :disabled="saving || classDeltaMessage !== ''">salvar</button>
-                      <button type="button" class="asset-inline-edit-cancel" data-testid="asset-inline-edit-cancel" @click.stop="cancelEdit()" :disabled="saving">cancelar</button>
-                    </div>
                   </div>
                 </td>
                 <td data-testid="asset-current-pct-class">
@@ -268,13 +256,10 @@
                            x-model="editingTotalValue"
                            @keyup.enter="commitEditTotal()"
                            @keyup.escape.window="cancelEditTotal()"
+                           @blur="commitEditTotal()"
                            :class="{'asset-inline-edit-input--error': errorTotal}"
                            :disabled="savingTotal"
                            @click.stop>
-                    <div class="asset-inline-edit-actions">
-                      <button type="button" class="asset-inline-edit-commit" data-testid="asset-target-pct-total-edit-commit" @click.stop="commitEditTotal()" :disabled="savingTotal">salvar</button>
-                      <button type="button" class="asset-inline-edit-cancel" data-testid="asset-target-pct-total-edit-cancel" @click.stop="cancelEditTotal()" :disabled="savingTotal">cancelar</button>
-                    </div>
                     <span class="asset-inline-edit-hint"
                           data-testid="asset-target-pct-total-edit-hint"
                           x-show="editingTotalValue !== '' && !isNaN(parseFloat(editingTotalValue))">

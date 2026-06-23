@@ -366,7 +366,6 @@ def test_dashboard_renders_distribution_layout(client: TestClient) -> None:
     assert 'data-testid="asset-current-pct-total"' in body, body
     assert 'data-testid="asset-inline-edit-input"' in body, body
     assert 'data-testid="asset-target-pct-total-edit-input"' in body, body
-    assert 'data-testid="asset-target-pct-total-edit-commit"' in body, body
     assert 'data-testid="class-delta-badge"' in body, body
     assert 'data-testid="asset-allocation-alert"' in body, body
     assert 'data-testid="asset-allocation-alert-portfolio"' in body, body
