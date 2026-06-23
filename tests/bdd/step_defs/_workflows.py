@@ -45,6 +45,8 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from tests.bdd.step_defs._carve_out import carve_out
+
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
@@ -100,6 +102,10 @@ DEFAULT_FOUR_ASSETS: list[AssetSpec] = [
 ]
 
 
+@carve_out(
+    files=frozenset({"login.feature", "profile_isolation.feature"}),
+    step_regex=r"estou logado como",
+)
 def login_and_pick_profile(
     page: Page,
     live_url: str,
@@ -123,31 +129,6 @@ def login_and_pick_profile(
     page.wait_for_url(re.compile(r"/profiles$"), timeout=5000)
     page.locator("form.profile-picker button").filter(has_text=profile).first.click()
     page.wait_for_url(re.compile(r"/$"), timeout=5000)
-
-
-def switch_profile(page: Page, live_url: str, other_profile: str) -> None:
-    """Log out and log in as a different profile mid-test.
-
-    Pré-condição: usuário logado (chame
-    :func:`login_and_pick_profile` antes). Valida
-    ``page.url.endswith("/")`` no início.
-
-    data-testids:
-      - form.profile-switcher button (logout "Sair")
-      - input[name=username]
-      - input[name=password]
-      - button[type=submit]
-      - form.profile-picker button
-    """
-    if not page.url.endswith("/"):
-        raise RuntimeError(
-            "switch_profile requer login prévio. "
-            "Chame login_and_pick_profile antes. "
-            f"URL atual: {page.url}."
-        )
-    page.locator("form.profile-switcher button[type=submit]").click()
-    page.wait_for_url(re.compile(r"/login$"), timeout=5000)
-    login_and_pick_profile(page, live_url, other_profile)
 
 
 def create_one_class(page: Page, live_url: str, name: str, target_pct: int) -> None:
@@ -277,34 +258,3 @@ def add_one_asset(
     page.locator('[data-testid="dashboard-asset-row"]').nth(before).wait_for(
         state="visible", timeout=10000
     )
-
-
-def create_four_assets(
-    page: Page,
-    live_url: str,
-    assets: list[AssetSpec] | None = None,
-) -> None:
-    """Create N assets by looping :func:`add_one_asset` over the spec list.
-
-    Pré-condição: usuário logado + classes existem (chame
-    :func:`login_and_pick_profile` e
-    :func:`create_two_default_classes` antes). Valida
-    ``page.url.endswith("/")`` no início.
-
-    data-testids:
-      - dashboard-add-asset-open
-      - dashboard-add-asset-modal
-      - dashboard-add-asset-name
-      - dashboard-add-asset-target-pct
-      - dashboard-add-asset-submit
-    """
-    if assets is None:
-        assets = DEFAULT_FOUR_ASSETS
-    if not page.url.endswith("/"):
-        raise RuntimeError(
-            "create_four_assets requer login prévio. "
-            "Chame login_and_pick_profile antes. "
-            f"URL atual: {page.url}."
-        )
-    for spec in assets:
-        add_one_asset(page, live_url, spec.class_name, spec.ticker, spec.target_pct)

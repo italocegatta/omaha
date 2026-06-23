@@ -25,7 +25,6 @@ from pytest_bdd import given, parsers, then, when
 
 from tests.bdd.step_defs._workflows import (
     login_and_pick_profile,
-    switch_profile,
 )
 
 if TYPE_CHECKING:
@@ -76,11 +75,6 @@ def at_page(page: Page, live_url: str, path: str):
 @given(parsers.re(r'(que )?estou logado como "(?P<profile>[^"]+)"'))
 def _w_logged_in_as(page: Page, live_url: str, profile: str):
     login_and_pick_profile(page, live_url, profile)
-
-
-@given(parsers.re(r'(que )?troquei para o perfil "(?P<other>[^"]+)"'))
-def _w_switched_profile(page: Page, live_url: str, other: str):
-    switch_profile(page, live_url, other)
 
 
 # ─────────────────────────────────────────────────────────────────────
