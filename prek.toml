@@ -63,7 +63,7 @@ repo = "https://github.com/astral-sh/ruff-pre-commit"
 rev = "v0.14.3"
 hooks = [
     { id = "ruff-format", stages = ["pre-push"], priority = 1, continue-on-error = true },
-    { id = "ruff", args = ["check"], stages = ["pre-push"], priority = 2 },
+    { id = "ruff", stages = ["pre-push"], priority = 2 },
 ]
 
 [[repos]]
