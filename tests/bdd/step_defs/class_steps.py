@@ -120,7 +120,7 @@ def _w_default_classes(page: Page, live_url: str):
 
 
 @given(parsers.parse("criei as 2 classes padrão RF Pós {p1:d}% e RF Dinâmica {p2:d}%"))
-def _w_default_classes_pct(page: Page, live_url: str, p1: int, p2: int):
+def _w_rf_pos_rf_dinamica_pct(page: Page, live_url: str, p1: int, p2: int):
     create_two_default_classes(
         page,
         live_url,
