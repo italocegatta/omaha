@@ -1,5 +1,5 @@
 # language: pt
-Funcionalidade: CRUD de classes via formulário snapshot, inline add e PATCH
+Funcionalidade: CRUD de classes via formulário inline e PATCH
   Como operador da carteira
   Eu quero criar e ajustar a alocação alvo das classes
   Para refletir a estratégia da família
@@ -9,20 +9,9 @@ Funcionalidade: CRUD de classes via formulário snapshot, inline add e PATCH
     E o banco de dados de teste foi inicializado com a senha compartilhada
     E os perfis "Italo" e "Ana" existem e estão sem classes e sem ativos
 
-  Esquema do Cenário: Snapshot create 2 classes
-    Dado que estou na página "/login"
-    Quando preencho o campo "username" com "<profile>"
-    E preencho o campo "password" com "test-password"
-    E clico em "Entrar"
-    E clico no botão do perfil "<profile>"
-    Quando abro o editor de classes
-    E clico em "Adicionar classe"
-    E preencho o campo "Nome da classe" da linha 0 com "RF Pós"
-    E preencho o campo "Alocação alvo" da linha 0 com "50"
-    E clico em "Adicionar classe"
-    E preencho o campo "Nome da classe" da linha 1 com "RF Dinâmica"
-    E preencho o campo "Alocação alvo" da linha 1 com "50"
-    E clico em "Salvar classes"
+  Esquema do Cenário: Inline create 2 classes — soma 100%
+    Dado que estou logado como "<profile>"
+    E criei as 2 classes padrão RF Pós 50% e RF Dinâmica 50%
     Então o dashboard mostra 2 seções de classe
     E a seção "RF Pós" mostra "50%"
     E a seção "RF Dinâmica" mostra "50%"
@@ -32,16 +21,33 @@ Funcionalidade: CRUD de classes via formulário snapshot, inline add e PATCH
       | Italo     |
       | Ana |
 
+  Esquema do Cenário: Inline create 2 classes — soma 90%
+    Dado que estou logado como "<profile>"
+    E criei as 2 classes padrão RF Pós 60% e RF Dinâmica 30%
+    Então o dashboard mostra 2 seções de classe
+    E a seção "RF Pós" mostra "60%"
+    E a seção "RF Dinâmica" mostra "30%"
+
+    Exemplos:
+      | profile   |
+      | Italo     |
+      | Ana |
+
+  Esquema do Cenário: Inline create 2 classes — soma 110%
+    Dado que estou logado como "<profile>"
+    E criei as 2 classes padrão RF Pós 70% e RF Dinâmica 40%
+    Então o dashboard mostra 2 seções de classe
+    E a seção "RF Pós" mostra "70%"
+    E a seção "RF Dinâmica" mostra "40%"
+
+    Exemplos:
+      | profile   |
+      | Italo     |
+      | Ana |
+
   Esquema do Cenário: Inline add + PATCH class target
-    Dado que estou na página "/login"
-    Quando preencho o campo "username" com "<profile>"
-    E preencho o campo "password" com "test-password"
-    E clico em "Entrar"
-    E clico no botão do perfil "<profile>"
-    E clico em "+ Nova classe"
-    E preencho o campo "Nome da classe" com "Reserva"
-    E preencho o campo "Alocação alvo" com "10"
-    E clico em "Salvar"
+    Dado que estou logado como "<profile>"
+    E criei a classe "Reserva" com "10%"
     Então o dashboard mostra 1 seções de classe
     Quando clico no campo "Alocação alvo da carteira" da classe "Reserva"
     E digito "15"
@@ -54,20 +60,13 @@ Funcionalidade: CRUD de classes via formulário snapshot, inline add e PATCH
       | Ana |
 
   Esquema do Cenário: Negative — duplicate class name
-    Dado que estou na página "/login"
-    Quando preencho o campo "username" com "<profile>"
-    E preencho o campo "password" com "test-password"
-    E clico em "Entrar"
-    E clico no botão do perfil "<profile>"
-    E clico em "+ Nova classe"
+    Dado que estou logado como "<profile>"
+    E criei a classe "RF Pós" com "50%"
+    Quando clico em "+ Nova classe"
     E preencho o campo "Nome da classe" com "RF Pós"
     E preencho o campo "Alocação alvo" com "50"
     E clico em "Salvar"
-    E clico em "+ Nova classe"
-    E preencho o campo "Nome da classe" com "RF Pós"
-    E preencho o campo "Alocação alvo" com "50"
-    E clico em "Salvar"
-    Então o modal mostra a mensagem de erro "Já existe"
+    Então o modal de classe mostra a mensagem de erro "Já existe"
 
     Exemplos:
       | profile   |

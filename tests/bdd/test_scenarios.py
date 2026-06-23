@@ -46,15 +46,39 @@ def test_login_fail_wrong_password():
 # ─────────────────────────────────────────────────────────────────────
 
 
-@scenario("class_crud.feature", "Snapshot create 2 classes", features_base_dir="tests/bdd/features")
-def test_snapshot_create_2_classes():
+@scenario(
+    "class_crud.feature",
+    "Inline create 2 classes — soma 100%",
+    features_base_dir="tests/bdd/features",
+)
+def test_inline_create_2_classes_soma_100():
     pass
 
 
 @scenario(
-    "class_crud.feature", "Inline add + PATCH class target", features_base_dir="tests/bdd/features"
+    "class_crud.feature",
+    "Inline create 2 classes — soma 90%",
+    features_base_dir="tests/bdd/features",
 )
-def test_inline_add_with_patch_target():
+def test_inline_create_2_classes_soma_90():
+    pass
+
+
+@scenario(
+    "class_crud.feature",
+    "Inline create 2 classes — soma 110%",
+    features_base_dir="tests/bdd/features",
+)
+def test_inline_create_2_classes_soma_110():
+    pass
+
+
+@scenario(
+    "target_pct.feature",
+    "PATCH per-asset total reflects in dashboard",
+    features_base_dir="tests/bdd/features",
+)
+def test_patch_per_asset_target():
     pass
 
 
@@ -80,9 +104,11 @@ def test_manual_add_4_assets_unequal():
 
 
 @scenario(
-    "asset_crud.feature", "Negative — per-class sum != 100", features_base_dir="tests/bdd/features"
+    "asset_crud.feature",
+    "Per-class sum off-100 é aceito (D006)",
+    features_base_dir="tests/bdd/features",
 )
-def test_per_class_sum_negative():
+def test_per_class_sum_off_100_accepted():
     pass
 
 
@@ -121,17 +147,10 @@ def test_patch_per_class_target():
 
 @scenario(
     "target_pct.feature",
-    "PATCH per-asset target reflects in dashboard",
+    "Per-class sum off-100 é aceito (D006)",
     features_base_dir="tests/bdd/features",
 )
-def test_patch_per_asset_target():
-    pass
-
-
-@scenario(
-    "target_pct.feature", "Validação sum != 100 per-class", features_base_dir="tests/bdd/features"
-)
-def test_validator_sum_not_100():
+def test_per_class_sum_off_100_accepted_target_pct():
     pass
 
 
