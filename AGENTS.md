@@ -164,6 +164,14 @@ the suite via two lists:
 - `tests/audit_integration/*.py` — `@pytest.mark.integration`.
 - A module-level `pytestmark` wins over the path rule (already
   supported; `test_audit_inventory.py` uses this).
+- `tests/bdd/` — BDD scenarios collected by `pytest-bdd` from
+  `.feature` files (not from `test_*.py`). Tagged with the
+  `bdd` marker; run via `task test-bdd`. The
+  `pytest_collection_modifyitems` allow-list rule does NOT apply
+  to `.feature` files — they live under `tests/bdd/`, not
+  under `tests/`. The single `test_scenarios.py` glue file IS
+  under `tests/bdd/` and is tagged `bdd` (not `unit`) via the
+  path carve-out so it does not trip `UnknownTestPath`.
 
 Any `tests/test_*.py` file that hits DB/TestClient but is NOT in
 `_INTEGRATION_PREFIXES` emits a `UnknownTestPath` warning. The warning

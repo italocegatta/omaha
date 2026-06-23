@@ -214,6 +214,9 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         path = str(item.fspath)
         if "/tests/e2e/" in path:
             continue
+        if "/tests/bdd/" in path:
+            item.add_marker(pytest.mark.bdd)
+            continue
         if "/tests/audit_integration/" in path:
             item.add_marker(pytest.mark.integration)
             continue

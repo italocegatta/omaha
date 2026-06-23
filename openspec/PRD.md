@@ -197,6 +197,25 @@ Nenhuma fase depende de M002 estar fechado.
 | Adicionar `font-feature-settings: "tnum"` | 🟢 Fácil | Documentado no DESIGN.md |
 | Adicionar animações de barra de compare/progresso | 🟢 Fácil | Documentado no DESIGN.md (400ms/300ms staggered) |
 | Adicionar face display (Source Serif 4) | 🟡 Médio | Escopo do dashboard apenas |
+
+### 5.4 BDD e2e suite — parallel-bringup state (jun/2026)
+
+A antiga suite e2e Playwright (11 arquivos, ~2.5k linhas) está
+desabilitada em `tests/e2e/_disabled/`. A nova BDD suite vive em
+`tests/bdd/` (30 cenários Gherkin em PT-BR, 6 step_defs módulos,
+conftest dedicado em `data/test_bdd.db` na porta 8766).
+
+**Estado atual:** infraestrutura completa (pytest-bdd dep, conftest,
+features, step defs, fixture, taskipy task `test-bdd`, marker `bdd`
+no conftest de `tests/`). Login OK em ambos os perfis. Os demais
+cenários (class CRUD, asset CRUD, import, target PATCH, derived
+display, full_journey, profile_isolation) precisam de iteração
+dos selectors nos step defs (PT-BR label → English testid slug)
+antes de rodar verde.
+
+**Deletion da suite antiga** está gated em **2 runs consecutivas
+verdes da nova suite**, conforme o plano original. Mudança de
+follow-up após o gate.
 | `prefers-reduced-motion` media query | 🟢 Fácil | Já existe no CSS? Verificar |
 
 ---

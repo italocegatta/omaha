@@ -35,6 +35,7 @@ dev = [
     "prek>=0.2",
     "playwright>=1.60.0",
     "taskipy>=1.13",
+    "pytest-bdd>=8.0,<10",
 ]
 
 [project.scripts]
@@ -60,10 +61,11 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q --ignore=tests/e2e/_disabled"
 markers = [
     "unit: pure-function tests, no DB no HTTP",
     "integration: tests requiring DB, TestClient, or external services",
+    "bdd: BDD e2e scenarios under tests/bdd/",
 ]
 
 [tool.pyright]
@@ -122,6 +124,7 @@ test             = { cmd = "uv run pytest",                                     
 test-unit        = { cmd = "uv run pytest -m unit",                                   help = "pure-function tests, no DB no HTTP, no Playwright" }
 test-integration = { cmd = "uv run pytest -m integration",                            help = "tests requiring DB, TestClient, or audit pipeline (full S0* + T0* route families)" }
 test-e2e         = { cmd = "uv run pytest tests/e2e -v",                             help = "Playwright tests under tests/e2e/" }
+test-bdd         = { cmd = "uv run pytest tests/bdd -v",                               help = "BDD e2e scenarios under tests/bdd/ (pytest-bdd, real chromium)" }
 test-file        = { cmd = "uv run pytest -v",                                        help = "Run a specific test file:  task test-file tests/test_X.py" }
 test-pattern     = { cmd = "uv run pytest -v -k",                                     help = "Run tests matching a name substring:  task test-pattern \"smoke\"" }
 test-one         = { cmd = "uv run pytest -v",                                        help = "Run a single test by node id:  task test-one tests/test_X.py::test_y" }
