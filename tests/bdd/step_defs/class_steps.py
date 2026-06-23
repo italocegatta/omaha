@@ -24,7 +24,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pytest_bdd import parsers, then, when
+from pytest_bdd import given, parsers, then, when
+
+from tests.bdd.step_defs._workflows import (
+    ClassSpec,
+    create_one_class,
+    create_two_default_classes,
+)
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page
@@ -90,10 +96,33 @@ def click_save_inline(page: Page):
 # ─────────────────────────────────────────────────────────────────────
 
 
-@then(parsers.parse('a alocação salva da classe "{name}" é "{text}"'))
-def class_target_pct_saved(page: Page, name: str, text: str):
-    section = page.locator(
-        f'[data-testid="class-summary-row"]:has([data-testid="class-section-name"]:text-is("{name}"))'
+@then(parsers.parse('o modal de classe mostra a mensagem de erro "{text}"'))
+def class_form_error(page: Page, text: str):
+    err = page.locator('[data-testid="new-class-form-error"]')
+    err.wait_for(state="visible", timeout=5000)
+    inner = err.inner_text()
+    assert text in inner, f"esperava erro {text!r} no modal de classe, vi {inner!r}"
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Workflow wrappers — thin steps that delegate to ``_workflows.py``.
+# ─────────────────────────────────────────────────────────────────────
+
+
+@given(parsers.parse('criei a classe "{name}" com "{pct:d}%"'))
+def _w_one_class(page: Page, live_url: str, name: str, pct: int):
+    create_one_class(page, live_url, name, pct)
+
+
+@given("criei as 2 classes padrão RF Pós 50% e RF Dinâmica 50%")
+def _w_default_classes(page: Page, live_url: str):
+    create_two_default_classes(page, live_url)
+
+
+@given(parsers.parse("criei as 2 classes padrão RF Pós {p1:d}% e RF Dinâmica {p2:d}%"))
+def _w_default_classes_pct(page: Page, live_url: str, p1: int, p2: int):
+    create_two_default_classes(
+        page,
+        live_url,
+        [ClassSpec("RF Pós", p1), ClassSpec("RF Dinâmica", p2)],
     )
-    pct = section.first.locator('[data-testid="class-target-pct-view"]').inner_text()
-    assert text in pct, f"esperava {text!r} na seção {name!r}, vi {pct!r}"
