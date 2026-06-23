@@ -216,6 +216,19 @@ antes de rodar verde.
 **Deletion da suite antiga** está gated em **2 runs consecutivas
 verdes da nova suite**, conforme o plano original. Mudança de
 follow-up após o gate.
+
+**BDD workflow reuse pattern:** os 6 workflows
+(`login_and_pick_profile`, `switch_profile`, `create_one_class`,
+`create_two_default_classes`, `add_one_asset`, `create_four_assets`)
+vivem em `tests/bdd/step_defs/_workflows.py`. Step wrappers
+finos com prefixo `_w_` em `tests/bdd/step_defs/<area>_steps.py`.
+Spec operacional completa em `tests/bdd/README.md`. Carve-out
+per-workflow documentada em
+`openspec/changes/bdd-workflow-reuse-helpers/design.md` Decisão 2
+(`login.feature` + `profile_isolation.feature` ficam intactos
+para o wrapper de login). Contrato enforçado por
+`tests/bdd/test_workflow_contracts.py` (ceiling de 10 workflows,
+wrappers delegam, carve-out).
 | `prefers-reduced-motion` media query | 🟢 Fácil | Já existe no CSS? Verificar |
 
 ---

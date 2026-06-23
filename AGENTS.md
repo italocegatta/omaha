@@ -197,6 +197,21 @@ the explicit allow-list it runs 121 tests in 1.3s.
 - Reviewing a PR that introduces a new test file in `tests/` — verify
   the marker assignment matches what the test does.
 
+## BDD workflows
+
+BDD workflows vivem em `tests/bdd/step_defs/_workflows.py`.
+Regra de extração: ≥2 cenários com tendência de crescimento
+(≥3 cenários totais). Carve-out per-workflow em
+`openspec/changes/bdd-workflow-reuse-helpers/design.md`
+Decisão 2 — `login.feature` e `profile_isolation.feature`
+ficam intactos para o wrapper de login. Contract tests em
+`tests/bdd/test_workflow_contracts.py` enforçam o contrato
+(ceiling de 10 workflows, wrappers delegam, carve-out). Spec
+operacional em `tests/bdd/README.md`. BDD roda serial — não
+adicionar pytest-xdist (race no autouse
+`clean_seeded_profiles` que compartilha SQLite
+session-scoped).
+
 ## Taskipy — use `task <name>`, not raw commands
 
 **Rule:** prefer `uv run task <name>` (or `task <name>` with venv
