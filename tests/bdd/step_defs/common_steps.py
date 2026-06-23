@@ -23,6 +23,11 @@ from typing import TYPE_CHECKING
 
 from pytest_bdd import given, parsers, then, when
 
+from tests.bdd.step_defs._workflows import (
+    login_and_pick_profile,
+    switch_profile,
+)
+
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
@@ -58,6 +63,24 @@ def profiles_empty(italo, ana):
 @given(parsers.re(r'(que )?estou na página "(?P<path>[^"]+)"'))
 def at_page(page: Page, live_url: str, path: str):
     page.goto(f"{live_url}{path}")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Workflow wrappers — thin steps that delegate to ``_workflows.py``.
+# Each wrapper's body is a single call into the workflow library so
+# the contract test ``test_wrappers_delegate_to_workflows`` can
+# enforce "no inlined workflow logic".
+# ─────────────────────────────────────────────────────────────────────
+
+
+@given(parsers.re(r'(que )?estou logado como "(?P<profile>[^"]+)"'))
+def _w_logged_in_as(page: Page, live_url: str, profile: str):
+    login_and_pick_profile(page, live_url, profile)
+
+
+@given(parsers.re(r'(que )?troquei para o perfil "(?P<other>[^"]+)"'))
+def _w_switched_profile(page: Page, live_url: str, other: str):
+    switch_profile(page, live_url, other)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -98,7 +121,9 @@ def fill_field(page: Page, label: str, value: str):
         loc = page.locator(sel)
         if loc.count() > 0:
             try:
-                loc.first.wait_for(state="visible", timeout=2000)
+                # 5s gives Alpine's ``x-show`` toggle a comfortable
+                # tick to reveal the input after the trigger click.
+                loc.first.wait_for(state="visible", timeout=5000)
                 loc.first.fill(value)
                 return
             except Exception:
@@ -136,7 +161,16 @@ def click_class_field(page: Page, label: str, class_name: str):
     section = page.locator(
         f'[data-testid="class-summary-row"]:has([data-testid="class-section-name"]:text-is("{class_name}"))'
     )
-    section.first.locator('[data-testid="class-target-pct-view"]').click()
+    # Two ``class-target-pct-view`` spans live under the section
+    # (the per-class header plus a duplicate in the asset group
+    # header). The editable one is the first match (the clickable
+    # one with the ``startEditClassPct`` handler).
+    section.first.locator('[data-testid="class-target-pct-view"]').first.click()
+    edit_input = section.first.locator('[data-testid="class-inline-edit-input"]')
+    edit_input.wait_for(state="visible", timeout=5000)
+    edit_input.focus()
+    edit_input.press("Control+a")
+    edit_input.press("Delete")
 
 
 @when(parsers.parse('clico no campo "{label}" do ativo "{ticker}"'))
@@ -146,8 +180,14 @@ def click_asset_field(page: Page, label: str, ticker: str):
     )
     if "carteira" in label.lower() or "total" in label.lower():
         row.first.locator('[data-testid="asset-target-pct-total"]').click()
+        edit_input = row.first.locator('[data-testid="asset-target-pct-total-edit-input"]')
     else:
         row.first.locator('[data-testid="asset-target-pct-class"]').click()
+        edit_input = row.first.locator('[data-testid="asset-inline-edit-input"]')
+    edit_input.wait_for(state="visible", timeout=5000)
+    edit_input.focus()
+    edit_input.press("Control+a")
+    edit_input.press("Delete")
 
 
 @when(parsers.parse('digito "{value}"'))
