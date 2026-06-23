@@ -319,10 +319,10 @@ class TestS06PosicaoItaloImport:
                 expected_id = ac_map.get(expected_class)
                 if expected_id is not None and r["suggested_class_id"] != expected_id:
                     mismatches.append(
-                            f"{ticker}: cat={cat!r} "
-                            f"suggested={r['suggested_class_id']} "
-                            f"expected={expected_id} ({expected_class})"
-                        )
+                        f"{ticker}: cat={cat!r} "
+                        f"suggested={r['suggested_class_id']} "
+                        f"expected={expected_id} ({expected_class})"
+                    )
             else:
                 # Categories with no match should have None suggested.
                 # This applies to BR Dividendos, Cripto, (Nao configurado).
