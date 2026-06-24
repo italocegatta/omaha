@@ -83,6 +83,5 @@ def asset_ordinal_in_class(page: Page, ticker: str, ordinal: int, class_name: st
     nth = rows.nth(ordinal - 1)
     name = nth.locator('[data-testid="asset-row-name-text"]').inner_text().strip()
     assert name == ticker, (
-        f"esperava ativo {ticker!r} no {ordinal}º lugar da classe {class_name!r}, "
-        f"vi {name!r}"
+        f"esperava ativo {ticker!r} no {ordinal}º lugar da classe {class_name!r}, vi {name!r}"
     )
