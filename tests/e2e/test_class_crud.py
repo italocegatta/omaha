@@ -19,7 +19,7 @@ Class CRUD now lives entirely on the dashboard: the inline
 
 Why a real browser:
 --------------------
-The route-level TestClient tests in ``test_t03_pages_routes.py``
+The route-level TestClient tests in ``test_pages_routes.py``
 can assert the 302 status code of GET /classes, but only a real
 browser verifies the redirect actually lands on the dashboard
 rendering the user's classes. Similarly, the Alpine inline
@@ -46,7 +46,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
-from .test_s04_user_journey import _login_and_select_italo
+from .test_import_user_journey import _login_and_select_italo
 
 # S02-specific selectors (dashboard-based class CRUD, not the
 # retired /classes page). The dashboard template uses the same

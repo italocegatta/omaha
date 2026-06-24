@@ -9,7 +9,7 @@ The ``client`` and ``caplog`` fixtures come from
 :mod:`tests.conftest` — pytest's hierarchical conftest discovery
 applies.
 
-Three tests, mirroring the original :mod:`tests.test_t06_logging`:
+Three tests, mirroring the original :mod:`tests.test_logging`:
 
 1. GET /healthz triggers exactly one ``http_request`` access line
    with the four required fields plus the client IP.
@@ -19,7 +19,7 @@ Three tests, mirroring the original :mod:`tests.test_t06_logging`:
    response the ASGI app sends).
 3. configure_logging installs the JSON formatter and a follow-up
    ``omaha`` log call produces a JSON-parseable line on stdout.
-   (Kept here because the original test_t06_logging covers the
+   (Kept here because the original test_logging covers the
    formatter+configure surface; this is the runtime check that the
    middleware + JSON formatter work together.)
 """

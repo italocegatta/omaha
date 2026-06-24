@@ -46,7 +46,7 @@ TEST_DB_PATH = REPO_ROOT / "data" / "test_e2e.db"
 # so 48 - 1 phantom - 1 footer = 46... no, the test_t02 fixture
 # asserts len(positions) == 48, so 48 RawPositions out, of which
 # 5 are unmatched. The 5 unmatched names are pinned by
-# test_t02_csv_import.UNMATCHED_NAMES.
+# test_csv_import.UNMATCHED_NAMES.
 UNMATCHED_NAMES = ["MXRF11", "BPAC11", "HGLG11", "XPLG11", "VINO11"]
 
 # 48 total - 5 unmatched = 43 assets the test must seed so the

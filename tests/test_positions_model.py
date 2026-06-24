@@ -26,7 +26,7 @@ Five test cases, each backed by its own temporary SQLite database:
 
 The DB-targeted tests use a per-test temporary SQLite file via the
 ``DATABASE_URL`` env var, mirroring the pattern in
-``test_t01_assets_model.py``. ``omaha.config.settings`` is rebuilt
+``test_assets_model.py``. ``omaha.config.settings`` is rebuilt
 lazily (``omaha.db`` reads ``DATABASE_URL`` at import time) so we
 have to drop the cached ``omaha.*`` modules and reimport them per
 test.

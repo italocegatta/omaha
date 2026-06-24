@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
-from .test_s04_user_journey import _create_three_classes, _login_and_select_italo
+from .test_import_user_journey import _create_three_classes, _login_and_select_italo
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 TEST_DB_PATH = REPO_ROOT / "data" / "test_e2e.db"

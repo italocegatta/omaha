@@ -25,7 +25,7 @@ from omaha.models import AssetClass, Profile
 def _clean_asset_classes() -> None:
     """Wipe the ``asset_classes`` table before each S03 e2e test.
 
-    Mirrors the T02 fixture in test_t02_classes_routes.py — the
+    Mirrors the T02 fixture in test_classes_routes.py — the
     session-scoped DB persists between tests in this module too,
     so we clean up to keep the ``len(classes) == N`` assertions
     honest.

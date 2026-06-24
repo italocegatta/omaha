@@ -31,7 +31,7 @@ pytestmark = pytest.mark.unit
 # ``JsonFormatter`` derives ``module`` from the record's ``pathname``,
 # stripping ``tests/`` and ``.py`` automatically. The constant keeps
 # the assertion on a single source of truth.
-_THIS_MODULE = "test_t06_logging"
+_THIS_MODULE = "test_logging"
 
 
 # The seven keys the JSON formatter is contractually required to

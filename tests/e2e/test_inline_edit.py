@@ -44,8 +44,8 @@ mid-step would block the test before reaching the assertion
 it cares about.
 
 Reuses the S04 journey helpers via a relative import
-(``tests/e2e/__init__.py`` exists, so ``from .test_s04_...``
-resolves) — same pattern as ``test_s05_user_journey.py``.
+(``tests/e2e/__init__.py`` exists, so ``from .test_import_...``
+resolves) — same pattern as ``test_user_journey_rebalance.py``.
 """
 
 from __future__ import annotations
@@ -57,8 +57,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
-from .test_s04_user_journey import _login_and_select_italo
-from .test_s05_user_journey import S05_SELECTORS
+from .test_import_user_journey import _login_and_select_italo
+from .test_user_journey_rebalance import S05_SELECTORS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 TEST_DB_PATH = REPO_ROOT / "data" / "test_e2e.db"
@@ -102,7 +102,7 @@ def _create_one_class(page: Page) -> None:
     S02/T07 retired the dedicated ``/classes`` page; the
     dashboard's class editor is now the only class surface.
     We POST to ``/classes`` (the same JSON-less form endpoint
-    used by ``tests/e2e/test_s03_asset_crud.py::_create_seed_classes``)
+    used by ``tests/e2e/test_asset_crud.py::_create_seed_classes``)
     to create a 100% class, then UPDATE its ``target_pct`` to
     60 via direct sqlite3 write so the downstream math
     (``target_pct_total = 40 * 60 / 100 = 24``) is testable.
@@ -146,7 +146,7 @@ def _create_n_assets(page: Page, names: list[str], target_pct: str = "0") -> Non
     dashboard's inline editor (``POST /api/assets``) is the
     canonical asset-creation surface. We use ``page.evaluate`` +
     ``fetch`` (same pattern as
-    ``tests/e2e/test_s03_asset_crud.py::_create_seed_assets``)
+    ``tests/e2e/test_asset_crud.py::_create_seed_assets``)
     to bypass the inline form's Alpine initialization timing —
     the dashboard renders the new asset row on the next reload
     regardless of how it was inserted.

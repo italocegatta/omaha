@@ -75,8 +75,8 @@ def _clean_assets_and_classes(_omaha_test_env: dict[str, str]) -> None:
 
     Why a fresh engine instead of ``from omaha.db import SessionLocal``
     -------------------------------------------------------------------
-    The T01 model tests (``test_t01_classes_model.py``,
-    ``test_t01_positions_model.py``) use ``monkeypatch`` +
+    The T01 model tests (``test_classes_model.py``,
+    ``test_positions_model.py``) use ``monkeypatch`` +
     ``del sys.modules`` to swap ``omaha.db`` to a per-test tmp
     DB. If one of those tests ran first and the swap wasn't
     reverted, ``from omaha.db import SessionLocal`` would target

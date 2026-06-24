@@ -8,7 +8,7 @@ verify the complete S03 user loop end to end:
   per-row confirm dialog → verify dashboard distribution
 
 This test exists because the route-level TestClient tests in
-``test_t03_assets_e2e.py`` bypass the rendered HTML. The
+``test_assets_e2e.py`` bypass the rendered HTML. The
 ``formaction``-based delete button bug that the user found in
 production (delete button placed outside its ``<form>``) was
 invisible to those tests; this one would catch it.

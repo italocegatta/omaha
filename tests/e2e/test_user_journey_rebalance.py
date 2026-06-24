@@ -15,7 +15,7 @@ verify the S05 distribution-visualization polish end to end:
   ``--class-N`` color tokens defined in :root.
 
 This test exists because the TestClient tests in
-``test_t03_pages_routes.py`` only assert data-testid markers
+``test_pages_routes.py`` only assert data-testid markers
 in the rendered HTML string. A real browser catches:
 - A swatch rendered with a transparent / white background
   (the inline `style="background:#..."` was dropped)
@@ -42,7 +42,7 @@ if TYPE_CHECKING:
 # absolute imports of sibling test files don't resolve. We import
 # S04's helpers as a relative import within the tests.e2e package
 # (``tests/e2e/__init__.py`` exists).
-from .test_s04_user_journey import (
+from .test_import_user_journey import (
     FIXTURE_PATH,
     SELECTORS,
     UNMATCHED_NAMES,

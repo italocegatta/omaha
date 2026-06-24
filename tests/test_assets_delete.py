@@ -63,7 +63,7 @@ def _clean_positions_assets_and_classes() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Helpers (mirrors test_s02_t03_classes_delete.py)
+# Helpers (mirrors test_classes_delete.py)
 # ---------------------------------------------------------------------------
 
 

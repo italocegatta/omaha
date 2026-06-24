@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
-from .test_s04_user_journey import _login_and_select_italo
+from .test_import_user_journey import _login_and_select_italo
 
 S03_SELECTORS = {
     "dashboard_add_asset_open": '[data-testid="dashboard-add-asset-open"]',

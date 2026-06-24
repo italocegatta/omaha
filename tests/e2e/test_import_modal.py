@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
-from .test_s04_user_journey import (
+from .test_import_user_journey import (
     ACOES_NAMES,
     MATCHED_NAMES,
     REPO_ROOT,
