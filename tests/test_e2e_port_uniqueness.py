@@ -45,9 +45,7 @@ def bdd_conftest():
     return importlib.import_module("tests.bdd.conftest")
 
 
-def test_e2e_ports_are_unique_across_suites(
-    e2e_conftest, bdd_conftest
-) -> None:
+def test_e2e_ports_are_unique_across_suites(e2e_conftest, bdd_conftest) -> None:
     """All session-scoped uvicorn ports MUST be distinct.
 
     The bdd suite and the e2e suite both spin up a session-scoped
@@ -64,9 +62,11 @@ def test_e2e_ports_are_unique_across_suites(
     e2e_short = e2e_conftest.TEST_PORT_SHORT_TTL
     bdd = bdd_conftest.BDD_PORT
 
-    ports = {"tests.e2e TEST_PORT": e2e_main,
-             "tests.e2e TEST_PORT_SHORT_TTL": e2e_short,
-             "tests.bdd BDD_PORT": bdd}
+    ports = {
+        "tests.e2e TEST_PORT": e2e_main,
+        "tests.e2e TEST_PORT_SHORT_TTL": e2e_short,
+        "tests.bdd BDD_PORT": bdd,
+    }
     assert len(set(ports.values())) == len(ports), (
         f"port collision between session-scoped uvicorn fixtures: "
         f"{ports}. Each uvicorn fixture MUST bind a unique port; "
@@ -83,9 +83,7 @@ def test_e2e_ports_are_unique_across_suites(
         ("tests.e2e TEST_PORT_SHORT_TTL", "TEST_PORT_SHORT_TTL"),
     ],
 )
-def test_e2e_ports_are_in_safe_range(
-    e2e_conftest, port_name: str, port_value: str
-) -> None:
+def test_e2e_ports_are_in_safe_range(e2e_conftest, port_name: str, port_value: str) -> None:
     """The e2e ports MUST sit in the IANA dynamic/private range.
 
     8765/8766/8767 are below 9000 by convention here; anything
@@ -101,9 +99,7 @@ def test_e2e_ports_are_in_safe_range(
     )
 
 
-def test_e2e_short_ttl_port_is_not_bdd_port(
-    e2e_conftest, bdd_conftest
-) -> None:
+def test_e2e_short_ttl_port_is_not_bdd_port(e2e_conftest, bdd_conftest) -> None:
     """Explicit guard for the original flake: e2e short_ttl MUST
     not bind the bdd port. The previous failure mode was exactly
     this collision (8766 shared by both), so call it out by name
@@ -133,5 +129,3 @@ def test_e2e_short_ttl_base_url_matches_declared_port(
         f":{port} (TEST_PORT_SHORT_TTL). The fixture's bound port "
         f"and the URL the tests point at MUST agree."
     )
-
-

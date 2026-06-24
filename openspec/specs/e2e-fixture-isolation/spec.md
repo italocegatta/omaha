@@ -96,4 +96,3 @@ Playwright) so it runs as part of `uv run task test-unit` and
 - **AND** `uv run pytest tests/bdd tests/e2e` runs to completion
   with all tests green (the bdd and e2e suites can coexist in the
   same pytest session)
-
