@@ -69,8 +69,15 @@ TEST_BASE_URL = f"http://127.0.0.1:{TEST_PORT}"
 # PREVIEW_TTL lets the test wait for real expiration instead of
 # backdating the DB. We isolate it on its own port/DB so the global
 # 1s TTL does not break the longer import-modal journeys.
+#
+# Port 8767 (not 8765/8766): 8765 is the main e2e suite; 8766 is
+# the bdd suite. Sharing a port with another session-scoped uvicorn
+# causes the second uvicorn's bind to fail silently and the test
+# ends up talking to whichever uvicorn was bound first (with the
+# wrong DB and the default TTL), see
+# openspec/changes/investigate-expired-preview-flake.
 TEST_DB_PATH_SHORT_TTL = REPO_ROOT / "data" / "test_e2e_short_ttl.db"
-TEST_PORT_SHORT_TTL = 8766
+TEST_PORT_SHORT_TTL = 8767
 TEST_BASE_URL_SHORT_TTL = f"http://127.0.0.1:{TEST_PORT_SHORT_TTL}"
 
 

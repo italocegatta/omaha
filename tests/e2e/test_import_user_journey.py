@@ -427,7 +427,16 @@ class TestS04ImportJourney:
             f"expected preview_id, got {preview_id!r}"
         )
 
-        # PREVIEW_TTL is 1s in e2e (set in conftest.py). Wait for it to expire.
+        # PREVIEW_TTL is 1s in e2e (set in conftest._start_uvicorn via
+        # the ``PREVIEW_TTL_SECONDS=1`` extra_env). The 1.5s margin
+        # covers the upload + parse round-trip so the server's
+        # ``now - created_at`` is comfortably past the 1s boundary on
+        # the next request. The test relies on the e2e short_ttl
+        # uvicorn binding a unique port (8767 — see
+        # tests/test_e2e_port_uniqueness.py); a port collision with
+        # the bdd suite's uvicorn (8766) would silently route the
+        # GET to the wrong server with the default 1h TTL, and the
+        # preview would never expire.
         page.wait_for_timeout(1500)
 
         # Verify the GET preview endpoint returns 404 (expired).
