@@ -25,7 +25,6 @@ drop the cached ``omaha.*`` modules and reimport them per test.
 from __future__ import annotations
 
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
