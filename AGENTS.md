@@ -14,8 +14,9 @@ client.
 1. **Bind `--host 0.0.0.0` always.** Never `127.0.0.1`, never
    `--host localhost`. The dev uvicorn command is:
    `uv run uvicorn omaha.main:app --host 0.0.0.0 --port 8000`.
-2. **Report the LAN IP, never `localhost`.** The canonical address was
-   historically `http://192.168.1.7:8000`. Discover the current URL with
+2. **Report the LAN IP, never `localhost`.** The current canonical
+   address is `http://192.168.1.6:8000` (was historically
+   `http://192.168.1.7:8000`). Discover the current URL with
    `bash scripts/print_lan_url.sh`. If the host IP changes, re-detect with
    `ip -4 addr | grep inet` and use the LAN/Tailscale address. Never
    write `http://localhost:8000` or `http://127.0.0.1:8000` in
