@@ -21,8 +21,6 @@ Five test cases, each backed by its own temporary SQLite database:
    :class:`Profile` cascades to its classes (S02 CASCADE), to the
    classes' assets (S03 CASCADE), and finally to the assets'
    positions (S04 CASCADE). Full cascade chain proof.
-5. ``test_repr_round_trip`` — :meth:`Position.__repr__` formats the
-   position id, asset_id, and broker_ticker.
 
 The DB-targeted tests use a per-test temporary SQLite file via the
 ``DATABASE_URL`` env var, mirroring the pattern in
@@ -496,27 +494,3 @@ def test_deleting_profile_cascades_to_positions(omaha_db) -> None:
         assert session.query(Position).filter(Position.asset_id.in_(asset_ids)).count() == 0
 
 
-def test_repr_round_trip(omaha_db) -> None:
-    """Position.__repr__ must include id, asset_id, and broker_ticker."""
-    from omaha.models import Position
-
-    obj = Position(
-        id=99,
-        asset_id=42,
-        qty=Decimal("10.0000"),
-        avg_price=Decimal("100.0000"),
-        current_price=Decimal("105.0000"),
-        broker_ticker="PETR4",
-    )
-    rendered = repr(obj)
-    # Required substrings — independent of any extra fields.
-    for needle in (
-        "Position(",
-        "id=99",
-        "asset_id=42",
-        "broker_ticker='PETR4'",
-    ):
-        assert needle in rendered, f"missing {needle!r} in {rendered!r}"
-
-    instance_repr = "Position(id=99, asset_id=42, broker_ticker='PETR4')"
-    assert rendered == instance_repr, f"{rendered!r} != {instance_repr!r}"

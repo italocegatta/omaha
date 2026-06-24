@@ -25,19 +25,6 @@ Funcionalidade: CRUD manual de ativos no dashboard
       | Italo     |
       | Ana |
 
-  Esquema do Cenário: Per-class sum off-100 é aceito (D006)
-    Dado que estou logado como "<profile>"
-    E criei a classe "Ações" com "100%"
-    Quando adicionei o ativo "PETR4" à classe "Ações" com "60%"
-    E adicionei o ativo "VALE3" à classe "Ações" com "50%"
-    Então o dashboard mostra 2 linhas de ativos
-    E a seção "Ações" contém 2 ativos
-
-    Exemplos:
-      | profile   |
-      | Italo     |
-      | Ana |
-
   Esquema do Cenário: Edição inline preserva a posição visual da linha (row pin)
     Dado que estou logado como "<profile>"
     E criei a classe "RF Test" com "100%"

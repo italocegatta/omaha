@@ -415,30 +415,6 @@ class TestS01InlineEdit:
             "DB did not persist target_pct=40 after the 200 PATCH"
         )
 
-    def test_inline_edit_blocks_when_sum_neq_100(self, page: Page, live_url: str) -> None:
-        """D006 changed the contract: per-class sum off-100 IS accepted.
-
-        This test was REMOVED in change
-        ``fix-e2e-suite-and-disabled-tests`` because the production
-        code no longer blocks off-100 edits (see change
-        ``fix-inline-edit-off-100-blocking`` and its BDD scenario
-        "Inline edit off-100 é aceito (D006)" in
-        ``tests/bdd/features/asset_crud.feature``). The test name
-        is kept here as a stub so a future regression that
-        re-introduces the blocking behavior fails loudly — the
-        marker assertion below is what survives.
-        """
-        # BUG-AS-FEATURE removed. See module docstring lines 16-24
-        # for the original test description; kept here for
-        # traceability. If you find yourself un-stubbing this,
-        # re-read fix-inline-edit-off-100-blocking first.
-        assert True, (
-            "test_inline_edit_blocks_when_sum_neq_100 intentionally "
-            "removed — D006 says per-class sum off-100 is accepted. "
-            "BDD coverage: tests/bdd/features/asset_crud.feature::"
-            "Inline edit off-100 é aceito (D006)"
-        )
-
     def test_dashboard_displays_four_percentages_per_asset(self, page: Page, live_url: str) -> None:
         """The dashboard renders 4 percentages per asset + the "1 posicao" line is gone.
 

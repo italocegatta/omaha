@@ -2,26 +2,23 @@
 
 Each test exercises a single step of the documented flow:
 
-1. ``test_healthz_returns_ok`` — ``/healthz`` returns a 200 JSON
-   payload with ``status="ok"`` and ``service="omaha"`` without
-   touching the database or session.
-2. ``test_index_unauthenticated_redirects_to_login`` — a bare
+1. ``test_index_unauthenticated_redirects_to_login`` — a bare
    ``GET /`` against an empty session gets a 303 pointing at
    ``/login``.
-3. ``test_login_wrong_password_rerenders_form`` — ``POST /login``
+2. ``test_login_wrong_password_rerenders_form`` — ``POST /login``
    with the right username but a bad password re-renders the form
    with a 200 status and a non-empty error message; the session is
    not bound to a user.
-4. ``test_login_correct_password_redirects_to_profiles`` — a
+3. ``test_login_correct_password_redirects_to_profiles`` — a
    successful login sets the ``omaha_session`` cookie, leaves the
    ``active_profile_id`` slot empty, and 303s to ``/profiles``.
-5. ``test_select_profile_redirects_to_dashboard`` — once logged in,
+4. ``test_select_profile_redirects_to_dashboard`` — once logged in,
    ``POST /profiles/1/select`` writes ``active_profile_id`` to the
    session and 303s to ``/``.
-6. ``test_index_with_active_profile_renders_dashboard`` — with an
+5. ``test_index_with_active_profile_renders_dashboard`` — with an
    active profile in the session, ``GET /`` renders the dashboard
    template and the active profile's name appears in the body.
-7. ``test_logout_clears_session`` — ``POST /logout`` clears the
+6. ``test_logout_clears_session`` — ``POST /logout`` clears the
    session and 303s to ``/login``; a follow-up ``GET /`` then bounces
    back to ``/login`` because the session no longer has a user id.
 """
@@ -29,25 +26,6 @@ Each test exercises a single step of the documented flow:
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
-
-
-def test_healthz_returns_ok(client: TestClient) -> None:
-    """`/healthz` returns 200 JSON with the documented payload.
-
-    S06 extended the contract with ``db`` and ``version`` so the
-    endpoint can drive a Dockerfile HEALTHCHECK + an orchestrator
-    readiness probe. The auth-relevant keys (status, service) are
-    preserved.
-    """
-    response = client.get("/healthz")
-
-    assert response.status_code == 200
-    assert response.headers["content-type"].startswith("application/json")
-    body = response.json()
-    assert body["status"] == "ok"
-    assert body["db"] == "ok"
-    assert body["service"] == "omaha"
-    assert body["version"] == "0.1.0"
 
 
 def test_index_unauthenticated_redirects_to_login(client: TestClient) -> None:

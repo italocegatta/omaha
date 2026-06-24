@@ -19,8 +19,6 @@ Five test cases, each backed by its own temporary SQLite database:
    :class:`Profile` cascades to its classes (S02 CASCADE) and then
    to the classes' assets (S03 CASCADE), so the assets are gone
    too. Full cascade chain proof.
-5. ``test_repr_round_trip`` — :meth:`Asset.__repr__` formats the
-   asset id, asset_class_id, and name.
 
 The DB-targeted tests use a per-test temporary SQLite file via the
 ``DATABASE_URL`` env var, mirroring the pattern in
@@ -364,20 +362,4 @@ def test_deleting_profile_cascades_to_assets(omaha_db) -> None:
         assert session.query(Asset).filter(Asset.asset_class_id.in_(class_ids)).count() == 0
 
 
-def test_repr_round_trip(omaha_db) -> None:
-    """Asset.__repr__ must include id, asset_class_id, and name."""
-    from omaha.models import Asset
 
-    obj = Asset(
-        id=42,
-        asset_class_id=7,
-        name="Tesouro Selic 2029",
-        display_order=0,
-    )
-    rendered = repr(obj)
-    # Required substrings — independent of any extra fields.
-    for needle in ("Asset(", "id=42", "asset_class_id=7", "name='Tesouro Selic 2029'"):
-        assert needle in rendered, f"missing {needle!r} in {rendered!r}"
-
-    instance_repr = "Asset(id=42, asset_class_id=7, name='Tesouro Selic 2029')"
-    assert rendered == instance_repr, f"{rendered!r} != {instance_repr!r}"

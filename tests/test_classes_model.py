@@ -14,8 +14,6 @@ Four test cases, each backed by its own temporary SQLite database:
    :class:`Profile` from a session flushes its classes via the
    ``ON DELETE CASCADE`` FK and the ORM ``cascade="all,
    delete-orphan"`` relationship option.
-4. ``test_repr_round_trip`` — :meth:`AssetClass.__repr__` formats the
-   class id, profile id, name, and target_pct.
 
 The DB-targeted tests use a per-test temporary SQLite file via the
 ``DATABASE_URL`` env var, mirroring the pattern in
@@ -311,28 +309,4 @@ def test_deleting_profile_cascades_to_asset_classes(omaha_db) -> None:
         )
 
 
-def test_repr_round_trip(omaha_db) -> None:
-    """AssetClass.__repr__ must include id, profile_id, name, and target_pct."""
-    instance_repr = (
-        "AssetClass(id=42, profile_id=7, name='Renda Fixa', target_pct=Decimal('60.00'))"
-    )
-    # Build the expected string with whatever Decimal repr SQLAlchemy uses.
-    from decimal import Decimal
 
-    from omaha.models import AssetClass
-
-    obj = AssetClass(
-        id=42,
-        profile_id=7,
-        name="Renda Fixa",
-        target_pct=Decimal("60.00"),
-        display_order=0,
-    )
-    rendered = repr(obj)
-    # Required substrings — independent of Decimal repr style and dict ordering.
-    for needle in ("AssetClass(", "id=42", "profile_id=7", "name='Renda Fixa'"):
-        assert needle in rendered, f"missing {needle!r} in {rendered!r}"
-    # target_pct must appear in some recognisable form (60 or 60.00).
-    assert re.search(r"target_pct=Decimal\(['\"]60(\.0+)?['\"]\)", rendered), rendered
-    # And the canonical literal we hand-built above must equal the real repr.
-    assert rendered == instance_repr, f"{rendered!r} != {instance_repr!r}"

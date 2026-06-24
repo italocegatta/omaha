@@ -235,9 +235,15 @@ def _resolve_chromium() -> str:
     )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def _browser():
-    """Single chromium browser process for the suite (faster than per-test)."""
+    """Per-function chromium browser process to avoid asyncio loop pollution.
+
+    The session-scoped version is faster, but when the BDD subset (or any
+    pytest-asyncio/anyio tests) runs in the same process they leave an
+    asyncio event loop on the main thread. Playwright's sync API refuses
+    to run inside an existing loop, so we isolate each browser instance.
+    """
     from playwright.sync_api import sync_playwright
 
     executable = _resolve_chromium()

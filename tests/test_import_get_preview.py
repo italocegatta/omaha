@@ -94,28 +94,6 @@ def _create_assets(class_map: dict[str, int], names: list[tuple[str, str]]) -> N
         db.close()
 
 
-def _make_preview(profile_id: int, csv_bytes: bytes | None = None) -> int:
-    """Upload CSV and return the preview_id."""
-    if csv_bytes is None:
-        csv_bytes = (FIXTURE_DIR / "sample_broker.csv").read_bytes()
-    resp = _login_and_select_and_upload(profile_id, csv_bytes)
-    return resp.json()["preview_id"]
-
-
-def _login_and_select_and_upload(profile_id: int, csv_bytes: bytes) -> TestClient:
-    """Create a fresh client, log in, select profile, upload CSV, return response."""
-    from omaha.main import app
-
-    with TestClient(app) as client:
-        client.post(
-            "/login",
-            data={"username": "Italo", "password": "test-password"},
-            follow_redirects=False,
-        )
-        client.post(f"/profiles/{profile_id}/select", follow_redirects=False)
-        return client
-
-
 _AUTO_MATCH_NAMES: list[tuple[str, str]] = [
     ("Renda Variável", "PETR4"),
     ("Renda Variável", "VALE3"),

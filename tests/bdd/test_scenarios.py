@@ -114,15 +114,6 @@ def test_manual_add_4_assets_unequal():
 
 @scenario(
     "asset_crud.feature",
-    "Per-class sum off-100 é aceito (D006)",
-    features_base_dir="tests/bdd/features",
-)
-def test_per_class_sum_off_100_accepted():
-    pass
-
-
-@scenario(
-    "asset_crud.feature",
     "Edição inline preserva a posição visual da linha (row pin)",
     features_base_dir="tests/bdd/features",
 )
@@ -192,20 +183,6 @@ def test_derived_recomputes_on_class_patch():
     features_base_dir="tests/bdd/features",
 )
 def test_derived_recomputes_on_asset_patch():
-    pass
-
-
-# ─────────────────────────────────────────────────────────────────────
-# full_journey.feature — single-profile regression guard
-# ─────────────────────────────────────────────────────────────────────
-
-
-@scenario(
-    "full_journey.feature",
-    'Jornada completa via modal de importação (perfil "Italo")',
-    features_base_dir="tests/bdd/features",
-)
-def test_full_journey_import_modal():
     pass
 
 

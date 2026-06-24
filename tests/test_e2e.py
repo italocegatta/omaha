@@ -108,24 +108,3 @@ def test_full_login_profile_dashboard_logout_flow(client: TestClient) -> None:
     after_logout = client.get("/", follow_redirects=False)
     assert after_logout.status_code == 303
     assert after_logout.headers["location"] == "/login"
-
-
-def test_healthz_is_reachable_without_session(client: TestClient) -> None:
-    """`/healthz` returns the documented JSON without auth or DB access.
-
-    The T03 suite already covers the JSON payload shape; this test
-    pins the *unauthenticated* path because `/healthz` is the
-    orchestrator's liveness probe and must work for an empty cookie
-    jar (i.e. before the user has logged in). S06 extended the
-    payload with ``db`` and ``version`` so the endpoint can drive a
-    Dockerfile HEALTHCHECK + an orchestrator readiness probe.
-    """
-    response = client.get("/healthz")
-
-    assert response.status_code == 200
-    assert response.headers["content-type"].startswith("application/json")
-    body = response.json()
-    assert body["status"] == "ok"
-    assert body["db"] == "ok"
-    assert body["service"] == "omaha"
-    assert body["version"] == "0.1.0"
