@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     OMAHA_ENV: str = "development"
     APP_VERSION: str = "0.1.0"
 
+    # S04: preview expiration window. E2E tests set this to 1 second so
+    # the expired-preview test can wait for real expiration instead of
+    # backdating the database. Default 1h keeps production behavior.
+    PREVIEW_TTL_SECONDS: int = 3600
+
     @property
     def effective_log_format(self) -> str:
         """Resolve the log format the runtime should actually use.

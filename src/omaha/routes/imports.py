@@ -40,6 +40,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from omaha.auth import DbSession, require_active_profile, require_user
+from omaha.config import settings
 from omaha.csv_import import (
     RawPosition,
     match_positions,
@@ -57,9 +58,10 @@ logger = logging.getLogger(__name__)
 # generous cap is friendlier than a tight one for the demo CSV.
 MAX_UPLOAD_BYTES = 1 * 1024 * 1024
 
-# A preview is "fresh" for this window. After 1h the review screen
-# renders the "Expirado" state and forces the user to re-upload.
-PREVIEW_TTL = timedelta(hours=1)
+# A preview is "fresh" for this window. After PREVIEW_TTL_SECONDS the
+# review screen renders the "Expirado" state and forces the user to
+# re-upload. The TTL is configurable so e2e tests can use a 1s window.
+PREVIEW_TTL = timedelta(seconds=settings.PREVIEW_TTL_SECONDS)
 
 # Column width mirrors the schema in 0003_assets.
 NAME_MAX_LEN = 64

@@ -57,6 +57,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
+from tests.e2e.conftest import _seed_assets_with_positions_via_import
+
 from .test_import_user_journey import _login_and_select_italo
 from .test_user_journey_rebalance import S05_SELECTORS
 
@@ -254,42 +256,6 @@ def _read_target_pct(profile_name: str, asset_name: str) -> int | None:
         conn.close()
 
 
-def _seed_one_position_for_asset(page: Page, base_url: str, asset_name: str) -> None:
-    """Seed a single position for the asset via direct DB write.
-
-    Test 3 needs an asset with a non-zero position_count so the
-    dashboard's 4-pct grid renders meaningful current_pct values
-    (otherwise current_pct is 0, and ``formatPct(0)`` renders
-    ``"—"`` — the visual affordance for the post-migration
-    zero-state per D015). A single position is enough to make
-    current_pct_total positive and test the 4-cell layout.
-
-    The ``positions`` table schema is:
-    ``(id, asset_id, qty, avg_price, current_price, broker_ticker, imported_at)``
-    (see 0003_assets). ``current_value`` is computed at read
-    time as ``qty * current_price`` by ``pages.py::portfolio_aggregates``
-    — we just need to insert the raw rows.
-    """
-    if not TEST_DB_PATH.exists():
-        return
-    conn = sqlite3.connect(TEST_DB_PATH)
-    try:
-        conn.execute(
-            """
-            INSERT INTO positions (asset_id, qty, avg_price, current_price, broker_ticker)
-            SELECT a.id, 1, 100.0, 110.0, 'TEST-E2E'
-            FROM assets a
-            JOIN asset_classes ac ON a.asset_class_id = ac.id
-            JOIN profiles p ON ac.profile_id = p.id
-            WHERE p.name = 'Italo' AND a.name = ?
-            """,
-            (asset_name,),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-
 class TestS01InlineEdit:
     """3 e2e tests for the M002/S01 inline asset-target editor."""
 
@@ -438,7 +404,7 @@ class TestS01InlineEdit:
         _login_and_select_italo(page, live_url)
         _create_one_class(page)
         _create_n_assets(page, ["Ativo A"], target_pct="10")
-        _seed_one_position_for_asset(page, live_url, "Ativo A")
+        _seed_assets_with_positions_via_import(page, live_url, [("Renda Fixa", "Ativo A")])
 
         page.goto(f"{live_url}/")
         page.wait_for_selector(S01_SELECTORS["dashboard_asset_row"], timeout=5000)

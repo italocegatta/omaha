@@ -360,6 +360,3 @@ def test_deleting_profile_cascades_to_assets(omaha_db) -> None:
 
         assert session.query(AssetClass).filter(AssetClass.profile_id == profile_id).count() == 0
         assert session.query(Asset).filter(Asset.asset_class_id.in_(class_ids)).count() == 0
-
-
-

@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
+from tests.e2e.conftest import _seed_assets_with_positions_via_import
+
 from .test_import_user_journey import _create_three_classes, _login_and_select_italo
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -79,29 +81,6 @@ def _seed_class_with_assets(class_name: str, assets: list[tuple[str, float | int
         conn.close()
 
 
-def _seed_positions(asset_names: list[str]) -> None:
-    """Seed one position per named asset so current_value is non-zero."""
-    if not TEST_DB_PATH.exists():
-        return
-    conn = sqlite3.connect(TEST_DB_PATH)
-    try:
-        for name in asset_names:
-            conn.execute(
-                """
-                INSERT INTO positions (asset_id, qty, avg_price, current_price, broker_ticker)
-                SELECT a.id, 1, 100.0, 110.0, 'TEST-E2E'
-                FROM assets a
-                JOIN asset_classes ac ON a.asset_class_id = ac.id
-                JOIN profiles p ON ac.profile_id = p.id
-                WHERE p.name = 'Italo' AND a.name = ?
-                """,
-                (name,),
-            )
-        conn.commit()
-    finally:
-        conn.close()
-
-
 def _read_target_pct(asset_name: str) -> float | None:
     """Read an asset's target_pct back from the test DB."""
     if not TEST_DB_PATH.exists():
@@ -134,7 +113,9 @@ class TestS10AssetTable:
             "Renda Fixa",
             [("Zebra", 10.0), ("Abacaxi", 30.0), ("Manga", 20.0)],
         )
-        _seed_positions(["Zebra", "Abacaxi", "Manga"])
+        _seed_assets_with_positions_via_import(
+            page, live_url, [("Renda Fixa", name) for name in ["Zebra", "Abacaxi", "Manga"]]
+        )
 
         page.goto(f"{live_url}/")
         page.wait_for_selector(S10_SELECTORS["asset_table"], timeout=5000)
@@ -186,7 +167,9 @@ class TestS10AssetTable:
         """
         _login_and_select_italo(page, live_url)
         _seed_class_with_assets("Renda Fixa", [("Ativo A", 40.0), ("Ativo B", 50.0)])
-        _seed_positions(["Ativo A", "Ativo B"])
+        _seed_assets_with_positions_via_import(
+            page, live_url, [("Renda Fixa", "Ativo A"), ("Renda Fixa", "Ativo B")]
+        )
 
         page.goto(f"{live_url}/")
         page.wait_for_selector(S10_SELECTORS["dashboard_asset_row"], timeout=5000)
@@ -265,7 +248,9 @@ class TestS10AssetTable:
         # without interaction; create two classes.
         _seed_class_with_assets("RF Pós", [("RF1", 103.0)])
         _seed_class_with_assets("Acoes", [("AC1", 110.0)])
-        _seed_positions(["RF1", "AC1"])
+        _seed_assets_with_positions_via_import(
+            page, live_url, [("RF Pós", "RF1"), ("Acoes", "AC1")]
+        )
 
         page.goto(f"{live_url}/")
         page.wait_for_selector(S10_SELECTORS["asset_allocation_alert"], timeout=5000)
@@ -287,7 +272,9 @@ class TestS10AssetTable:
         """When the per-class sum converges to 100%, the alert card hides."""
         _login_and_select_italo(page, live_url)
         _seed_class_with_assets("Renda Fixa", [("Ativo A", 40.0), ("Ativo B", 50.0)])
-        _seed_positions(["Ativo A", "Ativo B"])
+        _seed_assets_with_positions_via_import(
+            page, live_url, [("Renda Fixa", "Ativo A"), ("Renda Fixa", "Ativo B")]
+        )
 
         page.goto(f"{live_url}/")
         page.wait_for_selector(S10_SELECTORS["asset_allocation_alert"], timeout=5000)

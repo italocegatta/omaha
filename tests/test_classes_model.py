@@ -307,6 +307,3 @@ def test_deleting_profile_cascades_to_asset_classes(omaha_db) -> None:
             f"deleting profile {profile_id} should cascade to asset_classes, "
             f"but {remaining} rows remain"
         )
-
-
-

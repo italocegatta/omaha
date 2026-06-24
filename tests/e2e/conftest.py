@@ -51,9 +51,12 @@ import sqlite3
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
 
 import pytest
+
+from tests.e2e.test_import_user_journey import SELECTORS as IMPORT_SELECTORS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 TEST_DB_PATH = REPO_ROOT / "data" / "test_e2e.db"
@@ -61,6 +64,63 @@ TEST_PORT = 8765
 TEST_ADMIN_PASSWORD = "test-password"
 TEST_SECRET_KEY = "test-secret-e2e-do-not-use-in-prod"
 TEST_BASE_URL = f"http://127.0.0.1:{TEST_PORT}"
+
+# Separate server fixture for the expired-preview test: a 1-second
+# PREVIEW_TTL lets the test wait for real expiration instead of
+# backdating the DB. We isolate it on its own port/DB so the global
+# 1s TTL does not break the longer import-modal journeys.
+TEST_DB_PATH_SHORT_TTL = REPO_ROOT / "data" / "test_e2e_short_ttl.db"
+TEST_PORT_SHORT_TTL = 8766
+TEST_BASE_URL_SHORT_TTL = f"http://127.0.0.1:{TEST_PORT_SHORT_TTL}"
+
+
+def _seed_assets_with_positions_via_import(
+    page,
+    live_url: str,
+    class_assignments: list[tuple[str, str]],
+    positions: dict[str, tuple[float, float]] | None = None,
+) -> None:
+    """Drive the dashboard import modal with a small inline CSV.
+
+    Builds a 1-line-header + N-data-rows CSV in /tmp, uploads via
+    dashboard import modal (existing flow), auto-matches everything
+    (no unmatched names), commits. End state: N assets with 1
+    position each, assigned to the requested classes.
+
+    Replaces _seed_one_position_for_asset and _seed_positions,
+    which violated the project's "assets come from import, never
+    from seed" rule (AGENTS.md).
+    """
+    csv_path = Path("/tmp") / f"omaha-test-{uuid.uuid4().hex[:8]}.csv"
+    with csv_path.open("w") as f:
+        f.write('"Posicao consolidada","Cliente: TEST"\n')
+        f.write("Codigo,Ativo,Quantidade,Preco Medio,Preco Atual,Minha Categoria\n")
+        for class_name, asset_name in class_assignments:
+            qty, price = (positions or {}).get(asset_name, (100.0, 100.0))
+            f.write(f"{asset_name},{asset_name},{qty:.2f},100.00,{price:.2f},{class_name}\n")
+
+    # Drive the modal — reuse the flow from test_import_user_journey.py
+    page.click(IMPORT_SELECTORS["dashboard_import_btn"])
+    page.wait_for_selector('[data-testid="import-modal-overlay"]', state="visible", timeout=5000)
+    page.wait_for_timeout(300)  # Alpine modal mounts
+    page.set_input_files(IMPORT_SELECTORS["import_file_input"], str(csv_path))
+    page.wait_for_timeout(300)  # Alpine @change fires
+    page.click(IMPORT_SELECTORS["import_upload_btn"], force=True)
+    page.wait_for_selector(IMPORT_SELECTORS["import_commit_btn"], timeout=10000)
+    # No unmatched — direct commit
+    page.click(IMPORT_SELECTORS["import_commit_btn"], force=True)
+    page.wait_for_timeout(300)
+    error_text = ""
+    try:
+        error_el = page.locator(IMPORT_SELECTORS["import_commit_error"])
+        if error_el.count() and error_el.is_visible():
+            error_text = error_el.inner_text()
+    except Exception:
+        pass
+    if error_text:
+        raise RuntimeError(f"import commit failed: {error_text}")
+    page.wait_for_selector('[data-testid="import-modal-overlay"]', state="hidden", timeout=10000)
+    csv_path.unlink(missing_ok=True)  # cleanup
 
 
 def _wait_for_port(host: str, port: int, timeout: float = 20.0) -> None:
@@ -139,6 +199,71 @@ def live_url() -> str:
         proc.kill()
 
 
+def _start_uvicorn(db_path: Path, port: int, extra_env: dict[str, str]) -> subprocess.Popen:
+    """Start a uvicorn subprocess for e2e with the given DB and env."""
+    if db_path.exists():
+        db_path.unlink()
+
+    env = {
+        **os.environ,
+        "DATABASE_URL": f"sqlite:///{db_path}",
+        "ADMIN_PASSWORD": TEST_ADMIN_PASSWORD,
+        "SECRET_KEY": TEST_SECRET_KEY,
+        "OMAHA_SKIP_STARTUP": "",
+        **extra_env,
+    }
+
+    proc = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "omaha.main:app",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--log-level",
+            "warning",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+
+    try:
+        _wait_for_port("127.0.0.1", port, timeout=30.0)
+    except Exception:
+        proc.terminate()
+        try:
+            out = proc.stdout.read(timeout=2) if proc.stdout else b""  # type: ignore[attr-defined]
+        except Exception:
+            out = b"<unreadable>"
+        raise RuntimeError(
+            f"uvicorn did not start. output:\n{out.decode(errors='replace')}"
+        ) from None
+
+    return proc
+
+
+@pytest.fixture(scope="session")
+def live_url_short_ttl() -> str:
+    """Start a uvicorn process with a 1-second preview TTL."""
+    proc = _start_uvicorn(
+        TEST_DB_PATH_SHORT_TTL,
+        TEST_PORT_SHORT_TTL,
+        extra_env={"PREVIEW_TTL_SECONDS": "1"},
+    )
+    yield TEST_BASE_URL_SHORT_TTL
+
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+
+
 def _wipe_classes_for(profile_name: str) -> None:
     """Delete every AssetClass (and cascading Asset) for ``profile_name``.
 
@@ -193,6 +318,42 @@ def clean_italo() -> None:
     _wipe_classes_for("Italo")
     yield
     # No teardown — the next test's autouse invocation re-cleans.
+
+
+def _wipe_classes_for_in_db(db_path: Path, profile_name: str) -> None:
+    """Variant of ``_wipe_classes_for`` that targets an arbitrary DB file."""
+    if not db_path.exists():
+        return
+    conn = sqlite3.connect(db_path)
+    try:
+        row = conn.execute("SELECT id FROM profiles WHERE name = ?", (profile_name,)).fetchone()
+        if row is None:
+            return
+        pid = row[0]
+        conn.execute(
+            "DELETE FROM positions WHERE asset_id IN "
+            "(SELECT a.id FROM assets a "
+            " JOIN asset_classes ac ON a.asset_class_id = ac.id "
+            " WHERE ac.profile_id = ?)",
+            (pid,),
+        )
+        conn.execute(
+            "DELETE FROM assets WHERE asset_class_id IN "
+            "(SELECT id FROM asset_classes WHERE profile_id = ?)",
+            (pid,),
+        )
+        conn.execute("DELETE FROM asset_classes WHERE profile_id = ?", (pid,))
+        conn.execute("DELETE FROM import_previews WHERE profile_id = ?", (pid,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+@pytest.fixture(autouse=True)
+def clean_italo_short_ttl() -> None:
+    """Wipe ``Italo``'s classes in the short-TTL test DB before each test."""
+    _wipe_classes_for_in_db(TEST_DB_PATH_SHORT_TTL, "Italo")
+    yield
 
 
 def _resolve_chromium() -> str:

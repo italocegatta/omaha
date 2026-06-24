@@ -25,7 +25,6 @@ works.
 from __future__ import annotations
 
 import re
-import sqlite3
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -34,7 +33,6 @@ if TYPE_CHECKING:
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 FIXTURE_PATH = REPO_ROOT / "tests" / "fixtures" / "sample_broker.csv"
-TEST_DB_PATH = REPO_ROOT / "data" / "test_e2e.db"
 
 # The exact 48 names the fixture produces (header + banner + 48
 # data rows, of which 1 is the empty-ticker phantom and 1 is the
@@ -396,20 +394,21 @@ class TestS04ImportJourney:
         for name in UNMATCHED_NAMES:
             assert name in dashboard_text, f"new asset {name!r} not on dashboard after confirm"
 
-    def test_expired_preview_shows_expirado(self, page: Page, live_url: str) -> None:
-        """A backdated preview renders the Expired UI in the modal.
+    def test_expired_preview_shows_expirado(self, page: Page, live_url_short_ttl: str) -> None:
+        """A short-TTL preview expires while the modal is open.
 
         The old test navigated to /import/review to see the expired
         banner. With the dashboard modal, the expired state is checked
         server-side on commit. We test end-to-end: upload via the modal,
-        backdate the preview, then verify the commit returns 400.
+        wait for the 1-second TTL to expire, then verify the commit
+        returns 400.
 
         Additionally, we verify the GET /api/import/preview/<id> endpoint
         returns 404 for expired previews (the server-side check that
         the modal would hit on re-upload).
         """
-        _login_and_select_italo(page, live_url)
-        _create_three_classes(page, live_url)
+        _login_and_select_italo(page, live_url_short_ttl)
+        _create_three_classes(page, live_url_short_ttl)
 
         # Upload via the dashboard modal to create a fresh preview.
         page.click(SELECTORS["dashboard_import_btn"])
@@ -428,16 +427,8 @@ class TestS04ImportJourney:
             f"expected preview_id, got {preview_id!r}"
         )
 
-        # Backdate the preview to 2 hours ago (PREVIEW_TTL is 1h).
-        conn = sqlite3.connect(TEST_DB_PATH)
-        try:
-            conn.execute(
-                "UPDATE import_previews SET created_at = datetime('now', '-2 hours') WHERE id = ?",
-                (preview_id,),
-            )
-            conn.commit()
-        finally:
-            conn.close()
+        # PREVIEW_TTL is 1s in e2e (set in conftest.py). Wait for it to expire.
+        page.wait_for_timeout(1500)
 
         # Verify the GET preview endpoint returns 404 (expired).
         resp = page.evaluate(
