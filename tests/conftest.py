@@ -190,6 +190,7 @@ _UNIT_FILES = frozenset(
         "tests/test_asset_target.py",
         "tests/test_csv_import.py",
         "tests/test_dockerfile.py",
+        "tests/test_e2e_port_uniqueness.py",
         "tests/test_logging.py",
         "tests/test_tokens.py",
     }
