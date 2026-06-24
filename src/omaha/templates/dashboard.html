@@ -82,7 +82,8 @@
       {% set _ = class_data.assets.append({"id": a.id, "name": a.name, "target_pct": (a.target_pct_class | float), "current_pct_class": (a.current_pct_class | float), "current_pct_total": (a.current_pct_total | float), "target_pct_total": (a.target_pct_total | float), "position_count": a.position_count, "current_value": (a.current_value | float)}) %}
       {% endfor %}
       <article class="class-section" data-testid="class-summary-row" data-class-id="{{ c.id }}" x-data='classSection({{ class_data | tojson }})'>
-        <header class="class-section-header" data-testid="dashboard-class-section">
+        <header class="class-section-header" data-testid="class-section-header" @click="isOpen = !isOpen">
+          <span class="class-chevron" data-testid="class-chevron" :class="{'class-chevron--open': isOpen}">▸</span>
           <span class="class-color-swatch" data-testid="class-color-swatch" style="background:{{ c.color }}"></span>
           <span class="class-section-name" data-testid="class-section-name">{{ c.name }}</span>
           <button type="button"
@@ -143,7 +144,7 @@
              x-text="deleteError"
              x-cloak></p>
         </div>
-        <div class="class-section-body">
+        <div class="class-section-body" :class="{'class-section-body--collapsed': !isOpen}" x-show="isOpen">
         <div class="compare-bar" data-testid="class-compare-bar">
           <div class="compare-bar-track compare-bar-target-track">
             <div class="compare-bar-fill compare-bar-target-fill" style="--final-width:{{ c.target_pct }}%"></div>
@@ -187,7 +188,7 @@
               </td>
             </tr>
           </tbody>
-          <template x-for="(a, idx) in sortedAssets" :key="a.id">
+          <template x-for="(a, idx) in displayAssets" :key="a.id">
             <tbody>
               <tr data-testid="dashboard-asset-row" :data-asset-id="a.id" :data-position-count="a.position_count" :style="'--i:' + idx">
                 <td data-testid="asset-row-name">
@@ -725,6 +726,63 @@
   // so the source list is injected here as a plain JS array.
   window.__assetClasses = [{% for c in class_aggregates %}{id: {{ c.id }}, name: {{ c.name | tojson }}}{% if not loop.last %},{% endif %}{% endfor %}];
 
+  // fix-asset-table-ui-bugs: sort comparator factory. Returns a
+  // function that compares two assets by ``key`` in ``dir``
+  // direction. Shared between ``classSection.init()`` (initial
+  // ``displayAssets`` build) and ``classSection.sortBy()``
+  // (user-driven resort). Extracted so the two call sites stay
+  // byte-for-byte identical — a drift here would be a silent
+  // bug (different initial vs user-click order).
+  function sortFn(key, dir) {
+    return function (a, b) {
+      var cmp = 0;
+      if (key === 'class') {
+        cmp = (a.target_pct || 0) - (b.target_pct || 0);
+        if (cmp === 0) {
+          cmp = String(a.name).localeCompare(String(b.name));
+        }
+      } else if (key === 'name') {
+        cmp = String(a.name).localeCompare(String(b.name));
+      } else {
+        var av, bv;
+        switch (key) {
+          case 'qty':
+            av = a.position_count || 0;
+            bv = b.position_count || 0;
+            break;
+          case 'current-value':
+            av = a.current_value || 0;
+            bv = b.current_value || 0;
+            break;
+          case 'target-pct-class':
+            av = a.target_pct || 0;
+            bv = b.target_pct || 0;
+            break;
+          case 'current-pct-class':
+            av = a.current_pct_class || 0;
+            bv = b.current_pct_class || 0;
+            break;
+          case 'target-pct-total':
+            av = a.target_pct_total || 0;
+            bv = b.target_pct_total || 0;
+            break;
+          case 'current-pct-total':
+            av = a.current_pct_total || 0;
+            bv = b.current_pct_total || 0;
+            break;
+          default:
+            av = 0;
+            bv = 0;
+        }
+        cmp = av - bv;
+        if (cmp === 0) {
+          cmp = String(a.name).localeCompare(String(b.name));
+        }
+      }
+      return dir === 'asc' ? cmp : -cmp;
+    };
+  }
+
   // Alpine.js component for the per-class section: 4-percentage
   // view + inline editor for the asset ``target_pct_class`` column.
   //
@@ -753,7 +811,13 @@
       // 3.3: also push the per-class asset-sum so the store's
       // ``classDeltas[this.classId]`` is populated on the first
       // reactive tick (the sticky alert card reads it).
+      // fix-asset-table-ui-bugs: also build the ``displayAssets``
+      // snapshot from ``assets`` using the default sort key. The
+      // snapshot is the array the table renders; PATCH handlers
+      // mutate the row object in place so the order stays frozen
+      // between explicit ``sortBy`` clicks.
       init: function () {
+        this.displayAssets = this.assets.slice().sort(sortFn(this.sortKey, this.sortDir));
         if (Alpine.store('classSum')) {
           var store = Alpine.store('classSum');
           store.register(this.classId, this.classTargetPct);
@@ -887,110 +951,30 @@
       // asset-table-view 6.x/7.x: sortable asset table state. Lives
       // directly on classSection so the row model is shared with the
       // inline editor (no nested component / $parent indirection).
+      // fix-asset-table-ui-bugs: ``displayAssets`` is the snapshot
+      // the table iterates. Built once in ``init()`` and rebuilt by
+      // ``sortBy()`` on user-driven resort. PATCH handlers mutate
+      // the row object in place on this array — no re-sort, so the
+      // row order stays frozen between explicit sort clicks. The
+      // old ``sortedAssets`` getter + ``_pinFrozen`` pair was
+      // replaced because the getter re-ran on every ``assets``
+      // mutation, which (combined with a splice-based pin) caused
+      // the other rows in the class to visibly shift on PATCH.
+      displayAssets: [],
       sortKey: 'class',
       sortDir: 'asc',
-      // The "frozen row" pair pins the just-edited asset to its
-      // pre-edit index in ``sortedAssets`` even after the new
-      // ``target_pct`` would normally re-sort it. This stops the
-      // user-perceived "value didn't persist" bug: the user clicks
-      // row N, types 80, Enter, and the row visibly moves because
-      // 80 makes the asset jump to the bottom of the asc-sorted
-      // list. The pin is set on ``startEdit``/``startEditTotal``
-      // and cleared on the next sortBy click or on cancel — not
-      // on successful PATCH, otherwise the row would jump the
-      // instant the PATCH response lands.
-      frozenAssetId: null,
-      frozenIndex: null,
-      _pinFrozen: function (sorted) {
-        // Splice the frozen asset back to ``frozenIndex`` after the
-        // natural sort. ``frozenIndex`` is clamped to the current
-        // array length so a deletion can never push the pin past
-        // the end. Returns a new array (never mutates ``sorted``).
-        if (this.frozenAssetId === null) return sorted;
-        var idx = -1;
-        for (var i = 0; i < sorted.length; i++) {
-          if (sorted[i].id === this.frozenAssetId) { idx = i; break; }
-        }
-        if (idx < 0) return sorted;
-        var asset = sorted[idx];
-        var out = sorted.slice();
-        out.splice(idx, 1);
-        var pinAt = Math.max(0, Math.min(this.frozenIndex, out.length));
-        out.splice(pinAt, 0, asset);
-        return out;
-      },
       sortBy: function (key) {
-        // User-driven resort: drop the row pin so the table falls
-        // back to the natural sort. Without this, the just-edited
-        // row would stay pinned forever even after the operator
-        // clicks another column header.
-        this.frozenAssetId = null;
-        this.frozenIndex = null;
         if (this.sortKey === key) {
           this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
         } else {
           this.sortKey = key;
           this.sortDir = 'asc';
         }
+        this.displayAssets = this.assets.slice().sort(sortFn(this.sortKey, this.sortDir));
       },
       sortIndicator: function (key) {
         if (this.sortKey !== key) return '';
         return this.sortDir === 'asc' ? '↑' : '↓';
-      },
-      get sortedAssets() {
-        var key = this.sortKey;
-        var dir = this.sortDir;
-        var self = this;
-        var sorted = this.assets.slice().sort(function (a, b) {
-          var cmp = 0;
-          if (key === 'class') {
-            // Within a single class the class name is equal; use the
-            // spec's default secondary key (alvo % classe asc).
-            cmp = (a.target_pct || 0) - (b.target_pct || 0);
-            if (cmp === 0) {
-              cmp = String(a.name).localeCompare(String(b.name));
-            }
-          } else if (key === 'name') {
-            cmp = String(a.name).localeCompare(String(b.name));
-          } else {
-            var av, bv;
-            switch (key) {
-              case 'qty':
-                av = a.position_count || 0;
-                bv = b.position_count || 0;
-                break;
-              case 'current-value':
-                av = a.current_value || 0;
-                bv = b.current_value || 0;
-                break;
-              case 'target-pct-class':
-                av = a.target_pct || 0;
-                bv = b.target_pct || 0;
-                break;
-              case 'current-pct-class':
-                av = a.current_pct_class || 0;
-                bv = b.current_pct_class || 0;
-                break;
-              case 'target-pct-total':
-                av = a.target_pct_total || 0;
-                bv = b.target_pct_total || 0;
-                break;
-              case 'current-pct-total':
-                av = a.current_pct_total || 0;
-                bv = b.current_pct_total || 0;
-                break;
-              default:
-                av = 0;
-                bv = 0;
-            }
-            cmp = av - bv;
-            if (cmp === 0) {
-              cmp = String(a.name).localeCompare(String(b.name));
-            }
-          }
-          return dir === 'asc' ? cmp : -cmp;
-        });
-        return self._pinFrozen(sorted);
       },
 
       // R12: Class inline edit — click the Alvo NN% span to show an
@@ -1066,16 +1050,8 @@
         if (this.editingTotalAssetId !== null) {
           this.cancelEditTotal();
         }
-        var asset = this.assets.find(function (a) { return a.id === id; });
+        var asset = this.displayAssets.find(function (a) { return a.id === id; });
         if (!asset) return;
-        // Pin the row to its current sorted position so the PATCH
-        // response (which mutates ``asset.target_pct``) does not
-        // visibly jump the row out from under the operator.
-        var idx = this.sortedAssets.findIndex(function (a) {
-          return a.id === id;
-        });
-        this.frozenAssetId = id;
-        this.frozenIndex = idx < 0 ? 0 : idx;
         this.editingAssetId = id;
         this.editingValue = String(asset.target_pct);
         this.error = '';
@@ -1084,13 +1060,8 @@
         if (this.editingAssetId !== null) {
           this.cancelEdit();
         }
-        var asset = this.assets.find(function (a) { return a.id === id; });
+        var asset = this.displayAssets.find(function (a) { return a.id === id; });
         if (!asset) return;
-        var idx = this.sortedAssets.findIndex(function (a) {
-          return a.id === id;
-        });
-        this.frozenAssetId = id;
-        this.frozenIndex = idx < 0 ? 0 : idx;
         this.editingTotalAssetId = id;
         this.editingTotalValue = String(asset.target_pct_total);
         this.errorTotal = '';
@@ -1099,15 +1070,11 @@
         this.editingTotalAssetId = null;
         this.editingTotalValue = '';
         this.errorTotal = '';
-        this.frozenAssetId = null;
-        this.frozenIndex = null;
       },
       cancelEdit: function () {
         this.editingAssetId = null;
         this.editingValue = '';
         this.error = '';
-        this.frozenAssetId = null;
-        this.frozenIndex = null;
       },
       commitEdit: function () {
         if (this.editingAssetId === null) return;
@@ -1136,8 +1103,13 @@
             // Update the local row's target_pct and recompute
             // target_pct_total in-place so the user sees the
             // change immediately without a page reload.
+            // fix-asset-table-ui-bugs: mutate ``displayAssets``
+            // (the snapshot the table iterates) so the row order
+            // stays frozen. ``assets`` shares the same object
+            // references, so ``classSum`` keeps reading the
+            // post-PATCH value through ``assets``.
             var parsed = parseFloat(payload.target_pct);
-            var asset = self.assets.find(function (a) { return a.id === id; });
+            var asset = self.displayAssets.find(function (a) { return a.id === id; });
             if (asset) {
               asset.target_pct = isNaN(parsed) ? asset.target_pct : parsed;
               asset.target_pct_total = (asset.target_pct * self.classTargetPct) / 100;
@@ -1198,8 +1170,11 @@
           })
           .then(function (payload) {
             self.isOpen = true;
+            // fix-asset-table-ui-bugs: mutate ``displayAssets`` so
+            // the row order stays frozen after the PATCH (see
+            // ``commitEdit`` for the same pattern + reasoning).
             var parsedPct = parseFloat(payload.target_pct);
-            var asset = self.assets.find(function (a) { return a.id === id; });
+            var asset = self.displayAssets.find(function (a) { return a.id === id; });
             if (asset) {
               asset.target_pct = isNaN(parsedPct) ? asset.target_pct : parsedPct;
               asset.target_pct_total = (asset.target_pct * self.classTargetPct) / 100;

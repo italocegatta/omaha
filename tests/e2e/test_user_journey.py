@@ -33,7 +33,7 @@ SELECTORS = {
     "profile_picker": "form.profile-picker button",
     "nav_dashboard": '[data-testid="nav-dashboard"]',
     "class_summary_row": '[data-testid="class-summary-row"]',
-    "dashboard_class_section": '[data-testid="dashboard-class-section"]',
+    "dashboard_class_section": '[data-testid="class-section-header"]',
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
     "dashboard_add_asset_open": '[data-testid="dashboard-add-asset-open"]',
     "dashboard_add_asset_modal": '[data-testid="dashboard-add-asset-modal"]',
@@ -165,7 +165,8 @@ class TestS03UserJourney:
         _add_asset_via_dashboard(page, live_url, "Reserva", "IVVB11", "0")
 
         # Verify all 3 assets appear on the dashboard.
-        # Sections collapse on reload (D016); rows exist but are not visible.
+        # fix-asset-table-ui-bugs: sections are expanded by default on load
+        # (isOpen: true). The test asserts DOM presence, not visibility.
         # Wait for exactly 3 asset rows to avoid race between page rendering
         # and the count assertion (the 3rd inline save reload races with Alpine).
         page.wait_for_function(
@@ -175,7 +176,9 @@ class TestS03UserJourney:
         asset_rows = page.locator(SELECTORS["dashboard_asset_row"])
 
         # --- 3. Delete the second asset (PETR4 in Acoes).
-        # asset-table-view 8.x: class sections are always visible.
+        # asset-table-view 8.x / fix-asset-table-ui-bugs: class sections
+        # default to expanded (isOpen: true on load); user can collapse
+        # by clicking the header.
 
         # Locate the row whose name is "PETR4" and click its delete button.
         petr4_row = asset_rows.filter(has_text="PETR4")

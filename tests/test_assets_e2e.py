@@ -122,7 +122,7 @@ class TestAssetsE2E:
 
         Seed 3 classes, POST 3 assets (one per class), follow the
         redirect to the dashboard, and assert the dashboard body
-        shows all 3 asset names under the 3 ``dashboard-class-section``
+        shows all 3 asset names under the 3 ``class-section-header``
         blocks.
         """
         profile = _login_and_select_profile(client)
@@ -161,7 +161,7 @@ class TestAssetsE2E:
         for name in ("Tesouro Selic", "PETR4", "IVVB11"):
             assert name in body, f"dashboard body missing {name!r}"
         # Exactly 3 class sections on the dashboard.
-        assert body.count('data-testid="dashboard-class-section"') == 3
+        assert body.count('data-testid="class-section-header"') == 3
         # And the assets show up as dashboard-asset-row.
         assert body.count('data-testid="dashboard-asset-row"') == 3
 

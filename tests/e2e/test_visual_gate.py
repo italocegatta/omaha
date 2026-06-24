@@ -105,7 +105,9 @@ class TestS05VisualGate:
         page.goto(live_url + "/")
         page.wait_for_selector('[data-testid="class-summary-row"]', timeout=5000)
 
-        # asset-table-view 8.x: class sections are always visible.
+        # asset-table-view 8.x / fix-asset-table-ui-bugs: class sections
+        # default to expanded (isOpen: true on load); user can collapse
+        # by clicking the header.
         page.wait_for_selector(
             '[data-testid="dashboard-asset-row"]',
             timeout=5000,

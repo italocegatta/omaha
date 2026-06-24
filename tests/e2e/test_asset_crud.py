@@ -116,7 +116,8 @@ def _create_seed_assets(page: Page, assets: list[tuple[str, str, float | int]]) 
             {"classId": class_id, "assetName": asset_name, "pct": pct},
         )
     page.goto(page.url)
-    # Sections collapse on reload (D016); rows exist in DOM but are not visible.
+    # fix-asset-table-ui-bugs: sections are expanded by default on load
+    # (isOpen: true). The test asserts DOM presence, not visibility.
     page.wait_for_selector(S03_SELECTORS["dashboard_asset_row"], state="attached", timeout=8000)
 
 
@@ -147,7 +148,9 @@ class TestS03AssetCRUD:
         _login_and_select_italo(page, live_url)
         _create_seed_classes(page, [["Renda Fixa", 100]])
 
-        # asset-table-view 8.x/10.x: class sections are always visible,
+        # asset-table-view 8.x/10.x / fix-asset-table-ui-bugs: class sections
+        # default to expanded (isOpen: true on load); user can collapse
+        # by clicking the header.
         # and the add-asset flow uses a dashboard-level modal.
         page.locator(S03_SELECTORS["dashboard_add_asset_open"]).click()
         modal = page.locator(S03_SELECTORS["dashboard_add_asset_modal"])
@@ -176,7 +179,9 @@ class TestS03AssetCRUD:
         _create_seed_classes(page, [["Renda Fixa", 100]])
         _create_seed_assets(page, [("Renda Fixa", "PETR4", 0)])
 
-        # asset-table-view 8.x: class sections are always visible.
+        # asset-table-view 8.x / fix-asset-table-ui-bugs: class sections
+        # default to expanded (isOpen: true on load); user can collapse
+        # by clicking the header.
 
         asset_row = page.locator(S03_SELECTORS["dashboard_asset_row"]).first
         assert asset_row.count() == 1

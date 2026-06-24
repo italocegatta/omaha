@@ -337,7 +337,7 @@ def test_dashboard_renders_distribution_layout(client: TestClient) -> None:
     assert "R$ 100,00" in body, body
 
     # Per-class section markers
-    assert 'data-testid="dashboard-class-section"' in body, body
+    assert 'data-testid="class-section-header"' in body, body
     assert 'data-testid="class-color-swatch"' in body, body
     assert 'data-testid="class-section-name"' in body, body
     assert 'data-testid="class-target-pct-view"' in body, body

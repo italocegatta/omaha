@@ -524,6 +524,28 @@ main { max-width: 1400px; }
   transition: max-height 200ms ease-out, opacity 200ms ease-out;
   opacity: 1;
 }
+/* fix-asset-table-ui-bugs: collapsed state — clips the body to 0
+   height so the asset table rows, compare bars, progress bars, and
+   delete confirm dialog inside are no longer in the rendered
+   layout. The transition on the open state animates the clip
+   smoothly. */
+.class-section-body--collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+/* fix-asset-table-ui-bugs: chevron in the class header. Rotates
+   90deg when the body is open so a single glyph covers both
+   states (no font-swap / DOM toggle, no layout shift). */
+.class-chevron {
+  display: inline-block;
+  width: 1em;
+  text-align: center;
+  color: var(--muted);
+  transition: transform 150ms ease-out;
+}
+.class-chevron--open {
+  transform: rotate(90deg);
+}
 .class-section-stats {
   display: flex; flex-direction: column; align-items: flex-end;
   font-size: 0.72rem; gap: 0.1rem; line-height: 1.2;
@@ -725,7 +747,28 @@ main { max-width: 1400px; }
   border-bottom: 2px solid var(--border);
   font-weight: 600;
   white-space: nowrap;
+  /* fix-asset-table-ui-bugs: animate width so the first-paint
+     (uniform 12.5% per column) transitions smoothly to the spec
+     widths declared in the next block. Also defends against future
+     header text overflow with an ellipsis. */
+  transition: width 200ms ease-out;
+  text-overflow: ellipsis;
+  overflow: hidden;
 }
+/* fix-asset-table-ui-bugs: explicit column widths so the text
+   columns ("Ativo", "Classe") get enough room for typical Brazilian-
+   portuguese asset/class names, and the numeric columns stay
+   readable without wasting space. Sum = 100%. Centralised here (not
+   inline on the <th>) so the layout survives Jinja template
+   regeneration. */
+.asset-table th:nth-child(1) { width: 24%; } /* Ativo            */
+.asset-table th:nth-child(2) { width: 18%; } /* Classe           */
+.asset-table th:nth-child(3) { width:  6%; } /* Qtd              */
+.asset-table th:nth-child(4) { width: 14%; } /* Valor            */
+.asset-table th:nth-child(5) { width: 11%; } /* Alvo % classe    */
+.asset-table th:nth-child(6) { width: 11%; } /* Atual % classe   */
+.asset-table th:nth-child(7) { width:  9%; } /* Alvo % total     */
+.asset-table th:nth-child(8) { width:  7%; } /* Atual % total    */
 
 .asset-table td {
   padding: 0.4rem;

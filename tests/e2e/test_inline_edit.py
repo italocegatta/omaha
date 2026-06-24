@@ -314,8 +314,9 @@ class TestS01InlineEdit:
                 break
         assert target_row is not None, "Ativo A row not found on dashboard"
 
-        # asset-table-view 8.x: class sections are always visible, so
-        # no chevron expand step is needed.
+        # asset-table-view 8.x / fix-asset-table-ui-bugs: class sections
+        # default to expanded (isOpen: true on load); user can collapse
+        # by clicking the header.
 
         # Click the "alvo % classe" cell to enter edit mode. The
         # Alpine ``startEdit`` toggles ``editingAssetId`` to the
