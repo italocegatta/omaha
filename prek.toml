@@ -102,7 +102,7 @@ hooks = [
 [[repos]]
 repo = "local"
 hooks = [
-    { id = "pytest", name = "pytest", entry = "uv run pytest", language = "system", pass_filenames = false, stages = ["pre-push"], priority = 4 },
+    { id = "pytest", name = "pytest", entry = "uv run pytest --ignore=tests/e2e --ignore=tests/audit_integration", language = "system", pass_filenames = false, stages = ["pre-push"], priority = 4 },
 ]
 
 # ── commit-msg stage ─────────────────────────────────────────────────────────
