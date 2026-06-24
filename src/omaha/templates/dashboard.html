@@ -738,6 +738,15 @@
       classId: initial.id,
       className: initial.name,
       classTargetPct: initial.target_pct,
+      // ``classColor`` powers the swatch dot at the start of the
+      // asset-group header row (line 178) and ``classCurrentPct``
+      // powers the "Atual NN%" pill beside the target (line 181).
+      // Both come from the same ``class_data`` blob the section
+      // header reads (``c.color`` / ``c.current_pct`` from the
+      // Jinja context at line 80) — only the per-class
+      // ``classTargetPct`` was being copied before this change.
+      classColor: initial.color,
+      classCurrentPct: initial.current_pct,
 
       // Register with the class allocation sum store on init so the
       // Distribution header shows the live total across all classes.
@@ -880,7 +889,43 @@
       // inline editor (no nested component / $parent indirection).
       sortKey: 'class',
       sortDir: 'asc',
+      // The "frozen row" pair pins the just-edited asset to its
+      // pre-edit index in ``sortedAssets`` even after the new
+      // ``target_pct`` would normally re-sort it. This stops the
+      // user-perceived "value didn't persist" bug: the user clicks
+      // row N, types 80, Enter, and the row visibly moves because
+      // 80 makes the asset jump to the bottom of the asc-sorted
+      // list. The pin is set on ``startEdit``/``startEditTotal``
+      // and cleared on the next sortBy click or on cancel — not
+      // on successful PATCH, otherwise the row would jump the
+      // instant the PATCH response lands.
+      frozenAssetId: null,
+      frozenIndex: null,
+      _pinFrozen: function (sorted) {
+        // Splice the frozen asset back to ``frozenIndex`` after the
+        // natural sort. ``frozenIndex`` is clamped to the current
+        // array length so a deletion can never push the pin past
+        // the end. Returns a new array (never mutates ``sorted``).
+        if (this.frozenAssetId === null) return sorted;
+        var idx = -1;
+        for (var i = 0; i < sorted.length; i++) {
+          if (sorted[i].id === this.frozenAssetId) { idx = i; break; }
+        }
+        if (idx < 0) return sorted;
+        var asset = sorted[idx];
+        var out = sorted.slice();
+        out.splice(idx, 1);
+        var pinAt = Math.max(0, Math.min(this.frozenIndex, out.length));
+        out.splice(pinAt, 0, asset);
+        return out;
+      },
       sortBy: function (key) {
+        // User-driven resort: drop the row pin so the table falls
+        // back to the natural sort. Without this, the just-edited
+        // row would stay pinned forever even after the operator
+        // clicks another column header.
+        this.frozenAssetId = null;
+        this.frozenIndex = null;
         if (this.sortKey === key) {
           this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
         } else {
@@ -896,7 +941,7 @@
         var key = this.sortKey;
         var dir = this.sortDir;
         var self = this;
-        return this.assets.slice().sort(function (a, b) {
+        var sorted = this.assets.slice().sort(function (a, b) {
           var cmp = 0;
           if (key === 'class') {
             // Within a single class the class name is equal; use the
@@ -945,6 +990,7 @@
           }
           return dir === 'asc' ? cmp : -cmp;
         });
+        return self._pinFrozen(sorted);
       },
 
       // R12: Class inline edit — click the Alvo NN% span to show an
@@ -964,12 +1010,8 @@
         this.editClassPctError = '';
       },
       commitEditClassPct: function () {
+        if (this.editingClassPct === false) return;
         var self = this;
-        var parsed = parseFloat(self.editClassPctValue);
-        if (isNaN(parsed) || parsed < 0 || parsed > 100) {
-          self.editClassPctError = 'Valor deve ser entre 0 e 100';
-          return;
-        }
         self.savingClassPct = true;
         self.editClassPctError = '';
         fetch('/api/classes/' + self.classId, {
@@ -1026,6 +1068,14 @@
         }
         var asset = this.assets.find(function (a) { return a.id === id; });
         if (!asset) return;
+        // Pin the row to its current sorted position so the PATCH
+        // response (which mutates ``asset.target_pct``) does not
+        // visibly jump the row out from under the operator.
+        var idx = this.sortedAssets.findIndex(function (a) {
+          return a.id === id;
+        });
+        this.frozenAssetId = id;
+        this.frozenIndex = idx < 0 ? 0 : idx;
         this.editingAssetId = id;
         this.editingValue = String(asset.target_pct);
         this.error = '';
@@ -1036,6 +1086,11 @@
         }
         var asset = this.assets.find(function (a) { return a.id === id; });
         if (!asset) return;
+        var idx = this.sortedAssets.findIndex(function (a) {
+          return a.id === id;
+        });
+        this.frozenAssetId = id;
+        this.frozenIndex = idx < 0 ? 0 : idx;
         this.editingTotalAssetId = id;
         this.editingTotalValue = String(asset.target_pct_total);
         this.errorTotal = '';
@@ -1044,21 +1099,18 @@
         this.editingTotalAssetId = null;
         this.editingTotalValue = '';
         this.errorTotal = '';
+        this.frozenAssetId = null;
+        this.frozenIndex = null;
       },
       cancelEdit: function () {
         this.editingAssetId = null;
         this.editingValue = '';
         this.error = '';
+        this.frozenAssetId = null;
+        this.frozenIndex = null;
       },
       commitEdit: function () {
         if (this.editingAssetId === null) return;
-        if (this.classDeltaMessage !== '') {
-          // Local preview says invalid: do not POST. The UI also
-          // disables the save button, but this is a defense in
-          // depth (Enter key, programmatic submit).
-          this.error = this.classDeltaMessage;
-          return;
-        }
         var id = this.editingAssetId;
         var self = this;
         self.saving = true;
@@ -1124,19 +1176,9 @@
         if (this.editingTotalAssetId === null) return;
         var self = this;
         var parsed = parseFloat(self.editingTotalValue);
-        if (isNaN(parsed) || parsed < 0 || parsed > 100) {
-          self.errorTotal = 'Valor deve ser entre 0 e 100';
-          return;
-        }
-        if (self.classTargetPct <= 0) {
-          self.errorTotal = 'Classe com alvo 0%';
-          return;
-        }
-        var newTargetPct = (parsed * 100) / self.classTargetPct;
-        if (newTargetPct < 0 || newTargetPct > 100) {
-          self.errorTotal = 'Alvo % classe resultante deve ser entre 0 e 100';
-          return;
-        }
+        var newTargetPct = self.classTargetPct > 0
+          ? (parsed * 100) / self.classTargetPct
+          : 0;
         var id = self.editingTotalAssetId;
         self.savingTotal = true;
         self.errorTotal = '';

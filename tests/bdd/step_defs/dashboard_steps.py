@@ -59,3 +59,30 @@ def section_contains_assets(page: Page, name: str, count: int):
     )
     actual = rows.count()
     assert actual == count, f"esperava {count} ativos em {name!r}, vi {actual}"
+
+
+@then(parsers.parse('o ativo "{ticker}" é o {ordinal:d}º da classe "{class_name}"'))
+def asset_ordinal_in_class(page: Page, ticker: str, ordinal: int, class_name: str):
+    """Assert the ``ordinal``-th asset row (1-indexed) inside the
+    given class section is the one whose ``asset-row-name-text``
+    cell exactly matches ``ticker``.
+
+    Used by the row-pin BDD scenario: after an inline edit, the
+    edited asset's row must remain at the same ordinal position it
+    occupied before the edit, even when the new ``target_pct``
+    would naturally re-sort the row elsewhere.
+    """
+    rows = page.locator(
+        f'[data-testid="dashboard-asset-row"]:has([data-testid="asset-row-class"]:text-is("{class_name}"))'
+    )
+    rows.first.wait_for(state="visible", timeout=5000)
+    if ordinal < 1 or ordinal > rows.count():
+        raise AssertionError(
+            f"ordinal {ordinal} fora do range (1..{rows.count()}) para a classe {class_name!r}"
+        )
+    nth = rows.nth(ordinal - 1)
+    name = nth.locator('[data-testid="asset-row-name-text"]').inner_text().strip()
+    assert name == ticker, (
+        f"esperava ativo {ticker!r} no {ordinal}º lugar da classe {class_name!r}, "
+        f"vi {name!r}"
+    )

@@ -48,3 +48,19 @@ Funcionalidade: Ajuste da alocação alvo (PATCH)
       | profile   |
       | Italo     |
       | Ana |
+
+  Esquema do Cenário: Inline edit off-100 é aceito (D006)
+    Dado que estou logado como "<profile>"
+    E criei a classe "RF Pós" com "50%"
+    E adicionei o ativo "Tesouro Selic 2029" à classe "RF Pós" com "40%"
+    E adicionei o ativo "Tesouro IPCA 2029" à classe "RF Pós" com "40%"
+    Quando clico no campo "Alocação alvo da carteira" do ativo "Tesouro Selic 2029"
+    E digito "80"
+    E pressiono "Enter"
+    Então a alocação salva do ativo "Tesouro Selic 2029" é "80.00%"
+    E a seção "RF Pós" contém 2 ativos
+
+    Exemplos:
+      | profile   |
+      | Italo     |
+      | Ana |

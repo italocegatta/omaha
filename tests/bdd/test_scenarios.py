@@ -121,6 +121,15 @@ def test_per_class_sum_off_100_accepted():
     pass
 
 
+@scenario(
+    "asset_crud.feature",
+    "Edição inline preserva a posição visual da linha (row pin)",
+    features_base_dir="tests/bdd/features",
+)
+def test_row_pin_preserves_visual_position():
+    pass
+
+
 # ─────────────────────────────────────────────────────────────────────
 # import.feature
 # ─────────────────────────────────────────────────────────────────────

@@ -37,3 +37,20 @@ Funcionalidade: CRUD manual de ativos no dashboard
       | profile   |
       | Italo     |
       | Ana |
+
+  Esquema do Cenário: Edição inline preserva a posição visual da linha (row pin)
+    Dado que estou logado como "<profile>"
+    E criei a classe "RF Test" com "100%"
+    Quando adicionei o ativo "Alpha" à classe "RF Test" com "10%"
+    E adicionei o ativo "Bravo" à classe "RF Test" com "20%"
+    E adicionei o ativo "Charlie" à classe "RF Test" com "30%"
+    E clico no campo "Alocação alvo da carteira" do ativo "Alpha"
+    E digito "80"
+    E pressiono "Enter"
+    Então o ativo "Alpha" é o 1º da classe "RF Test"
+    E a alocação salva do ativo "Alpha" é "80.00%"
+
+    Exemplos:
+      | profile   |
+      | Italo     |
+      | Ana |
