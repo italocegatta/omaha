@@ -110,10 +110,15 @@ broker CSV's totals the source of truth (instead of the omaha DB).
   lists.
 - Reviewing a PR that introduces asset or position creation outside
   the CSV path — flag it.
-- Loading fixtures in tests is fine (tests have their own scope), but
-  the dev DB the user inspects (URL via `bash scripts/print_lan_url.sh`)
-  must stay asset-free until the user runs `task db-reset` (or an
-  equivalent `seed_from_csv --mode reset` / `upsert`).
+- Loading fixtures in tests is fine (tests have their own scope).
+  For the dev DB the user inspects (URL via `bash scripts/print_lan_url.sh`),
+  the default test-readiness state is **populated** — Italo: 6 asset
+  classes (RF Dinâmica@25 / RF Pós@20 / Internacional@18 / FII@15 /
+  Cripto@8 / Ações@14), 48 assets, 47 positions — produced by
+  `uv run task db-reset`. Run it before any delivery that the user is
+  expected to inspect in the browser. If the user explicitly asks for
+  an asset-free surface (e.g. "I want to test the import flow from
+  scratch"), run `uv run task db-clear-assets` instead.
 
 ## Alpine `<select>` + dynamic `<template x-for>` options — binding gotcha
 
@@ -286,27 +291,56 @@ immediately. A green test suite is **not** the same as "ready to test"
    Expect `{"status":"ok",...}`. If it fails, fix before reporting
    done — do not hand the user a broken URL.
 
-3. **DB in the right state.** Pick one (do not guess):
+3. **DB in the right state.** Default for delivery = **populated**,
+   so the user opens the dashboard and sees real data immediately.
+   Pick one (do not guess, do not default to "leave the DB alone"):
    - **Schema changed** (new migration, model edit) →
      `uv run task db-migrate`.
-   - **User asked for a reset / clean state** → `uv run task db-reset`
-     (wipes DB + reseeds family + Italo via CSV path: 3 classes, 43
-     assets, ready for the manual import-flow test).
-   - **User wants assets cleared only** → `uv run task db-clear-assets`
-     (keeps classes, wipes assets + positions; for a clean import test
-     surface).
-   - **No DB work** → leave the DB alone.
+   - **Default — populated, ready to test** → `uv run task db-reset`
+     (wipes + reseeds Italo via CSV path: **6 asset classes** —
+     RF Dinâmica@25 / RF Pós@20 / Internacional@18 / FII@15 / Cripto@8 /
+     Ações@14 — **48 assets**, **47 positions**). Use this unless the
+     user explicitly asked for an asset-free surface.
+   - **User explicitly asked for asset-free / clean import surface** →
+     `uv run task db-clear-assets` (keeps classes, wipes assets +
+     positions).
+   - **Change only touched the seed / config layer (no browser-visible
+     behavior)** → `uv run task db-seed` (idempotent — sync
+     `password_hash` if `ADMIN_PASSWORD` changed; no asset churn).
 
-   After `db-reset` / `db-clear-assets`, the asset / position count
-   must match what the task is supposed to produce. Spot-check with
-   `sqlite3 data/portfolio.db "select count(*) from assets"` etc.
-   before reporting done.
+   After `db-reset`, **verify the row counts** match. A delivery with
+   an asset-free DB is a delivery failure — the user will see an
+   empty dashboard and assume the feature is broken:
+   ```bash
+   sqlite3 data/portfolio.db "select 'classes',count(*) from asset_classes;
+                              select 'assets',count(*) from assets;
+                              select 'positions',count(*) from positions"
+   # expect: classes=6  assets=48  positions=47
+   ```
+   After `db-clear-assets`, expect `assets=0  positions=0  classes=6`.
 
-4. **Report the LAN URL + DB state.** Final message must include:
+4. **Visual smoke-check the dashboard.** A green `/healthz` is not
+   enough — the user inspects the rendered page. After login + profile
+   select, GET `/` and confirm the seeded class names appear in the
+   HTML:
+   ```bash
+   URL=$(bash scripts/print_lan_url.sh)
+   COOKIE=$(mktemp)
+   curl -fsS -c "$COOKIE" -X POST "$URL/login" \
+     -d "username=Italo" -d "password=distendidos" -o /dev/null
+   curl -fsSL -c "$COOKIE" -b "$COOKIE" \
+     -X POST "$URL/profiles/1/select" -o /dev/null
+   curl -fsSL -b "$COOKIE" "$URL/" | grep -c "RF Din"
+   # expect: >=1 (the class is rendered in the dashboard)
+   ```
+   If zero matches, the dashboard is empty — re-check the DB state,
+   do not report done.
+
+5. **Report the LAN URL + DB state.** Final message must include:
    - `URL=$(bash scripts/print_lan_url.sh)` (the actual URL, not a
      hardcoded IP).
-   - One-line DB state ("asset-free" / "Italo seeded: 3 classes + 43
-     assets" / etc.).
+   - One-line DB state ("Italo: 6 classes + 48 assets + 47 positions"
+     / "asset-free" / etc.).
    - What to test (1-2 sentences, mapped to the user's request).
 
 ### What NOT to do
@@ -315,7 +349,11 @@ immediately. A green test suite is **not** the same as "ready to test"
   test from a test report.
 - Reporting `http://localhost:8000` or `http://127.0.0.1:8000` (see
   "Network access" rule above).
-- Running `db-reset` without being asked — it wipes user data.
+- **Leaving the DB asset-free and reporting done** — the user opens
+  the UI, sees nothing, and concludes the feature is broken. This is
+  the single most common delivery failure.
+- Reporting done without smoke-checking the dashboard renders the
+  expected content.
 - Hardcoding IPs in chat output — use `print_lan_url.sh`.
 - Leaving the prior uvicorn process running — it serves stale code.
 
