@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "alpine-js": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "alpine-js/SKILL.md",
+      "computedHash": "529e2ee02bf6e2adece466e7148b9288182637fefc3b5d4f3eeb18e12906445c"
+    },
     "code-review-excellence": {
       "source": "wshobson/agents",
       "sourceType": "github",
@@ -18,6 +24,12 @@
       "sourceType": "github",
       "skillPath": "plugins/developer-essentials/skills/error-handling-patterns/SKILL.md",
       "computedHash": "73f0570edd3ddc740ba5411932a67954df375530bbffbe7fa0cecd8e59b0711e"
+    },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "4eabc66183767153e404b39d1b839b1c37f2d82d86f0a0d7e880a579d8d62336"
     },
     "git-advanced-workflows": {
       "source": "wshobson/agents",
