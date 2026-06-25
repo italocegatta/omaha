@@ -1,68 +1,23 @@
-## Purpose
+## MODIFIED Requirements
 
-Persistent, sticky alert surface that reports deviation of per-class
-target allocations from 100% and deviation of the portfolio-level
-target allocation from 100%, with severity coloring. The user reads
-this surface while editing assets to converge on a closed 100%
-allocation.
+### Requirement: Per-class alert badge on group header
 
-## Requirements
+The per-class delta MUST be relocated from the inline alert badge
+inside the asset table's per-class group header row
+(`data-testid="asset-group-header-alert"`) to a dedicated delta pill
+in the class section header (`data-testid="class-delta-badge"`).
+The pill MUST show "OK" or "Falta X%" / "Sobra X%" based on the
+per-class asset-target sum deviation. The pill MUST disappear (no
+DOM presence) when the per-asset sum equals 100% within 0.01. The
+pill MUST update reactively without a page reload when the user
+edits any asset in that class. The pill MUST always show when off,
+regardless of whether the user is mid-edit on an asset.
 
-### Requirement: Sticky alert card at top of Ativos section
-
-The dashboard MUST render a sticky alert card at the top of the "Ativos"
-section whenever any class's per-asset target sum differs from 100% by
-more than 0.01, or when the sum of all class target percentages differs
-from 100% by more than 0.01. The card MUST position-stick to the top
-of the section so it remains visible while the user scrolls the asset
-table. The card MUST display the portfolio-level deviation (total
-percent and signed "Falta" or "Sobra" message) and a list of every
-class whose per-asset sum is in deviation, each entry showing the
-class name and its signed "Falta" or "Sobra" message. The card MUST
-be absent from the DOM when every class and the portfolio sum to
-100% within 0.01.
-
-#### Scenario: Card appears with portfolio deviation on load
-
-- **WHEN** the dashboard loads with at least one class whose per-asset
-  sum differs from 100% by more than 0.01
-- **THEN** the card (data-testid="asset-allocation-alert") is visible
-- **AND** the card shows the portfolio total (data-testid="asset-allocation-alert-portfolio")
-  formatted as "NN.NN%"
-- **AND** the card lists the deviating class (data-testid="asset-allocation-alert-class")
-  with the class name and "Falta X%" or "Sobra X%" message
-
-#### Scenario: Card disappears after user converges allocation
-
-- **WHEN** the user edits an asset's target_pct and the resulting
-  per-class sums and portfolio total all equal 100% within 0.01
-- **THEN** the card is removed from the DOM on the next reactive tick
-- **AND** no placeholder or empty-state is shown in its place
-
-#### Scenario: Card stays visible while user scrolls
-
-- **WHEN** the user scrolls the asset table so that rows above the
-  card's natural position are off-screen
-- **THEN** the card remains pinned to the top of the "Ativos" section
-- **AND** the card does not overlap the portfolio header above the
-  section
-
-### Requirement: Per-class delta pill in class section header
-
-The per-class delta MUST be relocated to a dedicated pill in the class
-section header (`data-testid="class-delta-badge"`). The pill MUST show
-"Falta X%" / "Sobra X%" based on the per-class asset-target sum
-deviation. The pill MUST disappear (no DOM presence) when the
-per-asset sum equals 100% within 0.01. The pill MUST update reactively
-without a page reload when the user edits any asset in that class.
-The pill MUST always show when off, regardless of whether the user is
-mid-edit on an asset.
-
-The "OK" wording is dropped: the pill is only rendered when the class
-is off, so there is no need to render an explicit "OK" state. Visual
-confirmation that the class is on target comes from the `Atual` pill
-in the class section header using the `pct-current-pill--ok` modifier
-(green colour).
+The "OK" wording is dropped: the pill is only rendered when the
+class is off, so there is no need to render an explicit "OK"
+state. Visual confirmation that the class is on target comes from
+the `Atual` pill in the class section header using the
+`pct-current-pill--ok` modifier (green colour).
 
 #### Scenario: Pill shows deviation after edit
 
@@ -181,3 +136,27 @@ in this version.
   in `omaha.validators`
 - **AND** a deviation of 0.009 is treated as zero
 - **AND** a deviation of 0.02 is treated as non-zero
+
+## REMOVED Requirements
+
+### Requirement: Asset group header as per-class badge host
+
+**Reason**: The asset table's per-class group header row carried
+the only home of the per-class delta badge
+(`data-testid="asset-group-header-alert"`). The group row is
+removed in this change (see the
+`dashboard-remove-compare-bars-consolidate-pills` change's
+"Per-class group header row" REMOVED entry under the
+`dashboard-inline-editing` capability), so the badge host moves
+with it.
+**Migration**: All consumers of the per-class delta now read
+`data-testid="class-delta-badge"` from the class section header.
+This includes the e2e selectors in
+`tests/e2e/test_user_journey_rebalance.py:69` (the
+`class_delta_badge` selector already points at
+`data-testid="class-delta-badge"` — it continues to work
+unchanged because the test-id is preserved) and the e2e selector
+in `tests/e2e/test_inline_edit.py:81` (same — the test-id is
+preserved). The selectors that explicitly read
+`data-testid="asset-group-header-alert"` (in
+`tests/e2e/test_asset_table.py:39`) are removed.

@@ -1,116 +1,4 @@
-## Purpose
-
-Inline asset class and asset management on the dashboard — edit target
-percentages, add/remove assets, remove classes, and collapse sections
-without leaving the dashboard view. Replaces the standalone editor
-pages.
-## Requirements
-### Requirement: Inline editing de target % da classe
-
-The dashboard MUST allow editing the class target % by clicking the
-`Alvo` pill in the class section header
-(`data-testid="class-target-pct-view"`), which becomes an inline
-input. O save faz PATCH /api/classes/{id} e atualiza o valor local
-sem recarregar a página. The editor SHALL accept numeric input and
-MUST update the displayed value on a 200 response. The editor MUST
-commit on either Enter pressed inside the input or blur of the input,
-and MUST cancel on Escape pressed inside the input. The editor MUST
-NOT render a save or cancel button alongside the input.
-
-#### Scenario: Clique no % abre input inline
-
-- **WHEN** usuário clica no target % da classe (data-testid="class-target-pct-view")
-- **THEN** o span some e um input numérico (data-testid="class-inline-edit-input") aparece
-- **AND** o input contém o valor atual preenchido
-
-#### Scenario: Enter salva e atualiza localmente
-
-- **WHEN** usuário digita novo valor e pressiona Enter
-- **THEN** PATCH /api/classes/{id} é enviado
-- **AND** em caso de 200, o valor local (classTargetPct) é atualizado
-- **AND** o input some e o novo valor aparece no span
-
-#### Scenario: Blur do input salva e atualiza localmente
-
-- **WHEN** usuário digita novo valor e move o foco para fora do input (clique
-  em outra célula, Tab, ou clique fora da tabela)
-- **THEN** PATCH /api/classes/{id} é enviado com o mesmo corpo do Enter
-- **AND** em caso de 200, o valor local (classTargetPct) é atualizado
-- **AND** o input some e o novo valor aparece no span
-
-#### Scenario: Escape cancela a edição
-
-- **WHEN** usuário digita novo valor e pressiona Escape
-- **THEN** nenhuma requisição PATCH é enviada
-- **AND** o input some e o valor anterior permanece no span
-
-#### Scenario: Editor não renderiza botão salvar nem cancelar
-
-- **WHEN** o input inline do target % da classe está aberto
-- **THEN** nenhum elemento com data-testid="class-inline-edit-commit" ou
-  data-testid="class-inline-edit-cancel" está presente no DOM
-
-### Requirement: Remoção de classe com confirmação
-
-The dashboard MUST display a × button in the class header that, when clicked,
-shows a "Remover classe {nome}?" confirmation. Confirmar faz DELETE /api/classes/{id}
-e recarrega a página. The confirmation prompt SHALL display the class name and the
-delete action MUST reload the page on a 204 response.
-
-#### Scenario: Confirmar exclusão recarrega
-
-- **WHEN** usuário clica × (data-testid="class-delete-btn")
-- **THEN** div de confirmação (data-testid="class-delete-confirm") aparece
-- **AND** ao clicar "Sim, remover", DELETE /api/classes/{id} é enviado
-- **AND** em 204, página recarrega
-
-### Requirement: Remoção de ativo com confirmação
-
-The dashboard MUST display a × button per asset that, when clicked, shows a
-"Remover ativo {nome}?" confirmation. Confirmar faz DELETE /api/assets/{id} e
-recarrega a página. The confirmation prompt SHALL display the asset name and the
-delete action MUST reload the page on a 204 response.
-
-#### Scenario: Confirmar exclusão de ativo recarrega
-
-- **WHEN** usuário clica × no ativo (data-testid="dashboard-asset-delete-btn")
-- **THEN** div de confirmação (data-testid="dashboard-asset-delete-confirm") aparece
-- **AND** ao clicar "Sim, remover", DELETE /api/assets/{id} é enviado
-- **AND** em 204, página recarrega
-- **AND** em 409, exibe erro (classe tem posições)
-
-### Requirement: Criação inline de ativo
-
-The previous per-class `+ Ativo` button and inline form MUST be
-removed. A single dashboard-level button
-(`data-testid="dashboard-add-asset-open"`) MUST render inside the
-sidebar (`<aside class="app-sidebar" data-testid="app-sidebar">`)
-introduced by the `dashboard-sidebar` capability, NOT in the previous
-`dashboard-add-asset-actions` div above the class sections. Clicking
-the button SHALL open the add-asset modal
-(`data-testid="add-asset-modal-overlay"`) carrying the class selector,
-asset name, and target_pct inputs. The form MUST POST to `/api/assets`
-and the page MUST reload on a 201 response.
-
-#### Scenario: Sidebar add-asset button opens modal
-
-- **WHEN** the dashboard renders the distribution section
-- **THEN** a single `+ Novo ativo` button
-  (`data-testid="dashboard-add-asset-open"`) is visible inside
-  `data-testid="app-sidebar"`
-- **AND** no element with `data-testid="dashboard-add-asset-actions"`
-  is in the DOM
-- **AND** no per-class `+ Ativo` button is rendered
-
-#### Scenario: Modal opens with empty form
-
-- **WHEN** the user clicks the sidebar `+ Novo ativo` button
-- **THEN** the modal is visible
-- **AND** the class selector, name input, and target_pct input are
-  empty (or default to the first available class)
-- **AND** submitting the form POSTs to /api/assets
-- **AND** on 201, the page reloads and the new asset appears in the
-  table
+## MODIFIED Requirements
 
 ### Requirement: Seções colapsáveis
 The dashboard MUST render a chevron in each class section header. Clicking
@@ -219,35 +107,6 @@ delta.
 - **AND** each asset row consists of exactly one `<tr>` (no
   sibling `<tr>` wrapping a progress bar)
 
-### Requirement: Inline edit of alvo % total
-
-The dashboard MUST allow the user to edit the `alvo % total` cell of
-an asset row inline. Editing this cell MUST compute
-`new_target_pct = target_pct_total * 100 / classTargetPct` and PATCH
-the resulting `target_pct` value to `/api/assets/{id}`. The cell MUST
-show an inline confirm hint while in edit mode describing the effect
-of the edit (recalculation of the asset's `alvo % classe` within the
-class, other assets in the class unaffected). Only one cell per row
-may be in edit mode at a time.
-
-#### Scenario: Edit alvo % total commits a derived alvo % classe
-
-- **WHEN** the user commits a new `alvo % total` value of 20 for
-  an asset whose class has `classTargetPct = 30`
-- **THEN** the client computes `new_target_pct = 20 * 100 / 30 = 66.67`
-- **AND** PATCH /api/assets/{id} is sent with `{"target_pct": "66.67"}`
-- **AND** on 200, the asset's `alvo % classe` cell updates to 66.67
-- **AND** the asset's `alvo % total` cell updates to 20.00
-
-#### Scenario: Confirm hint visible while editing alvo % total
-
-- **WHEN** the user clicks the `alvo % total` cell to edit
-- **THEN** the cell enters edit mode
-- **AND** a confirm hint is visible next to the input (e.g.
-  "recalcula apenas a posição deste ativo dentro da classe")
-- **AND** the `alvo % classe` cell on the same row is in read-only
-  view mode (not editable) while the edit is in flight
-
 ### Requirement: Per-class group is always visible
 
 Each per-class group of asset rows MUST be visible (expanded) on
@@ -270,33 +129,75 @@ group is removed.
 - **THEN** that class's group remains visible
 - **AND** the asset row that was edited remains in the visible group
 
-### Requirement: Edit acceptance is unconditional
+### Requirement: Class section header carries no compare bars
 
-The dashboard's inline editor MUST accept every commit and reflect
-the new value locally. The inline input MUST commit on Enter or blur
-without requiring any save button. The client MUST NOT block the commit when the local
-preview's per-class sum differs from 100%. The PATCH /api/assets/{id}
-endpoint MUST accept the write unconditionally (within per-row range
-0-100) and MUST NOT return 422 for a per-class sum violation. The
-resulting deviation, if any, is surfaced through the
-`asset-allocation-alerts` spec, not by blocking the write.
+The class section MUST NOT render a horizontal target-vs-current
+compare bar (no element with `data-testid="class-compare-bar"` in
+the DOM). The class target and current percentages are surfaced via
+the inline `Alvo` and `Atual` pills in the header
+(see "Class card header inline pills"). The compare bar added no
+information beyond what the two pills already convey.
 
-#### Scenario: Off-100 edit is accepted
+#### Scenario: No compare bar in the class section
 
-- **WHEN** the user commits a new target_pct that pushes the per-class
-  sum to 110% by pressing Enter (or by blurring the input)
-- **THEN** the PATCH call returns 200
-- **AND** the asset's local target_pct updates to the new value
-- **AND** the per-class delta pill (`data-testid="class-delta-badge"`)
-  in the class section header shows "Sobra X%"
+- **WHEN** the dashboard renders a class section that has at least
+  one asset
+- **THEN** no element with `data-testid="class-compare-bar"` is in
+  the DOM
+- **AND** no element with the CSS class `compare-bar` is in the DOM
 
-#### Scenario: Add asset with off-100 sum is accepted
+### Requirement: Inline editing de target % da classe
 
-- **WHEN** the user submits a new asset with `target_pct` such that
-  the per-class sum exceeds 100%
-- **THEN** the POST /api/assets call returns 201
-- **AND** the new row is added to the table
-- **AND** the per-class delta pill reflects the new deviation
+The dashboard MUST allow editing the class target % by clicking the
+`Alvo` pill in the class section header
+(`data-testid="class-target-pct-view"`), which becomes an inline
+input. O save faz PATCH /api/classes/{id} e atualiza o valor local
+sem recarregar a página. The editor SHALL accept numeric input and
+MUST update the displayed value on a 200 response. The editor MUST
+commit on either Enter pressed inside the input or blur of the input,
+and MUST cancel on Escape pressed inside the input. The editor MUST
+NOT render a save or cancel button alongside the input.
+
+#### Scenario: Clique no Alvo pill abre input inline
+
+- **WHEN** the user clicks the `Alvo` pill
+  (`data-testid="class-target-pct-view"`) in a class section header
+- **THEN** the pill is replaced by a numeric input
+  (`data-testid="class-inline-edit-input"`) on the same row
+- **AND** the input is pre-filled with the current `classTargetPct`
+
+#### Scenario: Enter salva e atualiza localmente
+
+- **WHEN** the user types a new value and presses Enter inside the
+  inline input
+- **THEN** PATCH /api/classes/{id} is sent
+- **AND** on a 200 response, the local `classTargetPct` is updated
+- **AND** the input disappears and the `Alvo` pill renders the new
+  value
+
+#### Scenario: Blur do input salva e atualiza localmente
+
+- **WHEN** the user types a new value and moves focus out of the
+  input (click on another cell, Tab, or click outside the table)
+- **THEN** PATCH /api/classes/{id} is sent with the same body as
+  Enter
+- **AND** on a 200 response, the local `classTargetPct` is updated
+- **AND** the input disappears and the `Alvo` pill renders the new
+  value
+
+#### Scenario: Escape cancela a edição
+
+- **WHEN** the user types a new value and presses Escape inside the
+  input
+- **THEN** no PATCH request is sent
+- **AND** the input disappears and the previous value remains on
+  the `Alvo` pill
+
+#### Scenario: Editor não renderiza botão salvar nem cancelar
+
+- **WHEN** the inline input for the class `Alvo` pill is open
+- **THEN** no element with `data-testid="class-inline-edit-commit"`
+  or `data-testid="class-inline-edit-cancel"` is in the DOM
 
 ### Requirement: Client does not pre-validate inline edits before PATCH
 
@@ -346,8 +247,8 @@ to `commitEditClassPct` and `commitEditTotal`.
 
 #### Scenario: Asset inline edit to off-100 is accepted on blur
 
-- **WHEN** the user types a value that would push the per-class
-  sum off 100% in the "alvo % classe" input
+- **WHEN** the user types a value that would push the per-class sum
+  off 100% in the "alvo % classe" input
 - **AND** moves the focus outside the input (clicks another cell,
   the table header, or any non-input element)
 - **THEN** PATCH /api/assets/{id} is sent (the @blur handler runs
@@ -393,39 +294,46 @@ to `commitEditClassPct` and `commitEditTotal`.
 - **AND** the @blur handler's `if (this.editingXxx === null) return;`
   guard bails out without sending a second PATCH
 
-### Requirement: Editor inline do alvo % do ativo segue o mesmo padrão Enter-or-blur
+### Requirement: classSection exposes every class_data field used by the template
 
-The dashboard's per-asset inline editors (`alvo % classe` and `alvo % total` cells) MUST follow the same commit pattern as the class header editor: Enter OR blur of the input commits, Escape cancels, and no save / cancel button is rendered. The live confirm hint on the `alvo % total` editor and the inline error span on either editor MUST continue to render in edit mode.
+The Alpine classSection factory MUST copy every field of the
+class_data blob that the surrounding template references into
+a corresponding camelCase property on the returned component
+object. The blob is built at Jinja render time
+(`src/omaha/templates/dashboard.html:80`) with keys `id`,
+`name`, `target_pct`, `color`, `current_pct`, and `assets`.
+The factory MUST map at least: `id → classId`,
+`name → className`, `target_pct → classTargetPct`,
+`color → classColor`, `current_pct → classCurrentPct`. If a
+template expression references a derived name (e.g.
+`classColor`) that is not initialized in the factory, Alpine
+emits an "Expression Error: X is not defined" warning, the
+expression renders as empty/NaN, and the visual element
+(`.class-color-swatch` background, the `Atual` pill in the
+header) shows broken state.
 
-#### Scenario: Enter no alvo % classe salva
+#### Scenario: Header swatch renders the server's class color
 
-- **WHEN** usuário clica na célula "Alvo % classe" do ativo (data-testid="asset-target-pct-class")
-- **AND** digita novo valor e pressiona Enter
-- **THEN** PATCH /api/assets/{id} é enviado com o novo target_pct
-- **AND** o input some e o novo valor aparece no span
+- **GIVEN** a class "RF Test" with `color: "#0a66c2"` from the
+  server
+- **WHEN** the dashboard renders the class section header
+- **THEN** the swatch element
+  (`data-testid="class-color-swatch"`) has its inline
+  `style="background: #0a66c2"` (or equivalent) applied
+- **AND** the browser console emits zero `classColor is not
+  defined` warnings
 
-#### Scenario: Blur do alvo % classe salva
+#### Scenario: Header "Atual NN%" pill renders the server's current_pct
 
-- **WHEN** usuário digita novo valor no input de "Alvo % classe" e move
-  o foco para fora do input
-- **THEN** PATCH /api/assets/{id} é enviado com o novo target_pct
+- **GIVEN** a class "RF Test" with `current_pct: 25.5` from
+  the server
+- **WHEN** the dashboard renders the class section header
+- **THEN** the `Atual` pill
+  (`data-testid="class-current-pct"`) shows "Atual 25.50%"
+- **AND** the browser console emits zero `classCurrentPct is
+  not defined` warnings
 
-#### Scenario: Enter no alvo % total salva e recalcula
-
-- **WHEN** usuário digita novo valor no input de "Alvo % total" e
-  pressiona Enter
-- **THEN** o cliente calcula `new_target_pct = target_pct_total * 100 / classTargetPct`
-- **AND** PATCH /api/assets/{id} é enviado com o target_pct derivado
-- **AND** em 200, ambas as células (alvo % classe e alvo % total) refletem os novos valores
-
-#### Scenario: Nenhum botão salvar/cancelar nos inputs de ativo
-
-- **WHEN** qualquer input inline do ativo (alvo % classe ou alvo % total)
-  está aberto
-- **THEN** nenhum elemento com data-testid="asset-inline-edit-commit",
-  data-testid="asset-inline-edit-cancel",
-  data-testid="asset-target-pct-total-edit-commit", ou
-  data-testid="asset-target-pct-total-edit-cancel" está presente no DOM
+## ADDED Requirements
 
 ### Requirement: Class card header inline pills
 
@@ -555,131 +463,56 @@ background to confirm the action. The button carries
   steady-state background)
 - **AND** the button's border darkens
 
-### Requirement: Layout do dashboard usa largura máxima de 1400px
+## REMOVED Requirements
 
-The dashboard's `<main>` element MUST render with `max-width: 1400px`
-so content occupies roughly 70% of a 1920px-class monitor with the
-existing 2rem auto margin. The asset table and class sections MUST
-stretch to fill the wider container. The pre-existing
-`@media (max-width: 480px)` collapse rules MUST continue to apply on
-small screens unchanged.
+### Requirement: Per-class group header row
 
-#### Scenario: Dashboard em monitor 1920px ocupa ~73% da largura
+**Reason**: The asset table's per-class group header row
+(`<tr class="asset-group-header">`,
+`data-testid="asset-group-header"`) duplicates the class section
+header's class name + Alvo + Atual, and was the only home of the
+per-class delta badge before the badge moved to the class card
+header. With the move, the group row has no remaining purpose.
+**Migration**: Consumers reading the per-class delta must read
+`data-testid="class-delta-badge"` (now in the class section
+header) instead of the removed
+`data-testid="asset-group-header-alert"`. The BDD step files and
+e2e selectors that reference `class-target-pct-view` and
+`class-current-pct` keep working because the header pills reuse
+those test-ids. E2E selectors that asserted
+`data-testid="asset-group-header-alert"` are removed; new e2e
+scenarios cover the delta pill in the header.
 
-- **WHEN** o dashboard renderiza em viewport de 1920px
-- **THEN** o `<main>` centraliza com `max-width: 1400px`
-- **AND** a tabela de ativos ocupa toda a largura disponível do container
+### Requirement: Per-class compare bar overlay
 
-### Requirement: Inline edit preserves the edited row's visual position
+**Reason**: The horizontal target-vs-current compare bar overlay
+(no longer in the DOM) was redundant with the `Alvo` and `Atual`
+pills in the class section header — the same two numbers, encoded
+twice. Removing the bar cuts one full visual layer from the
+class section and tightens the layout.
+**Migration**: No consumer reads the compare bar after this
+change. The e2e selectors that asserted compare-bar target widths
+(`tests/e2e/test_user_journey_rebalance.py:221-236`) are removed.
+The compare-bar markup, CSS classes
+(`.compare-bar`, `.compare-bar-track`, `.compare-bar-fill`,
+`.compare-bar-target-fill`, `.compare-bar-current-fill`), and the
+`@keyframes fill-bar` animation are removed from
+`src/omaha/static/app.css`. The `:nth-of-type(N) .compare-bar-current-fill`
+colour-cycling rules (`app.css:79-105`) are removed because they
+target an element that no longer exists.
 
-The asset-table view MUST keep the just-edited row in the same
-ordinal position it occupied before the edit, even when the new
-`target_pct` would naturally re-sort the row elsewhere under the
-current sort. The freeze is released on the next user-driven
-`sortBy` click (clicking a column header) or on a new edit on a
-different asset. The freeze is **not** released on successful
-PATCH — releasing on PATCH would cause the row to jump the
-instant the response lands, which is the user-perceived bug the
-freeze exists to prevent.
+### Requirement: Per-asset horizontal progress bar
 
-#### Scenario: Editing the top row keeps it on top
-
-- **GIVEN** a class "RF Test" with 3 assets in this order under
-  the default sort (`target_pct` asc): "Alpha" 10%, "Bravo" 20%,
-  "Charlie" 30%
-- **WHEN** the user clicks the "alvo % classe" cell of the row
-  holding "Alpha" (the top row), types 80, presses Enter
-- **THEN** the row holding "Alpha" is still the top row in the
-  class table
-- **AND** the cell now shows "80.00%"
-
-#### Scenario: Freezing is released on the next sort click
-
-- **GIVEN** the previous scenario's state (Alpha 80% pinned to
-  the top)
-- **WHEN** the user clicks the "Alvo % classe" column header
-  to re-sort
-- **THEN** the row holding "Alpha" is no longer pinned — it sits
-  in the natural position for `target_pct=80` (i.e. among the
-  other high-target assets, not necessarily at the top)
-
-### Requirement: classSection exposes every class_data field used by the template
-
-The Alpine classSection factory MUST copy every field of the
-class_data blob that the surrounding template references into
-a corresponding camelCase property on the returned component
-object. The blob is built at Jinja render time
-(`src/omaha/templates/dashboard.html:80`) with keys `id`,
-`name`, `target_pct`, `color`, `current_pct`, and `assets`.
-The factory MUST map at least: `id → classId`,
-`name → className`, `target_pct → classTargetPct`,
-`color → classColor`, `current_pct → classCurrentPct`. If a
-template expression references a derived name (e.g.
-`classColor`) that is not initialized in the factory, Alpine
-emits an "Expression Error: X is not defined" warning, the
-expression renders as empty/NaN, and the visual element
-(`.class-color-swatch` background, `.pct-current` "Atual NN%"
-pill) shows broken state.
-
-#### Scenario: Header swatch renders the server's class color
-
-- **GIVEN** a class "RF Test" with `color: "#0a66c2"` from the
-  server
-- **WHEN** the dashboard renders the class section header
-- **THEN** the swatch element
-  (`data-testid="class-color-swatch"`) has its inline
-  `style="background: #0a66c2"` (or equivalent) applied
-- **AND** the browser console emits zero `classColor is not
-  defined` warnings
-
-#### Scenario: Header "Atual NN%" pill renders the server's current_pct
-
-- **GIVEN** a class "RF Test" with `current_pct: 25.5` from
-  the server
-- **WHEN** the dashboard renders the class section header
-- **THEN** the pill (`data-testid="class-current-pct"`) shows
-  "Atual 25.50%"
-- **AND** the browser console emits zero `classCurrentPct is
-  not defined` warnings
-
-### Requirement: Column widths
-The asset table MUST declare explicit widths for each of the 8 columns
-so text columns ("Ativo", "Classe") get enough room for typical
-Brazilian-portuguese asset names and class names, and numeric columns
-("Qtd", "Alvo % classe", etc.) stay readable without wasting space.
-
-The widths MUST sum to 100% of the table width and MUST be applied via
-CSS (`.asset-table th:nth-child(N) { width: X%; }`) so the layout is
-centralised and survives Jinja template regeneration. The widths MUST
-be:
-
-| Column | Width |
-|---|---|
-| Ativo | 24% |
-| Classe | 18% |
-| Qtd | 6% |
-| Valor | 14% |
-| Alvo % classe | 11% |
-| Atual % classe | 11% |
-| Alvo % total | 9% |
-| Atual % total | 7% |
-
-The `<th>` elements MUST have `transition: width 200ms` so any width
-change (initial paint, future responsive adjustments) animates
-smoothly.
-
-#### Scenario: Column widths match the spec
-- **WHEN** the dashboard renders the asset table at a standard desktop
-  viewport (1280-1920px wide)
-- **THEN** the `getBoundingClientRect().width` of each `<th>` matches
-  the spec ratio within ±1px tolerance
-- **AND** the sum of all 8 column widths equals the table width (no
-  overflow, no underflow)
-
-#### Scenario: Text columns are wide enough for typical names
-- **WHEN** an asset has a name like "Tesouro Selic 2029" or a class
-  has a name like "Renda Fixa Pós-Fixada"
-- **THEN** the "Ativo" and "Classe" columns render the full name
-  without ellipsis
-- **AND** the numeric columns ("Qtd", "Valor", "Alvo % classe", etc.)
-  render their values with the existing number/percentage formatting
+**Reason**: Each asset row was wrapped in a sibling `<tr>` carrying
+a horizontal progress bar (`data-testid="asset-progress-bar"`).
+The bar encoded the asset's `current_pct_class` as a fill width —
+the same information already on the table's "Atual % classe" cell.
+The bar was decorative visual noise.
+**Migration**: The `<tr>` is removed from the template, the
+`.asset-progress-bar` and `.asset-progress-fill` CSS classes and
+the `@keyframes fill-asset` animation are removed. The `--i` CSS
+custom property that drove the stagger delay is removed from the
+inline style of each asset row in the template (no other style
+consumes `--i`). E2E selectors that asserted
+`data-testid="asset-progress-bar"` and its `--final-width` are
+removed.
