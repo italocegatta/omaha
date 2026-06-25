@@ -263,109 +263,25 @@ session-scoped).
 
 ## Delivery finalization — restart + ready-to-test
 
-After **every** feature, fix, or interface change delivered to the
-user, the app must be left running with the latest code loaded and the
-DB in a known state so the user can hit the LAN URL and test
-immediately. A green test suite is **not** the same as "ready to test"
-— the user inspects the running app, not the test report.
+Run the full checklist before reporting any browser-visible change as
+done. **Use the `refresh-for-test` skill** — it owns the recipe
+(restart uvicorn → smoke-check `/healthz` → pick DB task → verify row
+counts → visual dashboard check → report LAN URL + DB state) and uses
+`taskipy` tasks (`db-migrate` / `db-reset` / `db-clear-assets` /
+`db-seed`) per the table below.
 
-### Checklist (run before reporting done)
+**Rule of thumb:** default for delivery = **populated** (`db-reset` →
+Italo: 6 classes + 48 assets + 47 positions) unless the user explicitly
+asked for an asset-free surface. Leaving the DB asset-free is a
+delivery failure — user opens an empty dashboard and concludes the
+feature is broken.
 
-1. **Restart the dev server** so the new code is loaded. Kill any
-   prior `uvicorn omaha.main:app` and start fresh:
-   ```bash
-   pkill -f "uvicorn omaha.main" || true
-   nohup uv run uvicorn omaha.main:app --host 0.0.0.0 --port 8000 \
-     > /tmp/omaha-uvicorn.log 2>&1 &
-   ```
-   Use `nohup ... &` (or `task serve` in a detached terminal) so the
-   server survives the agent process exiting. Verify it is listening
-   before reporting done.
-
-2. **Smoke-check the LAN URL.** Never `127.0.0.1`, never
-   `localhost`. Use:
-   ```bash
-   URL=$(bash scripts/print_lan_url.sh)
-   curl -fsS "$URL/healthz"
-   ```
-   Expect `{"status":"ok",...}`. If it fails, fix before reporting
-   done — do not hand the user a broken URL.
-
-3. **DB in the right state.** Default for delivery = **populated**,
-   so the user opens the dashboard and sees real data immediately.
-   Pick one (do not guess, do not default to "leave the DB alone"):
-   - **Schema changed** (new migration, model edit) →
-     `uv run task db-migrate`.
-   - **Default — populated, ready to test** → `uv run task db-reset`
-     (wipes + reseeds Italo via CSV path: **6 asset classes** —
-     RF Dinâmica@25 / RF Pós@20 / Internacional@18 / FII@15 / Cripto@8 /
-     Ações@14 — **48 assets**, **47 positions**). Use this unless the
-     user explicitly asked for an asset-free surface.
-   - **User explicitly asked for asset-free / clean import surface** →
-     `uv run task db-clear-assets` (keeps classes, wipes assets +
-     positions).
-   - **Change only touched the seed / config layer (no browser-visible
-     behavior)** → `uv run task db-seed` (idempotent — sync
-     `password_hash` if `ADMIN_PASSWORD` changed; no asset churn).
-
-   After `db-reset`, **verify the row counts** match. A delivery with
-   an asset-free DB is a delivery failure — the user will see an
-   empty dashboard and assume the feature is broken:
-   ```bash
-   sqlite3 data/portfolio.db "select 'classes',count(*) from asset_classes;
-                              select 'assets',count(*) from assets;
-                              select 'positions',count(*) from positions"
-   # expect: classes=6  assets=48  positions=47
-   ```
-   After `db-clear-assets`, expect `assets=0  positions=0  classes=6`.
-
-4. **Visual smoke-check the dashboard.** A green `/healthz` is not
-   enough — the user inspects the rendered page. After login + profile
-   select, GET `/` and confirm the seeded class names appear in the
-   HTML:
-   ```bash
-   URL=$(bash scripts/print_lan_url.sh)
-   COOKIE=$(mktemp)
-   curl -fsS -c "$COOKIE" -X POST "$URL/login" \
-     -d "username=Italo" -d "password=distendidos" -o /dev/null
-   curl -fsSL -c "$COOKIE" -b "$COOKIE" \
-     -X POST "$URL/profiles/1/select" -o /dev/null
-   curl -fsSL -b "$COOKIE" "$URL/" | grep -c "RF Din"
-   # expect: >=1 (the class is rendered in the dashboard)
-   ```
-   If zero matches, the dashboard is empty — re-check the DB state,
-   do not report done.
-
-5. **Report the LAN URL + DB state.** Final message must include:
-   - `URL=$(bash scripts/print_lan_url.sh)` (the actual URL, not a
-     hardcoded IP).
-   - One-line DB state ("Italo: 6 classes + 48 assets + 47 positions"
-     / "asset-free" / etc.).
-   - What to test (1-2 sentences, mapped to the user's request).
-
-### What NOT to do
-
-- "Tests pass, here's the diff" without restarting — the user cannot
-  test from a test report.
-- Reporting `http://localhost:8000` or `http://127.0.0.1:8000` (see
-  "Network access" rule above).
-- **Leaving the DB asset-free and reporting done** — the user opens
-  the UI, sees nothing, and concludes the feature is broken. This is
-  the single most common delivery failure.
-- Reporting done without smoke-checking the dashboard renders the
-  expected content.
-- Hardcoding IPs in chat output — use `print_lan_url.sh`.
-- Leaving the prior uvicorn process running — it serves stale code.
-
-### When this applies
-
-- Any code edit that affects behavior the user will inspect in the
-  browser (routes, templates, static assets, seed, login, models,
-  migrations, config).
-- Any task ending with "test this", "show me", "does it work?", or
-  a direct user request to verify.
-- **Not** for pure doc / OpenSpec / non-runtime edits — those do not
-  need a server restart, but still report what changed.
+| Change type                              | Task                            |
+|------------------------------------------|---------------------------------|
+| New migration / model edit               | `uv run task db-migrate`        |
+| Default — populated, ready to test       | `uv run task db-reset`          |
+| User explicitly asked for empty import   | `uv run task db-clear-assets`   |
+| Only seed / config layer changed         | `uv run task db-seed`           |
 
 ## Taskipy — use `task <name>`, not raw commands
 
