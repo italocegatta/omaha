@@ -195,6 +195,52 @@ top of the page.
 tem classes" becomes "Esta carteira ainda não tem classes"
 so the third-person register survives when viewer ≠ owner.
 
+### D7a — `db-reset` seeds both profiles, not only Italo
+
+Today `pyproject.toml:147` defines `db-reset` as
+`uv run python -m scripts.seed_from_csv --profile italo
+--mode reset`. Ana's profile ends up with only the
+`User` + `Profile` rows from `omaha.seed` — no
+`AssetClass`, no `Asset`, no `Position`. The dashboard
+renders the empty-state copy for Ana, which masks bugs in
+the cross-profile switcher (it "looks empty" even when
+working).
+
+The change extends `db-reset` to invoke
+`scripts.seed_from_csv.py` for BOTH `italo` and `ana` in a
+single run. The per-profile CSV triplets already exist:
+
+- `data/seed/italo_classes.csv` (6 classes, sums to 100)
+- `data/seed/italo_assets.csv` (48 assets)
+- `data/seed/italo_positions.csv` (47 positions)
+- `data/seed/ana_classes.csv` (6 classes, sums to 100)
+- `data/seed/ana_assets.csv` (40 assets)
+- `data/seed/ana_positions.csv` (43 positions)
+
+Implementation: a thin Python wrapper
+(`scripts/reset_both_profiles.py`) that calls
+`run_reset(db, "italo", ...)` then `run_reset(db, "ana",
+...)` inside a single `SessionLocal()` and prints
+per-profile counts. `pyproject.toml:db-reset` points at it.
+`db-clear-assets` stays unchanged (asset wipe is
+profile-agnostic).
+
+**Why not two `db-reset` calls.** Two CLI calls leave a
+window where Italo is reset and Ana is stale; the user
+opens the dashboard in that window and concludes the feature
+is broken. One call, both profiles, deterministic state.
+
+**Why not parallel CSV reads.** The two profiles are
+independent; threading buys nothing for a 28 KB script
+and obscures failure attribution (which profile's CSV
+failed validation).
+
+**Why not migrate the data through SQL.** The CSV path is
+the source of truth per AGENTS.md ("Seed data — CSV path is
+the only asset/position seed"). Inline SQL would violate
+the rule and duplicate the validation logic that
+`seed_from_csv.py` already owns.
+
 ### D7 — BDD workflow `login_and_pick_profile` shrinks to `login_and_land`
 
 ```python
@@ -282,7 +328,10 @@ up the new behavior on next deploy.
 `uv run task db-reset` after the change applies cleanly:
 the seed still creates Italo + Ana users with their
 matching profiles; the new `POST /login` flow picks the
-right profile per user.
+right profile per user; the reset path now wipes and
+re-seeds BOTH profiles (Italo + Ana) from their CSV
+triplets in one invocation, so Ana's dashboard renders
+populated (not empty).
 
 Rollback = revert the commit. No data shape changes.
 

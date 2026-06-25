@@ -58,9 +58,9 @@
 
 ## 9. Visual + manual verification
 
-- [ ] 9.1 `uv run task db-reset` — confirm seed creates Italo + Ana users + their profiles (no schema change).
+- [ ] 9.1 `uv run task db-reset` — confirm seed creates Italo + Ana users + their profiles AND populates BOTH from CSV triplets (Italo: 6 classes / 48 assets / 47 positions; Ana: 6 classes / 40 assets / 43 positions — exact counts may shift with future CSV edits, but both must be > 0 for each layer).
 - [ ] 9.2 `uv run task serve` — manual browser pass: login as Italo → land on `/` showing Italo's dashboard; chip reads "Italo ✓"; logout works.
-- [ ] 9.3 Manual browser pass: login as Ana → land on `/` showing Ana's dashboard; chip reads "Ana ✓"; switch to Italo via chip → reloads showing Italo's classes; viewer label "Ana" appears next to chip.
+- [ ] 9.3 Manual browser pass: login as Ana → land on `/` showing Ana's dashboard (NOT the empty-state copy); chip reads "Ana ✓"; switch to Italo via chip → reloads showing Italo's classes; viewer label "Ana" appears next to chip.
 - [ ] 9.4 Manual browser pass: switch back to Ana via chip → reloads showing Ana's classes; viewer label disappears (chip alone identifies the portfolio).
 - [ ] 9.5 Mobile (resize browser <480px): header stacks; chip remains tappable; nav + sair accessible.
 - [ ] 9.6 `uv run task check` (lint + test-unit) + `uv run task test-integration` — green.
@@ -68,4 +68,16 @@
 ## 10. Delivery
 
 - [ ] 10.1 Run `refresh-for-test` skill (or `uv run task db-reset` + manual `/healthz` + `uv run task serve` restart) before reporting done.
-- [ ] 10.2 Report LAN URL + DB state to the user; confirm both Italo and Ana profiles are visible from either login.
+- [ ] 10.2 Report LAN URL + DB state to the user; confirm both Italo and Ana profiles are visible from either login AND both dashboards render populated (not empty-state).
+
+## 11. Dual-profile seed delivery (`db-reset` covers Ana too)
+
+- [ ] 11.1 `scripts/reset_both_profiles.py` — new wrapper that opens one `SessionLocal()`, calls `run_reset(db, "italo", ...)` then `run_reset(db, "ana", ...)` in order, prints per-profile `classes=… assets=… positions=…` lines, exits non-zero if either profile's validation fails (so the failure is scoped to the failing profile; the other profile's earlier data remains intact).
+- [ ] 11.2 `pyproject.toml:db-reset` — point the taskipy task at `scripts.reset_both_profiles.py` (drop `--profile italo --mode reset` flag from the current `seed_from_csv` invocation). Help text reflects "wipe + reseed BOTH profiles (Italo + Ana)".
+- [ ] 11.3 `pyproject.toml:db-seed-from-csv`, `db-seed-diff`, `db-seed-upsert` — keep the single-profile `seed_from_csv.py --profile italo …` default (back-compat for callers that only want one profile); the Ana variant is reachable via `task db-seed-from-csv -- --profile ana`. Document this in the help text.
+- [ ] 11.4 Add `tests/scripts/test_reset_both_profiles.py` — unit test that monkey-patches `run_reset` to capture calls; asserts the wrapper invokes it twice with `("italo", ...)` then `("ana", ...)`, prints per-profile counts, and exits non-zero when one profile's `run_reset` raises.
+- [ ] 11.5 Add `tests/integration/test_db_reset_both_profiles.py` (or extend the existing `tests/test_db_reset.py`) — integration test that runs `scripts.reset_both_profiles.py` against a fresh SQLite, then asserts both profiles have `AssetClass` rows summing to 100, `Asset` rows per class summing to 100, and at least one `Position` row.
+- [ ] 11.6 `AGENTS.md` "Delivery finalization" table — update the default-row bullet to read "Italo + Ana (both populated: classes + assets + positions)" and update the `Italo: 6 classes + 48 assets + 47 positions` example to the two-profile tuple. Keep the carve-out for `db-clear-assets`.
+- [ ] 11.7 `README.md` "Network access" / "Quick start" — if the README mentions row counts or DB state for the dev DB, update the example to mention both profiles.
+- [ ] 11.8 Manual sanity check — `uv run task db-reset` on a clean DB; SQL: `SELECT p.name, COUNT(DISTINCT ac.id) classes, COUNT(DISTINCT a.id) assets, COUNT(DISTINCT pos.id) positions FROM profiles p LEFT JOIN asset_classes ac ON ac.profile_id = p.id LEFT JOIN assets a ON a.class_id = ac.id LEFT JOIN positions pos ON pos.asset_id = a.id GROUP BY p.id ORDER BY p.display_order;` — confirm two rows, both with non-zero counts.
+

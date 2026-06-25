@@ -53,6 +53,15 @@ other person's portfolio from inside the dashboard header.
   Italo's profile, and sees Italo's seeded classes on the
   dashboard. The "isolation" guarantee the old feature
   asserted is explicitly inverted.
+- **Delivery (`uv run task db-reset`)** seeds BOTH profiles
+  (`Italo` + `Ana`) from their CSV triplets, not only Italo.
+  Today's `db-reset` is `seed_from_csv.py --profile italo
+  --mode reset`; the change extends it to also seed Ana from
+  `data/seed/ana_*.csv` in the same invocation. Ana's
+  dashboard is no longer empty after `db-reset`. The
+  per-profile CSV triplet at `data/seed/` is the source of
+  truth for both profiles' classes, assets, and target
+  allocation (`target_pct`); no inline literal seed paths.
 
 ## Capabilities
 
@@ -64,6 +73,11 @@ other person's portfolio from inside the dashboard header.
 - `cross-profile-sharing`: dashboard data is visible to any
   logged-in user regardless of profile ownership (replaces
   the implicit `cross-profile-isolation` guarantee).
+- `seeded-state`: both `Italo` and `Ana` profiles ship
+  configured and populated (User + Profile + AssetClass +
+  Asset + Position) via the per-profile CSV path, in a
+  single canonical delivery task. Ana's dashboard renders
+  populated (not empty) after `db-reset`.
 
 ### Modified Capabilities
 <!-- No existing spec captures profile selection or
