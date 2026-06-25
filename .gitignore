@@ -44,9 +44,14 @@ tmp/
 
 # Project: SQLite database lives under data/. Keep the directory tracked
 # (so docker compose volume mount works) but ignore the actual DB file.
+# The CSV seed triplet under data/seed/ IS tracked — it's the source of
+# truth for the CSV-driven seed (`scripts/seed_from_csv.py`).
 data/
-data/*
 !data/.gitkeep
+!data/seed/
+!data/seed/*.csv
+!data/seed/*.md
+data/*
 
 # Impeccable skill working dir (design polish session scratchpad).
 .impeccable/

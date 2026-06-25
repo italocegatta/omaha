@@ -1,13 +1,48 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+# Project context — shown to AI when creating artifacts. Keep tight:
+# tech stack, conventions, and the few rules an agent must respect
+# when proposing or implementing changes.
+context: |
+  Tech stack: Python 3.12 + FastAPI + SQLAlchemy 2.0 + Alembic,
+  Jinja2 templates, Alpine.js + Alpine AJAX for the dashboard,
+  SQLite for dev (default `data/portfolio.db`) and Postgres in prod.
+  Tests: pytest + httpx TestClient, pytest-bdd for BDD, Playwright
+  for e2e. Lint: ruff + prek. Task runner: taskipy (`uv run task …`).
+
+  UI language: Brazilian Portuguese (PT-BR). Templates and copy
+  surface in Portuguese; identifiers and code stay English. Currency:
+  BRL (R$). Decimal separator in source xlsx/posicao is the
+  European format (`1.234,56`); the runtime CSV seeds and the DB
+  use plain decimals (`1234.56`).
+
+  CSV-driven seed: per-profile triplet under `data/seed/`
+  (`{profile}_classes.csv`, `{profile}_assets.csv`,
+  `{profile}_positions.csv`) is the source of truth for class
+  targets, per-asset targets, and current positions. Consumed by
+  `scripts/seed_from_csv.py` (taskipy: `db-seed-from-csv`,
+  `db-seed-diff`, `db-seed-upsert`, `db-reset`). Three modes:
+  `reset` (wipe + reseed, destructive), `upsert` (create-or-update),
+  `diff` (no write). The xlsx workbooks and broker CSVs in
+  `~/github/investing/input/` are bootstrap input only — NOT
+  runtime dependencies. Non-tradeable positions use the
+  `qty=1, avg=total_investido, cur=total_atual` sentinel (see
+  `data/seed/README.md`).
+
+  See AGENTS.md for the binding project rules:
+  - "Seed data — CSV path is the only asset/position seed"
+    (no inline / hardcoded asset or position seeds; the CSV path
+    is the single source of truth)
+  - "Network access — non-negotiable" (bind `--host 0.0.0.0`,
+    report the LAN IP, never `localhost`)
+  - "Alpine <select> + dynamic <template x-for> options — binding
+    gotcha" (use `x-init $nextTick` + `x-effect` pattern for
+    server-driven options)
+  - "Test marker rule — explicit allow-list, not pattern matching"
+    (add new `tests/test_*.py` DB-hitting prefixes to
+    `_INTEGRATION_PREFIXES` in `tests/conftest.py`)
+  - "Taskipy — use `task <name>`, not raw commands" (`task serve`
+    binds correctly; `task test-unit`, `task db-reset`, etc.)
 
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.

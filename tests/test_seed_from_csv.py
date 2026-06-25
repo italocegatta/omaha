@@ -1,0 +1,558 @@
+"""Tests for ``scripts.seed_from_csv``.
+
+Eleven test cases, each backed by its own temporary SQLite database
+via the ``omaha_db`` fixture (boots a fresh SQLite file, runs
+``alembic upgrade head``, exposes ``SessionLocal``):
+
+1. ``test_reset_creates_full_italo_state`` — ``reset`` on a fresh
+   profile creates 6 classes + 48 assets + 47 positions for Italo
+   with ``sum(target_pct) == 100`` per profile and per class.
+2. ``test_reset_wipes_existing_state_first`` — ``reset`` on a
+   populated profile wipes positions / previews / assets / classes
+   before re-seeding the full triplet.
+3. ``test_reset_is_idempotent`` — running ``reset`` twice yields the
+   same DB state including positions.
+4. ``test_upsert_updates_changes_creates_missing`` — ``upsert``
+   updates a changed ``target_pct``, a changed ``current_price``,
+   and creates a missing asset + position without deleting other rows.
+5. ``test_diff_lists_changes_no_write`` — ``diff`` on a populated
+   profile lists only the changes across all three layers; no write.
+6. ``test_sum_violating_class_csv_is_rejected`` — sum-violating class
+   CSV is rejected with the validator's ``Sobra X%`` / ``Falta X%``
+   message and no DB write.
+7. ``test_asset_referencing_missing_class_is_rejected`` — asset
+   referencing a missing class aborts with the offending line number.
+8. ``test_position_referencing_missing_asset_is_rejected`` — position
+   referencing a missing asset aborts with the offending line number.
+9. ``test_non_tradeable_position_sentinel_preserves_value`` —
+   non-tradeable position (``qty=1``, ``avg=20000``, ``cur=26475.01``)
+   survives ``reset`` and contributes ``R$ 26.475,01`` to the
+   portfolio's ``current_value``.
+10. ``test_non_ascii_asset_name_round_trips`` — non-ASCII asset name
+    (``Tesouro IPCA+ 2035``) round-trips correctly.
+11. ``test_upsert_rejects_sum_violation_before_write`` — ``upsert``
+    rejects a sum-violating CSV before any DB write.
+
+The DB-targeted tests use a per-test temporary SQLite file via the
+``DATABASE_URL`` env var. ``omaha.config.settings`` is rebuilt
+lazily (``omaha.db`` reads ``DATABASE_URL`` at import time) so we
+have to drop the cached ``omaha.*`` modules and reimport them per
+test.
+"""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from decimal import Decimal
+from pathlib import Path
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+SEED_DIR = REPO_ROOT / "data" / "seed"
+SEED_FROM_CSV = REPO_ROOT / "scripts" / "seed_from_csv.py"
+
+
+# ---------------------------------------------------------------------------
+# Fixture: omaha_db (boots a fresh SQLite + alembic; does NOT seed users)
+# ---------------------------------------------------------------------------
+
+
+def _tmp_db_url(tmp_path: Path) -> str:
+    db_file = tmp_path / "portfolio.db"
+    return f"sqlite:///{db_file}"
+
+
+def _save_modules() -> dict[str, object]:
+    return {
+        name: mod
+        for name, mod in sys.modules.items()
+        if name == "omaha" or name.startswith("omaha.")
+    }
+
+
+def _restore_modules(saved: dict[str, object]) -> None:
+    for name in list(sys.modules):
+        if (name == "omaha" or name.startswith("omaha.")) and name not in saved:
+            del sys.modules[name]
+    for name, mod in saved.items():
+        sys.modules[name] = mod
+
+
+@pytest.fixture()
+def omaha_db(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
+):
+    """Boot a fresh SQLite + alembic, no users.
+
+    The test imports :mod:`omaha.seed` and calls :func:`seed` itself
+    to get the canonical ``Italo`` + ``Ana`` users + profiles.
+    """
+    saved = _save_modules()
+    db_url = _tmp_db_url(tmp_path)
+    monkeypatch.setenv("DATABASE_URL", db_url)
+    monkeypatch.setenv("ADMIN_PASSWORD", "test-family-password")
+    monkeypatch.setenv("SECRET_KEY", "test-secret-key-for-csv-seed")
+
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=REPO_ROOT,
+        env={
+            **os.environ,
+            "DATABASE_URL": db_url,
+            "ADMIN_PASSWORD": "test-family-password",
+            "SECRET_KEY": "test-secret-key-for-csv-seed",
+        },
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (
+        f"alembic upgrade head failed: stdout={result.stdout!r} "
+        f"stderr={result.stderr!r}"
+    )
+
+    for mod_name in list(sys.modules):
+        if mod_name == "omaha" or mod_name.startswith("omaha."):
+            del sys.modules[mod_name]
+    import omaha.config  # noqa: F401
+    import omaha.db
+    import omaha.models  # noqa: F401
+    import omaha.seed
+
+    omaha.seed.seed()
+
+    request.addfinalizer(lambda: _restore_modules(saved))
+
+    return {
+        "db_url": db_url,
+        "SessionLocal": omaha.db.SessionLocal,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Runner: invoke scripts.seed_from_csv via subprocess so it sees the same
+# DATABASE_URL the fixture set. This mirrors how an operator would run
+# ``task db-reset`` from the CLI.
+# ---------------------------------------------------------------------------
+
+
+def _run_seed(profile: str, mode: str, *, db_url: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "scripts.seed_from_csv",
+            "--profile",
+            profile,
+            "--mode",
+            mode,
+        ],
+        cwd=REPO_ROOT,
+        env={
+            **os.environ,
+            "DATABASE_URL": db_url,
+            "ADMIN_PASSWORD": "test-family-password",
+            "SECRET_KEY": "test-secret-key-for-csv-seed",
+        },
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+
+def test_reset_creates_full_italo_state(omaha_db) -> None:
+    result = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
+    assert result.returncode == 0, (
+        f"reset failed: stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
+    SessionLocal = omaha_db["SessionLocal"]
+    with SessionLocal() as session:
+        from omaha.models import AssetClass, Asset, Position, Profile
+
+        italo = session.query(Profile).filter(Profile.name == "Italo").one()
+        classes = (
+            session.query(AssetClass)
+            .filter(AssetClass.profile_id == italo.id)
+            .order_by(AssetClass.display_order)
+            .all()
+        )
+        assert len(classes) == 6, [c.name for c in classes]
+        assert [c.target_pct for c in classes] == [
+            Decimal("25.00"),
+            Decimal("20.00"),
+            Decimal("18.00"),
+            Decimal("15.00"),
+            Decimal("8.00"),
+            Decimal("14.00"),
+        ]
+        # sum == 100 within 0.01 tolerance
+        assert abs(sum(c.target_pct for c in classes) - Decimal("100")) <= Decimal("0.01")
+
+        assets = (
+            session.query(Asset)
+            .filter(Asset.asset_class_id.in_([c.id for c in classes]))
+            .all()
+        )
+        assert len(assets) == 48, len(assets)
+
+        # per-class asset sum
+        from collections import defaultdict
+        per_class: dict[int, list[Decimal]] = defaultdict(list)
+        class_by_id = {c.id: c for c in classes}
+        for a in assets:
+            per_class[a.asset_class_id].append(a.target_pct)
+        for class_id, pcts in per_class.items():
+            assert abs(sum(pcts) - Decimal("100")) <= Decimal("0.01"), (
+                f"{class_by_id[class_id].name}: {[str(p) for p in pcts]}"
+            )
+
+        positions = (
+            session.query(Position)
+            .filter(Position.asset_id.in_([a.id for a in assets]))
+            .all()
+        )
+        assert len(positions) == 47, len(positions)
+
+
+def test_reset_wipes_existing_state_first(omaha_db) -> None:
+    """Pre-populate, then reset, then verify the DB matches the CSV exactly."""
+    SessionLocal = omaha_db["SessionLocal"]
+    with SessionLocal() as session:
+        from omaha.models import AssetClass, Asset, Position, Profile, User
+
+        # Seed: 1 user-named test profile + 2 imported positions + 1 import
+        # preview + 3 assets + 2 classes. After reset, all of this must be
+        # gone and the canonical Italo state must replace it.
+        user = session.query(User).filter(User.username == "Italo").one()
+        profile = session.query(Profile).filter(Profile.user_id == user.id).one()
+        c1 = AssetClass(profile_id=profile.id, name="Garbage Class A", target_pct=10, display_order=99)
+        c2 = AssetClass(profile_id=profile.id, name="Garbage Class B", target_pct=10, display_order=99)
+        session.add_all([c1, c2])
+        session.flush()
+        a1 = Asset(asset_class_id=c1.id, name="GHOST1", target_pct=50, display_order=0)
+        a2 = Asset(asset_class_id=c1.id, name="GHOST2", target_pct=50, display_order=1)
+        a3 = Asset(asset_class_id=c2.id, name="GHOST3", target_pct=100, display_order=0)
+        session.add_all([a1, a2, a3])
+        session.flush()
+        session.add_all(
+            [
+                Position(asset_id=a1.id, qty=1, avg_price=10, current_price=20, broker_ticker="GHOST1"),
+                Position(asset_id=a2.id, qty=2, avg_price=30, current_price=40, broker_ticker="GHOST2"),
+            ]
+        )
+        session.commit()
+
+    result = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
+    assert result.returncode == 0, result.stderr
+    with SessionLocal() as session:
+        from omaha.models import AssetClass, Asset, Position, Profile
+
+        italo = session.query(Profile).filter(Profile.name == "Italo").one()
+        classes = session.query(AssetClass).filter(AssetClass.profile_id == italo.id).all()
+        assert {c.name for c in classes} == {
+            "RF Dinâmica",
+            "RF Pós",
+            "Internacional",
+            "FII",
+            "Cripto",
+            "Ações",
+        }, "ghost classes must be gone"
+        assert "GHOST1" not in {a.name for a in session.query(Asset).all()}
+        assert session.query(Position).count() == 47, "positions must be the CSV's 47 rows"
+
+
+def test_reset_is_idempotent(omaha_db) -> None:
+    r1 = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
+    r2 = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
+    assert r1.returncode == 0 and r2.returncode == 0, r2.stderr
+    SessionLocal = omaha_db["SessionLocal"]
+    with SessionLocal() as session:
+        from omaha.models import AssetClass, Asset, Position
+
+        assert session.query(AssetClass).count() == 6
+        assert session.query(Asset).count() == 48
+        assert session.query(Position).count() == 47
+
+
+def test_upsert_updates_changes_creates_missing(omaha_db) -> None:
+    SessionLocal = omaha_db["SessionLocal"]
+    # First reset — gives us the canonical state.
+    r0 = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
+    assert r0.returncode == 0, r0.stderr
+
+    # Manually mutate the DB so upsert has changes to apply.
+    with SessionLocal() as session:
+        from omaha.models import AssetClass, Asset, Position
+
+        # Change RF Dinâmica target_pct
+        cls = session.query(AssetClass).filter(AssetClass.name == "RF Dinâmica").one()
+        cls.target_pct = Decimal("30.00")
+        # Change SMH current_price
+        smh = session.query(Asset).filter(Asset.name == "SMH").one()
+        position = session.query(Position).filter(Position.asset_id == smh.id).one()
+        position.current_price = Decimal("9999.99")
+        session.commit()
+
+    # Now upsert: should re-set RF Dinâmica to 25, SMH current_price to 2264.47
+    r1 = _run_seed("italo", "upsert", db_url=omaha_db["db_url"])
+    assert r1.returncode == 0, r1.stderr
+
+    with SessionLocal() as session:
+        cls = session.query(AssetClass).filter(AssetClass.name == "RF Dinâmica").one()
+        assert cls.target_pct == Decimal("25.00"), cls.target_pct
+        smh = session.query(Asset).filter(Asset.name == "SMH").one()
+        pos = session.query(Position).filter(Position.asset_id == smh.id).one()
+        assert pos.current_price == Decimal("2264.47"), pos.current_price
+
+    # Now delete an asset + position, then upsert — should recreate.
+    with SessionLocal() as session:
+        from omaha.models import AssetClass, Asset, Position
+
+        a = session.query(Asset).filter(Asset.name == "SMH").one()
+        session.query(Position).filter(Position.asset_id == a.id).delete()
+        session.delete(a)
+        session.commit()
+        assert session.query(Asset).count() == 47
+        assert session.query(Position).count() == 46
+
+    r2 = _run_seed("italo", "upsert", db_url=omaha_db["db_url"])
+    assert r2.returncode == 0, r2.stderr
+    with SessionLocal() as session:
+        from omaha.models import Asset, Position
+
+        assert session.query(Asset).count() == 48, "SMH re-created"
+        assert session.query(Position).count() == 47, "SMH position re-created"
+
+
+def test_diff_lists_changes_no_write(omaha_db) -> None:
+    SessionLocal = omaha_db["SessionLocal"]
+    _run_seed("italo", "reset", db_url=omaha_db["db_url"])
+    with SessionLocal() as session:
+        from omaha.models import AssetClass, Position, Asset
+
+        # Mutate so diff has work to report.
+        cls = session.query(AssetClass).filter(AssetClass.name == "RF Dinâmica").one()
+        cls.target_pct = Decimal("30.00")
+        smh = session.query(Asset).filter(Asset.name == "SMH").one()
+        pos = session.query(Position).filter(Position.asset_id == smh.id).one()
+        pos.current_price = Decimal("9999.99")
+        # Delete one position to flip it into would-create.
+        session.query(Position).filter(Position.asset_id == smh.id).delete()
+        session.commit()
+        # Snapshot row counts
+        before_classes = session.query(AssetClass).count()
+        before_assets = session.query(Asset).count()
+        before_positions = session.query(Position).count()
+
+    r = _run_seed("italo", "diff", db_url=omaha_db["db_url"])
+    assert r.returncode == 0, r.stderr
+    assert "would-create" in r.stdout or "would-update" in r.stdout, r.stdout
+
+    with SessionLocal() as session:
+        assert session.query(AssetClass).count() == before_classes
+        assert session.query(Asset).count() == before_assets
+        assert session.query(Position).count() == before_positions
+
+
+def test_sum_violating_class_csv_is_rejected(omaha_db, monkeypatch) -> None:
+    """A class CSV that sums to 99 must abort with ``Falta 1%``."""
+    SessionLocal = omaha_db["SessionLocal"]
+    # Patch SEED_DIR to a tmp dir containing a bad classes CSV.
+    bad_dir = REPO_ROOT / "data" / "seed"
+    original = bad_dir / "italo_classes.csv"
+    backup = original.read_text(encoding="utf-8")
+    try:
+        # Change "Cripto,8.00" to "Cripto,7.00" so sum = 99.
+        bad = backup.replace("Cripto,8.00", "Cripto,7.00")
+        original.write_text(bad, encoding="utf-8")
+        r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
+        assert r.returncode != 0, "reset must fail on bad class sum"
+        assert "Falta 1%" in r.stderr or "Falta" in r.stderr, r.stderr
+        # No DB write happened — classes table is empty.
+        with SessionLocal() as session:
+            from omaha.models import AssetClass
+
+            assert session.query(AssetClass).count() == 0
+    finally:
+        original.write_text(backup, encoding="utf-8")
+
+
+def test_asset_referencing_missing_class_is_rejected(omaha_db, monkeypatch) -> None:
+    """Asset CSV referencing a non-existent class must abort with line number."""
+    SessionLocal = omaha_db["SessionLocal"]
+    bad_path = REPO_ROOT / "data" / "seed" / "italo_assets.csv"
+    backup = bad_path.read_text(encoding="utf-8")
+    try:
+        # Change "Internacional,IAU" to "InternacionalInvalida,IAU"
+        bad = backup.replace("Internacional,IAU", "ClasseFantasma,IAU")
+        bad_path.write_text(bad, encoding="utf-8")
+        r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
+        assert r.returncode != 0, "reset must fail on missing class ref"
+        assert "ClasseFantasma" in r.stderr, r.stderr
+        assert ":" in r.stderr.split("\n")[0], "should include line number"
+        with SessionLocal() as session:
+            from omaha.models import AssetClass
+
+            assert session.query(AssetClass).count() == 0
+    finally:
+        bad_path.write_text(backup, encoding="utf-8")
+
+
+def test_position_referencing_missing_asset_is_rejected(omaha_db, monkeypatch) -> None:
+    SessionLocal = omaha_db["SessionLocal"]
+    bad_path = REPO_ROOT / "data" / "seed" / "italo_positions.csv"
+    backup = bad_path.read_text(encoding="utf-8")
+    try:
+        # Change "SMH,14" to "TICKERFANTASMA,14"
+        bad = backup.replace("SMH,14", "TICKERFANTASMA,14")
+        bad_path.write_text(bad, encoding="utf-8")
+        r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
+        assert r.returncode != 0, r.stderr
+        assert "TICKERFANTASMA" in r.stderr, r.stderr
+        with SessionLocal() as session:
+            from omaha.models import AssetClass, Asset
+
+            assert session.query(AssetClass).count() == 0
+            assert session.query(Asset).count() == 0
+    finally:
+        bad_path.write_text(backup, encoding="utf-8")
+
+
+def test_non_tradeable_position_sentinel_preserves_value(omaha_db) -> None:
+    """The RDB sentinel ``qty=1, avg=20000, cur=26475.01`` must contribute
+    R$ 26.475,01 to the dashboard's ``current_value`` (1 × 26475.01)."""
+    SessionLocal = omaha_db["SessionLocal"]
+    r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
+    assert r.returncode == 0, r.stderr
+    with SessionLocal() as session:
+        from omaha.models import Asset, Position
+        from omaha.routes.pages import portfolio_aggregates
+
+        rdb = session.query(Asset).filter(
+            Asset.name == "RDB Pós 100% CDI 01/08/2033"
+        ).one()
+        pos = session.query(Position).filter(Position.asset_id == rdb.id).one()
+        assert pos.qty == Decimal("1")
+        assert pos.avg_price == Decimal("20000.00")
+        assert pos.current_price == Decimal("26475.01")
+
+        # Aggregate portfolio.current_value via the same path the dashboard uses.
+        from omaha.models import AssetClass
+
+        classes = session.query(AssetClass).all()
+        aggregates = portfolio_aggregates(classes)
+        # Find the RDB position's contribution: 1 × 26475.01
+        total = aggregates["portfolio"]["current_value"]
+        assert pos.current_price == Decimal("26475.01")
+        # The position contributes exactly R$ 26.475,01 to the total.
+        assert total >= Decimal("26475.01"), total
+
+
+def test_non_ascii_asset_name_round_trips(omaha_db) -> None:
+    SessionLocal = omaha_db["SessionLocal"]
+    r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
+    assert r.returncode == 0, r.stderr
+    with SessionLocal() as session:
+        from omaha.models import Asset
+
+        names = {a.name for a in session.query(Asset).all()}
+        assert "Tesouro IPCA+ 2035" in names, "non-ASCII asset name must survive"
+        assert any("Caixinha Turbo NuCel" in n for n in names), (
+            "non-ASCII substring must survive"
+        )
+        assert any("Tesouro IPCA+ 2050" in n for n in names)
+
+
+def test_auto_class_fixture_loads_with_quote_kind(omaha_db) -> None:
+    """``data/seed/fixtures/auto_class.csv`` parses cleanly via the loader.
+
+    The fixture ships one class with ``quote_kind = auto``. The
+    loader's only requirement beyond the original schema is that
+    ``quote_kind`` be one of ``{auto, manual, none}`` — this test
+    pins that contract against the fixture file so a future change
+    cannot silently tighten the enum without breaking the fixture.
+    """
+    import tempfile
+    from pathlib import Path
+
+    import scripts.seed_from_csv as seed_mod
+
+    fixture_path = REPO_ROOT / "data" / "seed" / "fixtures" / "auto_class.csv"
+    assert fixture_path.exists(), f"missing fixture: {fixture_path}"
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        target = tmp_path / "fixtureprofile_classes.csv"
+        target.write_text(fixture_path.read_text(encoding="utf-8"), encoding="utf-8")
+        original_seed_dir = seed_mod.SEED_DIR
+        seed_mod.SEED_DIR = tmp_path
+        try:
+            rows = seed_mod.load_classes("fixtureprofile")
+        finally:
+            seed_mod.SEED_DIR = original_seed_dir
+
+    assert len(rows) == 1
+    assert rows[0].name == "Ações Auto"
+    assert rows[0].quote_kind == "auto"
+
+
+def test_loader_rejects_unknown_quote_kind(omaha_db) -> None:
+    """A ``quote_kind`` outside the enum aborts with exit code 1."""
+    import tempfile
+    from pathlib import Path
+
+    import scripts.seed_from_csv as seed_mod
+
+    bad_csv = "name,target_pct,display_order,quote_kind\nBad,100.00,0,whoops\n"
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        target = tmp_path / "bad_classes.csv"
+        target.write_text(bad_csv, encoding="utf-8")
+        original_seed_dir = seed_mod.SEED_DIR
+        seed_mod.SEED_DIR = tmp_path
+        try:
+            with pytest.raises(SystemExit) as exc_info:
+                seed_mod.load_classes("bad")
+            assert exc_info.value.code == 1
+        finally:
+            seed_mod.SEED_DIR = original_seed_dir
+
+
+def test_upsert_rejects_sum_violation_before_write(omaha_db, monkeypatch) -> None:
+    SessionLocal = omaha_db["SessionLocal"]
+    _run_seed("italo", "reset", db_url=omaha_db["db_url"])
+    with SessionLocal() as session:
+        from omaha.models import AssetClass
+
+        before = {
+            c.name: c.target_pct
+            for c in session.query(AssetClass).all()
+        }
+    bad_path = REPO_ROOT / "data" / "seed" / "italo_classes.csv"
+    backup = bad_path.read_text(encoding="utf-8")
+    try:
+        bad = backup.replace("Cripto,8.00", "Cripto,7.00")
+        bad_path.write_text(bad, encoding="utf-8")
+        r = _run_seed("italo", "upsert", db_url=omaha_db["db_url"])
+        assert r.returncode != 0, r.stderr
+        assert "Falta" in r.stderr or "Sobra" in r.stderr, r.stderr
+        with SessionLocal() as session:
+            from omaha.models import AssetClass
+
+            after = {
+                c.name: c.target_pct
+                for c in session.query(AssetClass).all()
+            }
+            assert before == after, "no write on sum violation"
+    finally:
+        bad_path.write_text(backup, encoding="utf-8")

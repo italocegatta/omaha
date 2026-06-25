@@ -42,35 +42,55 @@ machine, gets `connection refused`, and wastes a round trip. The
 README's "Network access" section (lines 143-161) already documents
 this; this file is the agent's standing reminder.
 
-## Seed data — classes only, never assets
+## Seed data — CSV path is the only asset/position seed
 
-**Rule:** automated / agent-driven data creation is limited to
-**classes** (AssetClass rows). The agent MUST NOT create **assets**
-(Asset rows) — neither via `seed.py`, fixtures, ad-hoc scripts, demo
-wiring, nor any change under `openspec/changes/`.
+**Rule:** automated / agent-driven creation of **`AssetClass`** rows,
+**`Asset`** rows, AND **`Position`** rows is permitted **only via the
+CSV path** under `data/seed/` consumed by `scripts/seed_from_csv.py`
+(taskipy: `db-seed-from-csv` / `db-seed-diff` / `db-seed-upsert` /
+`db-reset`). Inline literal / hardcoded asset or position seeds,
+ad-hoc scripts, demo wiring, and changes under `openspec/changes/`
+that bypass the CSV path are forbidden.
 
-The canonical seed (`src/omaha/seed.py`) creates users + profiles only.
-It is correct as-is. Do not extend it to seed assets, and do not
-introduce parallel seeding paths that create assets.
+The canonical user/profile seed (`src/omaha/seed.py`) creates users +
+profiles only. It is correct as-is. Do not extend it to seed assets
+or positions, and do not introduce parallel seeding paths that create
+assets or positions outside the CSV path.
+
+The CSV triplet lives at `data/seed/{profile}_classes.csv`,
+`data/seed/{profile}_assets.csv`, `data/seed/{profile}_positions.csv`
+(see `data/seed/README.md` for the schema, sum invariant, and the
+non-tradeable `qty=1` sentinel convention). It is the source of
+truth — the xlsx workbooks and broker CSVs in
+`~/github/investing/input/` are bootstrap input, not runtime
+dependencies.
 
 ### Why
 
-Real assets reflect real portfolio positions. Auto-populating fictional
-assets pollutes the user's view and breaks the dashboard's signal. The
-user supplies assets explicitly through the import flow (CSV upload
-via the modal that this project is fixing).
+Real assets and positions reflect real portfolio holdings. Hardcoded
+or auto-populated fictional rows pollute the user's view and break
+the dashboard's signal. The CSV path is the controlled boundary:
+edits go through a single, validated, diff-able file. Inline seeds
+bypass validation, break the "sum to 100" invariants, and make the
+broker CSV's totals the source of truth (instead of the omaha DB).
 
 ### When this applies
 
 - Editing `src/omaha/seed.py` — leave it user+profile only.
-- Writing demo / smoke / pre-population scripts — assets are off-limits.
-- Drafting OpenSpec changes that promise "fresh state" — describe the
-  empty-asset baseline; do not propose seeding assets.
-- Reviewing a PR that introduces asset creation outside the import
-  flow — flag it.
+- Adding or modifying assets or positions in code — use the CSV
+  path. New profile or new column on Asset / Position requires a
+  change proposal.
+- Writing demo / smoke / pre-population scripts that create assets
+  or positions — off-limits unless they go through `seed_from_csv.py`.
+- Drafting OpenSpec changes that promise "fresh state" — describe
+  the CSV-driven seed; do not propose hardcoded asset or position
+  lists.
+- Reviewing a PR that introduces asset or position creation outside
+  the CSV path — flag it.
 - Loading fixtures in tests is fine (tests have their own scope), but
   the dev DB the user inspects (URL via `bash scripts/print_lan_url.sh`)
-  must stay asset-free until the user runs an import.
+  must stay asset-free until the user runs `task db-reset` (or an
+  equivalent `seed_from_csv --mode reset` / `upsert`).
 
 ## Alpine `<select>` + dynamic `<template x-for>` options — binding gotcha
 
