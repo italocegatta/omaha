@@ -85,10 +85,12 @@ def _w_logged_in_as(page: Page, live_url: str, profile: str):
 # Translate the PT-BR label that the operator types into the
 # English testid slug the dashboard templates actually use. The
 # user-facing label is the Gherkin step text ("Nome da classe"),
-# the testid is the implementation hook ("new-class-name-input").
+# the testid is the implementation hook
+# ("new-class-modal-name-input" — the new-class modal promoted
+# from the old inline form during dashboard-action-sidebar).
 _PT_LABEL_TO_TESTID_SLUG: dict[str, str] = {
-    "Nome da classe": "new-class-name-input",
-    "Alocação alvo": "new-class-pct-input",
+    "Nome da classe": "new-class-modal-name-input",
+    "Alocação alvo": "new-class-modal-pct-input",
     "Nome do ativo": "dashboard-add-asset-name",
     "Alocação alvo do modal de ativo": "dashboard-add-asset-target-pct",
     "username": None,  # handled via ``input[name=...]`` below
@@ -134,9 +136,27 @@ def click_button(page: Page, label: str):
     ]
     for sel in candidates:
         loc = page.locator(sel)
-        if loc.count() > 0:
+        if loc.count() == 0:
+            continue
+        # Two-phase visibility filter: a button matching the label
+        # may exist multiple times (e.g. ``Salvar`` is the label of
+        # both new-class-modal-submit and dashboard-add-asset-submit,
+        # but only one is in an open modal). Walk the candidates,
+        # pick the first whose first match is visible, and wait
+        # briefly so Alpine's reactive transition can flip
+        # ``display: none`` on a freshly-revealed parent.
+        try:
+            loc.first.wait_for(state="visible", timeout=5000)
             loc.first.click()
             return
+        except Exception:
+            # First match hidden (Alpine x-show on closed modal).
+            # Try a fresh lookup with Playwright's :visible engine.
+            visible = loc.locator("visible=true")
+            if visible.count() > 0:
+                visible.first.click()
+                return
+            continue
     raise AssertionError(f"botão/link {label!r} não encontrado")
 
 
@@ -210,7 +230,7 @@ def dashboard_shows_profile_name(page: Page, name: str):
 
 @then("o dashboard mostra a mensagem de estado vazio")
 def dashboard_shows_empty_state(page: Page):
-    empty = page.locator('[data-testid="empty-state"]')
+    empty = page.locator('[data-testid="empty-state-onboarding"]')
     empty.wait_for(state="visible", timeout=5000)
 
 

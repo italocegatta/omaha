@@ -1,4 +1,4 @@
-"""Class CRUD BDD steps — snapshot form + inline add actions.
+"""Class CRUD BDD steps — snapshot form + new-class modal actions.
 
 Two creation flows covered:
 
@@ -6,8 +6,10 @@ Two creation flows covered:
    ``[data-testid="class-editor"]`` with ``class-editor-add`` /
    ``class-editor-save`` / ``class-editor-name`` /
    ``class-editor-pct`` testids).
-2. Inline add via the dashboard's ``+ Nova classe`` button
-   (``new-class-plus-btn`` → ``new-class-form`` → ``save``).
+2. Modal add via the dashboard sidebar's ``+ Nova classe`` button
+   (``empty-state-create-class`` opens ``new-class-modal-overlay``
+   with ``new-class-modal-name-input`` /
+   ``new-class-modal-pct-input`` / ``new-class-modal-submit``).
 
 The PATCH target actions (click + type + Enter on the class
 section cell) live in :mod:`tests.bdd.step_defs.common_steps`
@@ -71,23 +73,23 @@ def click_save_classes(page: Page):
 
 
 # ─────────────────────────────────────────────────────────────────────
-# When — inline add (dashboard "+ Nova classe" button)
+# When — sidebar add (sidebar "+ Nova classe" → modal)
 # ─────────────────────────────────────────────────────────────────────
 
 
 @when(parsers.parse('preencho o campo "Nome da classe" com "{name}"'))
 def fill_inline_class_name(page: Page, name: str):
-    page.locator('[data-testid="new-class-name-input"]').fill(name)
+    page.locator('[data-testid="new-class-modal-name-input"]').fill(name)
 
 
 @when(parsers.parse('preencho o campo "Alocação alvo" com "{pct}"'))
 def fill_inline_class_pct(page: Page, pct: str):
-    page.locator('[data-testid="new-class-pct-input"]').fill(pct)
+    page.locator('[data-testid="new-class-modal-pct-input"]').fill(pct)
 
 
 @when(parsers.parse('clico em "Salvar"'))
 def click_save_inline(page: Page):
-    page.locator('[data-testid="new-class-form-save"]').click()
+    page.locator('[data-testid="new-class-modal-submit"]').click()
     page.wait_for_load_state("networkidle", timeout=10000)
 
 
@@ -98,7 +100,7 @@ def click_save_inline(page: Page):
 
 @then(parsers.parse('o modal de classe mostra a mensagem de erro "{text}"'))
 def class_form_error(page: Page, text: str):
-    err = page.locator('[data-testid="new-class-form-error"]')
+    err = page.locator('[data-testid="new-class-modal-error"]')
     err.wait_for(state="visible", timeout=5000)
     inner = err.inner_text()
     assert text in inner, f"esperava erro {text!r} no modal de classe, vi {inner!r}"

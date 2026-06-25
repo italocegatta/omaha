@@ -247,7 +247,7 @@ Then in the browser:
    + %, color-coded), per-class sections with color swatches and a
    target-vs-current compare bar, and per-asset rows with progress bars
    (qty, current value, % of class).
-3. Click **Importar** in the nav to test the CSV importer:
+3. Click **Importar CSV** in the sidebar to test the CSV importer:
    - The fixture at `tests/fixtures/sample_broker.csv` is the same
      file the e2e tests use: 48 rows, 43 auto-match against the
      seeded assets, 5 require manual category selection in the
@@ -293,7 +293,12 @@ deps).
 omaha/
 ├── src/omaha/            # FastAPI app
 │   ├── routes/           # auth, classes, assets, imports, pages, health
-│   ├── templates/        # base, login, profiles, dashboard, import, import_review, classes, assets
+│   ├── templates/        # base, login, profiles, dashboard,
+│   │                     #   import, import_review, classes, assets
+│   │                     #   (import, import_review, classes, assets
+│   │                     #    are retained as historical artifacts;
+│   │                     #    their routes 302 → / and they are not
+│   │                     #    reachable from the UI)
 │   ├── static/app.css
 │   ├── auth.py           # password hashing + session helpers
 │   ├── config.py         # pydantic-settings (reads .env)

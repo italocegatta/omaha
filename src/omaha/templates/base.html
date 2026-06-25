@@ -15,10 +15,37 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:wght@600&display=swap">
   <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>
+    /* dashboard-action-sidebar — global Alpine store for the mobile
+       drawer. The hamburger in .app-header-left calls toggle();
+       the drawer in dashboard.html reads $store.sidebar.open.
+       onClose restores focus to the hamburger reference captured
+       via x-ref when the user activated the drawer. */
+    document.addEventListener('alpine:init', function () {
+      Alpine.store('sidebar', {
+        open: false,
+        toggle: function () { this.open = !this.open; },
+        close: function () {
+          this.open = false;
+          var btn = document.querySelector('[data-testid="app-header-hamburger"]');
+          if (btn && typeof btn.focus === 'function') btn.focus();
+        },
+      });
+    });
+  </script>
 </head>
-<body>
+<body @keydown.escape.window="$store.sidebar.close()">
   <header class="app-header">
     <div class="app-header-left">
+      {% if profile is defined and profile %}
+      <button type="button"
+              class="app-header-hamburger"
+              data-testid="app-header-hamburger"
+              aria-label="Abrir menu"
+              :aria-expanded="$store.sidebar.open ? 'true' : 'false'"
+              aria-controls="app-sidebar"
+              @click="$store.sidebar.toggle()">☰</button>
+      {% endif %}
       <h1>Omaha</h1>
       {% if user is defined and user %}
       <nav class="main-nav" data-testid="main-nav">

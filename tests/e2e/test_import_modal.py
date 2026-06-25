@@ -357,30 +357,6 @@ class TestS04ImportModal:
             f"rgb({r_ch:.3f}, {g_ch:.3f}, {b_ch:.3f})"
         )
 
-        # The cell border-left must equal the class color (full opacity,
-        # not the 38% tint). The .import-class-cell--cls-N rule sets
-        # border-left: 4px solid <hex>; verifying the computed color
-        # confirms the modifier class is winning over the base
-        # .import-class-cell style.
-        cell_border = page.evaluate(
-            """(idx) => {
-                const cell = document.querySelectorAll(
-                    '[data-testid=\"import-class-cell-assignment\"]')[idx];
-                return getComputedStyle(cell).borderLeftColor;
-            }""",
-            xplg_idx,
-        )
-        # #2e7d32 → rgb(46, 125, 50).
-        border_nums = [float(x) for x in _re2.findall(r"[\d.]+", cell_border)]
-        assert len(border_nums) >= 3, f"could not parse border-left: {cell_border!r}"
-        br, bg, bb = border_nums[0], border_nums[1], border_nums[2]
-        if bg > 1.0:
-            br, bg, bb = br / 255, bg / 255, bb / 255
-        assert 0.15 < br < 0.22 and 0.45 < bg < 0.55 and 0.15 < bb < 0.22, (
-            f"expected border-left rgb(46, 125, 50), got rgb({br:.0f}, "
-            f"{bg:.0f}, {bb:.0f}) from {cell_border!r}"
-        )
-
         # The <select> itself must also be tinted — the user-visible "field"
         # is the select, not just the surrounding <td>. Without this assertion
         # the select stays white (background: #fff from app.css) and the user
@@ -552,10 +528,10 @@ class TestS04ImportModal:
             }"""
         )
         # The .import-class-cell--pending rule sets a 1px dashed border
-        # (top/right/bottom) with a 4px solid-transparent border-left.
-        # borderTopStyle == "dashed" is the load-bearing visual signal
-        # — border-right and border-bottom may pick up solid from the
-        # cell's own background style, so we only assert top.
+        # on all four sides with a sunk background. borderTopStyle ==
+        # "dashed" is the load-bearing visual signal — the dashed
+        # pattern alone distinguishes the "no class assigned" state
+        # from the tinted cls-N cells.
         assert first_cell_style["borderTopStyle"] == "dashed", (
             f"expected dashed top border on pending cell, got {first_cell_style!r}"
         )

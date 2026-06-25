@@ -1,17 +1,52 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="dashboard">
-  <h1 class="profile-name" data-testid="profile-name">Bem-vindo, {{ profile.name }}</h1>
+{# dashboard-action-sidebar — mobile backdrop lives outside the grid
+   so it covers the whole viewport when the drawer opens. #}
+<div class="app-sidebar-backdrop"
+     data-testid="app-sidebar-backdrop"
+     x-show="$store.sidebar.open"
+     @click="$store.sidebar.close()"
+     x-cloak></div>
 
-  <div class="dashboard-actions" data-testid="dashboard-actions">
+<div class="dashboard">
+  <aside class="app-sidebar"
+         data-testid="app-sidebar"
+         id="app-sidebar"
+         x-data
+         :class="$store.sidebar.open ? 'app-sidebar--open' : ''">
+    <h2 class="sidebar-wordmark"
+        data-testid="sidebar-wordmark">{{ profile.name }}</h2>
+
     <button type="button"
-            class="import-btn import-btn-primary"
+            class="sidebar-action"
             data-testid="dashboard-import-btn"
             x-data
+            :aria-current="$store.importModal.open ? 'true' : null"
             @click="$store.importModal.openModal()">
       Importar CSV
     </button>
-  </div>
+
+    <button type="button"
+            class="sidebar-action"
+            data-testid="dashboard-add-asset-open"
+            x-data
+            :aria-current="$store.addAssetModal.open ? 'true' : null"
+            @click="$store.addAssetModal.openModal()">
+      + Novo ativo
+    </button>
+
+    <button type="button"
+            class="sidebar-action"
+            data-testid="empty-state-create-class"
+            x-data
+            :aria-current="$store.newClassModal.open ? 'true' : null"
+            @click="$store.newClassModal.openModal()">
+      + Nova classe
+    </button>
+  </aside>
+
+  <div class="dashboard-card">
+    <h1 class="profile-name" data-testid="profile-name">Bem-vindo, {{ profile.name }}</h1>
 
   {% if asset_classes %}
   <section class="class-summary" data-testid="class-summary">
@@ -36,19 +71,6 @@
 
     <section class="dashboard-distribution" data-testid="dashboard-distribution">
       <h2>Distribuicao</h2>
-
-      {# asset-table-view 10.1 — single dashboard-level "+ Ativo" control
-         that opens the modal add-asset form. #}
-      <div class="dashboard-add-asset-actions">
-        <span x-data>
-          <button type="button"
-                  class="btn btn-primary dashboard-add-asset-open"
-                  data-testid="dashboard-add-asset-open"
-                  @click="$store.addAssetModal.openModal()">
-            + Ativo
-          </button>
-        </span>
-      </div>
 
       {# asset-table-view 9.x — sticky alert card with portfolio + per-class deviations.
          Wrapped in an empty x-data so the x-if is evaluated inside an Alpine
@@ -329,124 +351,52 @@
     </section>
   </section>
   {% else %}
-  <div class="empty-state" data-testid="empty-state">
-    <h2>Voce ainda nao tem classes</h2>
-    <p>Classes organizam seus ativos por categoria (ex.: Acoes, FIIs, Cripto).</p>
-    {# asset-table-view pre-existing issue: the original empty-state
-       button (``@click="document.querySelector(...).click()"``) was
-       dead code — Alpine 3 only processes ``@click`` directives inside
-       an ``x-data`` scope, and the empty-state div has no ``x-data``
-       ancestor. The wrapper ``<span x-data>`` gives the directive a
-       scope so ``$dispatch('open-new-class')`` actually fires. The
-       receiver is the sibling new-class-container's
-       ``@open-new-class.window`` listener. #}
-    <span x-data>
-      <button type="button"
-              class="new-class-plus-btn"
-              data-testid="empty-state-create-class"
-              @click="$dispatch('open-new-class')">
-        + Nova classe
-      </button>
-    </span>
+  <div class="empty-state-onboarding" data-testid="empty-state-onboarding">
+    <h2 class="empty-state-onboarding-title">Vamos comecar</h2>
+    <div class="empty-state-step">
+      <span class="empty-state-step-number">1.</span>
+      <span>Crie uma classe</span>
+    </div>
+    <div class="empty-state-step">
+      <span class="empty-state-step-number">2.</span>
+      <span>Adicione ativos</span>
+    </div>
+    <div class="empty-state-step">
+      <span class="empty-state-step-number">3.</span>
+      <span>Importe o extrato da corretora</span>
+    </div>
+    <p class="empty-state-onboarding-hint">
+      Use os botoes na barra lateral. As classes devem somar 100%.
+    </p>
   </div>
   {% endif %}
-
-  {# Always render the new-class-container so the user can create the
-     first class even when there are zero classes in the DB. The inline
-     Alpine form calls POST /api/classes and reloads the page on 201.
-     The old "Gerenciar classes" link pointed to /classes which was
-     retired in S02/T07 (302 redirect to / -- a dead loop).
-     The @open-new-class.window listener receives a CustomEvent from
-     the empty-state button (``$dispatch('open-new-class')``). Using
-     ``.window`` because the empty-state button and this container
-     are siblings, so the bubbling event only reaches the window
-     level. ``.window`` also avoids depending on Alpine's global
-     ``Alpine.$data`` API. #}
-  <div class="new-class-container" data-testid="new-class-container" x-data="newClassForm()" @open-new-class.window="showForm = true">
-    <button type="button"
-            class="new-class-plus-btn"
-            data-testid="new-class-plus-btn"
-            x-show="!showForm"
-            @click="showForm = true">
-      + Nova classe
-    </button>
-
-    <div class="new-class-form"
-         data-testid="new-class-form"
-         x-show="showForm"
-         x-cloak>
-      <div class="new-class-form-body">
-        <div class="new-class-form-field">
-          <label for="new-class-name">Nome</label>
-          <input type="text"
-                 id="new-class-name"
-                 class="new-class-input"
-                 data-testid="new-class-name-input"
-                 x-model="name"
-                 placeholder="Ex: Renda Fixa"
-                 :disabled="saving"
-                 @keyup.enter="save()">
-        </div>
-        <div class="new-class-form-field">
-          <label for="new-class-pct">Alvo %</label>
-          <input type="number"
-                 id="new-class-pct"
-                 class="new-class-input new-class-input--pct"
-                 data-testid="new-class-pct-input"
-                 x-model="targetPct"
-                 step="0.01"
-                 min="0"
-                 max="100"
-                 placeholder="60"
-                 :disabled="saving"
-                 @keyup.enter="save()">
-        </div>
-        <div class="new-class-form-actions">
-          <button type="button"
-                  class="btn btn-primary new-class-form-save"
-                  data-testid="new-class-form-save"
-                  @click="save()"
-                  :disabled="saving">
-            <span x-show="!saving">Salvar</span>
-            <span x-show="saving">Salvando...</span>
-          </button>
-          <button type="button"
-                  class="btn new-class-form-cancel"
-                  data-testid="new-class-form-cancel"
-                  @click="cancel()"
-                  :disabled="saving">Cancelar</button>
-        </div>
-      </div>
-      <p class="new-class-form-error"
-         data-testid="new-class-form-error"
-         x-show="error"
-         x-text="error"
-         x-cloak></p>
-    </div>
-  </div>
-</div>
+  </div><!-- /.dashboard-card -->
+</div><!-- /.dashboard -->
 
 <!-- asset-table-view 10.2/10.3 — dashboard-level add-asset modal.
      Overlay + panel with class select, name, and target_pct inputs.
      State lives in a global Alpine store ($store.addAssetModal) so
-     the trigger button above (in a different x-data scope) can open
-     it without nesting. -->
-<div class="add-asset-modal-overlay"
+     the sidebar trigger button (in a different x-data scope) can open
+     it without nesting. Uses the shared modal shell classes
+     (.modal-overlay / .modal-panel / .modal-header / .modal-title /
+     .modal-close / .modal-body / .modal-footer). -->
+<div class="modal-overlay"
      x-data
      x-show="$store.addAssetModal.open"
      x-cloak
      x-transition.opacity.duration.200ms
      @click.self="$store.addAssetModal.closeModal()"
-     data-testid="dashboard-add-asset-modal">
-  <div class="add-asset-modal-panel" @click.stop>
-    <div class="add-asset-modal-header">
-      <h2>Novo ativo</h2>
+     data-testid="add-asset-modal-overlay">
+  <div class="modal-panel" @click.stop>
+    <div class="modal-header">
+      <h2 class="modal-title">Novo ativo</h2>
       <button type="button"
-              class="add-asset-modal-close"
+              class="modal-close"
+              data-testid="add-asset-modal-close"
               @click="$store.addAssetModal.closeModal()">&times;</button>
     </div>
 
-    <div class="add-asset-modal-form">
+    <div class="modal-body">
       <div class="add-asset-modal-field">
         <label for="add-asset-class">Classe</label>
         <select id="add-asset-class"
@@ -456,9 +406,6 @@
                 x-effect="(() => { const cid = $store.addAssetModal.classId; if (cid) $el.value = cid; })()"
                 @change="$store.addAssetModal.classId = $event.target.value">
           <option value="">Selecione...</option>
-          {# asset-table-view 10.x: render options server-side so they are
-             present the moment the modal opens, avoiding a race with
-             Playwright's select_option. #}
           {% for c in class_aggregates %}
           <option value="{{ c.id }}">{{ c.name }}</option>
           {% endfor %}
@@ -491,22 +438,22 @@
                :disabled="$store.addAssetModal.saving"
                @keyup.enter="$store.addAssetModal.submit()">
       </div>
+    </div>
 
-      <div class="add-asset-modal-actions">
-        <button type="button"
-                class="btn"
-                data-testid="dashboard-add-asset-cancel"
-                @click="$store.addAssetModal.closeModal()"
-                :disabled="$store.addAssetModal.saving">Cancelar</button>
-        <button type="button"
-                class="btn btn-primary"
-                data-testid="dashboard-add-asset-submit"
-                @click="$store.addAssetModal.submit()"
-                :disabled="$store.addAssetModal.saving">
-          <span x-show="!$store.addAssetModal.saving">Salvar</span>
-          <span x-show="$store.addAssetModal.saving">Salvando...</span>
-        </button>
-      </div>
+    <div class="modal-footer">
+      <button type="button"
+              class="btn"
+              data-testid="dashboard-add-asset-cancel"
+              @click="$store.addAssetModal.closeModal()"
+              :disabled="$store.addAssetModal.saving">Cancelar</button>
+      <button type="button"
+              class="btn btn-primary"
+              data-testid="dashboard-add-asset-submit"
+              @click="$store.addAssetModal.submit()"
+              :disabled="$store.addAssetModal.saving">
+        <span x-show="!$store.addAssetModal.saving">Salvar</span>
+        <span x-show="$store.addAssetModal.saving">Salvando...</span>
+      </button>
     </div>
 
     <p class="add-asset-modal-error"
@@ -517,22 +464,97 @@
   </div>
 </div>
 
-<!-- S04/T03: Import modal overlay. x-data is on the overlay so the
-     backdrop click handler fires correctly. State lives in a global
-     Alpine store ($store.importModal) so the trigger button above
-     (in a different x-data scope) can open it without nesting. The
-     store is initialized in the script below. -->
-<div class="import-modal-overlay"
+<!-- dashboard-action-sidebar — new-class modal. Promotes the old
+     inline newClassForm to a real modal sharing the shell.
+     Posts JSON to /api/classes and reloads the page on 201 so the
+     new class section renders with server-side aggregate data. -->
+<div class="modal-overlay"
+     x-data
+     x-show="$store.newClassModal.open"
+     x-cloak
+     x-transition.opacity.duration.200ms
+     @click.self="$store.newClassModal.closeModal()"
+     data-testid="new-class-modal-overlay">
+  <div class="modal-panel" @click.stop>
+    <div class="modal-header">
+      <h2 class="modal-title">Nova classe</h2>
+      <button type="button"
+              class="modal-close"
+              data-testid="new-class-modal-close"
+              @click="$store.newClassModal.closeModal()">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="add-asset-modal-field">
+        <label for="new-class-modal-name">Nome</label>
+        <input type="text"
+               id="new-class-modal-name"
+               class="add-asset-modal-input"
+               data-testid="new-class-modal-name-input"
+               x-model="$store.newClassModal.name"
+               placeholder="Ex: Renda Fixa"
+               :disabled="$store.newClassModal.saving"
+               @keyup.enter="$store.newClassModal.submit()">
+      </div>
+      <div class="add-asset-modal-field">
+        <label for="new-class-modal-pct">Alvo %</label>
+        <input type="number"
+               id="new-class-modal-pct"
+               class="add-asset-modal-input"
+               data-testid="new-class-modal-pct-input"
+               x-model="$store.newClassModal.targetPct"
+               step="0.01"
+               min="0"
+               max="100"
+               placeholder="60"
+               :disabled="$store.newClassModal.saving"
+               @keyup.enter="$store.newClassModal.submit()">
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button"
+              class="btn"
+              data-testid="new-class-modal-cancel"
+              @click="$store.newClassModal.closeModal()"
+              :disabled="$store.newClassModal.saving">Cancelar</button>
+      <button type="button"
+              class="btn btn-primary"
+              data-testid="new-class-modal-submit"
+              @click="$store.newClassModal.submit()"
+              :disabled="$store.newClassModal.saving">
+        <span x-show="!$store.newClassModal.saving">Salvar</span>
+        <span x-show="$store.newClassModal.saving">Salvando...</span>
+      </button>
+    </div>
+
+    <p class="add-asset-modal-error"
+       data-testid="new-class-modal-error"
+       x-show="$store.newClassModal.error"
+       x-text="$store.newClassModal.error"
+       x-cloak></p>
+  </div>
+</div>
+
+<!-- S04/T03: Import modal overlay. Uses the shared modal shell
+     (.modal-overlay / .modal-panel--wide for the review table that
+     exceeds the default 480px cap / .modal-header / .modal-title /
+     .modal-close). Body content stays bespoke (file picker, review
+     table, etc.). -->
+<div class="modal-overlay"
      x-data
      x-show="$store.importModal.open"
      x-cloak
      x-transition.opacity.duration.200ms
      @click.self="$store.importModal.closeModal()"
      data-testid="import-modal-overlay">
-  <div class="import-modal-panel" @click.stop>
-    <div class="import-modal-header">
-      <h2>Importar posições</h2>
-      <button type="button" class="import-modal-close" @click="$store.importModal.closeModal()">&times;</button>
+  <div class="modal-panel modal-panel--wide" @click.stop>
+    <div class="modal-header">
+      <h2 class="modal-title">Importar posições</h2>
+      <button type="button"
+              class="modal-close"
+              data-testid="import-modal-close"
+              @click="$store.importModal.closeModal()">&times;</button>
     </div>
 
     <!-- Step 1: File upload -->
@@ -1350,61 +1372,6 @@
     };
   }
 
-  // Alpine.js component for the "+ Nova classe" inline create form.
-  // When the plus button is clicked, the form appears with name and
-  // target % fields. On save, POSTs JSON to /api/classes and reloads
-  // the page on success so the new class renders with all server-side
-  // aggregate data (color, current_pct, assets, etc.). On validation
-  // error, shows the server's Portuguese error message inline.
-  function newClassForm() {
-    return {
-      showForm: false,
-      name: '',
-      targetPct: '',
-      saving: false,
-      error: '',
-
-      save: function () {
-        var self = this;
-        self.saving = true;
-        self.error = '';
-        fetch('/api/classes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: self.name, target_pct: self.targetPct }),
-        })
-          .then(function (r) {
-            if (r.status === 201) {
-              // Reload the page so the new class section renders with
-              // server-side aggregate data (color, current_pct, assets).
-              window.location.reload();
-              return;
-            }
-            // 409 (duplicate name) or 422 (validation error). Body
-            // shape: {"detail": "<message>"}.
-            return r.json().then(function (body) {
-              var detail = (body && body.detail) ? body.detail : 'Erro ao criar classe';
-              throw new Error(detail);
-            });
-          })
-          .catch(function (err) {
-            self.error = err && err.message ? err.message : 'Erro ao criar classe';
-          })
-          .then(function () {
-            self.saving = false;
-          });
-      },
-
-      cancel: function () {
-        this.showForm = false;
-        this.name = '';
-        this.targetPct = '';
-        this.error = '';
-        this.saving = false;
-      },
-    };
-  }
-
   // S04/T03: Global Alpine store for the import modal. A store
   // (not a component function) so the trigger button in the
   // dashboard-actions div (which has no x-data of its own) can
@@ -1772,6 +1739,59 @@
 
     // Hydrate the modal's class list from the server-rendered data.
     Alpine.store('addAssetModal').assetClasses = window.__assetClasses || [];
+
+    // dashboard-action-sidebar — global Alpine store for the new-class
+    // modal. Mirrors the addAssetModal shape (open, saving, error,
+    // submit) but POSTs to /api/classes. Reloads on 201 so the new
+    // class section renders with server-side aggregate data.
+    Alpine.store('newClassModal', {
+      open: false,
+      name: '',
+      targetPct: '',
+      saving: false,
+      error: '',
+
+      openModal: function () {
+        this.error = '';
+        this.name = '';
+        this.targetPct = '';
+        this.open = true;
+      },
+
+      closeModal: function () {
+        this.open = false;
+        this.error = '';
+        this.name = '';
+        this.targetPct = '';
+      },
+
+      submit: function () {
+        var self = this;
+        self.saving = true;
+        self.error = '';
+        fetch('/api/classes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: self.name, target_pct: self.targetPct }),
+        })
+          .then(function (r) {
+            if (r.status === 201) {
+              window.location.reload();
+              return;
+            }
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao criar classe';
+              throw new Error(detail);
+            });
+          })
+          .catch(function (err) {
+            self.error = err && err.message ? err.message : 'Erro ao criar classe';
+          })
+          .then(function () {
+            self.saving = false;
+          });
+      },
+    });
   });
 </script>
 {% endblock %}

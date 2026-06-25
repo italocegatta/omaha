@@ -371,7 +371,7 @@ def test_dashboard_renders_distribution_layout(client: TestClient) -> None:
     assert 'data-testid="asset-allocation-alert-portfolio"' in body, body
     assert 'data-testid="asset-allocation-alert-class"' in body, body
     assert 'data-testid="dashboard-add-asset-open"' in body, body
-    assert 'data-testid="dashboard-add-asset-modal"' in body, body
+    assert 'data-testid="add-asset-modal-overlay"' in body, body
     assert 'data-testid="dashboard-add-asset-name"' in body, body
     assert 'data-testid="dashboard-add-asset-target-pct"' in body, body
     assert 'data-testid="dashboard-add-asset-submit"' in body, body

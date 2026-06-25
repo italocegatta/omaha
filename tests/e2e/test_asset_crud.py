@@ -28,7 +28,7 @@ from .test_import_user_journey import _login_and_select_italo
 
 S03_SELECTORS = {
     "dashboard_add_asset_open": '[data-testid="dashboard-add-asset-open"]',
-    "dashboard_add_asset_modal": '[data-testid="dashboard-add-asset-modal"]',
+    "dashboard_add_asset_modal": '[data-testid="add-asset-modal-overlay"]',
     "dashboard_add_asset_name": '[data-testid="dashboard-add-asset-name"]',
     "dashboard_add_asset_target_pct": '[data-testid="dashboard-add-asset-target-pct"]',
     "dashboard_add_asset_class": '[data-testid="dashboard-add-asset-modal-class"]',

@@ -4,28 +4,29 @@ Drives a headless chromium against a live uvicorn instance to
 verify the S02 dashboard-based class management end to end:
 
   login → select profile → verify /classes redirects to / →
-  create 2 classes via the inline "+ Nova classe" form →
+  create 2 classes via the sidebar "+ Nova classe" modal →
   verify both render as class sections →
   delete one class via × + confirm dialog →
   verify the class section is removed from the DOM →
   verify delete shows 409 error when class has assets →
   drive the Alpine x-show toggles (delete confirm show/hide,
-  new class form show/hide, cancel recovery) →
+  new class modal show/hide, cancel recovery) →
   verify empty state shows when all classes removed
 
 The /classes route was retired by T07 (302 → /).
-Class CRUD now lives entirely on the dashboard: the inline
-"+ Nova classe" form and the × delete button per class.
+Class CRUD now lives entirely on the dashboard: the sidebar's
+"+ Nova classe" modal (dashboard-action-sidebar) and the × delete
+button per class.
 
 Why a real browser:
 --------------------
 The route-level TestClient tests in ``test_pages_routes.py``
 can assert the 302 status code of GET /classes, but only a real
 browser verifies the redirect actually lands on the dashboard
-rendering the user's classes. Similarly, the Alpine inline
-create form's POST /api/classes + page reload and the delete
-confirm dialog's x-show/x-cloak / fetch + reload behavior are
-invisible to TestClient.
+rendering the user's classes. Similarly, the Alpine new-class
+modal's POST /api/classes + page reload and the delete confirm
+dialog's x-show/x-cloak / fetch + reload behavior are invisible
+to TestClient.
 
 References
 ----------
@@ -33,6 +34,8 @@ References
 - S02/T04: Alpine x-data classSection with collapse + inline edit
 - S02/T05: + Nova classe button with inline create form
 - S02/T06: × delete button with Alpine confirm dialog and 409 handling
+- dashboard-action-sidebar: + Nova classe moved to the sidebar
+  modal (new-class-modal-overlay).
 
 Uses the S04 ``_login_and_select_italo`` + the S04 SELECTORS
 (re-exported via S05's imports) for login/picker and shared
@@ -59,19 +62,18 @@ S02_SELECTORS = {
     "class_delete_confirm_yes": '[data-testid="class-delete-confirm-yes"]',
     "class_delete_confirm_no": '[data-testid="class-delete-confirm-no"]',
     "class_delete_confirm_error": '[data-testid="class-delete-confirm-error"]',
-    "new_class_container": '[data-testid="new-class-container"]',
-    "new_class_plus_btn": '[data-testid="new-class-plus-btn"]',
-    "new_class_form": '[data-testid="new-class-form"]',
-    "new_class_name_input": '[data-testid="new-class-name-input"]',
-    "new_class_pct_input": '[data-testid="new-class-pct-input"]',
-    "new_class_form_save": '[data-testid="new-class-form-save"]',
-    "new_class_form_cancel": '[data-testid="new-class-form-cancel"]',
-    "new_class_form_error": '[data-testid="new-class-form-error"]',
-    "empty_state": '[data-testid="empty-state"]',
+    "new_class_modal_overlay": '[data-testid="new-class-modal-overlay"]',
+    "new_class_modal_name_input": '[data-testid="new-class-modal-name-input"]',
+    "new_class_modal_pct_input": '[data-testid="new-class-modal-pct-input"]',
+    "new_class_modal_submit": '[data-testid="new-class-modal-submit"]',
+    "new_class_modal_cancel": '[data-testid="new-class-modal-cancel"]',
+    "new_class_modal_error": '[data-testid="new-class-modal-error"]',
+    "empty_state": '[data-testid="empty-state-onboarding"]',
+    "empty_state_create_class_btn": '[data-testid="empty-state-create-class"]',
     "class_target_pct": '[data-testid="class-target-pct"]',
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
     "dashboard_add_asset_open": '[data-testid="dashboard-add-asset-open"]',
-    "dashboard_add_asset_modal": '[data-testid="dashboard-add-asset-modal"]',
+    "add_asset_modal_overlay": '[data-testid="add-asset-modal-overlay"]',
     "dashboard_add_asset_class": '[data-testid="dashboard-add-asset-modal-class"]',
     "dashboard_add_asset_name": '[data-testid="dashboard-add-asset-name"]',
     "dashboard_add_asset_pct": '[data-testid="dashboard-add-asset-target-pct"]',
@@ -102,10 +104,11 @@ def _debug_dump(page: Page, tag: str) -> None:
 def _create_seed_classes(page: Page, classes: list[tuple[str, int]]) -> None:
     """Create seed classes via the ``POST /classes`` snapshot form.
 
-    The inline form (``new-class-container``) also calls
-    ``POST /api/classes`` which now accepts any allocation sum.
-    The snapshot form is used here to create multiple classes in
-    one shot for faster test setup.
+    The sidebar ``+ Nova classe`` modal
+    (``new-class-modal-overlay``) also calls ``POST /api/classes``
+    which now accepts any allocation sum. The snapshot form is
+    used here to create multiple classes in one shot for faster
+    test setup.
     """
     page.evaluate(
         """async (items) => {
@@ -176,7 +179,13 @@ class TestS02ClassCRUD:
         The fix moved the ``new-class-container`` outside the if/else
         so it is always visible. This test verifies the fix by
         starting with a clean DB (0 classes) and creating the first
-        class directly via the inline form.
+        class directly via the sidebar modal.
+
+        After dashboard-action-sidebar, the inline ``+ Nova classe``
+        was promoted to a modal opened from the sidebar
+        (``empty-state-create-class`` → ``new-class-modal-overlay``).
+        The test exercises the same "first class from empty state"
+        flow through the modal.
 
         ``POST /api/classes`` does NOT block by allocation sum --
         the user creates classes incrementally at any percentage.
@@ -185,38 +194,42 @@ class TestS02ClassCRUD:
 
         Asserts
         -------
-        - The empty state message is visible ("Sem classes ainda").
-        - The "+ Nova classe" button is visible despite 0 classes.
-        - Clicking "+ Nova classe" reveals the inline create form.
+        - The onboarding empty state is visible
+          (``empty-state-onboarding`` card with the 3-step list).
+        - The sidebar "+ Nova classe" button is visible despite 0 classes.
+        - Clicking the sidebar button opens the new-class modal.
         - Filling name (60%) and saving creates a class section.
         - Page reloads with the class section visible.
         """
         _login_and_select_italo(page, live_url)
 
-        # Verify the empty state is shown (0 classes).
+        # Verify the onboarding empty state is shown (0 classes).
         empty_state = page.locator(S02_SELECTORS["empty_state"])
         empty_state.wait_for(state="visible", timeout=5000)
-        # The empty state message in the current template uses a more
-        # specific prompt: "Voce ainda nao tem classes".
-        assert "nao tem classes" in empty_state.inner_text().lower()
+        assert "Vamos comecar" in empty_state.inner_text()
 
-        # Verify the "+ Nova classe" button is visible despite empty state.
-        plus_btn = page.locator(S02_SELECTORS["new_class_plus_btn"])
+        # Verify the sidebar "+ Nova classe" button is visible.
+        plus_btn = page.locator(S02_SELECTORS["empty_state_create_class_btn"])
         plus_btn.wait_for(state="visible", timeout=2000)
-        assert plus_btn.is_visible(), "'+ Nova classe' button must be visible even with 0 classes"
+        assert plus_btn.is_visible(), "'+ Nova classe' sidebar button must be visible"
 
-        # Click "+" to show the inline create form.
+        # Click the sidebar button to open the new-class modal.
         plus_btn.click()
-        page.locator(S02_SELECTORS["new_class_form"]).wait_for(state="visible", timeout=2000)
-        page.locator(S02_SELECTORS["new_class_name_input"]).wait_for(state="visible", timeout=2000)
-        page.locator(S02_SELECTORS["new_class_pct_input"]).wait_for(state="visible", timeout=2000)
+        modal = page.locator(S02_SELECTORS["new_class_modal_overlay"])
+        modal.wait_for(state="visible", timeout=2000)
+        modal.locator(S02_SELECTORS["new_class_modal_name_input"]).wait_for(
+            state="visible", timeout=2000
+        )
+        modal.locator(S02_SELECTORS["new_class_modal_pct_input"]).wait_for(
+            state="visible", timeout=2000
+        )
 
         # Fill and save the first class at 60% (allocation is NOT
         # blocked by sum-to-100 -- the user creates classes at any
         # percentage and builds the portfolio incrementally).
-        page.locator(S02_SELECTORS["new_class_name_input"]).fill("Renda Fixa")
-        page.locator(S02_SELECTORS["new_class_pct_input"]).fill("60")
-        page.locator(S02_SELECTORS["new_class_form_save"]).click()
+        modal.locator(S02_SELECTORS["new_class_modal_name_input"]).fill("Renda Fixa")
+        modal.locator(S02_SELECTORS["new_class_modal_pct_input"]).fill("60")
+        modal.locator(S02_SELECTORS["new_class_modal_submit"]).click()
 
         # On 201, the page reloads. Wait for the class section to appear.
         try:
@@ -238,22 +251,25 @@ class TestS02ClassCRUD:
     # informational, not blocking.
 
     def test_inline_create_class(self, page: Page, live_url: str) -> None:
-        """Create 2 classes via the inline "+ Nova classe" form.
+        """Verify the sidebar "+ Nova classe" modal toggle UI.
 
-        The "Nova classe" form appears when clicking the "+" button,
-        allows typing name and target %, saves via POST /api/classes
-        and reloads the page.
+        After dashboard-action-sidebar, the inline form was promoted
+        to a modal opened from the sidebar's ``+ Nova classe`` button
+        (``empty-state-create-class`` → ``new-class-modal-overlay``).
+        This test verifies the modal toggle behavior: open, see the
+        name + pct inputs and Save / Cancel buttons, click Cancel and
+        the modal closes.
 
         Setup
         -----
         Seed 2 classes via snapshot form (batch sum to 100). Tests the
-        x-show toggle behavior of the inline create form.
+        x-show toggle behavior of the new-class modal.
 
         Asserts
         -------
-        - Clicking "+ Nova classe" reveals the form (x-show toggle).
-        - The form has name input, pct input, save and cancel buttons.
-        - Cancel hides the form again.
+        - Clicking the sidebar button reveals the modal (x-show toggle).
+        - The modal has name input, pct input, save and cancel buttons.
+        - Cancel hides the modal again.
         """
         _login_and_select_italo(page, live_url)
 
@@ -264,18 +280,29 @@ class TestS02ClassCRUD:
         class_rows = page.locator(S02_SELECTORS["class_summary_row"])
         assert class_rows.count() == 2
 
-        # --- Verify the "+ Nova classe" form toggle UI ---
-        page.locator(S02_SELECTORS["new_class_plus_btn"]).wait_for(state="visible", timeout=5000)
-        page.locator(S02_SELECTORS["new_class_plus_btn"]).click()
-        page.locator(S02_SELECTORS["new_class_form"]).wait_for(state="visible", timeout=2000)
-        page.locator(S02_SELECTORS["new_class_name_input"]).wait_for(state="visible", timeout=2000)
-        page.locator(S02_SELECTORS["new_class_pct_input"]).wait_for(state="visible", timeout=2000)
-        page.locator(S02_SELECTORS["new_class_form_save"]).wait_for(state="visible", timeout=2000)
-        page.locator(S02_SELECTORS["new_class_form_cancel"]).wait_for(state="visible", timeout=2000)
+        # --- Verify the new-class modal toggle UI ---
+        page.locator(S02_SELECTORS["empty_state_create_class_btn"]).wait_for(
+            state="visible", timeout=5000
+        )
+        page.locator(S02_SELECTORS["empty_state_create_class_btn"]).click()
+        modal = page.locator(S02_SELECTORS["new_class_modal_overlay"])
+        modal.wait_for(state="visible", timeout=2000)
+        modal.locator(S02_SELECTORS["new_class_modal_name_input"]).wait_for(
+            state="visible", timeout=2000
+        )
+        modal.locator(S02_SELECTORS["new_class_modal_pct_input"]).wait_for(
+            state="visible", timeout=2000
+        )
+        modal.locator(S02_SELECTORS["new_class_modal_submit"]).wait_for(
+            state="visible", timeout=2000
+        )
+        modal.locator(S02_SELECTORS["new_class_modal_cancel"]).wait_for(
+            state="visible", timeout=2000
+        )
 
-        # Cancel hides the form.
-        page.locator(S02_SELECTORS["new_class_form_cancel"]).click()
-        page.locator(S02_SELECTORS["new_class_form"]).wait_for(state="hidden", timeout=2000)
+        # Cancel closes the modal.
+        modal.locator(S02_SELECTORS["new_class_modal_cancel"]).click()
+        modal.wait_for(state="hidden", timeout=2000)
 
     # ── Test 4: Class delete via x + confirm dialog ────────────
 
@@ -376,7 +403,7 @@ class TestS02ClassCRUD:
         page.wait_for_selector(S02_SELECTORS["class_summary_row"], timeout=5000)
 
         page.locator(S02_SELECTORS["dashboard_add_asset_open"]).click()
-        modal = page.locator(S02_SELECTORS["dashboard_add_asset_modal"])
+        modal = page.locator(S02_SELECTORS["add_asset_modal_overlay"])
         modal.wait_for(state="visible", timeout=5000)
         modal.locator(S02_SELECTORS["dashboard_add_asset_class"]).select_option(label="Renda Fixa")
         modal.locator(S02_SELECTORS["dashboard_add_asset_name"]).fill("Tesouro Selic")

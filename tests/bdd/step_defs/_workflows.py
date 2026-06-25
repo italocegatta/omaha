@@ -147,11 +147,11 @@ def create_one_class(page: Page, live_url: str, name: str, target_pct: int) -> N
     race the re-init.
 
     data-testids:
-      - new-class-plus-btn
-      - new-class-form
-      - new-class-name-input
-      - new-class-pct-input
-      - new-class-form-save
+      - empty-state-create-class (sidebar entry that opens the modal)
+      - new-class-modal-overlay
+      - new-class-modal-name-input
+      - new-class-modal-pct-input
+      - new-class-modal-submit
       - class-summary-row
     """
     if not page.url.endswith("/"):
@@ -160,12 +160,13 @@ def create_one_class(page: Page, live_url: str, name: str, target_pct: int) -> N
             "Chame login_and_pick_profile antes. "
             f"URL atual: {page.url}."
         )
-    page.locator('[data-testid="new-class-plus-btn"]').wait_for(state="visible", timeout=5000)
-    page.locator('[data-testid="new-class-plus-btn"]').click()
-    page.locator('[data-testid="new-class-form"]').wait_for(state="visible", timeout=5000)
-    page.locator('[data-testid="new-class-name-input"]').fill(name)
-    page.locator('[data-testid="new-class-pct-input"]').fill(str(target_pct))
-    page.locator('[data-testid="new-class-form-save"]').click()
+    page.locator('[data-testid="empty-state-create-class"]').wait_for(state="visible", timeout=5000)
+    page.locator('[data-testid="empty-state-create-class"]').click()
+    modal = page.locator('[data-testid="new-class-modal-overlay"]')
+    modal.wait_for(state="visible", timeout=5000)
+    modal.locator('[data-testid="new-class-modal-name-input"]').fill(name)
+    modal.locator('[data-testid="new-class-modal-pct-input"]').fill(str(target_pct))
+    modal.locator('[data-testid="new-class-modal-submit"]').click()
     page.wait_for_load_state("networkidle", timeout=10000)
     page.locator(
         f'[data-testid="class-summary-row"]:has('
@@ -192,10 +193,10 @@ def create_two_default_classes(
     inline-add cycle.
 
     data-testids:
-      - new-class-plus-btn
-      - new-class-name-input
-      - new-class-pct-input
-      - new-class-form-save
+      - empty-state-create-class (sidebar entry)
+      - new-class-modal-name-input
+      - new-class-modal-pct-input
+      - new-class-modal-submit
     """
     if classes is None:
         classes = DEFAULT_TWO_CLASSES
@@ -231,8 +232,8 @@ def add_one_asset(
     the new row to appear.
 
     data-testids:
-      - dashboard-add-asset-open
-      - dashboard-add-asset-modal
+      - dashboard-add-asset-open (sidebar entry)
+      - add-asset-modal-overlay
       - dashboard-add-asset-modal-class
       - dashboard-add-asset-name
       - dashboard-add-asset-target-pct
@@ -247,7 +248,7 @@ def add_one_asset(
         )
     page.locator('[data-testid="dashboard-add-asset-open"]').wait_for(state="visible", timeout=5000)
     page.locator('[data-testid="dashboard-add-asset-open"]').click()
-    modal = page.locator('[data-testid="dashboard-add-asset-modal"]')
+    modal = page.locator('[data-testid="add-asset-modal-overlay"]')
     modal.wait_for(state="visible", timeout=5000)
     modal.locator('[data-testid="dashboard-add-asset-modal-class"]').select_option(label=class_name)
     modal.locator('[data-testid="dashboard-add-asset-name"]').fill(ticker)

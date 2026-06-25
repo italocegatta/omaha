@@ -41,7 +41,7 @@ S10_SELECTORS = {
     "asset_allocation_alert_portfolio": '[data-testid="asset-allocation-alert-portfolio"]',
     "asset_allocation_alert_class": '[data-testid="asset-allocation-alert-class"]',
     "dashboard_add_asset_open": '[data-testid="dashboard-add-asset-open"]',
-    "dashboard_add_asset_modal": '[data-testid="dashboard-add-asset-modal"]',
+    "dashboard_add_asset_modal": '[data-testid="add-asset-modal-overlay"]',
     "dashboard_add_asset_class": '[data-testid="dashboard-add-asset-modal-class"]',
     "dashboard_add_asset_name": '[data-testid="dashboard-add-asset-name"]',
     "dashboard_add_asset_target_pct": '[data-testid="dashboard-add-asset-target-pct"]',
@@ -230,9 +230,12 @@ class TestS10AssetTable:
         modal.locator(S10_SELECTORS["dashboard_add_asset_target_pct"]).fill("10")
         modal.locator(S10_SELECTORS["dashboard_add_asset_submit"]).click()
 
-        # Wait for page reload and the new row to render.
-        page.wait_for_load_state("networkidle", timeout=10000)
-        page.wait_for_selector(S10_SELECTORS["dashboard_asset_row"], timeout=5000)
+        # Wait for the post-reload asset row to appear. We deliberately
+        # avoid ``wait_for_load_state("networkidle")`` here: the page
+        # carries an EventSource (live-inject helper) that never goes
+        # idle, so the networkidle wait would race with it. The
+        # wait_for_selector is the load-bearing wait.
+        page.wait_for_selector(S10_SELECTORS["dashboard_asset_row"], timeout=10000)
 
         # Modal is closed after the reload.
         modal_after = page.locator(S10_SELECTORS["dashboard_add_asset_modal"])

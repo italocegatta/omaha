@@ -95,9 +95,12 @@ def test_full_login_profile_dashboard_logout_flow(client: TestClient) -> None:
     assert dashboard.status_code == 200
     assert "text/html" in dashboard.headers["content-type"]
     assert "Bem-vindo, Italo" in dashboard.text
-    # The empty-state copy is also rendered on this slice's dashboard
-    # so an operator who reaches the page knows where to look next.
-    assert "Voce ainda nao tem classes" in dashboard.text
+    # The onboarding empty-state copy is also rendered on this
+    # slice's dashboard so an operator who reaches the page knows
+    # where to look next. After dashboard-action-sidebar the empty
+    # state is a 3-step onboarding card; the heading "Vamos comecar"
+    # is the new payoff line.
+    assert "Vamos comecar" in dashboard.text
 
     # 6. Logout clears the session and 303s back to the login form.
     logout_response = client.post("/logout", follow_redirects=False)

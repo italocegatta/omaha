@@ -8,8 +8,13 @@ unmatched), e commit. Substitui as páginas standalone /import e
 
 ### Requirement: Botão "Importar CSV" no dashboard
 
-O dashboard DEVE exibir um botão "Importar CSV" na área de ações (data-testid="dashboard-actions")
-que abre o modal de import via `@click="$store.importModal.openModal()"`.
+O dashboard DEVE exibir (MUST) um botão "Importar CSV" dentro do
+`<aside class="app-sidebar" data-testid="app-sidebar">` (a barra
+lateral persistente introduzida pelo capability `dashboard-sidebar`).
+O botão carrega `data-testid="dashboard-import-btn"` e abre o modal de
+import via `@click="$store.importModal.openModal()"`. O antigo wrapper
+`data-testid="dashboard-actions"` que continha o botão é removido do
+markup.
 
 #### Scenario: Botão abre modal de import
 

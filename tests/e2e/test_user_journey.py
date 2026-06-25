@@ -36,7 +36,7 @@ SELECTORS = {
     "dashboard_class_section": '[data-testid="class-section-header"]',
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
     "dashboard_add_asset_open": '[data-testid="dashboard-add-asset-open"]',
-    "dashboard_add_asset_modal": '[data-testid="dashboard-add-asset-modal"]',
+    "dashboard_add_asset_modal": '[data-testid="add-asset-modal-overlay"]',
     "dashboard_add_asset_class": '[data-testid="dashboard-add-asset-modal-class"]',
     "dashboard_add_asset_name": '[data-testid="dashboard-add-asset-name"]',
     "dashboard_add_asset_pct": '[data-testid="dashboard-add-asset-target-pct"]',
@@ -138,8 +138,9 @@ class TestS03UserJourney:
         # The nav is rendered and points to the dashboard.
         assert page.locator(SELECTORS["nav_dashboard"]).count() == 1
 
-        # No classes yet → empty state on the dashboard.
-        page.wait_for_selector('[data-testid="empty-state"]', timeout=5000)
+        # No classes yet → onboarding empty state on the dashboard
+        # (3-step card introduced by dashboard-action-sidebar).
+        page.wait_for_selector('[data-testid="empty-state-onboarding"]', timeout=5000)
         assert page.locator(SELECTORS["class_summary_row"]).count() == 0
 
     def test_full_crud_journey_classes_assets_delete(self, page: Page, live_url: str) -> None:

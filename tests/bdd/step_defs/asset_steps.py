@@ -1,7 +1,7 @@
 """Asset CRUD BDD steps — manual dashboard add + per-class sum validation.
 
-The dashboard's per-class "+ Ativo" button opens a modal
-(``dashboard-add-asset-modal``) with class picker, name, and
+The dashboard's sidebar "+ Novo ativo" button opens a modal
+(``add-asset-modal-overlay``) with class picker, name, and
 target-pct inputs. Submitting calls ``POST /api/assets``; the
 modal ``reload()``s the page on 201 and surfaces the inline
 error (``dashboard-add-asset-error``) on 422.
@@ -28,14 +28,10 @@ if TYPE_CHECKING:
 
 @when(parsers.parse('abro o formulário de ativo da classe "{class_name}"'))
 def open_asset_form(page: Page, class_name: str):
-    # Find the class section by name, then click its "+ Ativo"
-    # button. The class section header has the button — we
-    # locate it inside the matching ``class-summary-row``.
-    section = page.locator(
-        f'[data-testid="class-summary-row"]:has([data-testid="class-section-name"]:text-is("{class_name}"))'
-    )
-    section.first.locator('[data-testid="dashboard-add-asset-open"]').click()
-    modal = page.locator('[data-testid="dashboard-add-asset-modal"]')
+    # The sidebar's "+ Novo ativo" button (dashboard-action-sidebar)
+    # opens the add-asset modal — it is no longer scoped per-class.
+    page.locator('[data-testid="dashboard-add-asset-open"]').click()
+    modal = page.locator('[data-testid="add-asset-modal-overlay"]')
     modal.wait_for(state="visible", timeout=5000)
 
 
