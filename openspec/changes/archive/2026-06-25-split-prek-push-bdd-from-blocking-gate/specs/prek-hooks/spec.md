@@ -12,6 +12,8 @@ entry MUST use `pass_filenames = false` so the full filtered subset runs.
 - **AND** the hook reports success when all selected tests pass
 - **AND** the hook reports failure when any selected test fails (push is blocked)
 
+## ADDED Requirements
+
 ### Requirement: BDD scenarios run via task test-bdd, not pre-push
 BDD scenarios under `tests/bdd/` MUST run via the dedicated `task test-bdd`
 task, which orchestrates the dev server before pytest. BDD scenarios MUST
@@ -35,8 +37,6 @@ on `http://127.0.0.1:8766` that the pre-push hook does not start.
 - **THEN** the push is NOT blocked (because BDD is excluded from pre-push)
 - **AND** the developer must run `task test-bdd` locally or wait for CI to
   observe the flake
-
-## ADDED Requirements
 
 ### Requirement: Pre-push pytest hook entry documents the dev-server carve-out
 The `prek.toml` `pytest` hook entry for the `pre-push` stage MUST include
