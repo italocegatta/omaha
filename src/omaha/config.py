@@ -40,6 +40,15 @@ class Settings(BaseSettings):
     # backdating the database. Default 1h keeps production behavior.
     PREVIEW_TTL_SECONDS: int = 3600
 
+    # Quote cache: TTL for the cached quote (seconds). Default 900 (15 min).
+    QUOTE_TTL_SECONDS: int = 900
+    # Background refresh interval in seconds. Default 900 (15 min).
+    QUOTE_REFRESH_INTERVAL_SECONDS: int = 900
+    # Circuit breaker cooldown after consecutive full-batch failures.
+    QUOTE_REFRESH_CIRCUIT_COOLDOWN_SECONDS: int = 300
+    # Number of consecutive full-batch failures before opening the circuit.
+    QUOTE_REFRESH_CIRCUIT_THRESHOLD: int = 3
+
     @property
     def effective_log_format(self) -> str:
         """Resolve the log format the runtime should actually use.

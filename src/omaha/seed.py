@@ -3,7 +3,9 @@
 The seed creates two users — ``Italo`` and ``Ana`` — both with the
 shared family password (from ``settings.ADMIN_PASSWORD``), each with
 one profile of the same name. It is safe to call more than once: if
-any user already exists, the function exits without writing.
+any user already exists, the function still re-syncs ``password_hash``
+from ``settings.ADMIN_PASSWORD`` so a rotation in the environment
+propagates without manual DB surgery.
 
 Typical entry points:
 
@@ -32,12 +34,23 @@ DEFAULT_USERS: tuple[tuple[str, int], ...] = (
 def _seed_with_session(db: Session) -> int:
     """Idempotently create the two users + their default profiles.
 
+    If users already exist, re-sync ``password_hash`` from
+    ``settings.ADMIN_PASSWORD`` so an environment-level password change
+    takes effect on the next seed run without dropping the DB.
+
     Returns the number of users that existed *before* the call, which is
     a convenient signal for callers (``0`` = we just seeded, ``1+`` =
     already populated).
     """
     existing = db.query(User).count()
     if existing > 0:
+        if settings.ADMIN_PASSWORD:
+            expected_hash = hash_password(settings.ADMIN_PASSWORD)
+            stale = db.query(User).filter(User.password_hash != expected_hash).all()
+            for user in stale:
+                user.password_hash = expected_hash
+            if stale:
+                db.commit()
         return existing
 
     if not settings.ADMIN_PASSWORD:

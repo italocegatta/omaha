@@ -9,11 +9,13 @@ correctly.
 
 from __future__ import annotations
 
+import enum
 from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Integer,
@@ -28,6 +30,26 @@ from omaha.db import Base
 
 if TYPE_CHECKING:
     pass
+
+
+class QuoteKind(str, enum.Enum):
+    """Policy for fetching live quotes per asset class.
+
+    * ``auto`` — the QuoteService refreshes quotes for positions in
+      this class via the configured :class:`QuoteProvider`
+      (yfinance). Used for tradeable instruments: BR stocks/FIIs,
+      US stocks/ETFs, crypto, FX.
+    * ``manual`` — reserved for a future change that lets the user
+      type a price per position via the UI. For v1 behaves the same
+      as ``none`` (use broker price).
+    * ``none`` — the QuoteService skips positions in this class.
+      ``Position.current_price`` (from the broker CSV import) is the
+      authoritative price. Default for existing rows on migration.
+    """
+
+    AUTO = "auto"
+    MANUAL = "manual"
+    NONE = "none"
 
 
 class User(Base):
@@ -106,6 +128,11 @@ class AssetClass(Base):
     reports; the relationship is ``order_by="AssetClass.display_order"``
     so iteration in Python matches the user's saved order.
 
+    ``quote_kind`` controls whether the QuoteService fetches live
+    prices for positions under this class. See :class:`QuoteKind`.
+    Defaults to ``none`` so existing rows on migration opt out of
+    live fetching until the user explicitly flips the toggle.
+
     On profile deletion, the FK ``ON DELETE CASCADE`` removes all
     child classes; the ORM relationship also declares
     ``cascade="all, delete-orphan"`` so in-process ``session.delete``
@@ -113,7 +140,13 @@ class AssetClass(Base):
     """
 
     __tablename__ = "asset_classes"
-    __table_args__ = (UniqueConstraint("profile_id", "name", name="uq_asset_class_profile_name"),)
+    __table_args__ = (
+        UniqueConstraint("profile_id", "name", name="uq_asset_class_profile_name"),
+        CheckConstraint(
+            "quote_kind IN ('auto', 'manual', 'none')",
+            name="ck_asset_class_quote_kind",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     profile_id: Mapped[int] = mapped_column(
@@ -124,6 +157,9 @@ class AssetClass(Base):
     name: Mapped[str] = mapped_column(String(64), nullable=False)
     target_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    quote_kind: Mapped[str] = mapped_column(
+        String(8), nullable=False, default=QuoteKind.NONE.value, server_default=QuoteKind.NONE.value
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )
@@ -139,7 +175,8 @@ class AssetClass(Base):
     def __repr__(self) -> str:
         return (
             f"AssetClass(id={self.id!r}, profile_id={self.profile_id!r}, "
-            f"name={self.name!r}, target_pct={self.target_pct!r})"
+            f"name={self.name!r}, target_pct={self.target_pct!r}, "
+            f"quote_kind={self.quote_kind!r})"
         )
 
 
@@ -226,7 +263,7 @@ class Position(Base):
     brokers can write to the same ``(asset_id, broker_ticker)`` row
     as long as the tickers match. ``qty``, ``avg_price``, and
     ``current_price`` are :class:`~decimal.Decimal` columns with
-    ``Numeric(18, 4)`` precision — enough headroom for Brazilian
+    ``Numeric(18, 8)`` precision — enough headroom for Brazilian
     broker positions and FX-aware totals without losing cents.
 
     On asset deletion, the FK ``ON DELETE CASCADE`` removes all
@@ -249,9 +286,9 @@ class Position(Base):
         nullable=False,
         index=True,
     )
-    qty: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
-    avg_price: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
-    current_price: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
+    qty: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
+    avg_price: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
+    current_price: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
     broker_ticker: Mapped[str] = mapped_column(String(32), nullable=False)
     imported_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
@@ -312,4 +349,52 @@ class ImportPreview(Base):
         )
 
 
-__all__ = ["User", "Profile", "AssetClass", "Asset", "Position", "ImportPreview"]
+class Quote(Base):
+    """A cached market quote for one symbol (ticker / FX / crypto).
+
+    Populated by the :class:`~omaha.quotes.service.QuoteService` background
+    loop and read by the ``/api/quotes`` routes. The cache is DB-backed
+    so a uvicorn reload (dev) or container restart (prod) does not clear
+    it; freshness is computed at read time from ``fetched_at`` and
+    :attr:`~omaha.config.Settings.QUOTE_TTL_SECONDS`.
+
+    ``symbol`` is the canonical key the consumer reads by — the
+    yfinance-mapped form (``PETR4.SA``, ``BTC-USD``, ``BRL=X``) is what
+    callers send; the cache does not store the un-mapped BR ticker.
+    ``price`` carries enough precision for Brazilian broker positions
+    and FX rates (matches :class:`Position.current_price` shape);
+    ``currency`` lets the consumer distinguish BRL vs USD vs
+    crypto-quote currencies for the future multi-currency rebalance.
+
+    The table is intentionally not FK-linked to :class:`Asset` or
+    :class:`Position`: a quote is keyed by raw symbol, and the same
+    yfinance ticker can back multiple broker positions across
+    profiles (e.g. ``IVVB11.SA`` in both Italo's and Ana's portfolio).
+    """
+
+    __tablename__ = "quotes"
+
+    symbol: Mapped[str] = mapped_column(String(32), primary_key=True)
+    price: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
+    currency: Mapped[str] = mapped_column(String(8), nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return (
+            f"Quote(symbol={self.symbol!r}, price={self.price!r}, "
+            f"currency={self.currency!r}, fetched_at={self.fetched_at!r})"
+        )
+
+
+__all__ = [
+    "User",
+    "Profile",
+    "AssetClass",
+    "Asset",
+    "Position",
+    "ImportPreview",
+    "Quote",
+    "QuoteKind",
+]

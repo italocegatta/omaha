@@ -2,6 +2,29 @@
 
 Project-level rules for the coding agent. Overrides defaults.
 
+## Family password — locked
+
+**Canonical value:** `distendidos`.
+
+`ADMIN_PASSWORD` in `.env` / `.env.example` is the shared family password
+gating login for both profiles (Italo, Ana Livia). It is set to
+`distendidos` and **must not be changed** without explicit owner sign-off.
+
+This applies to:
+
+- `.env` and `.env.example` — keep `ADMIN_PASSWORD=distendidos`.
+- `README.md` Quick start and any onboarding doc — must not instruct
+  new operators to rotate this password.
+- Generated `.env` from the Quick start — do not offer a "set your own
+  password" step for this value.
+- Test fixtures — use a separate `TEST_ADMIN_PASSWORD` constant
+  (already wired in `tests/conftest.py`, `tests/e2e/conftest.py`,
+  `tests/bdd/conftest.py`), never reuse the family value.
+
+If a future change requires rotating, edit this section, the comment in
+`.env.example`, the README Quick start, and `.env` in one commit, and
+flag the owner before merging.
+
 ## Network access — non-negotiable
 
 The dev app is **always** accessed from another machine on the LAN. The
@@ -232,6 +255,79 @@ operacional em `tests/bdd/README.md`. BDD roda serial — não
 adicionar pytest-xdist (race no autouse
 `clean_seeded_profiles` que compartilha SQLite
 session-scoped).
+
+## Delivery finalization — restart + ready-to-test
+
+After **every** feature, fix, or interface change delivered to the
+user, the app must be left running with the latest code loaded and the
+DB in a known state so the user can hit the LAN URL and test
+immediately. A green test suite is **not** the same as "ready to test"
+— the user inspects the running app, not the test report.
+
+### Checklist (run before reporting done)
+
+1. **Restart the dev server** so the new code is loaded. Kill any
+   prior `uvicorn omaha.main:app` and start fresh:
+   ```bash
+   pkill -f "uvicorn omaha.main" || true
+   nohup uv run uvicorn omaha.main:app --host 0.0.0.0 --port 8000 \
+     > /tmp/omaha-uvicorn.log 2>&1 &
+   ```
+   Use `nohup ... &` (or `task serve` in a detached terminal) so the
+   server survives the agent process exiting. Verify it is listening
+   before reporting done.
+
+2. **Smoke-check the LAN URL.** Never `127.0.0.1`, never
+   `localhost`. Use:
+   ```bash
+   URL=$(bash scripts/print_lan_url.sh)
+   curl -fsS "$URL/healthz"
+   ```
+   Expect `{"status":"ok",...}`. If it fails, fix before reporting
+   done — do not hand the user a broken URL.
+
+3. **DB in the right state.** Pick one (do not guess):
+   - **Schema changed** (new migration, model edit) →
+     `uv run task db-migrate`.
+   - **User asked for a reset / clean state** → `uv run task db-reset`
+     (wipes DB + reseeds family + Italo via CSV path: 3 classes, 43
+     assets, ready for the manual import-flow test).
+   - **User wants assets cleared only** → `uv run task db-clear-assets`
+     (keeps classes, wipes assets + positions; for a clean import test
+     surface).
+   - **No DB work** → leave the DB alone.
+
+   After `db-reset` / `db-clear-assets`, the asset / position count
+   must match what the task is supposed to produce. Spot-check with
+   `sqlite3 data/portfolio.db "select count(*) from assets"` etc.
+   before reporting done.
+
+4. **Report the LAN URL + DB state.** Final message must include:
+   - `URL=$(bash scripts/print_lan_url.sh)` (the actual URL, not a
+     hardcoded IP).
+   - One-line DB state ("asset-free" / "Italo seeded: 3 classes + 43
+     assets" / etc.).
+   - What to test (1-2 sentences, mapped to the user's request).
+
+### What NOT to do
+
+- "Tests pass, here's the diff" without restarting — the user cannot
+  test from a test report.
+- Reporting `http://localhost:8000` or `http://127.0.0.1:8000` (see
+  "Network access" rule above).
+- Running `db-reset` without being asked — it wipes user data.
+- Hardcoding IPs in chat output — use `print_lan_url.sh`.
+- Leaving the prior uvicorn process running — it serves stale code.
+
+### When this applies
+
+- Any code edit that affects behavior the user will inspect in the
+  browser (routes, templates, static assets, seed, login, models,
+  migrations, config).
+- Any task ending with "test this", "show me", "does it work?", or
+  a direct user request to verify.
+- **Not** for pure doc / OpenSpec / non-runtime edits — those do not
+  need a server restart, but still report what changed.
 
 ## Taskipy — use `task <name>`, not raw commands
 

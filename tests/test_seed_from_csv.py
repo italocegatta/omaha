@@ -112,8 +112,7 @@ def omaha_db(
         text=True,
     )
     assert result.returncode == 0, (
-        f"alembic upgrade head failed: stdout={result.stdout!r} "
-        f"stderr={result.stderr!r}"
+        f"alembic upgrade head failed: stdout={result.stdout!r} stderr={result.stderr!r}"
     )
 
     for mod_name in list(sys.modules):
@@ -199,14 +198,13 @@ def test_reset_creates_full_italo_state(omaha_db) -> None:
         assert abs(sum(c.target_pct for c in classes) - Decimal("100")) <= Decimal("0.01")
 
         assets = (
-            session.query(Asset)
-            .filter(Asset.asset_class_id.in_([c.id for c in classes]))
-            .all()
+            session.query(Asset).filter(Asset.asset_class_id.in_([c.id for c in classes])).all()
         )
         assert len(assets) == 48, len(assets)
 
         # per-class asset sum
         from collections import defaultdict
+
         per_class: dict[int, list[Decimal]] = defaultdict(list)
         class_by_id = {c.id: c for c in classes}
         for a in assets:
@@ -217,9 +215,7 @@ def test_reset_creates_full_italo_state(omaha_db) -> None:
             )
 
         positions = (
-            session.query(Position)
-            .filter(Position.asset_id.in_([a.id for a in assets]))
-            .all()
+            session.query(Position).filter(Position.asset_id.in_([a.id for a in assets])).all()
         )
         assert len(positions) == 47, len(positions)
 
@@ -235,8 +231,12 @@ def test_reset_wipes_existing_state_first(omaha_db) -> None:
         # gone and the canonical Italo state must replace it.
         user = session.query(User).filter(User.username == "Italo").one()
         profile = session.query(Profile).filter(Profile.user_id == user.id).one()
-        c1 = AssetClass(profile_id=profile.id, name="Garbage Class A", target_pct=10, display_order=99)
-        c2 = AssetClass(profile_id=profile.id, name="Garbage Class B", target_pct=10, display_order=99)
+        c1 = AssetClass(
+            profile_id=profile.id, name="Garbage Class A", target_pct=10, display_order=99
+        )
+        c2 = AssetClass(
+            profile_id=profile.id, name="Garbage Class B", target_pct=10, display_order=99
+        )
         session.add_all([c1, c2])
         session.flush()
         a1 = Asset(asset_class_id=c1.id, name="GHOST1", target_pct=50, display_order=0)
@@ -246,8 +246,12 @@ def test_reset_wipes_existing_state_first(omaha_db) -> None:
         session.flush()
         session.add_all(
             [
-                Position(asset_id=a1.id, qty=1, avg_price=10, current_price=20, broker_ticker="GHOST1"),
-                Position(asset_id=a2.id, qty=2, avg_price=30, current_price=40, broker_ticker="GHOST2"),
+                Position(
+                    asset_id=a1.id, qty=1, avg_price=10, current_price=20, broker_ticker="GHOST1"
+                ),
+                Position(
+                    asset_id=a2.id, qty=2, avg_price=30, current_price=40, broker_ticker="GHOST2"
+                ),
             ]
         )
         session.commit()
@@ -438,9 +442,7 @@ def test_non_tradeable_position_sentinel_preserves_value(omaha_db) -> None:
         from omaha.models import Asset, Position
         from omaha.routes.pages import portfolio_aggregates
 
-        rdb = session.query(Asset).filter(
-            Asset.name == "RDB Pós 100% CDI 01/08/2033"
-        ).one()
+        rdb = session.query(Asset).filter(Asset.name == "RDB Pós 100% CDI 01/08/2033").one()
         pos = session.query(Position).filter(Position.asset_id == rdb.id).one()
         assert pos.qty == Decimal("1")
         assert pos.avg_price == Decimal("20000.00")
@@ -467,9 +469,7 @@ def test_non_ascii_asset_name_round_trips(omaha_db) -> None:
 
         names = {a.name for a in session.query(Asset).all()}
         assert "Tesouro IPCA+ 2035" in names, "non-ASCII asset name must survive"
-        assert any("Caixinha Turbo NuCel" in n for n in names), (
-            "non-ASCII substring must survive"
-        )
+        assert any("Caixinha Turbo NuCel" in n for n in names), "non-ASCII substring must survive"
         assert any("Tesouro IPCA+ 2050" in n for n in names)
 
 
@@ -534,10 +534,7 @@ def test_upsert_rejects_sum_violation_before_write(omaha_db, monkeypatch) -> Non
     with SessionLocal() as session:
         from omaha.models import AssetClass
 
-        before = {
-            c.name: c.target_pct
-            for c in session.query(AssetClass).all()
-        }
+        before = {c.name: c.target_pct for c in session.query(AssetClass).all()}
     bad_path = REPO_ROOT / "data" / "seed" / "italo_classes.csv"
     backup = bad_path.read_text(encoding="utf-8")
     try:
@@ -549,10 +546,7 @@ def test_upsert_rejects_sum_violation_before_write(omaha_db, monkeypatch) -> Non
         with SessionLocal() as session:
             from omaha.models import AssetClass
 
-            after = {
-                c.name: c.target_pct
-                for c in session.query(AssetClass).all()
-            }
+            after = {c.name: c.target_pct for c in session.query(AssetClass).all()}
             assert before == after, "no write on sum violation"
     finally:
         bad_path.write_text(backup, encoding="utf-8")

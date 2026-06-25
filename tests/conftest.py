@@ -173,8 +173,12 @@ _INTEGRATION_PREFIXES = (
     "tests/test_imports_routes.py",
     "tests/test_pages_routes.py",
     "tests/test_positions_model.py",
+    "tests/test_quote_cache.py",
+    "tests/test_quote_routes.py",
+    "tests/test_quote_service.py",
     "tests/test_real_csv_flow.py",
     "tests/test_seed.py",
+    "tests/test_seed_from_csv.py",
 )
 
 
@@ -193,6 +197,7 @@ _UNIT_FILES = frozenset(
         "tests/test_e2e_port_uniqueness.py",
         "tests/test_logging.py",
         "tests/test_tokens.py",
+        "tests/test_yfinance_provider.py",
     }
 )
 

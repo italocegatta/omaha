@@ -148,25 +148,17 @@ def load_classes(profile: str) -> list[ClassRow]:
         if not name:
             abort(f"{path}:{idx} empty class name")
         if name in seen:
-            abort(
-                f"{path}:{idx} duplicate class name {name!r} "
-                f"(first seen at line {seen[name]})"
-            )
+            abort(f"{path}:{idx} duplicate class name {name!r} (first seen at line {seen[name]})")
         seen[name] = idx
         target_pct = _decimal(raw["target_pct"], field="target_pct", path=path, line_no=idx)
         if not (Decimal("0") <= target_pct <= Decimal("100")):
             abort(f"{path}:{idx} target_pct={target_pct} out of [0, 100]")
-        display_order = _int(
-            raw["display_order"], field="display_order", path=path, line_no=idx
-        )
+        display_order = _int(raw["display_order"], field="display_order", path=path, line_no=idx)
         if display_order < 0:
             abort(f"{path}:{idx} display_order={display_order} < 0")
         quote_kind = raw["quote_kind"].strip()
         if quote_kind not in VALID_QUOTE_KINDS:
-            abort(
-                f"{path}:{idx} quote_kind={quote_kind!r} not one of "
-                f"{sorted(VALID_QUOTE_KINDS)}"
-            )
+            abort(f"{path}:{idx} quote_kind={quote_kind!r} not one of {sorted(VALID_QUOTE_KINDS)}")
         out.append(
             ClassRow(
                 name=name,
@@ -201,9 +193,7 @@ def load_assets(profile: str) -> list[AssetRow]:
         target_pct = _decimal(raw["target_pct"], field="target_pct", path=path, line_no=idx)
         if not (Decimal("0") <= target_pct <= Decimal("100")):
             abort(f"{path}:{idx} target_pct={target_pct} out of [0, 100]")
-        display_order = _int(
-            raw["display_order"], field="display_order", path=path, line_no=idx
-        )
+        display_order = _int(raw["display_order"], field="display_order", path=path, line_no=idx)
         if display_order < 0:
             abort(f"{path}:{idx} display_order={display_order} < 0")
         out.append(
@@ -300,10 +290,7 @@ def validate(
     for cls_name in class_names:
         ok, msg = validate_target_pct_sum(by_cls[cls_name])
         if not ok:
-            abort(
-                f"{SEED_DIR / f'{profile}_assets.csv'}: "
-                f"class {cls_name!r}: {msg}"
-            )
+            abort(f"{SEED_DIR / f'{profile}_assets.csv'}: class {cls_name!r}: {msg}")
 
 
 # ---------------------------------------------------------------------------
@@ -450,15 +437,19 @@ def run_upsert(
     positions: list[PositionRow],
 ) -> dict[str, int]:
     profile_id = get_profile_id(db, profile)
-    out: dict[str, int] = {"classes_created": 0, "classes_updated": 0,
-                           "assets_created": 0, "assets_updated": 0,
-                           "positions_created": 0, "positions_updated": 0,
-                           "positions_unchanged": 0}
+    out: dict[str, int] = {
+        "classes_created": 0,
+        "classes_updated": 0,
+        "assets_created": 0,
+        "assets_updated": 0,
+        "positions_created": 0,
+        "positions_updated": 0,
+        "positions_unchanged": 0,
+    }
 
     # classes
     existing_classes = {
-        c.name: c
-        for c in db.query(AssetClass).filter(AssetClass.profile_id == profile_id).all()
+        c.name: c for c in db.query(AssetClass).filter(AssetClass.profile_id == profile_id).all()
     }
     classes_sorted = sorted(classes, key=lambda c: c.display_order)
     for c in classes_sorted:
@@ -476,7 +467,9 @@ def run_upsert(
                 changed = True
             if changed:
                 out["classes_updated"] += 1
-                print(f"updated: {c.name} -> target_pct={c.target_pct} order={c.display_order} quote_kind={c.quote_kind}")
+                print(
+                    f"updated: {c.name} -> target_pct={c.target_pct} order={c.display_order} quote_kind={c.quote_kind}"
+                )
             else:
                 pass  # unchanged (no log to keep summary quiet)
         else:
@@ -495,15 +488,13 @@ def run_upsert(
 
     # refresh class lookup
     class_by_name = {
-        c.name: c
-        for c in db.query(AssetClass).filter(AssetClass.profile_id == profile_id).all()
+        c.name: c for c in db.query(AssetClass).filter(AssetClass.profile_id == profile_id).all()
     }
 
     # assets
     class_ids = [c.id for c in class_by_name.values()]
     existing_assets = (
-        db.query(Asset).filter(Asset.asset_class_id.in_(class_ids)).all()
-        if class_ids else []
+        db.query(Asset).filter(Asset.asset_class_id.in_(class_ids)).all() if class_ids else []
     )
     asset_by_key: dict[tuple[int, str], Asset] = {
         (a.asset_class_id, a.name): a for a in existing_assets
@@ -540,16 +531,16 @@ def run_upsert(
     db.flush()
 
     # refresh asset lookup by name (only within profile)
-    asset_by_name: dict[str, Asset] = {
-        a.name: a
-        for a in db.query(Asset).filter(Asset.asset_class_id.in_(class_ids)).all()
-    } if class_ids else {}
+    asset_by_name: dict[str, Asset] = (
+        {a.name: a for a in db.query(Asset).filter(Asset.asset_class_id.in_(class_ids)).all()}
+        if class_ids
+        else {}
+    )
 
     # positions
     asset_ids = [a.id for a in asset_by_name.values()]
     existing_positions = (
-        db.query(Position).filter(Position.asset_id.in_(asset_ids)).all()
-        if asset_ids else []
+        db.query(Position).filter(Position.asset_id.in_(asset_ids)).all() if asset_ids else []
     )
     pos_by_key: dict[tuple[int, str], Position] = {
         (p.asset_id, p.broker_ticker): p for p in existing_positions
@@ -602,19 +593,23 @@ def run_diff(
     positions: list[PositionRow],
 ) -> dict[str, int]:
     profile_id = get_profile_id(db, profile)
-    out: dict[str, int] = {"would_create_classes": 0, "would_update_classes": 0,
-                           "would_orphan_classes": 0,
-                           "would_create_assets": 0, "would_update_assets": 0,
-                           "would_orphan_assets": 0,
-                           "would_create_positions": 0, "would_update_positions": 0,
-                           "would_orphan_positions": 0}
+    out: dict[str, int] = {
+        "would_create_classes": 0,
+        "would_update_classes": 0,
+        "would_orphan_classes": 0,
+        "would_create_assets": 0,
+        "would_update_assets": 0,
+        "would_orphan_assets": 0,
+        "would_create_positions": 0,
+        "would_update_positions": 0,
+        "would_orphan_positions": 0,
+    }
 
     print(f"=== diff for {profile} ===")
 
     # classes
     existing_classes = {
-        c.name: c
-        for c in db.query(AssetClass).filter(AssetClass.profile_id == profile_id).all()
+        c.name: c for c in db.query(AssetClass).filter(AssetClass.profile_id == profile_id).all()
     }
     classes_sorted = sorted(classes, key=lambda c: c.display_order)
     print("\n# classes")
@@ -627,9 +622,7 @@ def run_diff(
         else:
             row = existing_classes[c.name]
             if row.target_pct != c.target_pct or row.display_order != c.display_order:
-                would_update.append(
-                    f"  ~ {c.name} target_pct {row.target_pct} -> {c.target_pct}"
-                )
+                would_update.append(f"  ~ {c.name} target_pct {row.target_pct} -> {c.target_pct}")
                 out["would_update_classes"] += 1
     for c in existing_classes:
         if c not in {x.name for x in classes_sorted}:
@@ -646,13 +639,11 @@ def run_diff(
 
     # assets
     class_by_name = {
-        c.name: c
-        for c in db.query(AssetClass).filter(AssetClass.profile_id == profile_id).all()
+        c.name: c for c in db.query(AssetClass).filter(AssetClass.profile_id == profile_id).all()
     }
     class_ids = [c.id for c in class_by_name.values()]
     existing_assets = (
-        db.query(Asset).filter(Asset.asset_class_id.in_(class_ids)).all()
-        if class_ids else []
+        db.query(Asset).filter(Asset.asset_class_id.in_(class_ids)).all() if class_ids else []
     )
     asset_by_class_name: dict[tuple[int, str], Asset] = {
         (a.asset_class_id, a.name): a for a in existing_assets
@@ -671,8 +662,7 @@ def run_diff(
             row = asset_by_class_name[key]
             if row.target_pct != a.target_pct or row.display_order != a.display_order:
                 would_update.append(
-                    f"  ~ {a.class_name} / {a.name} target_pct "
-                    f"{row.target_pct} -> {a.target_pct}"
+                    f"  ~ {a.class_name} / {a.name} target_pct {row.target_pct} -> {a.target_pct}"
                 )
                 out["would_update_assets"] += 1
     for key, row in asset_by_class_name.items():
@@ -692,14 +682,14 @@ def run_diff(
             print(line)
 
     # positions
-    asset_by_name = {
-        a.name: a
-        for a in db.query(Asset).filter(Asset.asset_class_id.in_(class_ids)).all()
-    } if class_ids else {}
+    asset_by_name = (
+        {a.name: a for a in db.query(Asset).filter(Asset.asset_class_id.in_(class_ids)).all()}
+        if class_ids
+        else {}
+    )
     asset_ids = [a.id for a in asset_by_name.values()]
     existing_positions = (
-        db.query(Position).filter(Position.asset_id.in_(asset_ids)).all()
-        if asset_ids else []
+        db.query(Position).filter(Position.asset_id.in_(asset_ids)).all() if asset_ids else []
     )
     pos_by_key: dict[tuple[int, str], Position] = {
         (p.asset_id, p.broker_ticker): p for p in existing_positions
@@ -715,11 +705,13 @@ def run_diff(
             out["would_create_positions"] += 1
         else:
             row = pos_by_key[key]
-            if (row.qty != p.qty or row.avg_price != p.avg_price
-                    or row.current_price != p.current_price):
+            if (
+                row.qty != p.qty
+                or row.avg_price != p.avg_price
+                or row.current_price != p.current_price
+            ):
                 would_update.append(
-                    f"  ~ {p.asset_name} current_price "
-                    f"{row.current_price} -> {p.current_price}"
+                    f"  ~ {p.asset_name} current_price {row.current_price} -> {p.current_price}"
                 )
                 out["would_update_positions"] += 1
     for key, row in pos_by_key.items():

@@ -19,6 +19,7 @@ dependencies = [
     "itsdangerous>=2.1",
     "jinja2>=3.1",
     "python-multipart>=0.0.9",
+    "yfinance>=1.4",
 ]
 
 [dependency-groups]
@@ -140,7 +141,10 @@ check   = { cmd = "task lint && task test-unit",   help = "CI-style gate: lint +
 db-migrate  = { cmd = "uv run alembic upgrade head",                                 help = "Apply pending Alembic migrations" }
 db-revision = { cmd = "uv run alembic revision --autogenerate",                      help = "Create a new Alembic revision:  task db-revision -m \"add foo column\"" }
 db-seed     = { cmd = "uv run python -m omaha.seed",                                 help = "Run the idempotent family + profiles seed" }
-db-reset    = { cmd = "uv run python -m scripts.dev_reset",                          help = "Wipe + reseed Italo's profile for manual import-flow testing" }
+db-seed-from-csv = { cmd = "uv run python -m scripts.seed_from_csv --profile italo --mode reset", help = "Wipe + reseed Italo from data/seed/*.csv (override with -- --profile ana --mode diff)" }
+db-seed-diff     = { cmd = "uv run python -m scripts.seed_from_csv --profile italo --mode diff",  help = "Print the CSV-vs-DB diff for Italo without writing (override with -- --profile ana)" }
+db-seed-upsert   = { cmd = "uv run python -m scripts.seed_from_csv --profile italo --mode upsert",help = "Reconcile Italo's DB with data/seed/*.csv (create-or-update, no delete). Override with -- --profile ana" }
+db-reset    = { cmd = "uv run python -m scripts.seed_from_csv --profile italo --mode reset",     help = "Wipe + reseed Italo's profile (CSV-driven, destructive; aliases db-seed-from-csv for backward compat)" }
 db-current  = { cmd = "uv run alembic current",                                      help = "Show the current Alembic revision head" }
 db-history  = { cmd = "uv run alembic history",                                      help = "Show the full Alembic migration timeline" }
 db-clear-assets = { cmd = "uv run python -m scripts.clear_assets",                     help = "Delete ALL asset rows (keep classes intact)" }

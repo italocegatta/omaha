@@ -18,6 +18,11 @@ recover from a wiped volume. Tests opt out by setting
 ``tests/conftest.py`` sets up its own migration + seed before the
 client is created).
 
+When startup is enabled, the :class:`~omaha.quotes.service.QuoteService`
+background loop is also started on the uvicorn event loop. The loop
+is cancelled on shutdown so uvicorn's lifespan closes cleanly
+without a stack trace from the cancelled coroutine.
+
 The startup event is registered with ``@app.on_event`` because that
 is what the T03 plan specifies. ``on_event`` is deprecated in favour
 of the ``lifespan`` context manager; the warning is harmless for now
@@ -27,6 +32,7 @@ refactor.
 
 from __future__ import annotations
 
+import asyncio
 import os
 import subprocess
 import sys
@@ -47,6 +53,7 @@ from omaha.routes import classes as classes_routes
 from omaha.routes import health as health_routes
 from omaha.routes import imports as imports_routes
 from omaha.routes import pages as pages_routes
+from omaha.routes import quotes as quotes_routes
 
 _PACKAGE_DIR = Path(__file__).resolve().parent
 _TEMPLATES_DIR = _PACKAGE_DIR / "templates"
@@ -74,6 +81,34 @@ def _run_startup_migrations_and_seed() -> None:
     from omaha.seed import seed
 
     seed()
+
+
+def _start_quote_service(app: FastAPI) -> None:
+    """Spawn the :class:`QuoteService` background loop on the running event loop.
+
+    Stores the asyncio task on ``app.state`` so the shutdown hook can
+    cancel it. Skipped when ``OMAHA_SKIP_STARTUP=1`` (tests bypass
+    startup so the loop never runs).
+    """
+    from omaha.quotes.provider import YFinanceProvider
+    from omaha.quotes.service import QuoteService
+
+    service = QuoteService(provider=YFinanceProvider())
+    app.state.quote_service = service
+    app.state.quote_task = asyncio.create_task(service.run_forever())
+
+
+def _stop_quote_service(app: FastAPI) -> None:
+    """Cancel the :class:`QuoteService` background task on shutdown.
+
+    Best-effort: ``task.cancel()`` schedules the cancellation but does
+    not block the shutdown; we let the event loop drain naturally on
+    the way out. If the task never started (e.g. ``OMAHA_SKIP_STARTUP``)
+    the attribute is absent and the hook is a no-op.
+    """
+    task: asyncio.Task | None = getattr(app.state, "quote_task", None)
+    if task is not None and not task.done():
+        task.cancel()
 
 
 def _brl(value: object) -> str:
@@ -156,6 +191,7 @@ def create_app() -> FastAPI:
     app.include_router(classes_routes.router)
     app.include_router(assets_routes.router)
     app.include_router(imports_routes.router)
+    app.include_router(quotes_routes.router)
 
     # ``/static`` is mounted at the package's static directory.
     # The directory must exist for the mount to succeed — the T03
@@ -168,6 +204,8 @@ def create_app() -> FastAPI:
         # it for the T03 plan contract. The deprecation warning is
         # benign here.
         app.on_event("startup")(_run_startup_migrations_and_seed)
+        app.on_event("startup")(lambda: _start_quote_service(app))
+        app.on_event("shutdown")(lambda: _stop_quote_service(app))
 
     return app
 

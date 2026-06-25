@@ -19,7 +19,8 @@ uv sync
 cp .env.example .env
 # Edit .env and set a real SECRET_KEY (50+ random chars):
 #   python -c "import secrets; print(secrets.token_urlsafe(50))"
-# ADMIN_PASSWORD is the shared family password. Change it.
+# ADMIN_PASSWORD is the shared family password.
+# Canonical default is `distendidos` — see AGENTS.md "Family password".
 
 # 3. Run the dev server. Bind to 0.0.0.0 — see "Network access" below.
 uv run uvicorn omaha.main:app --host 0.0.0.0 --port 8000
