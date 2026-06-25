@@ -200,4 +200,3 @@ entry is the only way to create a class.
 - **WHEN** the dashboard renders with one or more classes
 - **THEN** the `.empty-state-onboarding` element is NOT in the DOM
 - **AND** the normal distribution view renders
-

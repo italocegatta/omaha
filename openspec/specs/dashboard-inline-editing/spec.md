@@ -561,4 +561,3 @@ smoothly.
   without ellipsis
 - **AND** the numeric columns ("Qtd", "Valor", "Alvo % classe", etc.)
   render their values with the existing number/percentage formatting
-
