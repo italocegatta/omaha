@@ -76,34 +76,22 @@
    itself; these rules are the fallback when the inline style is absent
    (e.g. empty / null c.color) and the source for any element that
    should follow the class index instead of the server-supplied color. */
-.dashboard-distribution .class-section:nth-of-type(6n+1) .class-color-swatch,
-.dashboard-distribution .class-section:nth-of-type(6n+1) .compare-bar-current-fill,
-.dashboard-distribution .class-section:nth-of-type(6n+1) .asset-progress-fill {
+.dashboard-distribution .class-section:nth-of-type(6n+1) .class-color-swatch {
   --class-color: var(--class-1);
 }
-.dashboard-distribution .class-section:nth-of-type(6n+2) .class-color-swatch,
-.dashboard-distribution .class-section:nth-of-type(6n+2) .compare-bar-current-fill,
-.dashboard-distribution .class-section:nth-of-type(6n+2) .asset-progress-fill {
+.dashboard-distribution .class-section:nth-of-type(6n+2) .class-color-swatch {
   --class-color: var(--class-2);
 }
-.dashboard-distribution .class-section:nth-of-type(6n+3) .class-color-swatch,
-.dashboard-distribution .class-section:nth-of-type(6n+3) .compare-bar-current-fill,
-.dashboard-distribution .class-section:nth-of-type(6n+3) .asset-progress-fill {
+.dashboard-distribution .class-section:nth-of-type(6n+3) .class-color-swatch {
   --class-color: var(--class-3);
 }
-.dashboard-distribution .class-section:nth-of-type(6n+4) .class-color-swatch,
-.dashboard-distribution .class-section:nth-of-type(6n+4) .compare-bar-current-fill,
-.dashboard-distribution .class-section:nth-of-type(6n+4) .asset-progress-fill {
+.dashboard-distribution .class-section:nth-of-type(6n+4) .class-color-swatch {
   --class-color: var(--class-4);
 }
-.dashboard-distribution .class-section:nth-of-type(6n+5) .class-color-swatch,
-.dashboard-distribution .class-section:nth-of-type(6n+5) .compare-bar-current-fill,
-.dashboard-distribution .class-section:nth-of-type(6n+5) .asset-progress-fill {
+.dashboard-distribution .class-section:nth-of-type(6n+5) .class-color-swatch {
   --class-color: var(--class-5);
 }
-.dashboard-distribution .class-section:nth-of-type(6n+6) .class-color-swatch,
-.dashboard-distribution .class-section:nth-of-type(6n+6) .compare-bar-current-fill,
-.dashboard-distribution .class-section:nth-of-type(6n+6) .asset-progress-fill {
+.dashboard-distribution .class-section:nth-of-type(6n+6) .class-color-swatch {
   --class-color: var(--class-6);
 }
 
@@ -803,7 +791,7 @@ p.error, .error {
   border-radius: 8px;
 }
 .class-section-header {
-  display: flex; align-items: center; gap: 0.6rem;
+  display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
   margin-bottom: 0.5rem;
   cursor: pointer;
   user-select: none;
@@ -855,18 +843,6 @@ p.error, .error {
 .pct-target { color: var(--muted); }
 .pct-current { color: var(--fg); font-weight: 500; }
 
-/* Target-vs-current compare bar (S05 T02) */
-.compare-bar {
-  display: flex; flex-direction: column; gap: 0.2rem;
-  margin: 0.5rem 0 0.75rem 0;
-}
-.compare-bar-track {
-  height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;
-}
-.compare-bar-fill { height: 100%; border-radius: 3px; }
-.compare-bar-target-fill { background: var(--border-strong); }
-.compare-bar-current-fill { background: var(--accent); }
-
 /* Per-asset rows (S05 T02) */
 .dashboard-asset-list { list-style: none; padding: 0; margin: 0; }
 .dashboard-asset-list li {
@@ -890,11 +866,6 @@ p.error, .error {
 .asset-row-positions { color: var(--muted); font-size: 0.72rem; }
 .asset-row-value { font-size: 0.88rem; font-weight: 500; font-feature-settings: "tnum"; }
 .asset-row-pct { font-size: 0.78rem; color: var(--muted); min-width: 3.5rem; text-align: right; font-feature-settings: "tnum"; }
-.asset-progress-bar {
-  height: 3px; background: var(--border); border-radius: 2px;
-  margin-top: 0.4rem; overflow: hidden;
-}
-.asset-progress-fill { height: 100%; background: var(--accent); border-radius: 2px; }
 
 /* Dashboard load animations per DESIGN.md motion section.
    The fills carry their final width as --final-width (set inline from
@@ -902,28 +873,6 @@ p.error, .error {
    origin; animation-fill-mode: forwards keeps the final width after
    the run. The per-asset stagger comes from --i (set on each <li>);
    9th+ assets snap to final state with no animation, no delay. */
-.compare-bar-fill {
-  width: 0;
-  animation: fill-bar 400ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-@keyframes fill-bar {
-  to { width: var(--final-width); }
-}
-
-.asset-progress-fill {
-  width: 0;
-  animation: fill-asset 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  animation-delay: calc(var(--i, 0) * 40ms);
-}
-.dashboard-asset-list li:nth-child(n+9) .asset-progress-fill {
-  /* Cap the stagger at 8 assets per class. 9th+ show final width with
-     no animation, satisfying the "snaps to final state" requirement. */
-  animation: none;
-  width: var(--final-width);
-}
-@keyframes fill-asset {
-  to { width: var(--final-width); }
-}
 .dashboard-asset-empty { color: var(--muted); font-size: 0.875rem; margin: 0.25rem 0; }
 .dashboard-asset-empty a { color: var(--accent); }
 
@@ -1214,40 +1163,76 @@ td.editing {
   margin-left: 0.5rem;
 }
 
-.pct-target--view {
+/* Class card header inline pills (Alvo / Atual / Sobra/Falta).
+   Dashed border on the Alvo pill signals "click to edit"; the
+   Atual pill picks up its status colour from --ok / --off
+   modifier classes bound by Alpine; the delta pill is only
+   rendered when |classDelta| > 0.01 (the Alpine x-show on
+   classDeltaMessage gates it). Pills sit on the same row as
+   the class name, swatch, and × delete button via the
+   .class-section-header flex layout. */
+.pct-target-pill {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 0.15rem 0.5rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--fg);
   cursor: pointer;
+  user-select: none;
 }
-
-.pct-target--view:hover {
-  color: var(--accent);
-}
-
-.pct-target--edit {
+.pct-target-pill[data-testid="class-target-pct-edit"] {
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0;
+  cursor: default;
+}
+.pct-target-pill:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
-.class-delta-badge {
+.pct-current-pill {
   display: inline-block;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  padding: 0.1rem 0.4rem;
-  border-radius: 3px;
-  margin-left: 0.4rem;
-  background: color-mix(in srgb, var(--negative) 10%, var(--bg));
-  color: var(--negative);
-  border: 1px solid color-mix(in srgb, var(--negative) 20%, transparent);
+  font-variant-numeric: tabular-nums;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--fg);
+}
+.pct-current-pill--ok {
+  background: color-mix(in srgb, var(--alert-ok) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--alert-ok) 30%, transparent);
+  color: var(--alert-ok);
+}
+.pct-current-pill--off {
+  background: color-mix(in srgb, var(--alert-danger) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--alert-danger) 30%, transparent);
+  color: var(--alert-danger);
 }
 
-.class-delta-badge--short {
-  background: color-mix(in srgb, var(--negative) 10%, var(--bg));
+.pct-delta-pill {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+.pct-delta-pill--short {
+  background: color-mix(in srgb, var(--negative) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--negative) 25%, transparent);
   color: var(--negative);
 }
-
-.class-delta-badge--long {
-  background: color-mix(in srgb, var(--accent) 10%, var(--bg));
+.pct-delta-pill--long {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
   color: var(--accent);
 }
 
@@ -1479,19 +1464,19 @@ td.editing {
   font-size: 1rem;
   font-weight: 400;
   line-height: 1;
-  color: var(--muted);
-  background: transparent;
-  border: 1px solid transparent;
+  color: var(--negative);
+  background: color-mix(in srgb, var(--negative) 6%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--negative) 30%, transparent);
   border-radius: 4px;
   cursor: pointer;
   flex-shrink: 0;
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .class-section-delete-btn:hover {
   color: var(--negative);
-  background: var(--error-bg);
-  border-color: color-mix(in srgb, var(--negative) 30%, transparent);
+  background: color-mix(in srgb, var(--negative) 14%, var(--surface));
+  border-color: color-mix(in srgb, var(--negative) 55%, transparent);
 }
 
 .class-delete-confirm {

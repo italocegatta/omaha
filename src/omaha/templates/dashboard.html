@@ -108,37 +108,35 @@
           <span class="class-chevron" data-testid="class-chevron" :class="{'class-chevron--open': isOpen}">▸</span>
           <span class="class-color-swatch" data-testid="class-color-swatch" style="background:{{ c.color }}"></span>
           <span class="class-section-name" data-testid="class-section-name">{{ c.name }}</span>
+          <span class="pct-target-pill" data-testid="class-target-pct-view" x-show="!editingClassPct" @click.stop="startEditClassPct()" title="Clique para editar">Alvo <span x-text="classTargetPct"></span>%</span>
+          <span class="pct-target-pill" data-testid="class-target-pct-edit" x-show="editingClassPct" x-cloak>
+            Alvo
+            <input type="number"
+                   step="0.01"
+                   min="0"
+                   max="100"
+                   class="class-inline-edit-input"
+                   data-testid="class-inline-edit-input"
+                   x-model="editClassPctValue"
+                   @keyup.enter="commitEditClassPct()"
+                   @keyup.escape.window="cancelEditClassPct()"
+                   @blur="commitEditClassPct()"
+                   :disabled="savingClassPct"
+                   @click.stop>
+            <span class="class-inline-edit-error"
+                  data-testid="class-inline-edit-error"
+                  x-show="editClassPctError"
+                  x-text="editClassPctError"
+                  x-cloak></span>
+          </span>
+          <span class="pct-current-pill" :class="'pct-current-pill--' + classCurrentStatus" data-testid="class-current-pct">Atual <span x-text="Number(classCurrentPct).toFixed(2)"></span>%</span>
+          <span class="pct-delta-pill" :class="classDelta > 0 ? 'pct-delta-pill--short' : 'pct-delta-pill--long'" data-testid="class-delta-badge" x-show="classDeltaMessage" x-text="classDeltaMessage"></span>
           <button type="button"
                   class="class-section-delete-btn"
                   data-testid="class-delete-btn"
                   @click.stop="showDeleteConfirm = true"
                   x-show="!showDeleteConfirm && !deleting"
                   title="Remover classe">×</button>
-          <span class="class-section-stats">
-            <span class="pct-target pct-target--view" data-testid="class-target-pct-view" x-show="!editingClassPct" @click="startEditClassPct()" title="Clique para editar">Alvo <span x-text="classTargetPct"></span>%</span>
-            <div class="pct-target pct-target--edit" data-testid="class-target-pct-edit" x-show="editingClassPct" x-cloak>
-              Alvo
-              <input type="number"
-                     step="0.01"
-                     min="0"
-                     max="100"
-                     class="class-inline-edit-input"
-                     data-testid="class-inline-edit-input"
-                     x-model="editClassPctValue"
-                     @keyup.enter="commitEditClassPct()"
-                     @keyup.escape.window="cancelEditClassPct()"
-                     @blur="commitEditClassPct()"
-                     :disabled="savingClassPct"
-                     @click.stop>
-              <span class="class-inline-edit-error"
-                    data-testid="class-inline-edit-error"
-                    x-show="editClassPctError"
-                    x-text="editClassPctError"
-                    x-cloak></span>
-            </div>
-            <span class="pct-current" data-testid="class-current-pct">Atual {{ c.current_pct | round(2) }}%</span>
-            <span class="class-delta-badge" data-testid="class-delta-badge" x-show="classDeltaMessage" x-text="classDeltaMessage" :class="classDelta > 0 ? 'class-delta-badge--short' : 'class-delta-badge--long'"></span>
-          </span>
         </header>
         <div class="class-delete-confirm"
              data-testid="class-delete-confirm"
@@ -167,14 +165,6 @@
              x-cloak></p>
         </div>
         <div class="class-section-body" :class="{'class-section-body--collapsed': !isOpen}" x-show="isOpen">
-        <div class="compare-bar" data-testid="class-compare-bar">
-          <div class="compare-bar-track compare-bar-target-track">
-            <div class="compare-bar-fill compare-bar-target-fill" style="--final-width:{{ c.target_pct }}%"></div>
-          </div>
-          <div class="compare-bar-track compare-bar-current-track">
-            <div class="compare-bar-fill compare-bar-current-fill" style="--final-width:{{ c.current_pct }}%"></div>
-          </div>
-        </div>
         {% if c.assets %}
         {# asset-table-view 4.2-4.4 — group header + proper <tr> rows.
            The <thead> with eight sortable columns came from 4.1; the
@@ -196,23 +186,10 @@
             </tr>
           </thead>
           <tbody>
-            <tr class="asset-group-header" data-testid="asset-group-header">
-              <td colspan="8">
-                <span class="class-color-swatch" data-testid="class-color-swatch" :style="'background:' + classColor"></span>
-                <span class="class-section-name" data-testid="class-section-name" x-text="className"></span>
-                <span class="pct-target" data-testid="class-target-pct-view">Alvo <span x-text="Number(classTargetPct).toFixed(2)"></span>%</span>
-                <span class="pct-current" data-testid="class-current-pct">Atual <span x-text="Number(classCurrentPct).toFixed(2)"></span>%</span>
-                <span class="asset-group-header-alert"
-                      data-testid="asset-group-header-alert"
-                      x-show="$store.classSum.classDeltas[classId] && $store.classSum.classDeltas[classId].message !== 'OK'"
-                      x-text="$store.classSum.classDeltas[classId] ? $store.classSum.classDeltas[classId].message : 'OK'"
-                      :class="'asset-group-header-alert--' + ($store.classSum.classDeltas[classId] ? $store.classSum.classDeltas[classId].severity : 'ok')"></span>
-              </td>
-            </tr>
           </tbody>
           <template x-for="(a, idx) in displayAssets" :key="a.id">
             <tbody>
-              <tr data-testid="dashboard-asset-row" :data-asset-id="a.id" :data-position-count="a.position_count" :style="'--i:' + idx">
+              <tr data-testid="dashboard-asset-row" :data-asset-id="a.id" :data-position-count="a.position_count">
                 <td data-testid="asset-row-name">
                   <span data-testid="asset-row-name-text" x-text="a.name"></span>
                   <button type="button"
@@ -296,13 +273,6 @@
                   </div>
                 </td>
                 <td data-testid="asset-current-pct-total" x-text="formatPct(a.current_pct_total)"></td>
-              </tr>
-              <tr>
-                <td colspan="8">
-                  <div class="asset-progress-bar" data-testid="asset-progress-bar">
-                    <div class="asset-progress-fill" :style="'--final-width:' + a.current_pct_class + '%'"></div>
-                  </div>
-                </td>
               </tr>
               <tr>
                 <td colspan="8">
@@ -942,12 +912,22 @@
         // Positive → under 100, negative → over 100.
         return Math.round((100 - this.classSum) * 100) / 100;
       },
+      get classCurrentStatus() {
+        // Drives the ``Atual`` pill modifier class. Within 1-cent
+        // tolerance of the target → 'ok' (green), otherwise 'off'
+        // (red). Tolerance matches ``SUM_TOLERANCE = 0.01`` in
+        // ``omaha.validators``.
+        return Math.abs(this.classCurrentPct - this.classTargetPct) <= 0.01
+          ? 'ok'
+          : 'off';
+      },
       get classDeltaMessage() {
         var delta = this.classDelta;
         // 1-cent tolerance matches the server-side validator
         // (``SUM_TOLERANCE = 0.01`` in ``omaha.validators``).
+        // Render the pill whenever the per-class sum is off, in
+        // steady state — no longer gated on inline edit.
         if (Math.abs(delta) <= 0.01) return '';
-        if (this.editingAssetId === null) return '';
         if (delta < 0) {
           // Over 100 → "Sobra X%" (same wording as validator).
           return 'Sobra ' + Math.round(-delta) + '%';

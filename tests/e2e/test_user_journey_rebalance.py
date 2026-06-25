@@ -68,14 +68,13 @@ S05_SELECTORS = {
     "class_section_name": '[data-testid="class-section-name"]',
     "class_target_pct": '[data-testid="class-target-pct-view"]',
     "class_current_pct": '[data-testid="class-current-pct"]',
-    "class_compare_bar": '[data-testid="class-compare-bar"]',
+    "class_delta_badge": '[data-testid="class-delta-badge"]',
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
     "asset_row_name": '[data-testid="asset-row-name"]',
     "asset_row_name_text": '[data-testid="asset-row-name-text"]',
     "asset_position_count": '[data-testid="asset-position-count"]',
     "asset_current_value": '[data-testid="asset-current-value"]',
     "asset_pct": '[data-testid="asset-pct"]',
-    "asset_progress_bar": '[data-testid="asset-progress-bar"]',
 }
 
 
@@ -170,8 +169,8 @@ class TestS05DashboardJourney:
         gain_sign = page.locator(S05_SELECTORS["portfolio_gain"]).get_attribute("data-gain-sign")
         assert gain_sign == "positive", f"fixture has gains; expected positive, got {gain_sign!r}"
 
-        # --- 2. 3 class sections each with name + target/current pct +
-        # swatch + compare bar.
+        # --- 2. 3 class sections each with name + the three pills
+        # (Alvo / Atual / delta) + swatch.
         sections = page.locator(S05_SELECTORS["class_summary_row"])
         try:
             page.wait_for_function(
@@ -189,8 +188,11 @@ class TestS05DashboardJourney:
             assert section.locator(S05_SELECTORS["class_section_name"]).count() >= 1
             assert section.locator(S05_SELECTORS["class_target_pct"]).count() >= 1
             assert section.locator(S05_SELECTORS["class_current_pct"]).count() >= 1
-            assert section.locator(S05_SELECTORS["class_compare_bar"]).count() == 1
+            # Compare-bar is gone; the section header carries the three
+            # pills as the single source of truth for class metrics.
             assert section.locator(S05_SELECTORS["class_color_swatch"]).count() >= 1
+            # class_delta_badge is in the DOM via x-show; visible only when off.
+            assert section.locator(S05_SELECTORS["class_delta_badge"]).count() == 1
 
             target_text = section.locator(S05_SELECTORS["class_target_pct"]).first.inner_text()
             current_text = section.locator(S05_SELECTORS["class_current_pct"]).first.inner_text()
@@ -211,32 +213,8 @@ class TestS05DashboardJourney:
                 f"class {i} swatch transparent: {swatch_style!r}"
             )
 
-        # --- 3. Compare-bar target widths render as 60%/30%/10%.
-        # The widths are carried as the --final-width CSS custom property
-        # (the keyframe animates from 0 to var(--final-width)); read the
-        # property, not the resolved style.width, to assert the seeded
-        # values thread through to the markup. The template formats the
-        # percentage with two decimals (e.g. "60.00%"), so compare the
-        # parsed numeric values.
-        compare_widths = page.evaluate(
-            """() => {
-                const targets = document.querySelectorAll(
-                    '[data-testid="class-compare-bar"] .compare-bar-target-fill'
-                );
-                return Array.from(targets).map(el => {
-                    const v = el.style.getPropertyValue('--final-width');
-                    return parseFloat(v);
-                });
-            }"""
-        )
-        assert compare_widths == [
-            60.0,
-            30.0,
-            10.0,
-        ], f"target compare-bar widths wrong: {compare_widths!r}"
-
-        # --- 4. 48 asset rows each with name, position count, BRL value,
-        # pct, and a non-zero progress bar.
+        # --- 3. 48 asset rows each with name, position count, BRL value,
+        # pct. The per-asset progress bar is gone.
         asset_rows = page.locator(S05_SELECTORS["dashboard_asset_row"])
         try:
             page.wait_for_function(
@@ -255,9 +233,6 @@ class TestS05DashboardJourney:
         assert row.locator(S05_SELECTORS["asset_position_count"]).count() == 1
         assert row.locator(S05_SELECTORS["asset_current_value"]).count() == 1
         assert row.locator(S05_SELECTORS["asset_pct"]).count() == 1
-        # asset-table-view wraps the progress bar in a sibling <tr> inside
-        # the same per-asset <tbody>, so it is not a descendant of the row.
-        assert page.locator(S05_SELECTORS["asset_progress_bar"]).first.is_visible()
 
         value_text = row.locator(S05_SELECTORS["asset_current_value"]).inner_text()
         assert "R$" in value_text, f"asset value missing R$ prefix: {value_text!r}"
@@ -278,25 +253,7 @@ class TestS05DashboardJourney:
         pos_count = int(pos_count_str)
         assert pos_count >= 1, f"asset row 0 has {pos_count} positions, expected >= 1"
 
-        # Progress bar width is a positive percentage. The fill carries
-        # its target width as the --final-width CSS custom property
-        # (the keyframe animates from 0 to var(--final-width)); read the
-        # property, not style.width, since the inline style is empty by
-        # design (the CSS sets width: 0 as the keyframe origin).
-        width_pct = page.evaluate(
-            """() => {
-                const bar = document.querySelector(
-                    '[data-testid="asset-progress-bar"] > div'
-                );
-                return bar ? bar.style.getPropertyValue('--final-width') : null;
-            }"""
-        )
-        assert width_pct, "first progress bar has no --final-width"
-        assert width_pct.endswith("%"), f"progress bar width not in %: {width_pct!r}"
-        width_num = float(width_pct.rstrip("%"))
-        assert 0 < width_num <= 100, f"progress bar width out of range: {width_pct!r}"
-
-        # --- 5. The 5 unmatched names appear as asset row names.
+        # --- 4. The 5 unmatched names appear as asset row names.
         all_names = {
             asset_rows.nth(i).locator(S05_SELECTORS["asset_row_name"]).inner_text()
             for i in range(48)
@@ -304,7 +261,7 @@ class TestS05DashboardJourney:
         for name in UNMATCHED_NAMES:
             assert any(name in n for n in all_names), f"missing asset {name!r} on dashboard"
 
-        # --- 6. S05 visual gate: capture the dashboard screenshot.
+        # --- 5. S05 visual gate: capture the dashboard screenshot.
         _capture_dashboard_screenshot(page, "s05_dashboard_polish")
 
     def test_class_color_tokens_defined_in_root(self, page: Page, live_url: str) -> None:

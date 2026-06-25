@@ -284,10 +284,12 @@ def test_dashboard_renders_portfolio_totals(client: TestClient) -> None:
     assert r.status_code == 200, r.text
 
     body = r.text
-    # The class summary block renders the target_pct as "60.00%" — this
-    # proves the selectinload of assets + positions didn't blow up
-    # (which would have raised ArgumentError pre-fix).
-    assert "60.00%" in body, body
+    # The class summary block renders the target_pct — this proves
+    # the selectinload of assets + positions didn't blow up
+    # (which would have raised ArgumentError pre-fix). The inline
+    # pill carries the value via Alpine ``x-text`` so the SSR body
+    # carries the test-id marker but not the formatted number.
+    assert 'data-testid="class-target-pct-view"' in body, body
     # The asset row renders the seeded asset name.
     assert "TESOURO" in body, body
     # M002 S01/T03: the "1 posicao(oes)" line is removed in favor
@@ -342,7 +344,7 @@ def test_dashboard_renders_distribution_layout(client: TestClient) -> None:
     assert 'data-testid="class-section-name"' in body, body
     assert 'data-testid="class-target-pct-view"' in body, body
     assert 'data-testid="class-current-pct"' in body, body
-    assert 'data-testid="class-compare-bar"' in body, body
+    assert 'data-testid="class-compare-bar"' not in body, body
 
     # Per-asset row markers
     assert 'data-testid="dashboard-asset-row"' in body, body
@@ -350,7 +352,7 @@ def test_dashboard_renders_distribution_layout(client: TestClient) -> None:
     assert 'data-testid="asset-position-count"' in body, body
     assert 'data-testid="asset-current-value"' in body, body
     assert 'data-testid="asset-pct"' in body, body
-    assert 'data-testid="asset-progress-bar"' in body, body
+    assert 'data-testid="asset-progress-bar"' not in body, body
 
     # asset-table-view 4.x/6.x/7.x/9.x/10.x: proper <table>,
     # group header, sortable <th> cells, inline editor for both
@@ -359,13 +361,16 @@ def test_dashboard_renders_distribution_layout(client: TestClient) -> None:
     assert 'data-testid="asset-table"' in body, body
     assert 'data-testid="asset-table-th-name"' in body, body
     assert 'data-testid="asset-table-sort-name"' in body, body
-    assert 'data-testid="asset-group-header"' in body, body
+    assert 'data-testid="asset-group-header"' not in body, body
     assert 'data-testid="asset-target-pct-class"' in body, body
     assert 'data-testid="asset-current-pct-class"' in body, body
     assert 'data-testid="asset-target-pct-total"' in body, body
     assert 'data-testid="asset-current-pct-total"' in body, body
     assert 'data-testid="asset-inline-edit-input"' in body, body
     assert 'data-testid="asset-target-pct-total-edit-input"' in body, body
+    # class-delta-badge is only rendered when the per-class sum is off —
+    # the seeded fixture puts one class into a deviating state so the pill
+    # is present in the body.
     assert 'data-testid="class-delta-badge"' in body, body
     assert 'data-testid="asset-allocation-alert"' in body, body
     assert 'data-testid="asset-allocation-alert-portfolio"' in body, body
@@ -382,8 +387,8 @@ def test_dashboard_renders_distribution_layout(client: TestClient) -> None:
     assert "posicao(oes)" not in body, body
 
     # Target vs current comparison — both bars present
-    assert "compare-bar-target-fill" in body, body
-    assert "compare-bar-current-fill" in body, body
+    assert "compare-bar-target-fill" not in body, body
+    assert "compare-bar-current-fill" not in body, body
 
 
 def test_dashboard_renders_class_summary_with_no_positions(client: TestClient) -> None:

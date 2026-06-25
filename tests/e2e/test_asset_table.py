@@ -36,7 +36,6 @@ S10_SELECTORS = {
     "asset_table_th_current_pct_class": '[data-testid="asset-table-th-current-pct-class"]',
     "asset_table_th_target_pct_total": '[data-testid="asset-table-th-target-pct-total"]',
     "asset_table_th_current_pct_total": '[data-testid="asset-table-th-current-pct-total"]',
-    "asset_group_header_alert": '[data-testid="asset-group-header-alert"]',
     "asset_allocation_alert": '[data-testid="asset-allocation-alert"]',
     "asset_allocation_alert_portfolio": '[data-testid="asset-allocation-alert-portfolio"]',
     "asset_allocation_alert_class": '[data-testid="asset-allocation-alert-class"]',
@@ -204,11 +203,6 @@ class TestS10AssetTable:
 
         # Wait for PATCH + local state update.
         page.wait_for_timeout(500)
-
-        # The group-header badge should now show OK (or be hidden).
-        badge = page.locator(S10_SELECTORS["asset_group_header_alert"]).first
-        if badge.is_visible():
-            assert "OK" in badge.inner_text(), f"expected OK badge, got {badge.inner_text()!r}"
 
         # The alert card should disappear once the class sum reaches 100.
         alert.wait_for(state="hidden", timeout=3000)
