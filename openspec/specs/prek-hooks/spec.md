@@ -150,4 +150,3 @@ a comment explaining why `tests/bdd` is excluded. The comment MUST reference
 - **THEN** the entry includes a comment stating "BDD moved to `task test-bdd`
   (needs dev server) — runs in CI job, not pre-push"
 - **AND** the entry passes `--ignore=tests/bdd` to pytest
-
