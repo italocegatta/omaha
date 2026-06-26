@@ -78,4 +78,3 @@ positions.
   class
 - **THEN** the dashboard renders Ana's class summary (not
   Italo's empty state)
-

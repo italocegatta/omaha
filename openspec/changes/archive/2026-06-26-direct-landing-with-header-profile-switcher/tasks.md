@@ -80,4 +80,3 @@
 - [x] 11.6 `AGENTS.md` "Delivery finalization" table — update the default-row bullet to read "Italo + Ana (both populated: classes + assets + positions)" and update the `Italo: 6 classes + 48 assets + 47 positions` example to the two-profile tuple. Keep the carve-out for `db-clear-assets`.
 - [x] 11.7 `README.md` "Network access" / "Quick start" — if the README mentions row counts or DB state for the dev DB, update the example to mention both profiles.
 - [x] 11.8 Manual sanity check — `uv run task db-reset` on a clean DB; SQL: `SELECT p.name, COUNT(DISTINCT ac.id) classes, COUNT(DISTINCT a.id) assets, COUNT(DISTINCT pos.id) positions FROM profiles p LEFT JOIN asset_classes ac ON ac.profile_id = p.id LEFT JOIN assets a ON a.asset_class_id = ac.id LEFT JOIN positions pos ON pos.asset_id = a.id GROUP BY p.id ORDER BY p.display_order;` — confirm two rows, both with non-zero counts.
-

@@ -61,9 +61,7 @@ def _login_and_select_profile(client: TestClient, profile_name: str = "Italo") -
     Cross-profile (rare in this file) is handled via an explicit
     ``client.post(f"/profiles/{id}/select")`` from the test body.
     """
-    client.post(
-        "/login", data={"username": profile_name, "password": TEST_PASSWORD}
-    )
+    client.post("/login", data={"username": profile_name, "password": TEST_PASSWORD})
     from omaha.db import SessionLocal
 
     db = SessionLocal()

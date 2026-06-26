@@ -37,18 +37,25 @@ in the final report.
 ### 1. Restart the dev server
 
 Kill any prior `uvicorn omaha.main` and start fresh, fully detached so
-the bash tool doesn't hang:
+the bash tool doesn't hang. **Use a launcher script** (see Gotchas —
+inline `& disown` does NOT detach under the opencode bash tool):
 
 ```bash
-pkill -f "uvicorn omaha.main" 2>/dev/null || true
+cat > /tmp/omaha-launch.sh <<'EOF'
+#!/usr/bin/env bash
+pkill -f "uvicorn omaha.main" 2>/dev/null
 sleep 1
+cd /home/juca/github/omaha
 setsid bash -c 'exec uv run uvicorn omaha.main:app --host 0.0.0.0 --port 8000' \
   </dev/null >/tmp/omaha-uvicorn.log 2>&1 &
-disown
+EOF
+bash /tmp/omaha-launch.sh
+sleep 0.2
 ```
 
-`task serve` works in a foreground terminal; `serve-prod` is the
-no-reload variant. For background spawns use the pattern above.
+Then poll `/healthz` (step 2). `task serve` works in a foreground
+terminal; `serve-prod` is the no-reload variant. For background spawns
+inside this tool, the launcher script is the only reliable pattern.
 
 ### 2. Smoke-check `/healthz` via LAN URL
 
@@ -125,12 +132,18 @@ both failures loud.
 
 ## Gotchas
 
+- **opencode bash tool holds stdin/stdout/stderr of any spawned child
+  even with `& disown` or `setsid`.** `uv run uvicorn ... &` will hang
+  the tool until the bash timeout fires, every time. Fix: write a
+  launcher script to `/tmp/omaha-launch.sh` that does the pkill + setsid
+  spawn inside it, then `bash /tmp/omaha-launch.sh` and exit. The
+  script's parent shell exits cleanly, the setsid'd child detaches.
+  Verify with a separate `pgrep -af uvicorn` + `curl /healthz`.
 - `pkill` against `uvicorn omaha.main` matches both old and newly
-  spawned process if you fire them in the same shell. Spawn detached
-  with `setsid ... </dev/null &` and `disown`, then verify with a
-  separate `curl` call.
+  spawned process if you fire them in the same shell. The launcher
+  script's `pkill` runs before the spawn, so order is safe.
 - `task serve` blocks the foreground — don't run it inline. Use the
-  detach pattern above or `task serve-prod` in a detached terminal.
+  launcher script (or `task serve-prod` in a detached terminal).
 - `db-reset` wipes + reseeds via the CSV path
   (`scripts/seed_from_csv.py`) — it is the only sanctioned way to
   populate assets/positions. Inline literal seeds are forbidden by

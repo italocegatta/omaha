@@ -44,7 +44,9 @@ def _templates(request: Request):
     return request.app.state.templates
 
 
-def _common_context(request: Request, db: DbSession, user: User, owner: Profile | None) -> dict[str, Any]:
+def _common_context(
+    request: Request, db: DbSession, user: User, owner: Profile | None
+) -> dict[str, Any]:
     """Build the shared Jinja context for authenticated renders.
 
     Every authenticated template (the dashboard, and any future page

@@ -184,9 +184,7 @@ def test_stale_active_profile_redirects_to_login(client: TestClient) -> None:
     try:
         italo = db.query(User).filter(User.username == "Italo").first()
         assert italo is not None
-        profile = (
-            db.query(Profile).filter(Profile.user_id == italo.id).first()
-        )
+        profile = db.query(Profile).filter(Profile.user_id == italo.id).first()
         assert profile is not None
         old_profile_id = profile.id
         db.delete(profile)

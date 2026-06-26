@@ -52,9 +52,7 @@ def _login_and_select_profile(client: TestClient, profile_name: str = "Italo") -
     first profile (by ``display_order``). The explicit
     ``/profiles/{id}/select`` step is gone for same-user login.
     """
-    client.post(
-        "/login", data={"username": profile_name, "password": TEST_PASSWORD}
-    )
+    client.post("/login", data={"username": profile_name, "password": TEST_PASSWORD})
     from omaha.db import SessionLocal
 
     db = SessionLocal()

@@ -118,4 +118,3 @@ viewer-specific).
   "Esta carteira ainda não tem classes"
 - **AND** no occurrence of the old "Você ainda não tem classes"
   copy remains in the rendered HTML
-

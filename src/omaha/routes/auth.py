@@ -95,10 +95,7 @@ def login_submit(
     # stable key — survives profile renames. Profile.user_id is
     # ordered by display_order via the relationship default.
     landing = (
-        db.query(Profile)
-        .filter(Profile.user_id == user.id)
-        .order_by(Profile.display_order)
-        .first()
+        db.query(Profile).filter(Profile.user_id == user.id).order_by(Profile.display_order).first()
     )
     if landing is not None:
         request.session["active_profile_id"] = landing.id

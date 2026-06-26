@@ -21,7 +21,9 @@ from scripts import reset_both_profiles
 from scripts.reset_both_profiles import main
 
 
-def test_main_invokes_run_reset_for_both_profiles_in_order(capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_invokes_run_reset_for_both_profiles_in_order(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     """The wrapper calls ``run_reset`` twice: ``("italo", ...)`` then ``("ana", ...)``.
 
     We don't care about the rest of the call signature (the wrapper
@@ -31,7 +33,9 @@ def test_main_invokes_run_reset_for_both_profiles_in_order(capsys: pytest.Captur
     call_log: list[tuple[str, str, str, str]] = []
 
     def fake_run_reset(db, profile, classes, assets, positions):
-        call_log.append((profile, type(classes).__name__, type(assets).__name__, type(positions).__name__))
+        call_log.append(
+            (profile, type(classes).__name__, type(assets).__name__, type(positions).__name__)
+        )
         return {"classes": 6, "assets": 10, "positions": 5}
 
     def fake_load_classes(profile):
@@ -66,6 +70,7 @@ def test_main_prints_per_profile_counts(capsys: pytest.CaptureFixture[str]) -> N
     wrapper just forwards them. Asserts on the shape of the line so
     a future refactor doesn't accidentally drop a field.
     """
+
     def fake_run_reset(db, profile, classes, assets, positions):
         return {"classes": 7, "assets": 13, "positions": 11}
 
@@ -79,7 +84,10 @@ def test_main_prints_per_profile_counts(capsys: pytest.CaptureFixture[str]) -> N
         main()
 
     captured = capsys.readouterr()
-    for profile, expected in (("italo", "classes=7 assets=13 positions=11"), ("ana", "classes=7 assets=13 positions=11")):
+    for profile, expected in (
+        ("italo", "classes=7 assets=13 positions=11"),
+        ("ana", "classes=7 assets=13 positions=11"),
+    ):
         line = next(l for l in captured.out.splitlines() if l.startswith(f"profile={profile}"))
         assert expected in line, f"missing fields in {line!r}"
 
@@ -91,6 +99,7 @@ def test_main_exits_non_zero_when_one_profile_fails(capsys: pytest.CaptureFixtur
     other profile's ``run_reset`` still runs because the wrapper
     catches ``SystemExit`` per-profile and continues.
     """
+
     def fake_run_reset(db, profile, classes, assets, positions):
         if profile == "italo":
             # seed_from_csv.abort() does sys.exit(1) on validation
@@ -114,8 +123,11 @@ def test_main_exits_non_zero_when_one_profile_fails(capsys: pytest.CaptureFixtur
     assert "profile=ana mode=reset" in captured.out
 
 
-def test_main_exits_with_failure_count_when_both_profiles_fail(capsys: pytest.CaptureFixture[str]) -> None:
+def test_main_exits_with_failure_count_when_both_profiles_fail(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     """Two profile failures → exit code 2. The exit code equals the failure count."""
+
     def fake_run_reset(db, profile, classes, assets, positions):
         raise SystemExit(1)
 

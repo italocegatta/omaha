@@ -88,4 +88,3 @@ The form SHALL continue to require `username` + `password`.
 - **WHEN** a user posts `username=""` with a valid password
 - **THEN** the response is 200 with the form re-rendered and an
   error message (no `User` row matches an empty username)
-
