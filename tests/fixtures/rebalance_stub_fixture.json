@@ -1,0 +1,97 @@
+{
+  "contribution": 1000.0,
+  "asset_classes": [
+    {
+      "name": "Renda Fixa",
+      "target_weight": 0.6
+    },
+    {
+      "name": "Renda Variável",
+      "target_weight": 0.4
+    }
+  ],
+  "assets": [
+    {
+      "name": "CDB ABC",
+      "category_name": "Renda Fixa",
+      "currency_code": "BRL",
+      "buy_enabled": true,
+      "current_value": 3000.0,
+      "target_value": 3200.0,
+      "buy_amount": 200.0,
+      "sell_amount": 0.0,
+      "projected_value": 3200.0
+    },
+    {
+      "name": "Tesouro Selic",
+      "category_name": "Renda Fixa",
+      "currency_code": "BRL",
+      "buy_enabled": true,
+      "current_value": 2000.0,
+      "target_value": 2200.0,
+      "buy_amount": 200.0,
+      "sell_amount": 0.0,
+      "projected_value": 2200.0
+    },
+    {
+      "name": "PETR4",
+      "category_name": "Renda Variável",
+      "currency_code": "BRL",
+      "buy_enabled": false,
+      "current_value": 1500.0,
+      "target_value": 1000.0,
+      "buy_amount": 0.0,
+      "sell_amount": 500.0,
+      "projected_value": 1000.0
+    },
+    {
+      "name": "AAPL",
+      "category_name": "Renda Variável",
+      "currency_code": "USD",
+      "buy_enabled": true,
+      "current_value": 1000.0,
+      "target_value": 1600.0,
+      "buy_amount": 600.0,
+      "sell_amount": 0.0,
+      "projected_value": 1600.0
+    },
+    {
+      "name": "ITUB4",
+      "category_name": "Renda Variável",
+      "currency_code": "BRL",
+      "buy_enabled": true,
+      "current_value": 500.0,
+      "target_value": 1000.0,
+      "buy_amount": 500.0,
+      "sell_amount": 0.0,
+      "projected_value": 1000.0
+    }
+  ],
+  "category_plan": [
+    {
+      "category_name": "Renda Fixa",
+      "current_value": 5000.0,
+      "projected_value": 5400.0
+    },
+    {
+      "category_name": "Renda Variável",
+      "current_value": 3000.0,
+      "projected_value": 3600.0
+    }
+  ],
+  "metrics": {
+    "contribution": 1000.0,
+    "total_buy": 1500.0,
+    "total_sell": 500.0,
+    "residual_cash": 0.0,
+    "current_deviation_pct": 5.0,
+    "projected_deviation_pct": 0.2
+  },
+  "warnings": [
+    {
+      "code": "EMPTY_CLASS_NONZERO_TARGET",
+      "message": "Classe 'Cripto' está vazia mas com target_pct=20.00%; solver irá alocar caixa residual."
+    }
+  ],
+  "applied_policy": "stub-fixture-v1"
+}
