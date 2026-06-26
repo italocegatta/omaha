@@ -80,6 +80,15 @@ def _build_asset(asset_id: int, name: str, positions: list[Position]) -> Asset:
 
 
 def _build_pos(pos_id: int, qty: Decimal, avg: Decimal, cur: Decimal) -> Position:
+    """Build a :class:`Position` with the broker totals pre-populated.
+
+    broker-csv-import-totals: after the change, ``portfolio_aggregates``
+    sums ``total_invested`` / ``total_current`` directly (no
+    recompute). Existing tests assume the old ``qty * price`` math
+    produces the portfolio total; the helper mimics that by setting
+    the totals to those values so the new code path yields the same
+    outputs.
+    """
     return Position(
         id=pos_id,
         asset_id=0,
@@ -87,6 +96,8 @@ def _build_pos(pos_id: int, qty: Decimal, avg: Decimal, cur: Decimal) -> Positio
         avg_price=avg,
         current_price=cur,
         broker_ticker=f"X{pos_id}",
+        total_invested=qty * avg,
+        total_current=qty * cur,
     )
 
 
@@ -265,6 +276,11 @@ def _seed_class_with_position(
             avg_price=Decimal(avg),
             current_price=Decimal(cur),
             broker_ticker=broker_ticker,
+            # broker-csv-import-totals: write the totals so the new
+            # dashboard calc (which sums these directly) preserves
+            # the old ``qty * price`` test semantics.
+            total_invested=Decimal(qty) * Decimal(avg),
+            total_current=Decimal(qty) * Decimal(cur),
         )
         db.add(pos)
         db.commit()
@@ -699,16 +715,13 @@ def test_class_section_delete_btn_precedes_stats(client: TestClient) -> None:
     # The × button lives inside .hdr-leading (cols 1-3); the stats
     # follow in cols 4-8. The DOM order matches the grid order.
     assert delete_idx < total_idx, (
-        f"class-delete-btn (idx {delete_idx}) must precede "
-        f"class-total-value (idx {total_idx})"
+        f"class-delete-btn (idx {delete_idx}) must precede class-total-value (idx {total_idx})"
     )
     assert total_idx < alvo_idx, (
-        f"class-total-value (idx {total_idx}) must precede "
-        f"class-target-pct-view (idx {alvo_idx})"
+        f"class-total-value (idx {total_idx}) must precede class-target-pct-view (idx {alvo_idx})"
     )
     assert alvo_idx < atual_idx, (
-        f"class-target-pct-view (idx {alvo_idx}) must precede "
-        f"class-current-pct (idx {atual_idx})"
+        f"class-target-pct-view (idx {alvo_idx}) must precede class-current-pct (idx {atual_idx})"
     )
 
 
@@ -741,13 +754,11 @@ def test_asset_table_has_colgroup(client: TestClient) -> None:
         body,
         flags=_re.DOTALL,
     )
-    assert table_matches, "no <table class=\"asset-table\"> found"
+    assert table_matches, 'no <table class="asset-table"> found'
 
-    tables_with_colgroup = [
-        t for t in table_matches if "<colgroup>" in t and "</colgroup>" in t
-    ]
+    tables_with_colgroup = [t for t in table_matches if "<colgroup>" in t and "</colgroup>" in t]
     assert len(tables_with_colgroup) == 1, (
-        f"expected exactly 1 <table class=\"asset-table\"> with <colgroup>, "
+        f'expected exactly 1 <table class="asset-table"> with <colgroup>, '
         f"found {len(tables_with_colgroup)}"
     )
 

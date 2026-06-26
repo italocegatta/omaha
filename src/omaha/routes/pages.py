@@ -208,11 +208,15 @@ def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
             asset_qty = ZERO
             for pos in asset.positions:
                 qty = pos.qty or ZERO
-                avg = pos.avg_price or ZERO
-                cur = pos.current_price or ZERO
                 asset_qty += qty
-                asset_invested += qty * avg
-                asset_current += qty * cur
+                # broker-csv-import-totals: sum the broker-published
+                # per-row totals directly. ``NULL`` (legacy position
+                # or CSV that did not publish the column) contributes
+                # ``Decimal('0')`` — never recompute ``qty * price``;
+                # that arithmetic is the exact drift source this
+                # change eliminates.
+                asset_invested += pos.total_invested or ZERO
+                asset_current += pos.total_current or ZERO
             class_invested += asset_invested
             class_current += asset_current
             # ``target_pct_total`` only depends on the asset's stored

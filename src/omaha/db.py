@@ -22,7 +22,7 @@ from __future__ import annotations
 from collections.abc import Generator
 from typing import Any
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from omaha.config import settings
@@ -45,6 +45,23 @@ engine = create_engine(
     future=True,
     connect_args=_connect_args,
 )
+
+
+# SQLite ignores ``ON DELETE CASCADE`` declared on foreign keys unless
+# the connection has ``PRAGMA foreign_keys=ON``. The pragma is
+# per-connection (off by default), so enable it on every new SQLite
+# connection — otherwise ``scripts.clear_assets`` and any in-process
+# ``session.delete(parent)`` leave orphan child rows.
+if settings.DATABASE_URL.startswith("sqlite"):
+
+    @event.listens_for(engine, "connect")
+    def _enable_sqlite_foreign_keys(dbapi_connection, _connection_record):  # noqa: ANN001
+        cursor = dbapi_connection.cursor()
+        try:
+            cursor.execute("PRAGMA foreign_keys=ON")
+        finally:
+            cursor.close()
+
 
 SessionLocal = sessionmaker(
     bind=engine,

@@ -628,7 +628,7 @@
                     <td x-text="row.name"></td>
                     <td x-text="row.qty"></td>
                     <td>R$ <span x-text="$store.importModal.formatBRL(row.avg_price, 0)"></span></td>
-                    <td>R$ <span x-text="$store.importModal.formatBRL(Number(row.qty) * Number(row.current_price), 0)"></span></td>
+                    <td>R$ <span x-text="$store.importModal.formatBRL(row.current_value, 0)"></span></td>
                     <td class="import-class-cell"
                         :class="cellColor === 'transparent' ? 'import-class-cell--pending' : 'import-class-cell--cls-' + getClassIndex(cellColor)"
                         data-testid="import-class-cell-existing">
@@ -683,7 +683,7 @@
                     <td x-text="row.name"></td>
                     <td x-text="row.qty"></td>
                     <td>R$ <span x-text="$store.importModal.formatBRL(row.avg_price, 0)"></span></td>
-                    <td>R$ <span x-text="$store.importModal.formatBRL(Number(row.qty) * Number(row.current_price), 0)"></span></td>
+                    <td>R$ <span x-text="$store.importModal.formatBRL(row.current_value, 0)"></span></td>
                     <td class="import-class-cell"
                         :class="cellColor === 'transparent' ? 'import-class-cell--pending' : 'import-class-cell--cls-' + getClassIndex(cellColor)"
                         data-testid="import-class-cell-assignment">

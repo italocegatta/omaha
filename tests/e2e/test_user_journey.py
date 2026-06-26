@@ -30,7 +30,7 @@ SELECTORS = {
     "login_user": 'input[name="username"]',
     "login_pass": 'input[name="password"]',
     "login_submit": 'button[type="submit"]',
-    "nav_dashboard": '[data-testid="nav-dashboard"]',
+    "app_header_wordmark": '[data-testid="app-header-wordmark"]',
     "class_summary_row": '[data-testid="class-summary-row"]',
     "dashboard_class_section": '[data-testid="class-section-header"]',
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
@@ -137,8 +137,9 @@ class TestS03UserJourney:
         """Smoke: login + select Italo lands on a dashboard with no classes yet."""
         _login_and_select_italo(page, live_url)
 
-        # The nav is rendered and points to the dashboard.
-        assert page.locator(SELECTORS["nav_dashboard"]).count() == 1
+        # Header wordmark is rendered as the page's primary brand mark.
+        assert page.locator(SELECTORS["app_header_wordmark"]).count() == 1
+        assert page.locator(SELECTORS["app_header_wordmark"]).inner_text().strip() == "Omaha"
 
         # No classes yet → onboarding empty state on the dashboard
         # (3-step card introduced by dashboard-action-sidebar).

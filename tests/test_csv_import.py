@@ -176,12 +176,110 @@ def test_brazilian_number_parse() -> None:
     assert _parse_brazilian_number("28,50") == Decimal("28.50")
     assert _parse_brazilian_number("R$ 990,92") == Decimal("990.92")
     assert _parse_brazilian_number('"1.234,56"') == Decimal("1234.56")
+    # BR-milhar sem vírgula (qty inteira de corretora brasileira)
+    assert _parse_brazilian_number("2.466") == Decimal("2466")
+    assert _parse_brazilian_number("1.098") == Decimal("1098")
+    assert _parse_brazilian_number("12.345.678") == Decimal("12345678")
+    assert _parse_brazilian_number('"2.466"') == Decimal("2466")
 
 
-def test_plain_number_parse() -> None:
-    """Plain US '1234.56' (no thousands separator) parses too."""
+# ---------------------------------------------------------------------------
+# broker-csv-import-totals: per-row ``Total investido`` / ``Total atual``
+# ---------------------------------------------------------------------------
+
+
+def test_total_invested_and_current_parsed() -> None:
+    """broker-csv-import-totals 6.1: the per-row ``Total investido`` and
+    ``Total atual`` columns parse into ``RawPosition.total_invested`` /
+    ``total_current`` as ``Decimal``. Three scenarios:
+
+    (a) plain BR format: ``R$ 8.658,02`` → ``Decimal("8658.02")``;
+    (b) quoted cell: ``"R$ 8.153,44"`` → ``Decimal("8153.44")``;
+    (c) CSV without the columns → ``None`` (no fallback, no
+        recompute).
+    """
+    # (a) + (b) together — VT row with all four total variants.
+    text_with_totals = (
+        "Ativo,Qtd,Preço médio,Preço atual,Total investido,Total atual\n"
+        '"VT",10.9,748.85,794.49,"R$ 8.153,44","R$ 8.658,02"\n'
+        '"VT2",10.9,748.85,794.49,"R$ 8.153,44","R$ 8.658,02"\n'
+    )
+    positions = parse_positions(text_with_totals)
+    assert len(positions) == 2
+
+    # (a) quoted R$-prefixed BR format — quotes and BR-milhar are
+    # both stripped, result is the canonical Decimal.
+    vt = positions[0]
+    assert vt.broker_ticker == "VT"
+    assert vt.total_invested == Decimal("8153.44")
+    assert vt.total_current == Decimal("8658.02")
+
+    # (b) duplicate row with the same quoted values — parser is
+    # idempotent across cells.
+    vt2 = positions[1]
+    assert vt2.broker_ticker == "VT2"
+    assert vt2.total_invested == Decimal("8153.44")
+    assert vt2.total_current == Decimal("8658.02")
+
+    # (c) header without ``Total investido`` / ``Total atual`` →
+    # fields stay ``None`` (no fallback to ``qty * price``).
+    text_without_totals = (
+        'Codigo,Ativo,Quantidade,Preco Medio,Preco Atual\nPETR4,PETR4,100,"28,50","35,10"\n'
+    )
+    no_totals = parse_positions(text_without_totals)
+    assert len(no_totals) == 1
+    assert no_totals[0].total_invested is None
+    assert no_totals[0].total_current is None
+
+
+def test_csv_without_total_columns() -> None:
+    """broker-csv-import-totals 6.2: a minimal CSV (no
+    ``Total investido`` / ``Total atual`` columns) parses cleanly and
+    every row's totals are ``None``. The dashboard calc treats them
+    as zero contribution.
+    """
+    text = (
+        "Codigo,Ativo,Quantidade,Preco Medio,Preco Atual\n"
+        'PETR4,PETR4,100,"28,50","35,10"\n'
+        'VALE3,VALE3,200,"65,20","72,40"\n'
+        'IVVB11,IVVB11,127,"286,55","432,21"\n'
+    )
+    positions = parse_positions(text)
+    assert len(positions) == 3
+    for p in positions:
+        assert p.total_invested is None, (
+            f"{p.broker_ticker}: total_invested must be None, got {p.total_invested!r}"
+        )
+        assert p.total_current is None, (
+            f"{p.broker_ticker}: total_current must be None, got {p.total_current!r}"
+        )
+
+
+def test_total_aplicado_label_recognized() -> None:
+    """The detector matches alternative label ``Total aplicado`` as
+    ``total_invested`` (no fallback to recompute)."""
+    text = (
+        "Ativo,Qtd,Preço médio,Preço atual,Total aplicado,Valor de mercado\n"
+        '"PETR4",100,28.50,35.10,"R$ 2.850,00","R$ 3.510,00"\n'
+    )
+    positions = parse_positions(text)
+    assert len(positions) == 1
+    assert positions[0].total_invested == Decimal("2850.00")
+    assert positions[0].total_current == Decimal("3510.00")
+
+
+def test_us_decimal_parse() -> None:
+    """Plain US-decimal numbers (no thousands grouping) parse correctly."""
     assert _parse_brazilian_number("1234.56") == Decimal("1234.56")
     assert _parse_brazilian_number("0.50") == Decimal("0.50")
+
+
+def test_thousands_groups_crash_protection() -> None:
+    """Multi-group BR-milhar (1.234.567) does not raise ConversionSyntax."""
+    assert _parse_brazilian_number("1.234.567") == Decimal("1234567")
+    assert _parse_brazilian_number("1.234.567,89") == Decimal("1234567.89")
+    # Cell com . mid-string sem ser milhar (2 dígitos pós-ponto) → US decimal
+    assert _parse_brazilian_number("1234.56") == Decimal("1234.56")
 
 
 # ---------------------------------------------------------------------------

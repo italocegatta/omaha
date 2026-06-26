@@ -289,6 +289,16 @@ class Position(Base):
     qty: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
     avg_price: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
     current_price: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
+    # ``total_invested`` / ``total_current`` carry the broker-published
+    # per-row totals (the CSV columns ``Total investido`` / ``Total
+    # atual``). Nullable, no default — ``NULL`` signals "the source
+    # file did not publish this column" and the dashboard calc treats
+    # the row as a zero contribution. Numeric(18, 4) is enough for BRL
+    # cents; do NOT recompute ``qty * price`` here, that path is the
+    # exact drift source the user is removing. See change
+    # ``broker-csv-import-totals``.
+    total_invested: Mapped[Decimal | None] = mapped_column(Numeric(18, 4), nullable=True)
+    total_current: Mapped[Decimal | None] = mapped_column(Numeric(18, 4), nullable=True)
     broker_ticker: Mapped[str] = mapped_column(String(32), nullable=False)
     imported_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False

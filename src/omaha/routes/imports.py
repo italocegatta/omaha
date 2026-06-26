@@ -82,6 +82,13 @@ def _raw_to_dict(rp: RawPosition) -> dict:
         "current_price": str(rp.current_price),
         "row_index": rp.row_index,
         "suggested_category": rp.suggested_category,
+        # broker-csv-import-totals: round-trip the per-row totals so
+        # the preview survives a navigation. ``None`` when the source
+        # CSV did not publish the column — the import review modal
+        # renders ``R$ 0,00`` for the row's "Total atual" cell and
+        # the dashboard calc treats it as zero contribution.
+        "total_invested": str(rp.total_invested) if rp.total_invested is not None else None,
+        "total_current": str(rp.total_current) if rp.total_current is not None else None,
     }
 
 
@@ -94,6 +101,12 @@ def _dict_to_raw(d: dict) -> RawPosition:
         current_price=Decimal(d["current_price"]),
         row_index=int(d["row_index"]),
         suggested_category=d.get("suggested_category"),
+        # broker-csv-import-totals: rehydrate the totals (or ``None``)
+        # from the JSON-serialized preview.
+        total_invested=Decimal(d["total_invested"])
+        if d.get("total_invested") is not None
+        else None,
+        total_current=Decimal(d["total_current"]) if d.get("total_current") is not None else None,
     )
 
 
@@ -218,12 +231,17 @@ async def post_confirm(
     # are a UX affordance, not a security control.
     upsert_sql = (
         "INSERT INTO positions "
-        "(asset_id, qty, avg_price, current_price, broker_ticker, imported_at) "
+        "(asset_id, qty, avg_price, current_price, broker_ticker, "
+        "total_invested, total_current, imported_at) "
         "VALUES "
-        "(:asset_id, :qty, :avg_price, :current_price, :broker_ticker, CURRENT_TIMESTAMP) "
+        "(:asset_id, :qty, :avg_price, :current_price, :broker_ticker, "
+        ":total_invested, :total_current, CURRENT_TIMESTAMP) "
         "ON CONFLICT(asset_id, broker_ticker) DO UPDATE SET "
         "qty = excluded.qty, avg_price = excluded.avg_price, "
-        "current_price = excluded.current_price, imported_at = excluded.imported_at"
+        "current_price = excluded.current_price, "
+        "total_invested = excluded.total_invested, "
+        "total_current = excluded.total_current, "
+        "imported_at = excluded.imported_at"
     )
     for rp, asset_id in result.auto_matched:
         db.execute(
@@ -234,6 +252,10 @@ async def post_confirm(
                 "avg_price": str(rp.avg_price),
                 "current_price": str(rp.current_price),
                 "broker_ticker": rp.broker_ticker,
+                # ``None`` → SQL NULL; the column is nullable and the
+                # dashboard treats NULL as zero contribution.
+                "total_invested": str(rp.total_invested) if rp.total_invested is not None else None,
+                "total_current": str(rp.total_current) if rp.total_current is not None else None,
             },
         )
         upserted += 1
@@ -295,6 +317,8 @@ async def post_confirm(
                 "avg_price": str(rp.avg_price),
                 "current_price": str(rp.current_price),
                 "broker_ticker": rp.broker_ticker,
+                "total_invested": str(rp.total_invested) if rp.total_invested is not None else None,
+                "total_current": str(rp.total_current) if rp.total_current is not None else None,
             },
         )
         upserted += 1
@@ -302,7 +326,6 @@ async def post_confirm(
     db.delete(preview)
     db.commit()
 
-    request.session.pop(SESSION_PREVIEW_KEY, None)
     logger.info("import_confirm profile=%s upserted=%d", profile.id, upserted)
     return RedirectResponse("/", status_code=303)
 
@@ -383,6 +406,13 @@ def _build_preview_response(
             "current_price": str(rp.current_price),
             "asset_id": asset_id,
             "asset_class_id": asset_class_of.get(asset_id),
+            # broker-csv-import-totals: surface the broker totals
+            # so the import-modal review table renders the broker's
+            # ``Total atual`` / ``Total investido`` directly — no JS
+            # math, no recompute. ``None`` → 0 (CSV without totals
+            # still gets a placeholder row in the review).
+            "invested": str(rp.total_invested) if rp.total_invested is not None else "0",
+            "current_value": str(rp.total_current) if rp.total_current is not None else "0",
         }
         for rp, asset_id in result.auto_matched
     ]
@@ -396,6 +426,8 @@ def _build_preview_response(
             "current_price": str(rp.current_price),
             "suggested_category": rp.suggested_category,
             "suggested_class_id": suggest_class_id(rp.suggested_category, class_rows),
+            "invested": str(rp.total_invested) if rp.total_invested is not None else "0",
+            "current_value": str(rp.total_current) if rp.total_current is not None else "0",
         }
         for rp in result.unmatched
     ]
@@ -501,12 +533,17 @@ def commit_import(
 
     upsert_sql = (
         "INSERT INTO positions "
-        "(asset_id, qty, avg_price, current_price, broker_ticker, imported_at) "
+        "(asset_id, qty, avg_price, current_price, broker_ticker, "
+        "total_invested, total_current, imported_at) "
         "VALUES "
-        "(:asset_id, :qty, :avg_price, :current_price, :broker_ticker, CURRENT_TIMESTAMP) "
+        "(:asset_id, :qty, :avg_price, :current_price, :broker_ticker, "
+        ":total_invested, :total_current, CURRENT_TIMESTAMP) "
         "ON CONFLICT(asset_id, broker_ticker) DO UPDATE SET "
         "qty = excluded.qty, avg_price = excluded.avg_price, "
-        "current_price = excluded.current_price, imported_at = excluded.imported_at"
+        "current_price = excluded.current_price, "
+        "total_invested = excluded.total_invested, "
+        "total_current = excluded.total_current, "
+        "imported_at = excluded.imported_at"
     )
 
     upserted = 0
@@ -593,6 +630,8 @@ def commit_import(
                 "avg_price": str(rp.avg_price),
                 "current_price": str(rp.current_price),
                 "broker_ticker": rp.broker_ticker,
+                "total_invested": str(rp.total_invested) if rp.total_invested is not None else None,
+                "total_current": str(rp.total_current) if rp.total_current is not None else None,
             },
         )
         upserted += 1

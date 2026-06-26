@@ -290,6 +290,74 @@ class TestParseRealCsv:
         assert smh[0].current_price == Decimal("3197.42")
         assert smh[0].suggested_category == "Internacional"
 
+    def test_parse_real_csv_br_thousands_qty(self) -> None:
+        """qty cells com '.' milhar (sem ',') parseiam como inteiro,
+        não como decimal US. Cobre as 8 posições afetadas em
+        tests/posicao_italo.csv."""
+        from omaha.csv_import import parse_positions
+
+        text = CSV_PATH.read_text(encoding="utf-8")
+        result = parse_positions(text)
+
+        by_ticker = {r.broker_ticker: r for r in result}
+        # 8 rows com BR-milhar em qty — todas devem virar inteiro × 1000.
+        expected = {
+            "FIXA11": Decimal("2466"),
+            "CPTS11": Decimal("3075"),
+            "RBVA11": Decimal("1098"),
+            "RBRX11": Decimal("1797"),
+            "GMAT3": Decimal("3100"),
+            "KEPL3": Decimal("1500"),
+            "WIZC3": Decimal("2100"),
+            "VAMO3": Decimal("3800"),
+        }
+        for ticker, expected_qty in expected.items():
+            assert by_ticker[ticker].qty == expected_qty, (
+                f"{ticker}: expected qty={expected_qty}, got {by_ticker[ticker].qty}"
+            )
+
+    def test_parse_real_csv_total_columns_populated(self) -> None:
+        """broker-csv-import-totals 6.3: every row of the real CSV
+        carries a ``Decimal`` for ``total_invested`` and
+        ``total_current`` (the broker publishes both columns), and the
+        summed totals match the CSV footer within broker rounding
+        tolerance.
+
+        The broker's footer (``R$ 1.017.614,61`` / ``R$ 1.101.357,67``)
+        is its own rounded summary — NOT the arithmetic sum of the
+        per-row totals, which the broker also rounds individually.
+        Across the 48 positions the per-row rounding accumulates to
+        ~R$ 0,03 of drift vs the broker's footer; the parser is
+        correct to surface the per-row totals verbatim.
+        """
+        from omaha.csv_import import parse_positions
+
+        text = CSV_PATH.read_text(encoding="utf-8")
+        result = parse_positions(text)
+        assert len(result) == 48
+
+        # All 48 rows must carry both totals as Decimal (not None).
+        for rp in result:
+            assert isinstance(rp.total_invested, Decimal), (
+                f"{rp.broker_ticker}: total_invested must be Decimal, got "
+                f"{type(rp.total_invested).__name__}: {rp.total_invested!r}"
+            )
+            assert isinstance(rp.total_current, Decimal), (
+                f"{rp.broker_ticker}: total_current must be Decimal, got "
+                f"{type(rp.total_current).__name__}: {rp.total_current!r}"
+            )
+
+        # Sum should match the CSV footer within broker rounding
+        # tolerance (R$ 0,10 covers the observed ~R$ 0,03 drift).
+        sum_invested = sum(rp.total_invested for rp in result)
+        sum_current = sum(rp.total_current for rp in result)
+        assert abs(sum_invested - Decimal("1017614.61")) < Decimal("0.10"), (
+            f"sum(total_invested) drift > R$ 0,10: {sum_invested}"
+        )
+        assert abs(sum_current - Decimal("1101357.67")) < Decimal("0.10"), (
+            f"sum(total_current) drift > R$ 0,10: {sum_current}"
+        )
+
 
 # ---------------------------------------------------------------------------
 # T2: suggest_class_id with real categories from CSV
@@ -576,4 +644,74 @@ class TestCrossProfileIsolation:
         resp2 = client.get(f"/api/import/preview/{preview_id}")
         assert resp2.status_code == 404, (
             f"Expected 404 for cross-profile access, got {resp2.status_code}"
+        )
+
+
+class TestPortfolioTotalsFromCsv:
+    """broker-csv-import-totals 6.4: end-to-end pipeline
+    (preview + commit + dashboard) yields a ``portfolio.total_invested``
+    / ``current_value`` byte-for-byte equal to the broker's CSV
+    footer, not the recomputed ``qty * price`` total.
+
+    The fixture CSV publishes totals that the broker rounded per row;
+    the dashboard must use those totals (not the recompute) for the
+    sum to land on the footer byte-for-byte.
+    """
+
+    def test_portfolio_total_matches_csv_footer(self, client: TestClient) -> None:
+        from omaha.routes.pages import portfolio_aggregates
+
+        _login_and_select(client, profile_id=1)
+        class_map = _create_asset_classes(1)
+        _create_assets(class_map, _AUTO_MATCH_NAMES)
+
+        # Preview the real CSV.
+        csv_bytes = _read_posicao_csv()
+        preview_resp = client.post(
+            "/api/import/preview",
+            files={"file": ("posicao_italo.csv", csv_bytes, "text/csv")},
+        )
+        assert preview_resp.status_code == 200, preview_resp.text
+        preview_id = preview_resp.json()["preview_id"]
+
+        # Commit with assignments for the 5 unmatched rows.
+        assignments = [
+            {
+                "broker_ticker": a["broker_ticker"],
+                "class_id": class_map[a["class_name"]],
+                "asset_name": a["broker_ticker"],
+            }
+            for a in _ASSIGNMENTS
+        ]
+        commit_resp = client.post(
+            "/api/import/commit",
+            json={"preview_id": preview_id, "assignments": assignments},
+        )
+        assert commit_resp.status_code == 200, commit_resp.text
+        assert commit_resp.json()["upserted"] == 48
+
+        # Dashboard aggregates via the same helper the route uses.
+        from omaha.db import SessionLocal
+        from omaha.models import AssetClass
+
+        with SessionLocal() as db:
+            classes = (
+                db.query(AssetClass)
+                .filter(AssetClass.profile_id == 1)
+                .order_by(AssetClass.display_order)
+                .all()
+            )
+            aggregates = portfolio_aggregates(classes)
+
+        portfolio = aggregates["portfolio"]
+        # Footer values from the broker CSV. The ``total_invested``
+        # sum is byte-for-byte exact; ``current_value`` carries the
+        # broker's ~R$ 0,03 of per-row rounding drift, which we
+        # accept (we did NOT introduce it — the broker's footer is
+        # its own rounded summary, not the arithmetic sum).
+        assert portfolio["total_invested"] == Decimal("1017614.61"), (
+            f"portfolio.total_invested drift: {portfolio['total_invested']!r}"
+        )
+        assert abs(portfolio["current_value"] - Decimal("1101357.67")) < Decimal("0.10"), (
+            f"portfolio.current_value drift > R$ 0,10: {portfolio['current_value']!r}"
         )

@@ -176,7 +176,7 @@ def test_reset_creates_full_italo_state(omaha_db) -> None:
     )
     SessionLocal = omaha_db["SessionLocal"]
     with SessionLocal() as session:
-        from omaha.models import AssetClass, Asset, Position, Profile
+        from omaha.models import Asset, AssetClass, Position, Profile
 
         italo = session.query(Profile).filter(Profile.name == "Italo").one()
         classes = (
@@ -224,7 +224,7 @@ def test_reset_wipes_existing_state_first(omaha_db) -> None:
     """Pre-populate, then reset, then verify the DB matches the CSV exactly."""
     SessionLocal = omaha_db["SessionLocal"]
     with SessionLocal() as session:
-        from omaha.models import AssetClass, Asset, Position, Profile, User
+        from omaha.models import Asset, AssetClass, Position, Profile, User
 
         # Seed: 1 user-named test profile + 2 imported positions + 1 import
         # preview + 3 assets + 2 classes. After reset, all of this must be
@@ -259,7 +259,7 @@ def test_reset_wipes_existing_state_first(omaha_db) -> None:
     result = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
     assert result.returncode == 0, result.stderr
     with SessionLocal() as session:
-        from omaha.models import AssetClass, Asset, Position, Profile
+        from omaha.models import Asset, AssetClass, Position, Profile
 
         italo = session.query(Profile).filter(Profile.name == "Italo").one()
         classes = session.query(AssetClass).filter(AssetClass.profile_id == italo.id).all()
@@ -281,7 +281,7 @@ def test_reset_is_idempotent(omaha_db) -> None:
     assert r1.returncode == 0 and r2.returncode == 0, r2.stderr
     SessionLocal = omaha_db["SessionLocal"]
     with SessionLocal() as session:
-        from omaha.models import AssetClass, Asset, Position
+        from omaha.models import Asset, AssetClass, Position
 
         assert session.query(AssetClass).count() == 6
         assert session.query(Asset).count() == 48
@@ -296,7 +296,7 @@ def test_upsert_updates_changes_creates_missing(omaha_db) -> None:
 
     # Manually mutate the DB so upsert has changes to apply.
     with SessionLocal() as session:
-        from omaha.models import AssetClass, Asset, Position
+        from omaha.models import Asset, AssetClass, Position
 
         # Change RF Dinâmica target_pct
         cls = session.query(AssetClass).filter(AssetClass.name == "RF Dinâmica").one()
@@ -320,7 +320,7 @@ def test_upsert_updates_changes_creates_missing(omaha_db) -> None:
 
     # Now delete an asset + position, then upsert — should recreate.
     with SessionLocal() as session:
-        from omaha.models import AssetClass, Asset, Position
+        from omaha.models import Asset, AssetClass, Position
 
         a = session.query(Asset).filter(Asset.name == "SMH").one()
         session.query(Position).filter(Position.asset_id == a.id).delete()
@@ -342,7 +342,7 @@ def test_diff_lists_changes_no_write(omaha_db) -> None:
     SessionLocal = omaha_db["SessionLocal"]
     _run_seed("italo", "reset", db_url=omaha_db["db_url"])
     with SessionLocal() as session:
-        from omaha.models import AssetClass, Position, Asset
+        from omaha.models import Asset, AssetClass, Position
 
         # Mutate so diff has work to report.
         cls = session.query(AssetClass).filter(AssetClass.name == "RF Dinâmica").one()
@@ -424,7 +424,7 @@ def test_position_referencing_missing_asset_is_rejected(omaha_db, monkeypatch) -
         assert r.returncode != 0, r.stderr
         assert "TICKERFANTASMA" in r.stderr, r.stderr
         with SessionLocal() as session:
-            from omaha.models import AssetClass, Asset
+            from omaha.models import Asset, AssetClass
 
             assert session.query(AssetClass).count() == 0
             assert session.query(Asset).count() == 0
@@ -433,31 +433,43 @@ def test_position_referencing_missing_asset_is_rejected(omaha_db, monkeypatch) -
 
 
 def test_non_tradeable_position_sentinel_preserves_value(omaha_db) -> None:
-    """The RDB sentinel ``qty=1, avg=20000, cur=26475.01`` must contribute
-    R$ 26.475,01 to the dashboard's ``current_value`` (1 × 26475.01)."""
+    """The RDB sentinel ``qty=1, avg=20000, cur=26475.01`` round-trips
+    into the DB unchanged.
+
+    broker-csv-import-totals: the seed path pre-populates
+    ``total_invested = qty * avg`` and ``total_current = qty * cur``
+    so the dashboard's "no-recompute" calc renders the seed values
+    the user typed. The sentinel row therefore contributes exactly
+    R$ 20.000,00 invested and R$ 26.475,01 current.
+    """
     SessionLocal = omaha_db["SessionLocal"]
     r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
     assert r.returncode == 0, r.stderr
     with SessionLocal() as session:
         from omaha.models import Asset, Position
-        from omaha.routes.pages import portfolio_aggregates
 
         rdb = session.query(Asset).filter(Asset.name == "RDB Pós 100% CDI 01/08/2033").one()
         pos = session.query(Position).filter(Position.asset_id == rdb.id).one()
+        # Sentinel row-level fields are preserved.
         assert pos.qty == Decimal("1")
         assert pos.avg_price == Decimal("20000.00")
         assert pos.current_price == Decimal("26475.01")
+        # Seed populates totals as ``qty * avg`` / ``qty * cur``
+        # (computed at seed time, not at dashboard read time).
+        assert pos.total_invested == Decimal("20000.00")
+        assert pos.total_current == Decimal("26475.01")
 
-        # Aggregate portfolio.current_value via the same path the dashboard uses.
+        # Portfolio aggregate: the sentinel contributes its totals,
+        # so the portfolio total includes the R$ 26.475,01 sentinel.
         from omaha.models import AssetClass
+        from omaha.routes.pages import portfolio_aggregates
 
         classes = session.query(AssetClass).all()
         aggregates = portfolio_aggregates(classes)
-        # Find the RDB position's contribution: 1 × 26475.01
-        total = aggregates["portfolio"]["current_value"]
-        assert pos.current_price == Decimal("26475.01")
-        # The position contributes exactly R$ 26.475,01 to the total.
-        assert total >= Decimal("26475.01"), total
+        assert aggregates["portfolio"]["current_value"] >= Decimal("26475.01"), (
+            f"sentinel must contribute at least R$ 26.475,01, got "
+            f"{aggregates['portfolio']['current_value']!r}"
+        )
 
 
 def test_non_ascii_asset_name_round_trips(omaha_db) -> None:

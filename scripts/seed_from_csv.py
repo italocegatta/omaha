@@ -41,9 +41,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import TextIO
 
-from sqlalchemy import bindparam, text
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from omaha.db import SessionLocal
@@ -121,7 +120,7 @@ def _read_csv(path: Path, expected_header: tuple[str, ...]) -> list[dict[str, st
                 f"  expected: {','.join(expected_header)}\n"
                 f"  got:      {','.join(header)}"
             )
-        return [dict(zip(expected_header, row)) for row in reader]
+        return [dict(zip(expected_header, row, strict=False)) for row in reader]
 
 
 def _decimal(raw: str, *, field: str, path: Path, line_no: int) -> Decimal:
@@ -256,7 +255,7 @@ def validate(
     # assets reference classes
     for a in assets:
         if a.class_name not in class_names:
-            class_path = SEED_DIR / f"{profile}_classes.csv"
+            SEED_DIR / f"{profile}_classes.csv"
             asset_path = SEED_DIR / f"{profile}_assets.csv"
             existing = ", ".join(sorted(class_names)) or "(none)"
             abort(
@@ -410,6 +409,13 @@ def run_reset(
 
     positions_created = 0
     for p in positions:
+        # broker-csv-import-totals: seed positions are not broker-
+        # imported — there's no CSV column to read totals from. We
+        # store ``qty * avg`` / ``qty * cur`` as the seeded totals so
+        # the dashboard's "no-recompute" calc renders the seed values
+        # the user typed. The runtime path still never multiplies;
+        # the recompute happens once, here, at seed time, from the
+        # same numbers the seed CSV already carries.
         db.add(
             Position(
                 asset_id=asset_by_name[p.asset_name].id,
@@ -417,6 +423,8 @@ def run_reset(
                 avg_price=p.avg_price,
                 current_price=p.current_price,
                 broker_ticker=p.asset_name,
+                total_invested=p.qty * p.avg_price,
+                total_current=p.qty * p.current_price,
             )
         )
         positions_created += 1
@@ -468,7 +476,8 @@ def run_upsert(
             if changed:
                 out["classes_updated"] += 1
                 print(
-                    f"updated: {c.name} -> target_pct={c.target_pct} order={c.display_order} quote_kind={c.quote_kind}"
+                    f"updated: {c.name} -> target_pct={c.target_pct}"
+                    f" order={c.display_order} quote_kind={c.quote_kind}"
                 )
             else:
                 pass  # unchanged (no log to keep summary quiet)
@@ -560,6 +569,16 @@ def run_upsert(
             if row.current_price != p.current_price:
                 row.current_price = p.current_price
                 changed = True
+            # broker-csv-import-totals: keep the seeded totals in
+            # sync with the recomputed values from qty/avg/cur.
+            new_total_invested = p.qty * p.avg_price
+            new_total_current = p.qty * p.current_price
+            if row.total_invested != new_total_invested:
+                row.total_invested = new_total_invested
+                changed = True
+            if row.total_current != new_total_current:
+                row.total_current = new_total_current
+                changed = True
             if changed:
                 out["positions_updated"] += 1
                 print(
@@ -576,6 +595,10 @@ def run_upsert(
                     avg_price=p.avg_price,
                     current_price=p.current_price,
                     broker_ticker=p.asset_name,
+                    # See run_reset comment: seed positions get
+                    # ``qty * avg`` / ``qty * cur`` as their totals.
+                    total_invested=p.qty * p.avg_price,
+                    total_current=p.qty * p.current_price,
                 )
             )
             out["positions_created"] += 1

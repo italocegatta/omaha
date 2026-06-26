@@ -199,6 +199,39 @@ broker CSV's totals the source of truth (instead of the omaha DB).
   pattern. Do not "fix" the code to match the change artifacts — fix
   the change artifacts.
 
+## Import preview response ↔ Alpine template sync
+
+**Rule:** `_build_preview_response` em `src/omaha/routes/imports.py` monta
+os dicionários `auto_matched` e `unmatched` que o Alpine store
+(`$store.importModal`) consome no template `dashboard.html`. Qualquer
+campo acrescentado a esses dicionários PRECISA ser incluído no JSON que
+o endpoint `/api/import/preview` retorna (linhas `"invested": ...` /
+`"current_value": ...`).
+
+O template renderiza esses campos via `row.current_value` / `row.invested`
+no laço `<template x-for="(row, i) in $store.importModal.autoMatched">`.
+Se o servidor não incluir o campo no JSON (código velho ou resposta
+incompleta), `row.current_value` vira `undefined` → `Number(undefined)`
+= `NaN` → `formatBRL` exibe `R$ 0,00`.
+
+### Gatilhos
+
+- Adicionar coluna nova no model `Position` — atualizar `_raw_to_dict`
+  + `_dict_to_raw` + UPSERT SQL + `_build_preview_response`.
+- Adicionar campo exibido no modal de revisão do import — incluir nos
+  dicionários `auto_matched`/`unmatched` em `_build_preview_response`.
+- Alterar o template `dashboard.html` para ler `row.X` — garantir que
+  `_build_preview_response` emite `X` no JSON.
+
+### Referência
+
+- `src/omaha/routes/imports.py:_build_preview_response` (linhas 373+)
+- `src/omaha/templates/dashboard.html` — Alpine store `importModal`,
+  método `uploadFile` (linha 1594) seta `autoMatched`/`unmatched` do
+  `data` recebido.
+- `src/omaha/routes/imports.py:_raw_to_dict` / `_dict_to_raw` —
+  round-trip de todos os campos do `RawPosition` via JSON.
+
 ## Test marker rule — explicit allow-list, not pattern matching
 
 **Rule:** `tests/conftest.py::pytest_collection_modifyitems` partitions

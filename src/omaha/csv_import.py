@@ -63,6 +63,23 @@ _KNOWN_AVG_LABELS = (
 )
 _KNOWN_CUR_LABELS = ("preco atual", "preco de mercado", "current price", "preco")
 
+# broker-csv-import-totals: the broker also publishes per-row totals
+# (``Total investido`` / ``Total atual``). Match the same substring
+# pattern used for the other label groups so the detector treats
+# ``Valor aplicado`` / ``Saldo atual`` etc. as the same column.
+_KNOWN_TOTAL_INVESTED_LABELS = (
+    "total investido",
+    "total aplicado",
+    "valor aplicado",
+    "valor investido",
+)
+_KNOWN_TOTAL_CURRENT_LABELS = (
+    "total atual",
+    "valor atual",
+    "saldo atual",
+    "valor de mercado",
+)
+
 # Known footer labels. Footer rows are detected by ticker-cell match
 # (col 0) or, in some broker statements, by the first non-empty
 # cell. Substring match so "Total Geral", "Conta corrente",
@@ -128,6 +145,13 @@ class RawPosition:
     current_price: Decimal
     row_index: int
     suggested_category: str | None = None
+    # broker-csv-import-totals: per-row totals parsed from the CSV
+    # ``Total investido`` / ``Total atual`` columns (R$-prefixed BR
+    # format). ``None`` when the source file did not publish the
+    # column — the dashboard calc treats ``None`` as a zero
+    # contribution. Never recomputed from ``qty * price``.
+    total_invested: Decimal | None = None
+    total_current: Decimal | None = None
 
 
 @dataclass(frozen=True)
@@ -148,6 +172,12 @@ class ColumnMap:
     avg_price: int
     current_price: int
     category: int | None
+    # broker-csv-import-totals: column indices for the broker's
+    # per-row total columns. ``None`` when the header lacks the
+    # column — the parser leaves ``RawPosition.total_*`` as
+    # ``None`` (no fallback to ``qty * price``).
+    total_invested: int | None = None
+    total_current: int | None = None
 
 
 @dataclass
@@ -210,6 +240,8 @@ def _is_known_label(cell: str) -> bool:
         _KNOWN_QTY_LABELS,
         _KNOWN_AVG_LABELS,
         _KNOWN_CUR_LABELS,
+        _KNOWN_TOTAL_INVESTED_LABELS,
+        _KNOWN_TOTAL_CURRENT_LABELS,
     ):
         for label in group:
             if label in n:
@@ -236,13 +268,15 @@ def _is_known_category(cell: str) -> bool:
 def _parse_brazilian_number(s: str) -> Decimal:
     """Parse a number string into a :class:`~decimal.Decimal`.
 
-    Handles both Brazilian (``1.234,56``, ``28,50``) and US
+    Handles both Brazilian (``1.234,56``, ``28,50``, ``2.466``) and US
     (``1,234.56``, ``1234.56``) formats. The rule: when BOTH a
     dot and a comma are present, the rightmost separator is the
-    decimal point. When only one separator is present, it is
-    treated as the decimal point. Strips an ``R$`` prefix and
-    surrounding quotes. Raises
-    :class:`~decimal.InvalidOperation` on unparseable input —
+    decimal point. When only a comma is present, it is the decimal
+    point (Brazilian default). When only a ``.`` is present, groups
+    of exactly 3 digits after each dot are treated as thousands
+    separators (BR convention); otherwise the ``.`` is treated as a
+    US decimal point. Strips an ``R$`` prefix and surrounding quotes.
+    Raises :class:`~decimal.InvalidOperation` on unparseable input —
     the caller catches that and treats the row as malformed.
 
     Examples::
@@ -250,7 +284,10 @@ def _parse_brazilian_number(s: str) -> Decimal:
         _parse_brazilian_number("1.234,56")   -> Decimal("1234.56")
         _parse_brazilian_number("28,50")      -> Decimal("28.50")
         _parse_brazilian_number("R$ 990,92")  -> Decimal("990.92")
+        _parse_brazilian_number("2.466")      -> Decimal("2466")
+        _parse_brazilian_number("1.234.567")  -> Decimal("1234567")
         _parse_brazilian_number("1234.56")    -> Decimal("1234.56")
+        _parse_brazilian_number("0.50")       -> Decimal("0.50")
         _parse_brazilian_number("1,234.56")   -> Decimal("1234.56")
         _parse_brazilian_number("")           -> InvalidOperation
     """
@@ -276,7 +313,13 @@ def _parse_brazilian_number(s: str) -> Decimal:
     elif has_comma:
         # Only comma — treat as decimal (Brazilian default).
         s = s.replace(",", ".")
-    # else: only dot (or no separator) — leave as-is (US decimal).
+    else:
+        # only "." — ambiguous: BR thousands (groups of 3) vs US decimal.
+        parts = s.split(".")
+        if len(parts) >= 2 and all(p.isdigit() and len(p) == 3 for p in parts[1:]):
+            # BR-milhar: 1.234 / 1.234.567 / 12.345.678 — strip all dots
+            s = "".join(parts)
+        # else: leave as-is (US decimal — 1234.56 / 0.50 / 1.5)
     return Decimal(s)
 
 
@@ -384,6 +427,23 @@ def _parse_data_row(
             )
         except (InvalidOperation, IndexError):
             return None
+        # broker-csv-import-totals: parse the per-row totals when
+        # the column was detected. ``None``-column leaves the field
+        # at its dataclass default (``None``) — no fallback to
+        # ``qty * price``. The BR number parser already handles
+        # ``R$`` prefix, milhar, and quotes for these cells.
+        total_invested: Decimal | None = None
+        if col_map.total_invested is not None and col_map.total_invested < len(row):
+            try:
+                total_invested = _parse_brazilian_number(row[col_map.total_invested])
+            except InvalidOperation:
+                total_invested = None
+        total_current: Decimal | None = None
+        if col_map.total_current is not None and col_map.total_current < len(row):
+            try:
+                total_current = _parse_brazilian_number(row[col_map.total_current])
+            except InvalidOperation:
+                total_current = None
         category_cell = None
         if col_map.category is not None and col_map.category < len(row):
             category_cell = row[col_map.category].strip() or None
@@ -395,6 +455,8 @@ def _parse_data_row(
             current_price=current_price,
             row_index=row_index,
             suggested_category=category_cell,
+            total_invested=total_invested,
+            total_current=total_current,
         )
 
     # Positional fallback — no header detected. Keep this path so
@@ -454,6 +516,8 @@ def _detect_columns(header_row: list[str]) -> ColumnMap | None:
     avg_col: int | None = None
     cur_col: int | None = None
     cat_col: int | None = None
+    total_invested_col: int | None = None
+    total_current_col: int | None = None
 
     for i, cell in enumerate(header_row):
         if _is_known_label(cell):
@@ -482,6 +546,19 @@ def _detect_columns(header_row: list[str]) -> ColumnMap | None:
             ):
                 cur_col = i
                 continue
+            # broker-csv-import-totals: total-column detection.
+            # Same substring pattern as the price columns; missing
+            # columns leave the slot as ``None`` (no fallback).
+            if total_invested_col is None and any(
+                label in _normalize_cell(cell) for label in _KNOWN_TOTAL_INVESTED_LABELS
+            ):
+                total_invested_col = i
+                continue
+            if total_current_col is None and any(
+                label in _normalize_cell(cell) for label in _KNOWN_TOTAL_CURRENT_LABELS
+            ):
+                total_current_col = i
+                continue
         if cat_col is None and _is_known_category(cell):
             cat_col = i
 
@@ -494,6 +571,8 @@ def _detect_columns(header_row: list[str]) -> ColumnMap | None:
         avg_price=avg_col if avg_col is not None else qty_col + 1,
         current_price=cur_col if cur_col is not None else (avg_col or qty_col) + 1,
         category=cat_col,
+        total_invested=total_invested_col,
+        total_current=total_current_col,
     )
 
 

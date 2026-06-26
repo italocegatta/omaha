@@ -101,10 +101,34 @@ def _seed_assets_with_positions_via_import(
     csv_path = Path("/tmp") / f"omaha-test-{uuid.uuid4().hex[:8]}.csv"
     with csv_path.open("w") as f:
         f.write('"Posicao consolidada","Cliente: TEST"\n')
-        f.write("Codigo,Ativo,Quantidade,Preco Medio,Preco Atual,Minha Categoria\n")
+        # broker-csv-import-totals: include ``Total investido`` /
+        # ``Total atual`` columns so the parsed positions carry the
+        # broker-published totals. Without these, the dashboard's
+        # portfolio header (gated on current_value > 0) hides and
+        # downstream e2e selectors that wait on it timeout. We use
+        # ``R$`` prefix + BR-milhar to exercise the parser's
+        # number-format path the same way the real broker CSV does.
+        f.write(
+            "Codigo,Ativo,Quantidade,Preco Medio,Preco Atual,"
+            "Total investido,Total atual,Minha Categoria\n"
+        )
         for class_name, asset_name in class_assignments:
             qty, price = (positions or {}).get(asset_name, (100.0, 100.0))
-            f.write(f"{asset_name},{asset_name},{qty:.2f},100.00,{price:.2f},{class_name}\n")
+            total_invested = qty * 100.00
+            total_current = qty * price
+
+            # Use BR-milhar formatting for prices > 1000 so the
+            # parser exercises the dot-as-thousands path.
+            def _fmt(value: float) -> str:
+                # Renders 12345.67 → "12.345,67"; small values stay
+                # as "100,00".
+                s = f"{value:,.2f}"
+                return s.replace(",", "X").replace(".", ",").replace("X", ".")
+
+            f.write(
+                f"{asset_name},{asset_name},{qty:.2f},100.00,{price:.2f},"
+                f'"R$ {_fmt(total_invested)}","R$ {_fmt(total_current)}",{class_name}\n'
+            )
 
     # Drive the modal — reuse the flow from test_import_user_journey.py
     page.click(IMPORT_SELECTORS["dashboard_import_btn"])
