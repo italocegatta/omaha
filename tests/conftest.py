@@ -165,6 +165,7 @@ _INTEGRATION_PREFIXES = (
     "tests/test_classes_post.py",
     "tests/test_classes_routes.py",
     "tests/test_csv_import.py",
+    "tests/test_db_reset_both_profiles.py",
     "tests/test_e2e.py",
     "tests/test_healthz.py",
     "tests/test_import_commit.py",
@@ -188,6 +189,7 @@ _INTEGRATION_PREFIXES = (
 # warning for the legitimate unit set.
 _UNIT_FILES = frozenset(
     {
+        "tests/scripts/test_reset_both_profiles.py",
         "tests/test_audit_color_resolver.py",
         "tests/test_audit_css_parser.py",
         "tests/test_audit_report.py",

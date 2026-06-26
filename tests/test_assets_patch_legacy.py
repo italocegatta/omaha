@@ -113,24 +113,29 @@ def _clean_assets_and_classes(_omaha_test_env: dict[str, str]) -> None:
 # ---------------------------------------------------------------------------
 
 
+_PROFILE_OWNERS = {1: "Italo", 2: "Ana"}
+
+
 def _login_and_select(client: TestClient, profile_id: int = 1) -> None:
     """Log in with the seed credentials and bind ``active_profile_id``.
 
-    The seed (``src/omaha/seed.py``) creates only ``Italo`` and
-    ``Ana`` — there is no ``family`` user. Logging in as
-    ``family`` silently fails (the login route returns 200 with
-    a form error and no session cookie), so the subsequent
-    ``/profiles/{id}/select`` is unauthenticated and the PATCH
-    route's ``require_active_profile`` dependency raises 404
-    before the handler ever reads the asset. ``Italo`` is the
-    profile-1 owner per the seed.
+    direct-landing-with-header-profile-switcher: ``POST /login``
+    now auto-binds the logged-in user's own first profile (by
+    ``display_order``), so logging in as ``Italo`` already binds
+    profile 1. If the caller asks for a profile owned by a
+    different user, the helper explicitly calls
+    ``/profiles/{id}/select`` (cross-profile viewing is now allowed
+    by the new contract).
     """
+    username = _PROFILE_OWNERS.get(profile_id, "Italo")
     client.post(
         "/login",
-        data={"username": "Italo", "password": "test-password"},
+        data={"username": username, "password": "test-password"},
         follow_redirects=False,
     )
-    client.post(f"/profiles/{profile_id}/select", follow_redirects=False)
+    if _PROFILE_OWNERS.get(profile_id) != username:
+        # Cross-profile: the login bound the wrong user's profile.
+        client.post(f"/profiles/{profile_id}/select", follow_redirects=False)
 
 
 def _seed_class_with_assets(
@@ -303,18 +308,24 @@ def test_patch_asset_off_sum_accepts_and_persists(
     assert on_disk == Decimal("110")
 
 
-def test_patch_asset_cross_profile_404(client: TestClient, _omaha_test_env: dict[str, str]) -> None:
-    """A PATCH against another profile's asset is 404 (ownership check walks the FK).
+def test_patch_asset_active_profile_succeeds(
+    client: TestClient, _omaha_test_env: dict[str, str]
+) -> None:
+    """direct-landing-with-header-profile-switcher flipped this contract.
 
-    Seeds an asset under Ana Livia (profile 2). Logs in as Italo
-    (profile 1) and tries to PATCH the asset. The route's
-    ``asset.asset_class.profile_id != profile.id`` check raises
-    404 — the response is identical to "asset doesn't exist", so
-    a stale URL is indistinguishable from a cross-profile probe.
+    A PATCH against an asset that belongs to the active profile
+    succeeds with 200. The prior per-user ownership check
+    (``asset.asset_class.profile_id != profile.id`` → 404) was
+    removed: any logged-in user can view and mutate any profile's
+    data, gated only by ``active_profile_id``.
+
+    Here we seed Ana's asset, log in as Ana (the login auto-binds
+    Ana's profile), and PATCH Ana's asset — the new contract says
+    this returns 200, not 404.
     """
-    # Pre-populate an asset under Ana Livia via a fresh engine
-    # bound to the session-scoped test DB URL (not the
-    # monkeypatched ``omaha.db`` — see the autouse fixture's
+    # Pre-populate an asset under Ana Livia (profile 2) via a
+    # fresh engine bound to the session-scoped test DB URL (not
+    # the monkeypatched ``omaha.db`` — see the autouse fixture's
     # docstring for why).
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
@@ -341,17 +352,18 @@ def test_patch_asset_cross_profile_404(client: TestClient, _omaha_test_env: dict
         )
         db.add(asset)
         db.commit()
-        other_asset_id = asset.id
+        ana_asset_id = asset.id
     finally:
         db.close()
         engine.dispose()
 
-    # Switch to Italo (profile 1) and try to PATCH Ana's asset.
-    _login_and_select(client, profile_id=1)
+    # Log in as Ana — login auto-binds active_profile_id to Ana's
+    # profile (the one that owns the asset). PATCH must succeed.
+    _login_and_select(client, profile_id=2)
 
-    response = _patch_asset(client, other_asset_id, "60")
+    response = _patch_asset(client, ana_asset_id, "60")
 
-    assert response.status_code == 404
-    # The asset must still be on disk at its original value —
-    # the 404 means the route did not touch the row.
-    assert _read_asset_target_pct(other_asset_id, _omaha_test_env) == Decimal("50")
+    assert response.status_code == 200
+    body = response.json()
+    assert body == {"id": ana_asset_id, "target_pct": "60"}
+    assert _read_asset_target_pct(ana_asset_id, _omaha_test_env) == Decimal("60")

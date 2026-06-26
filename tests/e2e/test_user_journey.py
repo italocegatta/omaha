@@ -30,7 +30,6 @@ SELECTORS = {
     "login_user": 'input[name="username"]',
     "login_pass": 'input[name="password"]',
     "login_submit": 'button[type="submit"]',
-    "profile_picker": "form.profile-picker button",
     "nav_dashboard": '[data-testid="nav-dashboard"]',
     "class_summary_row": '[data-testid="class-summary-row"]',
     "dashboard_class_section": '[data-testid="class-section-header"]',
@@ -44,20 +43,23 @@ SELECTORS = {
     "dashboard_asset_delete_btn": '[data-testid="dashboard-asset-delete-btn"]',
     "dashboard_asset_delete_confirm_yes": '[data-testid="dashboard-asset-delete-confirm-yes"]',
     "asset_row_name": '[data-testid="asset-row-name"]',
+    "profile_switcher": '[data-testid="profile-switcher"]',
 }
 
 
 def _login_and_select_italo(page: Page, base_url: str) -> None:
-    """Drive the login + profile picker using the live UI."""
+    """Drive the direct-landing login flow.
+
+    direct-landing-with-header-profile-switcher: ``POST /login``
+    auto-binds ``active_profile_id`` to the logged-in user's first
+    profile (by ``display_order``) and 303s to ``/``. There is no
+    intermediate ``/profiles`` picker page — login lands directly on
+    the dashboard.
+    """
     page.goto(f"{base_url}/login")
     page.fill(SELECTORS["login_user"], "Italo")
     page.fill(SELECTORS["login_pass"], "test-password")
     page.click(SELECTORS["login_submit"])
-    page.wait_for_url(re.compile(r"/profiles$"))
-
-    # The picker renders one button per profile, in display_order.
-    # The seed creates Italo first, Ana second.
-    page.locator(SELECTORS["profile_picker"]).filter(has_text="Italo").click()
     page.wait_for_url(re.compile(r"/$"))
 
 

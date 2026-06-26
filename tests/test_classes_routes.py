@@ -81,21 +81,27 @@ def _clean_asset_classes() -> None:
 # ---------------------------------------------------------------------------
 
 
+_PROFILE_OWNERS = {1: "Italo", 2: "Ana"}
+
+
 def _login_and_select(client: TestClient, profile_id: int = 1, username: str = "Italo") -> None:
     """Log in with the seed credentials and bind ``active_profile_id``.
 
-    The seed creates one user per account: Italo owns profile 1,
-    Ana owns profile 2. Cross-profile ownership is enforced by
-    ``/profiles/{id}/select`` (404 on mismatch), so callers
-    touching profile 2 must pass ``username="Ana"`` to re-authenticate
-    as the right user. Default is ``Italo`` + profile 1.
+    direct-landing-with-header-profile-switcher: ``POST /login``
+    auto-binds the logged-in user's own first profile, so logging
+    in as ``Italo`` already binds profile 1; logging in as
+    ``Ana`` already binds profile 2. The explicit
+    ``/profiles/{id}/select`` step is only needed when the caller
+    explicitly opts to authenticate as a user who does NOT own the
+    requested profile (cross-profile viewing tests).
     """
     client.post(
         "/login",
         data={"username": username, "password": "test-password"},
         follow_redirects=False,
     )
-    client.post(f"/profiles/{profile_id}/select", follow_redirects=False)
+    if _PROFILE_OWNERS.get(profile_id) != username:
+        client.post(f"/profiles/{profile_id}/select", follow_redirects=False)
 
 
 def _post_classes(

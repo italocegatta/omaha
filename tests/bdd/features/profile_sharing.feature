@@ -1,20 +1,19 @@
 # language: pt
-Funcionalidade: Isolamento de dados entre perfis
+Funcionalidade: Compartilhamento entre perfis
   Como um membro da família
-  Eu quero que minhas classes e ativos não apareçam no dashboard do outro perfil
-  Para manter a privacidade da estratégia individual de cada investidor
+  Eu quero ver o dashboard do outro perfil trocando o seletor do header
+  Para acompanhar a estratégia do outro investidor
 
   Contexto:
     Dado o servidor de testes do BDD está no ar
     E o banco de dados de teste foi inicializado com a senha compartilhada
     E os perfis "Italo" e "Ana" existem e estão sem classes e sem ativos
 
-  Cenário: Italo's classes invisible to Ana
+  Cenário: Ana vê as classes de Italo após trocar pelo chip
     Dado que estou na página "/login"
     Quando preencho o campo "username" com "Italo"
     E preencho o campo "password" com "test-password"
     E clico em "Entrar"
-    E clico no botão do perfil "Italo"
     E clico em "+ Nova classe"
     E preencho o campo "Nome da classe" com "RF Pós"
     E preencho o campo "Alocação alvo" com "60"
@@ -27,15 +26,14 @@ Funcionalidade: Isolamento de dados entre perfis
     E preencho o campo "username" com "Ana"
     E preencho o campo "password" com "test-password"
     E clico em "Entrar"
-    E clico no botão do perfil "Ana"
-    Então o dashboard mostra a mensagem de estado vazio
+    E troco o perfil pelo chip do header para "Italo"
+    Então o dashboard mostra as classes de "Italo"
 
-  Cenário: Ana's classes invisible to Italo
+  Cenário: Italo vê as classes de Ana após trocar pelo chip
     Dado que estou na página "/login"
     Quando preencho o campo "username" com "Ana"
     E preencho o campo "password" com "test-password"
     E clico em "Entrar"
-    E clico no botão do perfil "Ana"
     E clico em "+ Nova classe"
     E preencho o campo "Nome da classe" com "Reserva"
     E preencho o campo "Alocação alvo" com "100"
@@ -44,5 +42,5 @@ Funcionalidade: Isolamento de dados entre perfis
     E preencho o campo "username" com "Italo"
     E preencho o campo "password" com "test-password"
     E clico em "Entrar"
-    E clico no botão do perfil "Italo"
-    Então o dashboard mostra a mensagem de estado vazio
+    E troco o perfil pelo chip do header para "Ana"
+    Então o dashboard mostra as classes de "Ana"

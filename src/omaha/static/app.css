@@ -137,12 +137,13 @@ button:focus-visible,
 }
 
 /* Display serif — per DESIGN.md typography section. Scoped to the
-   dashboard's portfolio header values and the profile name only.
-   Used at most twice on the dashboard. Serif in a product register
+   dashboard's portfolio header values only (the h1 "profile-name"
+   element was removed by direct-landing-with-header-profile-switcher;
+   the visual hero now lives in the portfolio stat values). Used
+   at most three times on the dashboard. Serif in a product register
    must be surgical or it reads as luxury. The fallback to IBM Plex
    Serif / Georgia keeps the metric the same if Source Serif 4 fails
    to load (network blocked, ad-blocker, offline). */
-.profile-name,
 .portfolio-stat-value {
   font-family: "Source Serif 4", "IBM Plex Serif", Georgia, serif;
   font-weight: 600;
@@ -181,10 +182,59 @@ header.app-header .main-nav a {
 header.app-header .main-nav a:hover { color: var(--accent); }
 header.app-header h1 { font-size: 1.1rem; margin: 0; }
 header.app-header .current-profile { color: var(--muted); font-size: 0.9rem; }
-header.app-header form.profile-switcher button {
+
+/* Logout form — class was previously misnamed "profile-switcher";
+   direct-landing-with-header-profile-switcher renamed it to
+   "logout-form" so the new chip can honestly claim that class name.
+   The styling is identical to the prior rule (transparent button,
+   accent color, underline on hover) — only the selector changed. */
+header.app-header form.logout-form button {
   background: none; border: 0; color: var(--accent); cursor: pointer; font-size: 0.9rem;
 }
-header.app-header form.profile-switcher button:hover { text-decoration: underline; }
+header.app-header form.logout-form button:hover { text-decoration: underline; }
+
+/* direct-landing-with-header-profile-switcher: header profile chip.
+   The chip is a native <select> wrapped in a <form method=post>.
+   Options render server-side (no Alpine x-for race), so the
+   `selected` attribute on the active profile is visible
+   immediately via the browser's own selection state — no extra
+   glyph needed. The viewer label that used to sit before the chip
+   was removed: it acted like a stale breadcrumb (whoever logged in
+   is implicit from the option the operator picked). */
+header.app-header form.profile-switcher {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+}
+header.app-header form.profile-switcher select {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 0.35rem 1.75rem 0.35rem 0.6rem;
+  cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-muted) 50%),
+                    linear-gradient(135deg, var(--ink-muted) 50%, transparent 50%);
+  background-position: right 0.7rem center, right 0.45rem center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+header.app-header form.profile-switcher select:hover {
+  border-color: var(--accent);
+}
+header.app-header form.profile-switcher select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+/* The ✓ glyph on the selected option is rendered inside the <option>
+   text by the server. Native <option> styling inherits the form
+   font; no override needed. */
 
 form.profile-picker button {
   display: block; width: 100%; margin: 0.5rem 0; padding: 0.75rem 1rem;
@@ -1335,6 +1385,26 @@ td.editing {
   }
   header.app-header .main-nav a {
     font-size: 0.82rem;
+  }
+
+  /* direct-landing-with-header-profile-switcher — header stacks into
+     2 rows on phones: row 1 = logo + chip + viewer label; row 2 = nav +
+     sair. The previous single-row layout crammed 4+ cells into 1rem
+     gaps, which broke the chip tap target. Flex-wrap on the parent
+     forces the right cluster to a second line; gap shrinks to keep
+     both rows tight. */
+  header.app-header {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+  header.app-header .app-header-right {
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: flex-end;
+    gap: 0.75rem;
+  }
+  header.app-header .main-nav {
+    margin-left: auto;
   }
 
   /* New class/asset forms — full width on mobile */

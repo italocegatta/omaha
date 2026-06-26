@@ -58,14 +58,24 @@ def _wipe_quotes() -> None:
     yield
 
 
+_PROFILE_OWNERS = {1: "Italo", 2: "Ana"}
+
+
 def _login_and_select(client: TestClient, profile_id: int = 1, username: str = "Italo") -> None:
-    """Log in with seed credentials and bind the active profile."""
+    """Log in with seed credentials and bind the active profile.
+
+    direct-landing-with-header-profile-switcher: ``POST /login``
+    auto-binds the logged-in user's own first profile. The
+    explicit ``/profiles/{id}/select`` step only runs when the
+    caller opts into cross-profile viewing.
+    """
     client.post(
         "/login",
         data={"username": username, "password": "test-password"},
         follow_redirects=False,
     )
-    client.post(f"/profiles/{profile_id}/select", follow_redirects=False)
+    if _PROFILE_OWNERS.get(profile_id) != username:
+        client.post(f"/profiles/{profile_id}/select", follow_redirects=False)
 
 
 # ---------------------------------------------------------------------------

@@ -183,14 +183,18 @@ SELECTORS = {
 
 
 def _login_and_select_italo(page: Page, base_url: str) -> None:
-    """Drive the login + profile picker using the live UI."""
+    """Drive the direct-landing login flow.
+
+    direct-landing-with-header-profile-switcher: ``POST /login``
+    auto-binds ``active_profile_id`` to the logged-in user's first
+    profile (by ``display_order``) and 303s to ``/``. There is no
+    intermediate ``/profiles`` picker page — login lands directly on
+    the dashboard.
+    """
     page.goto(f"{base_url}/login")
     page.fill(SELECTORS["login_user"], "Italo")
     page.fill(SELECTORS["login_pass"], "test-password")
     page.click(SELECTORS["login_submit"])
-    page.wait_for_url(re.compile(r"/profiles$"))
-
-    page.locator(SELECTORS["profile_picker"]).filter(has_text="Italo").click()
     page.wait_for_url(re.compile(r"/$"))
 
 

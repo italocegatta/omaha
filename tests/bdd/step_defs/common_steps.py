@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 from pytest_bdd import given, parsers, then, when
 
 from tests.bdd.step_defs._workflows import (
-    login_and_pick_profile,
+    login_and_land,
 )
 
 if TYPE_CHECKING:
@@ -74,7 +74,7 @@ def at_page(page: Page, live_url: str, path: str):
 
 @given(parsers.re(r'(que )?estou logado como "(?P<profile>[^"]+)"'))
 def _w_logged_in_as(page: Page, live_url: str, profile: str):
-    login_and_pick_profile(page, live_url, profile)
+    login_and_land(page, live_url, profile)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -160,9 +160,18 @@ def click_button(page: Page, label: str):
     raise AssertionError(f"botão/link {label!r} não encontrado")
 
 
-@when(parsers.parse('clico no botão do perfil "{name}"'))
-def click_profile_button(page: Page, name: str):
-    page.locator("form.profile-picker button").filter(has_text=name).first.click()
+@when(parsers.re(r'troco o perfil pelo chip do header para "(?P<name>[^"]+)"'))
+def switch_profile_via_chip(page: Page, name: str):
+    """Pick a different profile via the header chip's native <select>.
+
+    direct-landing-with-header-profile-switcher: the old
+    ``form.profile-picker`` step is gone (the picker page was
+    removed). Cross-profile switching now goes through the header
+    chip's native <select>: ``select_option(label=name)`` triggers
+    the form's onchange handler which rewrites the action and
+    submits.
+    """
+    page.locator('[data-testid="profile-switcher"]').select_option(label=name)
 
 
 @when(parsers.parse('pressiono "{key}"'))
@@ -221,10 +230,36 @@ def on_page(page: Page, path: str):
 
 @then(parsers.parse('o dashboard mostra o nome do perfil "{name}"'))
 def dashboard_shows_profile_name(page: Page, name: str):
-    expect = page.locator('[data-testid="profile-name"]')
-    expect.wait_for(state="visible", timeout=5000)
-    assert name in expect.inner_text(), (
-        f"esperava perfil {name!r} em [data-testid=profile-name], vi {expect.inner_text()!r}"
+    """Assert the dashboard renders the named profile in the sidebar wordmark.
+
+    direct-landing-with-header-profile-switcher: the h1 ``profile-name``
+    element was removed (D6); the profile identity now lives in the
+    sidebar wordmark (``[data-testid="sidebar-wordmark"]``) and the
+    header chip's selected option (``[data-testid="profile-switcher"]``).
+    The sidebar wordmark is the stable hook — it's the first element
+    rendered after the layout flips and it carries the profile name
+    verbatim.
+    """
+    wordmark = page.locator('[data-testid="sidebar-wordmark"]')
+    wordmark.wait_for(state="visible", timeout=5000)
+    assert name in wordmark.inner_text(), (
+        f"esperava perfil {name!r} em [data-testid=sidebar-wordmark], vi {wordmark.inner_text()!r}"
+    )
+
+
+@then(parsers.parse('o dashboard mostra as classes de "{name}"'))
+def dashboard_shows_other_profile_classes(page: Page, name: str):
+    """Assert the dashboard shows the named profile's classes (cross-profile).
+
+    direct-landing-with-header-profile-switcher + profile_sharing: after
+    switching to another user's profile via the chip, the dashboard
+    renders that profile's classes. The sidebar wordmark carries the
+    profile name so the assertion matches.
+    """
+    wordmark = page.locator('[data-testid="sidebar-wordmark"]')
+    wordmark.wait_for(state="visible", timeout=5000)
+    assert name in wordmark.inner_text(), (
+        f"esperava wordmark {name!r}, vi {wordmark.inner_text()!r}"
     )
 
 

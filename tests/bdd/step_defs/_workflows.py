@@ -103,31 +103,39 @@ DEFAULT_FOUR_ASSETS: list[AssetSpec] = [
 
 
 @carve_out(
-    files=frozenset({"login.feature", "profile_isolation.feature"}),
+    files=frozenset({"login.feature"}),
     step_regex=r"estou logado como",
 )
-def login_and_pick_profile(
+def login_and_land(
     page: Page,
     live_url: str,
     profile: str,
     password: str = "test-password",
 ) -> None:
-    """Log in and select a profile — the auth bootstrap for every scenario.
+    """Log in and land directly on the operator's own dashboard.
 
-    Pré-condição: nenhuma — este é o entry point da suite.
+    direct-landing-with-header-profile-switcher: ``POST /login``
+    auto-binds ``active_profile_id`` to the logged-in user's first
+    profile (by ``display_order``) and 303s to ``/``. There is no
+    intermediate ``/profiles`` picker page — login lands directly
+    on the dashboard.
+
+    The function is renamed from ``login_and_pick_profile`` to
+    ``login_and_land`` to reflect the new flow. The carve-out
+    shrinks: only ``login.feature`` (which exercises the picker
+    carve-out path for the wrong-password case) is exempt;
+    ``profile_isolation.feature`` is renamed/repurposed in this
+    change (it inherits the new flow).
 
     data-testids:
       - input[name=username]
       - input[name=password]
       - button[type=submit]
-      - form.profile-picker button
     """
     page.goto(f"{live_url}/login")
     page.fill('input[name="username"]', profile)
     page.fill('input[name="password"]', password)
     page.click('button[type="submit"]')
-    page.wait_for_url(re.compile(r"/profiles$"), timeout=5000)
-    page.locator("form.profile-picker button").filter(has_text=profile).first.click()
     page.wait_for_url(re.compile(r"/$"), timeout=5000)
 
 

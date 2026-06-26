@@ -2,13 +2,14 @@
 
 This is the integration-closure proof for S01: it drives the full
 operator-facing flow with a single :class:`TestClient` and asserts
-that the response chain (login → profile pick → dashboard → logout)
-binds the session cookie correctly and renders the production
-template copy.
+that the response chain (login → dashboard → logout) binds the
+session cookie correctly and renders the production template copy.
 
-The test is intentionally a single happy-path narrative — every step
-re-uses the cookie state the previous step wrote — because the
-existing T03 suite already covers each step in isolation
+The direct-landing change collapses the auth bootstrap: the user
+goes straight from POST /login to GET / (no intermediate /profiles
+picker). The test is intentionally a single happy-path narrative —
+every step re-uses the cookie state the previous step wrote —
+because the existing T03 suite already covers each step in isolation
 (wrong password, missing profile, etc.). This file proves the steps
 compose into the demo the slice plan advertises.
 """
@@ -40,20 +41,21 @@ def _clean_asset_classes() -> None:
     yield
 
 
-def test_full_login_profile_dashboard_logout_flow(client: TestClient) -> None:
-    """The demo end-to-end: login → pick Italo → see dashboard → logout.
+def test_full_login_dashboard_logout_flow(client: TestClient) -> None:
+    """The demo end-to-end: login → see dashboard → logout.
 
     Steps:
 
     1. ``GET /login`` renders the form (200, text/html).
     2. ``POST /login`` with the seed credentials sets the
-       ``omaha_session`` cookie and 303s to ``/profiles``.
-    3. ``GET /profiles`` renders both seeded profiles.
-    4. ``POST /profiles/1/select`` (Italo) 303s to ``/``.
-    5. ``GET /`` renders the dashboard with "Bem-vindo, Italo" in
-       the body — the slice demo's payoff line.
-    6. ``POST /logout`` clears the session and 303s to ``/login``.
-    7. A follow-up ``GET /`` bounces to ``/login`` because the
+       ``omaha_session`` cookie AND binds ``active_profile_id`` to
+       the logged-in user's first profile. The response is 303 to
+       ``/`` (no intermediate /profiles picker).
+    3. ``GET /`` renders the dashboard directly. The
+       ``data-testid="profile-switcher"`` chip is present and the
+       active profile is marked ``selected``.
+    4. ``POST /logout`` clears the session and 303s to ``/login``.
+    5. A follow-up ``GET /`` bounces to ``/login`` because the
        session is empty.
     """
     # 1. Login form is reachable without a session.
@@ -63,14 +65,14 @@ def test_full_login_profile_dashboard_logout_flow(client: TestClient) -> None:
     # The form posts back to /login and asks for the shared password.
     assert 'action="/login"' in login_form.text
 
-    # 2. Valid credentials → 303 to /profiles + the session cookie.
+    # 2. Valid credentials → 303 to / + the session cookie.
     login_response = client.post(
         "/login",
         data={"username": "Italo", "password": "test-password"},
         follow_redirects=False,
     )
     assert login_response.status_code == 303
-    assert login_response.headers["location"] == "/profiles"
+    assert login_response.headers["location"] == "/"
     assert "omaha_session" in login_response.cookies
     cookie_value = login_response.cookies["omaha_session"]
     # Starlette signs the cookie — even on an empty session the value is
@@ -78,36 +80,32 @@ def test_full_login_profile_dashboard_logout_flow(client: TestClient) -> None:
     # middleware actually wrote a cookie.
     assert cookie_value, "omaha_session cookie should be non-empty after login"
 
-    # 3. Profile picker is reachable and lists the logged-in user's profile.
-    profiles_page = client.get("/profiles")
-    assert profiles_page.status_code == 200
-    assert "Italo" in profiles_page.text
-
-    # 4. Selecting Italo (profile id 1) 303s to the dashboard.
-    select_response = client.post("/profiles/1/select", follow_redirects=False)
-    assert select_response.status_code == 303
-    assert select_response.headers["location"] == "/"
-
-    # 5. The dashboard renders the production copy. The T04 plan's
-    #    payoff line is "Bem-vindo, Italo" — its presence proves the
-    #    base.html / dashboard.html wiring reached the response body.
+    # 3. The dashboard renders directly. The header chip is present
+    #    and the active profile is marked selected.
     dashboard = client.get("/", follow_redirects=False)
     assert dashboard.status_code == 200
     assert "text/html" in dashboard.headers["content-type"]
-    assert "Bem-vindo, Italo" in dashboard.text
+    assert 'data-testid="profile-switcher"' in dashboard.text
+    # The selected option in the chip carries the profile name (no ✓ glyph).
+    assert ">Italo</option>" in dashboard.text
+    # And that option carries the selected attribute.
+    assert 'value="1" selected>Italo<' in dashboard.text
     # The onboarding empty-state copy is also rendered on this
     # slice's dashboard so an operator who reaches the page knows
     # where to look next. After dashboard-action-sidebar the empty
     # state is a 3-step onboarding card; the heading "Vamos comecar"
     # is the new payoff line.
     assert "Vamos comecar" in dashboard.text
+    # direct-landing-with-header-profile-switcher: the h1 "Bem-vindo"
+    # payoff is gone (the chip identifies the portfolio instead).
+    assert "Bem-vindo" not in dashboard.text
 
-    # 6. Logout clears the session and 303s back to the login form.
+    # 4. Logout clears the session and 303s back to the login form.
     logout_response = client.post("/logout", follow_redirects=False)
     assert logout_response.status_code == 303
     assert logout_response.headers["location"] == "/login"
 
-    # 7. The follow-up GET / is unauthenticated and bounces to /login.
+    # 5. The follow-up GET / is unauthenticated and bounces to /login.
     after_logout = client.get("/", follow_redirects=False)
     assert after_logout.status_code == 303
     assert after_logout.headers["location"] == "/login"

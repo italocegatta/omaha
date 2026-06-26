@@ -38,10 +38,12 @@ documented in ``openspec/specs/bdd-workflow-reuse/spec.md``:
   1. ≤10 public workflows in ``_workflows.py`` (ceiling).
   2. Workflows that declare ``@carve_out(...)`` in
      ``_workflows.py`` MUST NOT be used in their declared
-     carve-out feature files. Currently
-     ``login_and_pick_profile`` is carved out from
-     ``login.feature`` + ``profile_isolation.feature``
-     (they test the auth flow itself).
+     carve-out feature files. Currently ``login_and_land``
+     is carved out from ``login.feature`` (it tests the
+     auth flow itself). The prior ``profile_isolation.feature``
+     was renamed to ``profile_sharing.feature`` by
+     direct-landing-with-header-profile-switcher; that file
+     inherits the new flow via the wrapper step.
   3. Every ``_w_*`` function body must ``Call`` at least one
      name defined in ``_workflows.py`` (no inlined workflow
      logic, which would silently bypass the workflow's
@@ -51,7 +53,7 @@ documented in ``openspec/specs/bdd-workflow-reuse/spec.md``:
 
 | Workflow | Purpose | Pre-condition | Carve-out |
 |---|---|---|---|
-| ``login_and_pick_profile`` | Bootstrap: log in + select profile | none (entry point) | ``login.feature``, ``profile_isolation.feature`` |
+| ``login_and_land`` | Bootstrap: log in (auto-binds landing profile) | none (entry point) | ``login.feature`` |
 | ``create_one_class`` | Inline ``+ Nova classe`` form | logged in | none |
 | ``create_two_default_classes`` | Loop ``create_one_class`` over ``DEFAULT_TWO_CLASSES`` (or any ``list[ClassSpec]``) | logged in | none |
 | ``add_one_asset`` | Single ``+ Ativo`` global button + class ``<select>`` picker modal | logged in + class exists | none |
@@ -112,11 +114,10 @@ re-evaluate whether the suite really shares that much structure.
 
 ## Carve-out
 
-``login.feature`` and ``profile_isolation.feature`` deliberately
-keep login steps inline (the wrapper step text would silently
-pass on auth-flow regressions). The carve-out is declared on
-the workflow itself via the
-``@carve_out(files=..., step_regex=...)`` decorator in
+``login.feature`` deliberately keeps login steps inline (the
+wrapper step text would silently pass on auth-flow
+regressions). The carve-out is declared on the workflow itself
+via the ``@carve_out(files=..., step_regex=...)`` decorator in
 ``_workflows.py``. The contract test
 ``test_carve_out_files_use_inline_steps`` parses these
 decorators via AST and asserts each carve-out file does NOT

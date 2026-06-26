@@ -21,13 +21,12 @@ Tests
 ``test_carve_out_files_use_inline_steps``
     Workflows that declare ``@carve_out(...)`` in
     ``_workflows.py`` MUST NOT be used in their carve-out
-    feature files (e.g. ``login.feature`` and
-    ``profile_isolation.feature`` cannot use the
-    ``login_and_pick_profile`` wrapper, because they test
-    the auth flow itself). The contract test parses the
-    workflow decorators via AST and asserts each carve-out
-    file does NOT contain a step matching the workflow's
-    declared ``step_regex``.
+    feature files (e.g. ``login.feature`` cannot use the
+    ``login_and_land`` wrapper, because it tests the auth
+    flow itself). The contract test parses the workflow
+    decorators via AST and asserts each carve-out file does
+    NOT contain a step matching the workflow's declared
+    ``step_regex``.
 
 ``test_wrappers_delegate_to_workflows``
     Every step function whose name starts with ``_w_`` (the
@@ -170,8 +169,7 @@ def test_carve_out_files_use_inline_steps() -> None:
     if not carve_outs:
         pytest.fail(
             "No workflows declare @carve_out — at least "
-            "login_and_pick_profile MUST be carved out from "
-            "login.feature + profile_isolation.feature."
+            "login_and_land MUST be carved out from login.feature."
         )
     for workflow_name, (files, regex) in carve_outs.items():
         for feature_filename in files:

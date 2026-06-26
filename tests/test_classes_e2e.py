@@ -45,19 +45,24 @@ TEST_PASSWORD = "test-password"
 
 
 def _login_and_select_profile(client: TestClient, profile_name: str = "Italo") -> Profile:
-    """Log in as ``Italo`` and select the named profile (defaults to Italo)."""
-    client.post("/login", data={"username": "Italo", "password": TEST_PASSWORD})
-    # Use a fresh session to read the profile (mirrors T02's
-    # helper pattern: open a new SessionLocal so we see committed
-    # state, not in-flight transaction state).
+    """Log in as ``profile_name`` — login auto-binds the landing profile.
+
+    direct-landing-with-header-profile-switcher: ``POST /login``
+    now binds ``active_profile_id`` to the logged-in user's own
+    first profile (by ``display_order``). The explicit
+    ``/profiles/{id}/select`` step is gone for same-user login.
+    """
+    client.post(
+        "/login", data={"username": profile_name, "password": TEST_PASSWORD}
+    )
     from omaha.db import SessionLocal
 
     db = SessionLocal()
     try:
         profile = db.query(Profile).filter(Profile.name == profile_name).first()
+        assert profile is not None, f"profile {profile_name!r} not seeded"
     finally:
         db.close()
-    client.post(f"/profiles/{profile.id}/select")
     return profile
 
 

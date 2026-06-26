@@ -144,7 +144,7 @@ db-seed     = { cmd = "uv run python -m omaha.seed",                            
 db-seed-from-csv = { cmd = "uv run python -m scripts.seed_from_csv --profile italo --mode reset", help = "Wipe + reseed Italo from data/seed/*.csv (override with -- --profile ana --mode diff)" }
 db-seed-diff     = { cmd = "uv run python -m scripts.seed_from_csv --profile italo --mode diff",  help = "Print the CSV-vs-DB diff for Italo without writing (override with -- --profile ana)" }
 db-seed-upsert   = { cmd = "uv run python -m scripts.seed_from_csv --profile italo --mode upsert",help = "Reconcile Italo's DB with data/seed/*.csv (create-or-update, no delete). Override with -- --profile ana" }
-db-reset    = { cmd = "uv run python -m scripts.seed_from_csv --profile italo --mode reset",     help = "Wipe + reseed Italo's profile (CSV-driven, destructive; aliases db-seed-from-csv for backward compat)" }
+db-reset    = { cmd = "uv run python -m scripts.reset_both_profiles",                              help = "Wipe + reseed BOTH profiles (Italo + Ana) from data/seed/*.csv in one invocation" }
 db-current  = { cmd = "uv run alembic current",                                      help = "Show the current Alembic revision head" }
 db-history  = { cmd = "uv run alembic history",                                      help = "Show the full Alembic migration timeline" }
 db-clear-assets = { cmd = "uv run python -m scripts.clear_assets",                     help = "Delete ALL asset rows (keep classes intact)" }

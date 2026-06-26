@@ -31,7 +31,7 @@ from tests.bdd.step_defs import (  # noqa: F401
 # ─────────────────────────────────────────────────────────────────────
 
 
-@scenario("login.feature", "Login + profile pick OK", features_base_dir="tests/bdd/features")
+@scenario("login.feature", "Login + dashboard direto", features_base_dir="tests/bdd/features")
 def test_login_ok():
     pass
 
@@ -187,23 +187,25 @@ def test_derived_recomputes_on_asset_patch():
 
 
 # ─────────────────────────────────────────────────────────────────────
-# profile_isolation.feature
+# profile_sharing.feature (direct-landing-with-header-profile-switcher:
+# was profile_isolation.feature; renamed + flipped assertions because
+# any logged-in user can now view any profile via the header chip).
 # ─────────────────────────────────────────────────────────────────────
 
 
 @scenario(
-    "profile_isolation.feature",
-    "Italo's classes invisible to Ana",
+    "profile_sharing.feature",
+    "Ana vê as classes de Italo após trocar pelo chip",
     features_base_dir="tests/bdd/features",
 )
-def test_italo_classes_invisible_to_ana():
+def test_ana_sees_italo_classes_after_switch():
     pass
 
 
 @scenario(
-    "profile_isolation.feature",
-    "Ana's classes invisible to Italo",
+    "profile_sharing.feature",
+    "Italo vê as classes de Ana após trocar pelo chip",
     features_base_dir="tests/bdd/features",
 )
-def test_ana_classes_invisible_to_italo():
+def test_italo_sees_ana_classes_after_switch():
     pass

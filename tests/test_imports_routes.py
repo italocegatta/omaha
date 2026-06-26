@@ -29,12 +29,15 @@ SAMPLE_CSV = (FIXTURES / "sample_broker.csv").read_text(encoding="utf-8")
 def _login_and_pick_profile(
     client: TestClient, profile_name: str = "Italo", username: str | None = None
 ) -> None:
-    """Helper: log in as ``username`` and pick the named profile.
+    """Helper: log in as ``username`` and land on their own dashboard.
 
-    Each seed user owns exactly one profile, so ``username`` defaults
-    to ``profile_name`` when not given. Pass a different ``username``
-    only when you intentionally want to authenticate as another
-    user (cross-profile isolation tests).
+    direct-landing-with-header-profile-switcher: ``POST /login`` now
+    binds ``active_profile_id`` to the logged-in user's first profile
+    and redirects to ``/`` — there is no intermediate /profiles
+    picker step. ``username`` defaults to ``profile_name`` (each seed
+    user owns one profile of the matching name). Pass a different
+    ``username`` only when you intentionally want to authenticate as
+    another user (cross-profile viewing tests).
     """
     if username is None:
         username = profile_name
@@ -44,35 +47,18 @@ def _login_and_pick_profile(
         follow_redirects=False,
     )
     assert r.status_code == 303, r.text
-    profile_id = _profile_id_for(client, profile_name)
-    r = client.post(
-        f"/profiles/{profile_id}/select",
-        follow_redirects=False,
-    )
-    assert r.status_code == 303, r.text
+    assert r.headers["location"] == "/"
 
 
 def _profile_id_for(client: TestClient, name: str) -> int:
-    """Read the profile id from /profiles after login."""
-    r = client.get("/profiles")
-    assert r.status_code == 200, r.text
-    import re
+    """Read the profile id from the DB (the /profiles picker page is gone)."""
+    from omaha.db import SessionLocal
+    from omaha.models import Profile
 
-    # /profiles page renders one form per profile with
-    # action="/profiles/{id}/select" and a button whose text is the
-    # profile name.
-    m = re.search(
-        rf'action="/profiles/(\d+)/select"[^>]*>\s*<button[^>]*>\s*{re.escape(name)}\s*</button>',
-        r.text,
-    )
-    if not m:
-        m = re.search(
-            rf'>\s*{re.escape(name)}\s*</button>.*?action="/profiles/(\d+)/select"',
-            r.text,
-            re.DOTALL,
-        )
-    assert m, f"profile {name!r} not found in /profiles HTML"
-    return int(m.group(1))
+    with SessionLocal() as db:
+        profile = db.query(Profile).filter(Profile.name == name).first()
+        assert profile is not None, f"profile {name!r} not seeded"
+        return profile.id
 
 
 def _ensure_class_with_asset(

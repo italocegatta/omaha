@@ -1,22 +1,27 @@
-"""Protected pages: dashboard, profile picker, profile selection.
+"""Protected pages: dashboard, profile selection.
 
 Routing contract
 ----------------
-- ``GET /`` — requires a logged-in user. If no profile is active,
-  redirect to ``/profiles`` (the picker). If a stale ``active_profile_id``
-  is in the session (profile was deleted, or belongs to a different
-  user), clear it and redirect to ``/profiles`` so the user can pick a
-  valid one. Otherwise render the dashboard for the active profile.
-- ``GET /profiles`` — requires a logged-in user. Lists the user's
-  profiles as form buttons.
+- ``GET /`` — requires a logged-in user. If no profile resolves
+  (``active_profile_id`` missing, deleted, or pointing to another
+  user's profile), clear the stale key and redirect to ``/login`` so
+  the user can re-authenticate and land on their own dashboard.
+  Otherwise render the dashboard for the active profile.
 - ``POST /profiles/{profile_id}/select`` — requires a logged-in user
-  *and* that the profile belongs to the current user. Sets
+  but accepts ANY profile id (any user can view any profile — the
+  prior ``profile.user_id != user.id`` 404 check is gone). Sets
   ``active_profile_id`` in the session and redirects to ``/``.
 
-The dashboard and profile picker templates are intentionally
-placeholder Jinja in T03 (no styling, no Alpine). T04 replaces them
-with the production HTML + Alpine.js + static CSS; the route
-contracts here don't change.
+The header chip (base.html) drives the select endpoint via a native
+``<select>``: when the operator picks a different profile, the form's
+``action`` is rewritten client-side to ``/profiles/{value}/select``
+and the form submits.
+
+The dashboard template inherits a Jinja context that always carries
+``profiles`` (every profile in the DB, in ``display_order`` order),
+``viewer`` (the logged-in ``User``), and ``owner`` (the active
+``Profile``) so the header chip + viewer label can render without
+any extra round-trip per route.
 """
 
 from __future__ import annotations
@@ -39,20 +44,55 @@ def _templates(request: Request):
     return request.app.state.templates
 
 
+def _common_context(request: Request, db: DbSession, user: User, owner: Profile | None) -> dict[str, Any]:
+    """Build the shared Jinja context for authenticated renders.
+
+    Every authenticated template (the dashboard, and any future page
+    that extends ``base.html``) gets the same trio of variables:
+
+    * ``profiles`` — every ``Profile`` row in the DB, in
+      ``display_order`` ascending. Powers the header chip's
+      ``<select>`` options.
+    * ``viewer`` — the logged-in :class:`User`. The header renders a
+      muted label with ``viewer.username`` when viewer ≠ owner.
+    * ``owner`` — the active :class:`Profile` (``active_profile_id``
+      resolved to a row), or ``None`` if no profile is active. The
+      chip marks this profile as ``selected`` (the browser renders
+      the active row with its own selection state; no extra glyph
+      needed).
+    """
+    all_profiles = db.query(Profile).order_by(Profile.display_order).all()
+    return {
+        "user": user,
+        "viewer": user,
+        "owner": owner,
+        "profile": owner,  # legacy alias — some templates still read `profile`
+        "profiles": all_profiles,
+    }
+
+
 @router.get("/", response_class=HTMLResponse, response_model=None)
 def index(
     request: Request,
     db: DbSession,
     user: User = Depends(require_user),
 ) -> Response:
-    """Render the dashboard for the active profile, or redirect to the picker."""
+    """Render the dashboard for the active profile.
+
+    Stale ``active_profile_id`` (missing / deleted / pointing to
+    another user's profile) is cleared and the user is bounced to
+    ``/login`` — the post-login route binds a fresh landing profile,
+    so re-logging-in is the recovery path. There is no
+    intermediate picker page; the change is direct landing.
+    """
     profile = get_active_profile(request, db)
     if profile is None:
-        # Either no profile was ever picked, or the cookie is stale
-        # (profile deleted, profile belongs to a different user). Drop
-        # the stale key so the next /profiles visit starts clean.
+        # Either no profile was ever picked, the cookie is stale
+        # (profile deleted, profile belongs to a different user),
+        # or the user has yet to log in. Clear the stale key so the
+        # next /login → POST flow starts clean.
         request.session.pop("active_profile_id", None)
-        return RedirectResponse("/profiles", status_code=303)
+        return RedirectResponse("/login", status_code=303)
 
     asset_classes = (
         db.query(AssetClass)
@@ -64,35 +104,15 @@ def index(
         .all()
     )
     aggregates = portfolio_aggregates(asset_classes)
-    return _templates(request).TemplateResponse(
-        request,
-        "dashboard.html",
+    context = _common_context(request, db, user, profile)
+    context.update(
         {
-            "user": user,
-            "profile": profile,
             "asset_classes": asset_classes,
             "portfolio": aggregates["portfolio"],
             "class_aggregates": aggregates["classes"],
-        },
+        }
     )
-
-
-@router.get("/profiles", response_class=HTMLResponse, response_model=None)
-def profiles_list(
-    request: Request,
-    db: DbSession,
-    user: User = Depends(require_user),
-) -> Response:
-    """List the user's profiles as form buttons for the picker page."""
-    # ``user.profiles`` is configured with
-    # ``order_by="Profile.display_order"`` in the model, so iteration
-    # is already in the right order.
-    profiles = list(user.profiles)
-    return _templates(request).TemplateResponse(
-        request,
-        "profiles.html",
-        {"user": user, "profiles": profiles},
-    )
+    return _templates(request).TemplateResponse(request, "dashboard.html", context)
 
 
 @router.post("/profiles/{profile_id}/select")
@@ -102,12 +122,17 @@ def select_profile(
     db: DbSession,
     user: User = Depends(require_user),
 ) -> RedirectResponse:
-    """Bind ``active_profile_id`` to the session and redirect to the dashboard."""
+    """Bind ``active_profile_id`` to the session and redirect to the dashboard.
+
+    The prior per-user ownership check
+    (``profile.user_id != user.id`` → 404) is gone: any logged-in
+    user can switch to any profile. The viewer-vs-owner distinction
+    is still rendered in the header (muted label), but it no longer
+    gates access. A non-existent id still 404s so a hand-crafted
+    POST never silently no-ops.
+    """
     profile = db.get(Profile, profile_id)
-    if profile is None or profile.user_id != user.id:
-        # Don't leak which case it was — a non-existent profile and
-        # a profile belonging to someone else look the same to the
-        # caller.
+    if profile is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     request.session["active_profile_id"] = profile.id
     return RedirectResponse("/", status_code=303)

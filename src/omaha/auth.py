@@ -14,11 +14,13 @@ Cookie contract
   :func:`require_user`; the helper raises an ``HTTPException(303)``
   pointing at ``/login`` so a bare ``GET /`` from an unauthenticated
   browser follows the redirect chain ``/`` -> ``/login`` -> form.
-- ``request.session["active_profile_id"]`` is set on profile selection
-  and *cleared* on login so the user is forced to pick a profile each
-  session. Pages that need a profile (the dashboard) call
-  :func:`require_active_profile`; the helper raises ``404`` if no
-  profile is selected.
+- ``request.session["active_profile_id"]`` is set on successful login
+  (to the logged-in user's first profile by ``display_order``) and
+  re-bound by ``POST /profiles/{id}/select`` (the header chip). It
+  is *not* cleared on re-login — a fresh login replaces it with the
+  new landing profile. Pages that need a profile (the dashboard)
+  call :func:`require_active_profile`; the helper raises ``404`` if
+  no profile is selected.
 
 Bcrypt's 72-byte ceiling is enforced inside :func:`verify_password`
 (it returns ``False`` instead of raising ``ValueError``), so a
@@ -110,27 +112,25 @@ def require_user(request: Request, db: DbSession) -> User:
 def get_active_profile(request: Request, db: DbSession) -> Profile | None:
     """Return the :class:`Profile` recorded in the session, or ``None``.
 
-    The profile is also rejected if it doesn't belong to the current
-    user (e.g. a session cookie from a previous account, or a profile
-    that was deleted out from under an active session).
+    Returns ``None`` only when ``active_profile_id`` is missing or
+    points to a row that no longer exists (e.g. the profile was
+    deleted out from under an active session). The prior
+    per-user ownership check (``profile.user_id != user_id``) was
+    removed when cross-profile viewing became the explicit contract:
+    any logged-in user can bind any profile via the header chip, and
+    the active profile is whatever ``active_profile_id`` points to.
     """
     profile_id = request.session.get("active_profile_id")
     if profile_id is None:
         return None
-    profile = db.get(Profile, profile_id)
-    if profile is None:
-        return None
-    user_id = request.session.get("user_id")
-    if user_id is not None and profile.user_id != user_id:
-        return None
-    return profile
+    return db.get(Profile, profile_id)
 
 
 def require_active_profile(request: Request, db: DbSession) -> Profile:
     """Return the active :class:`Profile`, or raise ``404``.
 
     Pages that need a profile (the dashboard) call this; the protected
-    pages route (``/``) instead *redirects* to ``/profiles`` when the
+    pages route (``/``) instead *redirects* to ``/login`` when the
     user has no active profile, so the only way to land here without a
     profile is a stale cookie. A 404 is the right response for a stale
     cookie — the user picked nothing valid.

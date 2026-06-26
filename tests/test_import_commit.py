@@ -48,18 +48,25 @@ def _clean_data() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _login_and_select(client: TestClient, profile_id: int = 1, username: str = "Italo") -> None:
-    """Log in as ``username`` and select the given profile id.
+_PROFILE_OWNERS = {1: "Italo", 2: "Ana"}
 
-    Each seed user owns exactly one profile, so cross-profile tests
-    pass ``username="Ana"`` to reach profile id 2.
+
+def _login_and_select(client: TestClient, profile_id: int = 1, username: str = "Italo") -> None:
+    """Log in as ``username`` and bind the given profile id.
+
+    direct-landing-with-header-profile-switcher: ``POST /login``
+    auto-binds the logged-in user's own first profile, so logging
+    in as ``Italo`` already binds profile 1 (and ``Ana`` binds 2).
+    The explicit ``/profiles/{id}/select`` step only runs when
+    the caller wants cross-profile viewing.
     """
     client.post(
         "/login",
         data={"username": username, "password": "test-password"},
         follow_redirects=False,
     )
-    client.post(f"/profiles/{profile_id}/select", follow_redirects=False)
+    if _PROFILE_OWNERS.get(profile_id) != username:
+        client.post(f"/profiles/{profile_id}/select", follow_redirects=False)
 
 
 def _create_asset_classes(profile_id: int) -> dict[str, int]:
