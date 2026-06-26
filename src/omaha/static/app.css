@@ -1275,6 +1275,112 @@ td.editing {
   margin-left: 0.5rem;
 }
 
+/* asset-trade-flags: per-asset buy/sell toggle + currency badge.
+   The toggle is a small pill that swaps between "Liberado" (green)
+   and "Bloqueado" (neutral gray) based on the
+   ``trade-toggle--on`` / ``trade-toggle--off`` modifier class bound
+   by Alpine from the row's ``buy_enabled`` / ``sell_enabled`` value.
+   The button stays full-width so the column reads as a binary state
+   rather than a checkbox. Disabled state (savingTrade = row id)
+   dims the toggle; no optimistic update — the visual flips only
+   after the PATCH returns 200 (see ``toggleTradeFlag`` in the
+   dashboard template). */
+.trade-toggle {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg-muted);
+  cursor: pointer;
+  user-select: none;
+  min-width: 5.5rem;
+  text-align: center;
+}
+.trade-toggle--on {
+  background: color-mix(in srgb, var(--positive) 14%, var(--surface));
+  border-color: color-mix(in srgb, var(--positive) 60%, var(--border));
+  color: var(--positive);
+}
+.trade-toggle--off {
+  background: color-mix(in srgb, var(--fg-muted) 8%, var(--surface));
+  border-color: var(--border);
+  color: var(--fg-muted);
+}
+.trade-toggle:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+.trade-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Currency badge — read-only visual for the per-asset ``currency_code``.
+   The dashboard intentionally does not expose an inline currency
+   editor (currency is more disruptive than the buy/sell flags and
+   the Fase 1 rebalance foundation treats it as a hard contract);
+   the value changes via the import modal review or direct CSV
+   edit. The badge uses a single neutral style for both BRL and
+   USD — the currency label alone communicates which one; accent
+   styling was tried and rolled back per owner feedback ("USD não
+   precisa de destaque"). */
+.currency-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+/* Col widths for the new trade-control columns. Kept narrow so the
+   table layout still fits the existing 8-column view; the toggle
+   pill is the widest element in its column. */
+.asset-table .col-buy,
+.asset-table .col-sell {
+  width: 6.5rem;
+}
+.asset-table .col-currency {
+  width: 4.5rem;
+}
+
+/* asset-trade-flags: per-row trade-control controls inside the
+   import-modal review tables. Lighter weight than the dashboard
+   toggle pill (no border, no fill) so the modal stays scannable
+   when many rows are shown at once. The native checkbox / select
+   are styled just enough to inherit the modal typography. */
+.import-trade-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--fg);
+  cursor: pointer;
+  user-select: none;
+}
+.import-trade-toggle input[type="checkbox"] {
+  cursor: pointer;
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--positive);
+}
+.import-currency-select {
+  font: inherit;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--surface);
+  color: inherit;
+}
+
 /* Class card header inline pills (Alvo / Atual / Sobra/Falta).
    Dashed border on the Alvo pill signals "click to edit"; the
    Atual pill picks up its status colour from --ok / --off

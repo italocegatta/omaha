@@ -1,47 +1,47 @@
-class_name,name,target_pct,display_order
-RF Dinâmica,"CDB Pós  CDI+1,3% 05/04/2027 AGIBANK",0.00,0
-RF Dinâmica,FIXA11,25.00,1
-RF Dinâmica,JURO11,25.00,2
-RF Dinâmica,KDIF11,12.50,3
-RF Dinâmica,Tesouro IPCA+ 2029,0.00,4
-RF Dinâmica,Tesouro IPCA+ 2035,0.00,5
-RF Dinâmica,Tesouro IPCA+ 2040,0.00,6
-RF Dinâmica,Tesouro IPCA+ 2045,0.00,7
-RF Dinâmica,Tesouro IPCA+ 2050,18.75,8
-RF Dinâmica,Tesouro Renda+ Aposentadoria Extra 2065,18.75,9
-RF Pós,AUPO11,100.00,0
-RF Pós,Svn Renda Fixa Crédito,0.00,1
-RF Pós,Tesouro Selic 2027,0.00,2
-RF Pós,Tesouro Selic 2029,0.00,3
-RF Pós,Tesouro Selic 2031,0.00,4
-Internacional,HTEK11,5.00,0
-Internacional,IAU,10.00,1
-Internacional,IVV,25.00,2
-Internacional,IVVB11,0.00,3
-Internacional,NUCL11,5.00,4
-Internacional,QQQ,10.00,5
-Internacional,SMH,10.00,6
-Internacional,TFLO,1.00,7
-Internacional,VNQ,14.00,8
-Internacional,VT,20.00,9
-FII,BRCR11,6.67,0
-FII,CPTS11,15.00,1
-FII,LVBI11,5.00,2
-FII,PSEC11,10.00,3
-FII,PVBI11,6.67,4
-FII,RBRX11,8.33,5
-FII,RBVA11,6.67,6
-FII,TRXF11,10.00,7
-FII,VILG11,8.33,8
-FII,VISC11,6.67,9
-FII,XPCI11,10.00,10
-FII,XPML11,6.67,11
-FII,RBFM11,0.00,12
-Cripto,BTC,100.00,0
-Ações,GMAT3,13.33,0
-Ações,KEPL3,10.00,1
-Ações,PRIO3,23.33,2
-Ações,RDB Pós 100% CDI 01/06/2035,0.00,3
-Ações,SLCE3,13.33,4
-Ações,VAMO3,13.33,5
-Ações,WIZC3,26.67,6
+class_name,name,target_pct,display_order,buy_enabled,sell_enabled,currency_code
+RF Dinâmica,"CDB Pós  CDI+1,3% 05/04/2027 AGIBANK",0.00,0,true,true,BRL
+RF Dinâmica,FIXA11,25.00,1,true,true,BRL
+RF Dinâmica,JURO11,25.00,2,true,true,BRL
+RF Dinâmica,KDIF11,12.50,3,true,true,BRL
+RF Dinâmica,Tesouro IPCA+ 2029,0.00,4,true,true,BRL
+RF Dinâmica,Tesouro IPCA+ 2035,0.00,5,true,true,BRL
+RF Dinâmica,Tesouro IPCA+ 2040,0.00,6,true,true,BRL
+RF Dinâmica,Tesouro IPCA+ 2045,0.00,7,true,true,BRL
+RF Dinâmica,Tesouro IPCA+ 2050,18.75,8,true,true,BRL
+RF Dinâmica,Tesouro Renda+ Aposentadoria Extra 2065,18.75,9,true,true,BRL
+RF Pós,AUPO11,100.00,0,true,true,BRL
+RF Pós,Svn Renda Fixa Crédito,0.00,1,true,true,BRL
+RF Pós,Tesouro Selic 2027,0.00,2,true,true,BRL
+RF Pós,Tesouro Selic 2029,0.00,3,true,true,BRL
+RF Pós,Tesouro Selic 2031,0.00,4,true,true,BRL
+Internacional,HTEK11,5.00,0,true,true,BRL
+Internacional,IAU,10.00,1,true,true,USD
+Internacional,IVV,25.00,2,true,true,USD
+Internacional,IVVB11,0.00,3,true,true,BRL
+Internacional,NUCL11,5.00,4,true,true,BRL
+Internacional,QQQ,10.00,5,true,true,USD
+Internacional,SMH,10.00,6,true,true,USD
+Internacional,TFLO,1.00,7,true,true,USD
+Internacional,VNQ,14.00,8,true,true,USD
+Internacional,VT,20.00,9,true,true,USD
+FII,BRCR11,6.67,0,true,true,BRL
+FII,CPTS11,15.00,1,true,true,BRL
+FII,LVBI11,5.00,2,true,true,BRL
+FII,PSEC11,10.00,3,true,true,BRL
+FII,PVBI11,6.67,4,true,true,BRL
+FII,RBRX11,8.33,5,true,true,BRL
+FII,RBVA11,6.67,6,true,true,BRL
+FII,TRXF11,10.00,7,true,true,BRL
+FII,VILG11,8.33,8,true,true,BRL
+FII,VISC11,6.67,9,true,true,BRL
+FII,XPCI11,10.00,10,true,true,BRL
+FII,XPML11,6.67,11,true,true,BRL
+FII,RBFM11,0.00,12,true,true,BRL
+Cripto,BTC,100.00,0,true,true,BRL
+Ações,GMAT3,13.33,0,true,true,BRL
+Ações,KEPL3,10.00,1,true,true,BRL
+Ações,PRIO3,23.33,2,true,true,BRL
+Ações,RDB Pós 100% CDI 01/06/2035,0.00,3,true,true,BRL
+Ações,SLCE3,13.33,4,true,true,BRL
+Ações,VAMO3,13.33,5,true,true,BRL
+Ações,WIZC3,26.67,6,true,true,BRL

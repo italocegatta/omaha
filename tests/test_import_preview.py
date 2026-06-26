@@ -286,6 +286,26 @@ class TestPostImportPreview:
             f"Expected unmatched tickers {_UNMATCHED_TICKERS}, got {unmatched_tickers}"
         )
 
+        # asset-trade-flags: every preview row carries the three
+        # per-asset trade-control fields. For auto-matched rows the
+        # value mirrors the Asset (server_default = True/True/BRL on
+        # the seeded rows); for unmatched rows the value is the
+        # project default.
+        for row in data["auto_matched"]:
+            assert "buy_enabled" in row
+            assert "sell_enabled" in row
+            assert "currency_code" in row
+            assert row["buy_enabled"] is True
+            assert row["sell_enabled"] is True
+            assert row["currency_code"] == "BRL"
+        for row in data["unmatched"]:
+            assert "buy_enabled" in row
+            assert "sell_enabled" in row
+            assert "currency_code" in row
+            assert row["buy_enabled"] is True
+            assert row["sell_enabled"] is True
+            assert row["currency_code"] == "BRL"
+
         # Verify asset_classes item shape
         ac = data["asset_classes"][0]
         assert "id" in ac

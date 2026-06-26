@@ -260,7 +260,15 @@ def test_patch_asset_updates_target_pct(
 
     assert response.status_code == 200
     body = response.json()
-    assert body == {"id": asset_id, "target_pct": "100"}
+    # asset-trade-flags: the PATCH response now carries the full
+    # 4-field state (``target_pct`` + 3 trade-control fields). The
+    # caller only patched ``target_pct`` so the trade fields stay
+    # at their server defaults (``True / True / 'BRL'``).
+    assert body["id"] == asset_id
+    assert body["target_pct"] == "100"
+    assert body["buy_enabled"] is True
+    assert body["sell_enabled"] is True
+    assert body["currency_code"] == "BRL"
     assert _read_asset_target_pct(asset_id, _omaha_test_env) == Decimal("100")
 
 
@@ -296,7 +304,14 @@ def test_patch_asset_off_sum_accepts_and_persists(
 
     assert response.status_code == 200
     body = response.json()
-    assert body == {"id": target_asset_id, "target_pct": "50"}
+    # asset-trade-flags: 4-field response (see sibling test for
+    # the rationale); only ``target_pct`` was sent so the trade
+    # fields read their defaults.
+    assert body["id"] == target_asset_id
+    assert body["target_pct"] == "50"
+    assert body["buy_enabled"] is True
+    assert body["sell_enabled"] is True
+    assert body["currency_code"] == "BRL"
     # The new value committed.
     assert _read_asset_target_pct(target_asset_id, _omaha_test_env) == Decimal("50")
     # The other assets are untouched.
@@ -365,5 +380,10 @@ def test_patch_asset_active_profile_succeeds(
 
     assert response.status_code == 200
     body = response.json()
-    assert body == {"id": ana_asset_id, "target_pct": "60"}
+    # asset-trade-flags: 4-field response; trade defaults untouched.
+    assert body["id"] == ana_asset_id
+    assert body["target_pct"] == "60"
+    assert body["buy_enabled"] is True
+    assert body["sell_enabled"] is True
+    assert body["currency_code"] == "BRL"
     assert _read_asset_target_pct(ana_asset_id, _omaha_test_env) == Decimal("60")

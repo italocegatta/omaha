@@ -98,7 +98,7 @@
       {% for c in class_aggregates %}
       {% set class_data = {"id": c.id, "name": c.name, "target_pct": (c.target_pct | float), "color": c.color, "current_pct": (c.current_pct | float), "current_value": (c.current_value | float), "assets": []} %}
       {% for a in c.assets %}
-      {% set _ = class_data.assets.append({"id": a.id, "name": a.name, "target_pct": (a.target_pct_class | float), "current_pct_class": (a.current_pct_class | float), "current_pct_total": (a.current_pct_total | float), "target_pct_total": (a.target_pct_total | float), "position_count": a.position_count, "current_value": (a.current_value | float)}) %}
+      {% set _ = class_data.assets.append({"id": a.id, "name": a.name, "target_pct": (a.target_pct_class | float), "current_pct_class": (a.current_pct_class | float), "current_pct_total": (a.current_pct_total | float), "target_pct_total": (a.target_pct_total | float), "position_count": a.position_count, "current_value": (a.current_value | float), "buy_enabled": a.buy_enabled, "sell_enabled": a.sell_enabled, "currency_code": a.currency_code}) %}
       {% endfor %}
       <article class="class-section" data-testid="class-summary-row" data-class-id="{{ c.id }}" x-data='classSection({{ class_data | tojson }})'>
         <header class="class-section-header" data-testid="class-section-header" @click="isOpen = !isOpen">
@@ -194,6 +194,9 @@
             <col class="col-atual-classe">
             <col class="col-alvo-total">
             <col class="col-atual-total">
+            <col class="col-buy">
+            <col class="col-sell">
+            <col class="col-currency">
           </colgroup>
           <thead>
             <tr>
@@ -205,6 +208,14 @@
               <th data-testid="asset-table-th-current-pct-class" @click="sortBy('current-pct-class')">Atual % classe <span data-testid="asset-table-sort-current-pct-class" x-text="sortIndicator('current-pct-class')"></span></th>
               <th data-testid="asset-table-th-target-pct-total" @click="sortBy('target-pct-total')">Alvo % total <span data-testid="asset-table-sort-target-pct-total" x-text="sortIndicator('target-pct-total')"></span></th>
               <th data-testid="asset-table-th-current-pct-total" @click="sortBy('current-pct-total')">Atual % total <span data-testid="asset-table-sort-current-pct-total" x-text="sortIndicator('current-pct-total')"></span></th>
+              {# asset-trade-flags: per-asset trade-control columns.
+                 Compra / Venda toggle to flip ``buy_enabled`` /
+                 ``sell_enabled`` via PATCH ``/api/assets/{id}``.
+                 Moeda is read-only (currency change requires a
+                 dedicated row + DB CHECK update). #}
+              <th data-testid="asset-table-th-buy">Compra</th>
+              <th data-testid="asset-table-th-sell">Venda</th>
+              <th data-testid="asset-table-th-currency">Moeda</th>
             </tr>
           </thead>
           <tbody>
@@ -295,9 +306,47 @@
                   </div>
                 </td>
                 <td data-testid="asset-current-pct-total" x-text="formatPct(a.current_pct_total)"></td>
+                {# asset-trade-flags: per-asset trade-control cells.
+                     The toggles send PATCH /api/assets/{id} with the
+                     single flipped field and disable themselves while
+                     the request is in flight (no optimistic update).
+                     ``currencyBadge`` is a read-only visual; currency
+                     changes go through the import modal flow. #}
+                <td data-testid="asset-buy-cell">
+                  <button type="button"
+                          class="trade-toggle trade-toggle--buy"
+                          :class="a.buy_enabled ? 'trade-toggle--on' : 'trade-toggle--off'"
+                          data-testid="asset-buy-toggle"
+                          :data-asset-id="a.id"
+                          :data-buy-enabled="a.buy_enabled ? 'true' : 'false'"
+                          :disabled="savingTrade !== null && savingTrade.assetId === a.id && savingTrade.field === 'buy_enabled'"
+                          @click="toggleTradeFlag(a.id, 'buy_enabled', !a.buy_enabled)"
+                          title="Permitir compra pelo solver">
+                    <span x-text="a.buy_enabled ? 'Liberado' : 'Bloqueado'"></span>
+                  </button>
+                </td>
+                <td data-testid="asset-sell-cell">
+                  <button type="button"
+                          class="trade-toggle trade-toggle--sell"
+                          :class="a.sell_enabled ? 'trade-toggle--on' : 'trade-toggle--off'"
+                          data-testid="asset-sell-toggle"
+                          :data-asset-id="a.id"
+                          :data-sell-enabled="a.sell_enabled ? 'true' : 'false'"
+                          :disabled="savingTrade !== null && savingTrade.assetId === a.id && savingTrade.field === 'sell_enabled'"
+                          @click="toggleTradeFlag(a.id, 'sell_enabled', !a.sell_enabled)"
+                          title="Permitir venda pelo solver">
+                    <span x-text="a.sell_enabled ? 'Liberado' : 'Bloqueado'"></span>
+                  </button>
+                </td>
+                <td data-testid="asset-currency-cell">
+                  <span class="currency-badge"
+                        data-testid="asset-currency-badge"
+                        :data-currency="a.currency_code"
+                        x-text="a.currency_code"></span>
+                </td>
               </tr>
               <tr>
-                <td colspan="8">
+                <td colspan="11">
                   <div class="dashboard-asset-delete-confirm"
                        data-testid="dashboard-asset-delete-confirm"
                        :data-asset-id="a.id"
@@ -609,6 +658,14 @@
                   <th>Preço médio</th>
                   <th>Total atual</th>
                   <th>Classe</th>
+                  {# asset-trade-flags: per-asset trade-control columns.
+                     Auto-matched rows show the current ``Asset`` values
+                     (preserved across re-imports); unmatched rows show
+                     the project defaults (``True / True / BRL``). The
+                     operator can flip each toggle before commit. #}
+                  <th>Compra</th>
+                  <th>Venda</th>
+                  <th>Moeda</th>
                 </tr>
               </thead>
               <tbody>
@@ -647,6 +704,34 @@
                         </template>
                       </select>
                     </td>
+                    <td data-testid="import-existing-buy">
+                      <label class="import-trade-toggle">
+                        <input type="checkbox"
+                               data-testid="import-existing-buy-toggle"
+                               :checked="$store.importModal.assignments[row.broker_ticker] ? $store.importModal.assignments[row.broker_ticker].buy_enabled : true"
+                               @change="$store.importModal.setBuy(row.broker_ticker, $event.target.checked)">
+                        <span>Compra</span>
+                      </label>
+                    </td>
+                    <td data-testid="import-existing-sell">
+                      <label class="import-trade-toggle">
+                        <input type="checkbox"
+                               data-testid="import-existing-sell-toggle"
+                               :checked="$store.importModal.assignments[row.broker_ticker] ? $store.importModal.assignments[row.broker_ticker].sell_enabled : true"
+                               @change="$store.importModal.setSell(row.broker_ticker, $event.target.checked)">
+                        <span>Venda</span>
+                      </label>
+                    </td>
+                    <td data-testid="import-existing-currency">
+                      <select class="import-currency-select"
+                              x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.currency_code ?? 'BRL'; })"
+                              x-effect="(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.currency_code ?? 'BRL'; })()"
+                              @change="$store.importModal.setCurrency(row.broker_ticker, $event.target.value)"
+                              data-testid="import-existing-currency-select">
+                        <option value="BRL">BRL</option>
+                        <option value="USD">USD</option>
+                      </select>
+                    </td>
                   </tr>
                 </template>
               </tbody>
@@ -664,6 +749,9 @@
                   <th>Preço médio</th>
                   <th>Total atual</th>
                   <th>Classe</th>
+                  <th>Compra</th>
+                  <th>Venda</th>
+                  <th>Moeda</th>
                 </tr>
               </thead>
               <tbody>
@@ -700,6 +788,34 @@
                         <template x-for="ac in $store.importModal.assetClasses" :key="ac.id">
                           <option :value="ac.id" x-text="ac.name"></option>
                         </template>
+                      </select>
+                    </td>
+                    <td data-testid="import-unmatched-buy">
+                      <label class="import-trade-toggle">
+                        <input type="checkbox"
+                               data-testid="import-unmatched-buy-toggle"
+                               :checked="$store.importModal.assignments[row.broker_ticker] ? $store.importModal.assignments[row.broker_ticker].buy_enabled : true"
+                               @change="$store.importModal.setBuy(row.broker_ticker, $event.target.checked)">
+                        <span>Compra</span>
+                      </label>
+                    </td>
+                    <td data-testid="import-unmatched-sell">
+                      <label class="import-trade-toggle">
+                        <input type="checkbox"
+                               data-testid="import-unmatched-sell-toggle"
+                               :checked="$store.importModal.assignments[row.broker_ticker] ? $store.importModal.assignments[row.broker_ticker].sell_enabled : true"
+                               @change="$store.importModal.setSell(row.broker_ticker, $event.target.checked)">
+                        <span>Venda</span>
+                      </label>
+                    </td>
+                    <td data-testid="import-unmatched-currency">
+                      <select class="import-currency-select"
+                              x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.currency_code ?? 'BRL'; })"
+                              x-effect="(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.currency_code ?? 'BRL'; })()"
+                              @change="$store.importModal.setCurrency(row.broker_ticker, $event.target.value)"
+                              data-testid="import-unmatched-currency-select">
+                        <option value="BRL">BRL</option>
+                        <option value="USD">USD</option>
                       </select>
                     </td>
                   </tr>
@@ -850,6 +966,14 @@
           target_pct_total: a.target_pct_total,
           position_count: a.position_count,
           current_value: a.current_value,
+          // asset-trade-flags: per-asset trade-control state copied
+          // from the server-rendered ``class_data.assets`` dict. The
+          // toggle UI mutates these in place after a successful
+          // PATCH (``toggleTradeFlag`` below) so the row's visual
+          // state reflects the server truth without a page reload.
+          buy_enabled: a.buy_enabled,
+          sell_enabled: a.sell_enabled,
+          currency_code: a.currency_code,
         };
       }),
       editingAssetId: null,
@@ -906,6 +1030,15 @@
       editClassPctValue: '',
       editClassPctError: '',
       savingClassPct: false,
+
+      // asset-trade-flags: per-asset buy/sell toggle in-flight
+      // tracker. Holds the asset id while the corresponding
+      // PATCH is in flight so the toggle button can disable
+      // itself (no optimistic update) and the other toggle on
+      // the same row stays clickable. ``null`` means no toggle
+      // in flight.
+      savingTrade: null,
+      tradeError: '',
 
       // Live preview: the per-class sum of ``target_pct`` (i.e.
       // the same value the T02 PATCH route's server-side
@@ -1386,6 +1519,49 @@
         this.deleteAssetError = '';
         this.deletingAssetName = '';
       },
+
+      // asset-trade-flags: flip a single trade-control field on an
+      // asset row and PATCH ``/api/assets/{id}`` with just that field.
+      // Visual state updates AFTER the server returns 200 so the UI
+      // never drifts from the source of truth. ``savingTrade``
+      // carries the {assetId, field} pair so only the toggle the
+      // operator actually clicked is disabled while the PATCH is in
+      // flight — the sibling toggle (and the currency badge) on the
+      // same row stay clickable / visually untouched.
+      toggleTradeFlag: function (assetId, field, value) {
+        var self = this;
+        if (self.savingTrade !== null) return; // another toggle in flight
+        self.savingTrade = { assetId: assetId, field: field };
+        self.tradeError = '';
+        var body = {};
+        body[field] = value;
+        fetch('/api/assets/' + assetId, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+          .then(function (r) {
+            if (r.status === 200) return r.json();
+            return r.json().then(function (j) {
+              var detail = (j && j.detail) ? j.detail : 'Erro ao salvar';
+              throw new Error(detail);
+            });
+          })
+          .then(function (payload) {
+            var asset = self.displayAssets.find(function (a) { return a.id === assetId; });
+            if (asset) {
+              asset.buy_enabled = payload.buy_enabled;
+              asset.sell_enabled = payload.sell_enabled;
+              asset.currency_code = payload.currency_code;
+            }
+          })
+          .catch(function (err) {
+            self.tradeError = err && err.message ? err.message : 'Erro ao salvar';
+          })
+          .then(function () {
+            self.savingTrade = null;
+          });
+      },
     };
   }
 
@@ -1535,8 +1711,34 @@
         return a ? a.asset_name : '';
       },
       setAssetName: function (ticker, val) {
-        if (!this.assignments[ticker]) this.assignments[ticker] = { class_id: '', asset_name: '' };
+        if (!this.assignments[ticker]) this.assignments[ticker] = { class_id: '', asset_name: '', buy_enabled: true, sell_enabled: true, currency_code: 'BRL' };
         this.assignments[ticker].asset_name = val;
+        this.assignments = Object.assign({}, this.assignments);
+      },
+      // asset-trade-flags: setters for the per-row trade-control
+      // fields exposed in the import modal review. Each one
+      // upserts the assignment object (the row may not exist
+      // yet if the user flipped a toggle before picking a class)
+      // and reassigns ``assignments`` so Alpine picks up the
+      // change reactively.
+      setBuy: function (ticker, value) {
+        if (!this.assignments[ticker]) this.assignments[ticker] = { class_id: '', asset_name: '', buy_enabled: true, sell_enabled: true, currency_code: 'BRL' };
+        this.assignments[ticker].buy_enabled = !!value;
+        this.assignments = Object.assign({}, this.assignments);
+      },
+      setSell: function (ticker, value) {
+        if (!this.assignments[ticker]) this.assignments[ticker] = { class_id: '', asset_name: '', buy_enabled: true, sell_enabled: true, currency_code: 'BRL' };
+        this.assignments[ticker].sell_enabled = !!value;
+        this.assignments = Object.assign({}, this.assignments);
+      },
+      setCurrency: function (ticker, value) {
+        if (!this.assignments[ticker]) this.assignments[ticker] = { class_id: '', asset_name: '', buy_enabled: true, sell_enabled: true, currency_code: 'BRL' };
+        // The server's allowlist is {BRL, USD}; anything else
+        // is rejected at commit. Clamp defensively so the local
+        // state never holds a value the server would reject.
+        var v = String(value || '').toUpperCase();
+        if (v !== 'BRL' && v !== 'USD') v = 'BRL';
+        this.assignments[ticker].currency_code = v;
         this.assignments = Object.assign({}, this.assignments);
       },
 
@@ -1602,17 +1804,26 @@
 
             // Auto-matched: pre-fill with current class and asset name.
             // User can change the class via the dropdown.
+            // asset-trade-flags: also pre-fill the three trade-control
+            // fields from the server's per-row values so re-imports
+            // preserve the operator's prior toggle choices. The
+            // preview endpoint emits the asset's current values for
+            // auto_matched and project defaults for unmatched.
             var autoMatched = data.auto_matched || [];
             for (var i = 0; i < autoMatched.length; i++) {
               var row = autoMatched[i];
               assigns[row.broker_ticker] = {
                 class_id: row.asset_class_id,
                 asset_name: row.name,
+                buy_enabled: row.buy_enabled !== false,
+                sell_enabled: row.sell_enabled !== false,
+                currency_code: row.currency_code || 'BRL',
               };
             }
 
             // Unmatched: use server-suggested class when available,
-            // otherwise leave empty for the user to pick.
+            // otherwise leave empty for the user to pick. The trade-
+            // control fields fall back to the project defaults.
             var unmatched = data.unmatched || [];
             for (var i = 0; i < unmatched.length; i++) {
               var row = unmatched[i];
@@ -1620,6 +1831,9 @@
               assigns[row.broker_ticker] = {
                 class_id: suggested != null ? suggested : '',
                 asset_name: row.name,
+                buy_enabled: row.buy_enabled !== false,
+                sell_enabled: row.sell_enabled !== false,
+                currency_code: row.currency_code || 'BRL',
               };
             }
             self.assignments = assigns;
@@ -1640,15 +1854,25 @@
 
         // Build the assignments list from the assignments object.
         // Skip rows where the user did not select a class.
+        // asset-trade-flags: include the three trade-control fields
+        // so the server's commit handler propagates them to the
+        // upsert (auto-matched) or new asset (unmatched). Defaults
+        // match the server-side AssignmentItem defaults so the wire
+        // shape is identical to before for any row the operator
+        // never touched.
         var list = [];
         for (var ticker in self.assignments) {
           if (self.assignments.hasOwnProperty(ticker)) {
-            var rawClassId = self.assignments[ticker].class_id;
+            var a = self.assignments[ticker];
+            var rawClassId = a.class_id;
             if (rawClassId === '' || rawClassId === null || rawClassId === undefined) continue;
             list.push({
               broker_ticker: ticker,
               class_id: rawClassId,
-              asset_name: self.assignments[ticker].asset_name,
+              asset_name: a.asset_name,
+              buy_enabled: a.buy_enabled !== false,
+              sell_enabled: a.sell_enabled !== false,
+              currency_code: a.currency_code || 'BRL',
             });
           }
         }

@@ -77,6 +77,12 @@ NAME_MAX_LEN = 64
 PCT_MIN = Decimal("0")
 PCT_MAX = Decimal("100")
 
+# asset-trade-flags: the per-asset ``currency_code`` allowlist mirrors
+# the DB CHECK ``ck_asset_currency_code`` (migration 0016). The route
+# rejects non-allowlist values with 422 BEFORE the DB enforces the
+# CHECK so the client gets a clean ``detail`` message.
+VALID_CURRENCY_CODES = frozenset({"BRL", "USD"})
+
 
 def _templates(request: Request):
     """Return the application-wide Jinja2 templates instance."""
@@ -107,6 +113,9 @@ def post_assets(
     profile: Profile = Depends(require_active_profile),
     name: Annotated[str, Form()] = "",  # noqa: B006
     asset_class_id: Annotated[int, Form()] = 0,  # noqa: B006
+    buy_enabled: Annotated[str, Form()] = "",  # noqa: B006
+    sell_enabled: Annotated[str, Form()] = "",  # noqa: B006
+    currency_code: Annotated[str, Form()] = "",  # noqa: B006
 ) -> Response:
     """Add a single asset to one of the active profile's classes.
 
@@ -177,11 +186,36 @@ def post_assets(
     existing = list(target_class.assets)
     next_order = (existing[-1].display_order + 1) if existing else 0
 
+    # asset-trade-flags: parse the 3 new trade-control fields with
+    # permissive fallbacks (empty cell → defaults). An invalid
+    # currency surfaces as a 200 with a human-readable error so
+    # the legacy form path stays consistent with the rest of this
+    # route.
+    parsed_buy = _parse_bool(buy_enabled)
+    # Empty / missing form field → default True (matches DB server_default).
+    if parsed_buy is None:
+        parsed_buy = True
+    parsed_sell = _parse_bool(sell_enabled)
+    if parsed_sell is None:
+        parsed_sell = True
+    parsed_currency = _parse_currency(currency_code) if currency_code.strip() else "BRL"
+    if parsed_currency is None:
+        return _render_assets_with_error(
+            request,
+            user,
+            profile,
+            classes,
+            error=f"Moeda inválida: {currency_code!r}. Use BRL ou USD.",
+        )
+
     db.add(
         Asset(
             asset_class_id=target_class.id,
             name=name_clean,
             display_order=next_order,
+            buy_enabled=parsed_buy,
+            sell_enabled=parsed_sell,
+            currency_code=parsed_currency,
         )
     )
     try:
@@ -294,6 +328,59 @@ def post_api_asset(
         # the sticky allocation alert card.
         pass
 
+    # asset-trade-flags: parse the 3 new trade-control fields. Each
+    # is optional; missing → the model/DB default (``True / True /
+    # 'BRL'``) is applied. An invalid value (non-allowlist currency,
+    # garbage bool) is rejected with a 422 carrying the offending
+    # field name so the dashboard's "+ Ativo" modal can surface it.
+    parsed_buy = True
+    if "buy_enabled" in body:
+        raw_buy = body["buy_enabled"]
+        if raw_buy is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="buy_enabled inválido.",
+            )
+        parsed = _parse_bool(raw_buy)
+        if parsed is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="buy_enabled inválido.",
+            )
+        parsed_buy = parsed
+
+    parsed_sell = True
+    if "sell_enabled" in body:
+        raw_sell = body["sell_enabled"]
+        if raw_sell is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="sell_enabled inválido.",
+            )
+        parsed = _parse_bool(raw_sell)
+        if parsed is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="sell_enabled inválido.",
+            )
+        parsed_sell = parsed
+
+    parsed_currency = "BRL"
+    if "currency_code" in body:
+        raw_currency = body["currency_code"]
+        if raw_currency is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="currency_code inválido.",
+            )
+        parsed = _parse_currency(raw_currency)
+        if parsed is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=(f"currency_code {raw_currency!r} inválido. Use BRL ou USD."),
+            )
+        parsed_currency = parsed
+
     existing_assets = list(target_class.assets)
     next_order = (existing_assets[-1].display_order + 1) if existing_assets else 0
 
@@ -302,6 +389,9 @@ def post_api_asset(
         name=name,
         target_pct=parsed_pct,
         display_order=next_order,
+        buy_enabled=parsed_buy,
+        sell_enabled=parsed_sell,
+        currency_code=parsed_currency,
     )
     db.add(asset)
     try:
@@ -314,7 +404,14 @@ def post_api_asset(
             detail=f"Já existe um ativo com o nome {name} nessa classe.",
         ) from err
 
-    return {"id": asset.id, "name": asset.name, "target_pct": str(asset.target_pct)}
+    return {
+        "id": asset.id,
+        "name": asset.name,
+        "target_pct": str(asset.target_pct),
+        "buy_enabled": asset.buy_enabled,
+        "sell_enabled": asset.sell_enabled,
+        "currency_code": asset.currency_code,
+    }
 
 
 @router.patch("/api/assets/{asset_id}", response_model=None)
@@ -324,7 +421,7 @@ def patch_asset(
     profile: Profile = Depends(require_active_profile),
     body: Annotated[dict[str, Any], Body()] = {},  # noqa: B006
 ) -> dict[str, Any]:
-    """Update one asset's ``target_pct`` (per-row range check only; D006).
+    """Update one asset's mutable attributes (per-row range check only; D006).
 
     Per the ``asset-table-view`` change (D006), the per-class sum
     gate was removed from this route: every commit is accepted
@@ -332,19 +429,34 @@ def patch_asset(
     (if any) is surfaced through the dashboard's class-delta badge
     and the sticky allocation alert card rather than a 422.
 
-    The route is the server-side source of truth for the
-    Alpine inline editor: PATCH 200 returns ``{"id", "target_pct"}``
-    so the editor can refresh the row without a full page reload;
-    PATCH 422 is reserved for per-row range violations and
-    cross-profile / cross-class ownership errors. The 422 vs 404
-    split lets the UI differentiate "bad input" from "stale URL".
+    The asset-trade-flags change extends the body with three more
+    fields (``buy_enabled``, ``sell_enabled``, ``currency_code``)
+    so the dashboard's inline toggle UI can flip a flag in a
+    single round-trip. The route accepts any subset of the four
+    fields; absent fields are no-ops. An empty body (no field
+    supplied) is rejected with 422 so the caller doesn't get a
+    silent no-op.
+
+    The route is the server-side source of truth for the Alpine
+    inline editor: PATCH 200 returns the updated asset state
+    (``id``, ``target_pct``, ``buy_enabled``, ``sell_enabled``,
+    ``currency_code``) so the editor can refresh the row without
+    a full page reload; PATCH 422 is reserved for per-row range
+    violations, invalid bools / currencies, and cross-profile /
+    cross-class ownership errors. The 422 vs 404 split lets the
+    UI differentiate "bad input" from "stale URL".
 
     Body
     ----
-    JSON object ``{"target_pct": "40"}`` — a *string* value so the
-    editor can post ``"40"`` or ``"40.5"`` without a JSON-number
-    round-trip. The same ``_parse_pct`` style as the S02 classes
-    route is used (the value is a ``Decimal``, the field is text).
+    JSON object — any subset of ``target_pct``, ``buy_enabled``,
+    ``sell_enabled``, ``currency_code``. ``target_pct`` is a
+    *string* value so the editor can post ``"40"`` or ``"40.5"``
+    without a JSON-number round-trip (same ``_parse_pct`` style
+    as the S02 classes route). ``buy_enabled`` / ``sell_enabled``
+    accept JSON booleans or the string forms ``"true"`` /
+    ``"false"`` / ``"1"`` / ``"0"``; ``currency_code`` must be
+    one of ``"BRL"`` or ``"USD"`` (case-insensitive; normalized
+    to upper case before persistence).
 
     Ownership check
     ---------------
@@ -356,30 +468,92 @@ def patch_asset(
 
     Returns
     -------
-    - 200 with ``{"id": asset.id, "target_pct": "<new_value>"}`` on success.
+    - 200 with ``{id, target_pct, buy_enabled, sell_enabled,
+      currency_code}`` on success.
     - 404 if the asset doesn't exist or doesn't belong to the active profile.
-    - 422 with ``{"detail": "..."}`` on a per-row range/out-of-range violation.
+    - 422 with ``{"detail": "..."}`` on per-row range, bool,
+      currency, or empty-body violations.
     """
     asset = db.get(Asset, asset_id)
     if asset is None or asset.asset_class.profile_id != profile.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
-    raw = body.get("target_pct", "") if isinstance(body, dict) else ""
-    parsed = _parse_pct(raw)
-    if parsed is None or parsed < PCT_MIN or parsed > PCT_MAX:
+    if not isinstance(body, dict) or not body:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"A alocação do ativo deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
+            detail="Informe ao menos um campo: target_pct, buy_enabled, "
+            "sell_enabled ou currency_code.",
         )
+
+    allowed_keys = {"target_pct", "buy_enabled", "sell_enabled", "currency_code"}
+    unknown = set(body) - allowed_keys
+    if unknown:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Campo desconhecido: {', '.join(sorted(unknown))}.",
+        )
+
+    if not any(k in body for k in allowed_keys):
+        # Body present but empty of recognized keys (e.g. {"foo": "bar"}).
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Informe ao menos um campo: target_pct, buy_enabled, "
+            "sell_enabled ou currency_code.",
+        )
+
+    if "target_pct" in body:
+        raw = body["target_pct"]
+        parsed = _parse_pct(raw)
+        if parsed is None or parsed < PCT_MIN or parsed > PCT_MAX:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"A alocação do ativo deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
+            )
+        asset.target_pct = parsed
+
+    if "buy_enabled" in body:
+        raw = body["buy_enabled"]
+        parsed = _parse_bool(raw)
+        if parsed is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="buy_enabled inválido.",
+            )
+        asset.buy_enabled = parsed
+
+    if "sell_enabled" in body:
+        raw = body["sell_enabled"]
+        parsed = _parse_bool(raw)
+        if parsed is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="sell_enabled inválido.",
+            )
+        asset.sell_enabled = parsed
+
+    if "currency_code" in body:
+        raw = body["currency_code"]
+        parsed = _parse_currency(raw)
+        if parsed is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"currency_code {raw!r} inválido. Use BRL ou USD.",
+            )
+        asset.currency_code = parsed
 
     # Per-class sum: sum gate removed by D006 — off-100 per-class
     # sums are accepted on PATCH /api/assets/{id}; the dashboard's
     # alert UI (the class-delta badge + sticky allocation alert
     # card) surfaces the resulting deviation.
 
-    asset.target_pct = parsed
     db.commit()
-    return {"id": asset.id, "target_pct": str(parsed)}
+    return {
+        "id": asset.id,
+        "target_pct": str(asset.target_pct),
+        "buy_enabled": asset.buy_enabled,
+        "sell_enabled": asset.sell_enabled,
+        "currency_code": asset.currency_code,
+    }
 
 
 @router.delete(
@@ -415,6 +589,47 @@ def _parse_pct(raw: str) -> Decimal | None:
         return Decimal(cleaned)
     except (ArithmeticError, ValueError, TypeError):  # pragma: no cover - Decimal edge cases
         return None
+
+
+def _parse_bool(raw: object) -> bool | None:
+    """Return ``raw`` parsed as a :class:`bool`, or ``None`` on failure.
+
+    Permissive like ``_parse_pct`` so the inline toggle UI can post
+    ``true``/``false`` (JSON boolean) and the form-encoded legacy
+    POST can post ``"1"``/``"0"`` interchangeably. ``None`` means
+    "missing or unparseable" — the caller decides whether to treat
+    it as a 422 or fall back to the route's default. An empty
+    string is also ``None`` so legacy form posts that omit the
+    field cleanly default to the route's True (matches the DB
+    ``server_default``).
+    """
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, str):
+        s = raw.strip().lower()
+        if not s:
+            return None
+        if s in {"true", "1", "yes", "y", "t"}:
+            return True
+        if s in {"false", "0", "no", "n", "f"}:
+            return False
+    return None
+
+
+def _parse_currency(raw: object) -> str | None:
+    """Return ``raw`` normalized to the currency allowlist, or ``None`` on failure.
+
+    Upper-cases the input; rejects anything outside
+    ``VALID_CURRENCY_CODES``. Used by both the JSON
+    ``POST /api/assets`` / ``PATCH /api/assets/{id}`` paths and
+    the form-encoded ``POST /assets`` legacy path.
+    """
+    if not isinstance(raw, str):
+        return None
+    cleaned = raw.strip().upper()
+    if cleaned in VALID_CURRENCY_CODES:
+        return cleaned
+    return None
 
 
 @router.post("/assets/{asset_id}/delete", response_model=None)

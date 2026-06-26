@@ -19,7 +19,7 @@ For each profile (`italo`, `ana`):
 | File                         | Header                                            | Purpose                                                         |
 |------------------------------|---------------------------------------------------|-----------------------------------------------------------------|
 | `{profile}_classes.csv`      | `name,target_pct,display_order,quote_kind`        | Per-profile class list. `sum(target_pct)` must equal 100. `quote_kind` defaults to `none`. |
-| `{profile}_assets.csv`       | `class_name,name,target_pct,display_order`        | Per-asset target within its class. `sum(target_pct)` per class must equal 100. |
+| `{profile}_assets.csv`       | `class_name,name,target_pct,display_order,buy_enabled,sell_enabled,currency_code` | Per-asset target within its class. `sum(target_pct)` per class must equal 100. The three trade-control columns feed the Fase 1 rebalance foundation; `currency_code` must be one of `BRL`, `USD` (CHECK constraint `ck_asset_currency_code` in migration `0016_asset_trade_flags`). |
 | `{profile}_positions.csv`    | `asset_name,qty,avg_price,current_price`          | Current broker position. `asset_name` must match an asset row in `{profile}_assets.csv`. |
 
 ## Validation rules (run by `seed_from_csv.py`)
@@ -39,6 +39,20 @@ For each profile (`italo`, `ana`):
    semantics; the short version is `auto` means the QuoteService
    fetches a live price, `none` (and `manual` for v1) keeps the
    broker CSV's `current_price` as the source of truth.
+8. `buy_enabled` / `sell_enabled` parse as permissive booleans
+   (`true/false/1/0/yes/no`); empty cell defaults to `false`.
+   `currency_code` must be one of `BRL`, `USD` (case-insensitive;
+   the loader upper-cases the value before insert). The DB
+   `ck_asset_currency_code` CHECK rejects anything else.
+
+### Header changes are hard fails (no silent fallback)
+
+A `{profile}_assets.csv` with the legacy 4-column header
+(`class_name,name,target_pct,display_order`) is rejected by
+`scripts/seed_from_csv.py` with an `abort()` error and exit code
+1 — the same hard-fail pattern as `quote_kind`. This forces every
+CSV on disk to be updated in lockstep with the schema; no
+auto-upgrade with silent defaults.
 
 ## Sum invariant (validated before any DB write)
 

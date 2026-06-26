@@ -237,6 +237,17 @@ def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
                     "current_value": asset_current,
                     "target_pct_class": asset.target_pct or ZERO,
                     "target_pct_total": target_pct_total,
+                    # asset-trade-flags: propagate the three per-asset
+                    # trade-control attributes so the dashboard's
+                    # inline toggle UI can render the current state
+                    # without an extra round-trip per asset row. The
+                    # template's ``x-data`` initializer copies these
+                    # into the local Alpine store (``assets``) so a
+                    # PATCH mutates the in-memory copy and the next
+                    # render reads the new value without a reload.
+                    "buy_enabled": asset.buy_enabled,
+                    "sell_enabled": asset.sell_enabled,
+                    "currency_code": asset.currency_code,
                 }
             )
         portfolio_invested += class_invested

@@ -156,6 +156,7 @@ _INTEGRATION_PREFIXES = (
     "tests/test_assets_post.py",
     "tests/test_assets_routes.py",
     "tests/test_assets_patch_legacy.py",
+    "tests/test_assets_trade_flags.py",
     "tests/test_auth.py",
     "tests/test_backup.py",
     "tests/test_classes_delete.py",

@@ -32,6 +32,7 @@ from fastapi import (
     Request,
     Response,
     UploadFile,
+    status,
 )
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
@@ -345,11 +346,21 @@ def _render_import_error(request, user, profile, error: str) -> Response:
 
 
 class AssignmentItem(BaseModel):
-    """One user-assigned mapping from broker ticker to asset class."""
+    """One user-assigned mapping from broker ticker to asset class.
+
+    asset-trade-flags adds the three per-asset trade-control fields
+    so the user can flip a flag in the import modal review and have
+    it persist on commit. All three default to ``True / True /
+    'BRL'`` when omitted (so a payload with only ``broker_ticker`` /
+    ``class_id`` / ``asset_name`` keeps working as before).
+    """
 
     broker_ticker: str
     class_id: int | None = None
     asset_name: str
+    buy_enabled: bool = True
+    sell_enabled: bool = True
+    currency_code: str = "BRL"
 
 
 class CommitRequest(BaseModel):
@@ -373,6 +384,13 @@ def _build_preview_response(
 
     Re-runs match_positions() against current assets and queries
     current AssetClasses so the response is always fresh.
+
+    asset-trade-flags: every row in ``auto_matched`` / ``unmatched``
+    carries ``buy_enabled`` / ``sell_enabled`` / ``currency_code``.
+    For auto-matched rows the value mirrors the existing Asset so a
+    re-import preserves the user's prior toggle choices; for
+    unmatched rows the value is the project default
+    (``True / True / "BRL"``).
     """
     raw = [_dict_to_raw(d) for d in json.loads(preview.raw_json)]
     existing_assets = _existing_assets_for_profile(db, profile.id)
@@ -394,8 +412,10 @@ def _build_preview_response(
     ]
 
     asset_class_of: dict[int, int] = {}
+    asset_by_id: dict[int, Asset] = {}
     for asset in existing_assets:
         asset_class_of[asset.id] = asset.asset_class_id
+        asset_by_id[asset.id] = asset
 
     auto_matched = [
         {
@@ -413,6 +433,15 @@ def _build_preview_response(
             # still gets a placeholder row in the review).
             "invested": str(rp.total_invested) if rp.total_invested is not None else "0",
             "current_value": str(rp.total_current) if rp.total_current is not None else "0",
+            # asset-trade-flags: per-asset trade-control fields. The
+            # auto_matched preview preserves the Asset's current
+            # values so re-importing doesn't reset the operator's
+            # prior toggle choices. Falls back to the project
+            # defaults when the asset id is somehow absent (defensive
+            # — should never happen in practice).
+            "buy_enabled": asset_by_id[asset_id].buy_enabled,
+            "sell_enabled": asset_by_id[asset_id].sell_enabled,
+            "currency_code": asset_by_id[asset_id].currency_code,
         }
         for rp, asset_id in result.auto_matched
     ]
@@ -428,6 +457,11 @@ def _build_preview_response(
             "suggested_class_id": suggest_class_id(rp.suggested_category, class_rows),
             "invested": str(rp.total_invested) if rp.total_invested is not None else "0",
             "current_value": str(rp.total_current) if rp.total_current is not None else "0",
+            # asset-trade-flags: unmatched rows will be created at
+            # commit time; preview them with the project defaults.
+            "buy_enabled": True,
+            "sell_enabled": True,
+            "currency_code": "BRL",
         }
         for rp in result.unmatched
     ]
@@ -529,7 +563,18 @@ def commit_import(
     # Build assignment lookup from user input.
     assignment_map: dict[str, AssignmentItem] = {}
     for a in body.assignments:
-        assignment_map[a.broker_ticker] = a
+        # asset-trade-flags: the trade-control fields are optional in
+        # the wire format (the modal may pre-fill them from the
+        # preview's current asset state, or let the operator override
+        # before commit). Reject a ``currency_code`` outside the
+        # allowlist so a hand-crafted body cannot bypass the DB CHECK.
+        currency_code = a.currency_code.strip().upper() if a.currency_code else "BRL"
+        if currency_code not in {"BRL", "USD"}:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"currency_code {a.currency_code!r} inválido. Use BRL ou USD.",
+            )
+        assignment_map[a.broker_ticker] = a.model_copy(update={"currency_code": currency_code})
 
     upsert_sql = (
         "INSERT INTO positions "
@@ -594,6 +639,18 @@ def commit_import(
             and ticker_to_original_class.get(rp.broker_ticker) == class_id
         ):
             asset_id = original_asset_id
+            # asset-trade-flags: auto-matched row with no class move —
+            # the asset already exists, so propagate the three
+            # trade-control fields from the assignment onto the
+            # existing row. The AssignmentItem defaults to
+            # ``True / True / 'BRL'``; the modal pre-fills with the
+            # current values from the preview, so the write is a
+            # no-op for any field the operator didn't touch.
+            existing_asset = db.get(Asset, asset_id)
+            if existing_asset is not None and assignment is not None:
+                existing_asset.buy_enabled = assignment.buy_enabled
+                existing_asset.sell_enabled = assignment.sell_enabled
+                existing_asset.currency_code = assignment.currency_code
         else:
             existing = (
                 db.query(Asset)
@@ -606,10 +663,23 @@ def commit_import(
                     .filter(Asset.asset_class_id == target_class.id)
                     .scalar()
                 )
+                # asset-trade-flags: brand-new asset. Pull the
+                # trade-control fields off the assignment (the user
+                # may have flipped a flag in the modal review).
+                buy_enabled = True
+                sell_enabled = True
+                currency_code = "BRL"
+                if assignment is not None:
+                    buy_enabled = assignment.buy_enabled
+                    sell_enabled = assignment.sell_enabled
+                    currency_code = assignment.currency_code
                 new_asset = Asset(
                     asset_class_id=target_class.id,
                     name=asset_name,
                     display_order=max_order + 1,
+                    buy_enabled=buy_enabled,
+                    sell_enabled=sell_enabled,
+                    currency_code=currency_code,
                 )
                 db.add(new_asset)
                 try:
@@ -621,6 +691,12 @@ def commit_import(
                 created += 1
             else:
                 asset_id = existing.id
+                # asset-trade-flags: existing asset in the new class
+                # — same propagation as the auto-matched branch above.
+                if assignment is not None:
+                    existing.buy_enabled = assignment.buy_enabled
+                    existing.sell_enabled = assignment.sell_enabled
+                    existing.currency_code = assignment.currency_code
 
         db.execute(
             text(upsert_sql),

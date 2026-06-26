@@ -15,6 +15,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -24,6 +25,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy import sql as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from omaha.db import Base
@@ -32,7 +34,7 @@ if TYPE_CHECKING:
     pass
 
 
-class QuoteKind(str, enum.Enum):
+class QuoteKind(enum.StrEnum):
     """Policy for fetching live quotes per asset class.
 
     * ``auto`` — the QuoteService refreshes quotes for positions in
@@ -203,10 +205,29 @@ class Asset(Base):
     ``session.delete`` behaves the same. Combined with the S02
     profile → class cascade, deleting a profile removes every class
     and every asset underneath it in a single operation.
+
+    Fase 1 of the rebalance plan (``.planning/REBALANCE_PLAN.md``,
+    Gap A) adds three per-asset trade-control attributes that the
+    Fase 2+ CVXPY solver reads as hard locks: ``buy_enabled`` and
+    ``sell_enabled`` gate whether the solver may issue buy/sell
+    orders for the asset; ``currency_code`` keys the quote source.
+    Defaults are opt-out (``True/True/BRL``) per owner decision
+    2026-06-26 — the dashboard's inline toggle lets the operator
+    flip individual assets to ``False`` when maturity-locked
+    (RDB/CDB/Tesouro Selic) instruments should not be sold. The
+    ``currency_code`` allowlist is enforced by the
+    ``ck_asset_currency_code`` CHECK constraint added in the
+    ``0016_asset_trade_flags`` migration.
     """
 
     __tablename__ = "assets"
-    __table_args__ = (UniqueConstraint("asset_class_id", "name", name="uq_asset_asset_class_name"),)
+    __table_args__ = (
+        UniqueConstraint("asset_class_id", "name", name="uq_asset_asset_class_name"),
+        CheckConstraint(
+            "currency_code IN ('BRL', 'USD')",
+            name="ck_asset_currency_code",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     asset_class_id: Mapped[int] = mapped_column(
@@ -229,6 +250,24 @@ class Asset(Base):
     target_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, server_default="0")
     display_order: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
+    )
+    # ``buy_enabled`` / ``sell_enabled`` / ``currency_code`` —
+    # per-asset trade-control attributes consumed by the Fase 2+
+    # CVXPY rebalance solver. Defaults are opt-out
+    # (``True / True / 'BRL'``) per owner decision 2026-06-26.
+    # Existing rows backfill to these defaults via the
+    # ``server_default`` in the ``0016_asset_trade_flags``
+    # migration; the CHECK on ``currency_code`` is the
+    # ``ck_asset_currency_code`` constraint added in the same
+    # migration.
+    buy_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=sa.true()
+    )
+    sell_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=sa.true()
+    )
+    currency_code: Mapped[str] = mapped_column(
+        String(8), nullable=False, default="BRL", server_default="BRL"
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False

@@ -562,3 +562,115 @@ def test_upsert_rejects_sum_violation_before_write(omaha_db, monkeypatch) -> Non
             assert before == after, "no write on sum violation"
     finally:
         bad_path.write_text(backup, encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# asset-trade-flags: trade-control column on the asset CSV.
+# ---------------------------------------------------------------------------
+
+
+def test_legacy_four_column_asset_header_is_rejected(omaha_db) -> None:
+    """A CSV with the legacy 4-column header aborts (no silent fallback).
+
+    asset-trade-flags extends the asset header to 7 columns. The
+    parser rejects the legacy shape with exit code 1 and a clear
+    "expected ... got" message naming the new header — the same
+    hard-fail pattern as ``quote_kind`` (see test above).
+    """
+    import tempfile
+    from pathlib import Path
+
+    import scripts.seed_from_csv as seed_mod
+
+    bad_csv = "class_name,name,target_pct,display_order\nC,X,10,0\n"
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        target = tmp_path / "bad_assets.csv"
+        target.write_text(bad_csv, encoding="utf-8")
+        original_seed_dir = seed_mod.SEED_DIR
+        seed_mod.SEED_DIR = tmp_path
+        try:
+            with pytest.raises(SystemExit) as exc_info:
+                seed_mod.load_assets("bad")
+            assert exc_info.value.code == 1
+        finally:
+            seed_mod.SEED_DIR = original_seed_dir
+
+
+def test_invalid_currency_in_assets_csv_aborts(omaha_db) -> None:
+    """A row with ``currency_code=EUR`` aborts at that line."""
+    import tempfile
+    from pathlib import Path
+
+    import scripts.seed_from_csv as seed_mod
+
+    bad_csv = (
+        "class_name,name,target_pct,display_order,buy_enabled,"
+        "sell_enabled,currency_code\n"
+        "C,X,10,0,true,true,EUR\n"
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        target = tmp_path / "bad_assets.csv"
+        target.write_text(bad_csv, encoding="utf-8")
+        original_seed_dir = seed_mod.SEED_DIR
+        seed_mod.SEED_DIR = tmp_path
+        try:
+            with pytest.raises(SystemExit) as exc_info:
+                seed_mod.load_assets("bad")
+            assert exc_info.value.code == 1
+            # (No way to capture stderr from SystemExit here; the
+            # existence of the SystemExit itself confirms the abort
+            # path was reached.)
+            assert exc_info.value.code == 1
+        finally:
+            seed_mod.SEED_DIR = original_seed_dir
+
+
+def test_run_reset_populates_trade_fields_from_csv(omaha_db) -> None:
+    """``run_reset`` reads the 3 new CSV columns onto every asset row."""
+    SessionLocal = omaha_db["SessionLocal"]
+    r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
+    assert r.returncode == 0, r.stderr
+    with SessionLocal() as session:
+        from omaha.models import Asset
+
+        # Every seeded asset reads the CSV-supplied values. The
+        # Italo CSV uses uniform ``true / true`` for the flags
+        # and BRL for most tickers; the 7 NYSE/Nasdaq-listed
+        # ETFs in the Internacional class (IAU, IVV, QQQ, SMH,
+        # TFLO, VNQ, VT) read USD.
+        usd_count = 0
+        for a in session.query(Asset).all():
+            assert a.buy_enabled is True
+            assert a.sell_enabled is True
+            assert a.currency_code in {"BRL", "USD"}
+            if a.currency_code == "USD":
+                usd_count += 1
+        assert usd_count == 7, (
+            f"expected 7 USD assets (US-listed ETFs in Internacional class), got {usd_count}"
+        )
+
+
+def test_run_diff_emits_would_update_for_trade_changes(omaha_db, monkeypatch) -> None:
+    """``run_diff`` detects diff on ``buy_enabled`` / ``sell_enabled`` /
+    ``currency_code`` (not just ``target_pct`` / ``display_order``).
+    """
+    SessionLocal = omaha_db["SessionLocal"]
+    _run_seed("italo", "reset", db_url=omaha_db["db_url"])
+
+    # Flip one row's currency to USD via direct DB; diff should
+    # report it as would-update.
+    with SessionLocal() as session:
+        from omaha.models import Asset
+
+        first = session.query(Asset).first()
+        first.currency_code = "USD"
+        first.buy_enabled = False
+        session.commit()
+
+    r = _run_seed("italo", "diff", db_url=omaha_db["db_url"])
+    assert r.returncode == 0, r.stderr
+    # The diff output should mention the would-update row. Look
+    # for either the "would-update" or the offending name.
+    assert "would-update" in r.stdout or "would-update" in r.stderr

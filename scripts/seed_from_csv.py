@@ -56,10 +56,19 @@ PROFILES = ("italo", "ana")
 MODES = ("reset", "upsert", "diff")
 
 CLASS_HEADER = ("name", "target_pct", "display_order", "quote_kind")
-ASSET_HEADER = ("class_name", "name", "target_pct", "display_order")
+ASSET_HEADER = (
+    "class_name",
+    "name",
+    "target_pct",
+    "display_order",
+    "buy_enabled",
+    "sell_enabled",
+    "currency_code",
+)
 POSITION_HEADER = ("asset_name", "qty", "avg_price", "current_price")
 
 VALID_QUOTE_KINDS = frozenset({q.value for q in QuoteKind})
+VALID_CURRENCY_CODES = frozenset({"BRL", "USD"})
 
 
 # ---------------------------------------------------------------------------
@@ -82,6 +91,9 @@ class AssetRow:
     name: str
     target_pct: Decimal
     display_order: int
+    buy_enabled: bool
+    sell_enabled: bool
+    currency_code: str
     line_no: int
 
 
@@ -135,6 +147,16 @@ def _int(raw: str, *, field: str, path: Path, line_no: int) -> int:
         return int(Decimal(raw.strip()))
     except Exception as exc:  # noqa: BLE001
         abort(f"{path}:{line_no} {field}={raw!r} not an integer: {exc}")
+
+
+def _bool(raw: str, *, field: str, path: Path, line_no: int) -> bool:
+    """Parse a permissive boolean cell. Accepts ``true/false/1/0/yes/no``."""
+    s = raw.strip().lower()
+    if s in {"true", "1", "yes", "y", "t"}:
+        return True
+    if s in {"false", "0", "no", "n", "f", ""}:
+        return False
+    abort(f"{path}:{line_no} {field}={raw!r} not a boolean (use true/false/1/0)")
 
 
 def load_classes(profile: str) -> list[ClassRow]:
@@ -195,12 +217,23 @@ def load_assets(profile: str) -> list[AssetRow]:
         display_order = _int(raw["display_order"], field="display_order", path=path, line_no=idx)
         if display_order < 0:
             abort(f"{path}:{idx} display_order={display_order} < 0")
+        buy_enabled = _bool(raw["buy_enabled"], field="buy_enabled", path=path, line_no=idx)
+        sell_enabled = _bool(raw["sell_enabled"], field="sell_enabled", path=path, line_no=idx)
+        currency_code = raw["currency_code"].strip().upper()
+        if currency_code not in VALID_CURRENCY_CODES:
+            abort(
+                f"{path}:{idx} currency_code={raw['currency_code']!r} "
+                f"not one of {sorted(VALID_CURRENCY_CODES)}"
+            )
         out.append(
             AssetRow(
                 class_name=class_name,
                 name=name,
                 target_pct=target_pct,
                 display_order=display_order,
+                buy_enabled=buy_enabled,
+                sell_enabled=sell_enabled,
+                currency_code=currency_code,
                 line_no=idx,
             )
         )
@@ -396,6 +429,9 @@ def run_reset(
                 name=a.name,
                 target_pct=a.target_pct,
                 display_order=a.display_order,
+                buy_enabled=a.buy_enabled,
+                sell_enabled=a.sell_enabled,
+                currency_code=a.currency_code,
             )
         )
     db.flush()  # populate asset ids before positions reference them
@@ -521,9 +557,22 @@ def run_upsert(
             if row.display_order != a.display_order:
                 row.display_order = a.display_order
                 changed = True
+            if row.buy_enabled != a.buy_enabled:
+                row.buy_enabled = a.buy_enabled
+                changed = True
+            if row.sell_enabled != a.sell_enabled:
+                row.sell_enabled = a.sell_enabled
+                changed = True
+            if row.currency_code != a.currency_code:
+                row.currency_code = a.currency_code
+                changed = True
             if changed:
                 out["assets_updated"] += 1
-                print(f"updated: {a.class_name} / {a.name}")
+                print(
+                    f"updated: {a.class_name} / {a.name} "
+                    f"buy={a.buy_enabled} sell={a.sell_enabled} "
+                    f"currency={a.currency_code}"
+                )
             else:
                 pass
         else:
@@ -533,10 +582,17 @@ def run_upsert(
                     name=a.name,
                     target_pct=a.target_pct,
                     display_order=a.display_order,
+                    buy_enabled=a.buy_enabled,
+                    sell_enabled=a.sell_enabled,
+                    currency_code=a.currency_code,
                 )
             )
             out["assets_created"] += 1
-            print(f"created: {a.class_name} / {a.name}")
+            print(
+                f"created: {a.class_name} / {a.name} "
+                f"buy={a.buy_enabled} sell={a.sell_enabled} "
+                f"currency={a.currency_code}"
+            )
     db.flush()
 
     # refresh asset lookup by name (only within profile)
@@ -679,16 +735,28 @@ def run_diff(
         klass = class_by_name[a.class_name]
         key = (klass.id, a.name)
         if key not in asset_by_class_name:
-            would_create.append(f"  + {a.class_name} / {a.name} target_pct={a.target_pct}")
+            would_create.append(
+                f"  + {a.class_name} / {a.name} target_pct={a.target_pct} "
+                f"buy={a.buy_enabled} sell={a.sell_enabled} currency={a.currency_code}"
+            )
             out["would_create_assets"] += 1
         else:
             row = asset_by_class_name[key]
-            if row.target_pct != a.target_pct or row.display_order != a.display_order:
-                would_update.append(
-                    f"  ~ {a.class_name} / {a.name} target_pct {row.target_pct} -> {a.target_pct}"
-                )
+            fields_changed: list[str] = []
+            if row.target_pct != a.target_pct:
+                fields_changed.append(f"target_pct {row.target_pct} -> {a.target_pct}")
+            if row.display_order != a.display_order:
+                fields_changed.append(f"display_order {row.display_order} -> {a.display_order}")
+            if row.buy_enabled != a.buy_enabled:
+                fields_changed.append(f"buy {row.buy_enabled} -> {a.buy_enabled}")
+            if row.sell_enabled != a.sell_enabled:
+                fields_changed.append(f"sell {row.sell_enabled} -> {a.sell_enabled}")
+            if row.currency_code != a.currency_code:
+                fields_changed.append(f"currency {row.currency_code} -> {a.currency_code}")
+            if fields_changed:
+                would_update.append(f"  ~ {a.class_name} / {a.name} " + ", ".join(fields_changed))
                 out["would_update_assets"] += 1
-    for key, row in asset_by_class_name.items():
+    for _key, row in asset_by_class_name.items():
         klass = class_by_name.get(row.asset_class_id)
         if klass is None:
             continue  # asset belongs to a class that no longer exists; skip
@@ -737,7 +805,7 @@ def run_diff(
                     f"  ~ {p.asset_name} current_price {row.current_price} -> {p.current_price}"
                 )
                 out["would_update_positions"] += 1
-    for key, row in pos_by_key.items():
+    for _key, row in pos_by_key.items():
         asset = asset_by_name.get(row.asset_id)
         if asset is None:
             continue
@@ -807,25 +875,47 @@ def main(argv: list[str] | None = None) -> int:
             )
         elif args.mode == "upsert":
             counts = run_upsert(db, args.profile, classes, assets, positions)
+            n_classes = counts["classes_created"] + counts["classes_updated"]
+            n_assets = counts["assets_created"] + counts["assets_updated"]
+            n_positions = (
+                counts["positions_created"]
+                + counts["positions_updated"]
+                + counts["positions_unchanged"]
+            )
+            n_created = (
+                counts["classes_created"] + counts["assets_created"] + counts["positions_created"]
+            )
+            n_updated = (
+                counts["classes_updated"] + counts["assets_updated"] + counts["positions_updated"]
+            )
             print(
                 f"profile={args.profile} mode=upsert "
-                f"classes={counts['classes_created'] + counts['classes_updated']} "
-                f"assets={counts['assets_created'] + counts['assets_updated']} "
-                f"positions={counts['positions_created'] + counts['positions_updated'] + counts['positions_unchanged']} "
-                f"created={counts['classes_created'] + counts['assets_created'] + counts['positions_created']} "
-                f"updated={counts['classes_updated'] + counts['assets_updated'] + counts['positions_updated']} "
+                f"classes={n_classes} assets={n_assets} positions={n_positions} "
+                f"created={n_created} updated={n_updated} "
                 f"unchanged={counts['positions_unchanged']}"
             )
         else:  # diff
             counts = run_diff(db, args.profile, classes, assets, positions)
+            n_would_create = (
+                counts["would_create_classes"]
+                + counts["would_create_assets"]
+                + counts["would_create_positions"]
+            )
+            n_would_update = (
+                counts["would_update_classes"]
+                + counts["would_update_assets"]
+                + counts["would_update_positions"]
+            )
+            n_would_orphan = (
+                counts["would_orphan_classes"]
+                + counts["would_orphan_assets"]
+                + counts["would_orphan_positions"]
+            )
             print(
                 f"profile={args.profile} mode=diff "
-                f"would_create="
-                f"{counts['would_create_classes'] + counts['would_create_assets'] + counts['would_create_positions']} "
-                f"would_update="
-                f"{counts['would_update_classes'] + counts['would_update_assets'] + counts['would_update_positions']} "
-                f"would_orphan="
-                f"{counts['would_orphan_classes'] + counts['would_orphan_assets'] + counts['would_orphan_positions']}"
+                f"would_create={n_would_create} "
+                f"would_update={n_would_update} "
+                f"would_orphan={n_would_orphan}"
             )
     finally:
         db.close()

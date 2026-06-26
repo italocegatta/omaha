@@ -130,6 +130,17 @@ class AuditContextFactory:
                         id=ai + 1,
                         name=f"Ativo {ai + 1}",
                         target_pct=50,
+                        # asset-trade-flags: the dashboard template now
+                        # reads three per-asset trade-control fields
+                        # off every ``asset`` row (the inline toggle UI
+                        # + currency badge). The audit mock must
+                        # provide them so the Jinja render doesn't
+                        # raise AttributeError and silently produce
+                        # an empty string (which fails
+                        # ``test_render_page_produces_template_specific_anchor``).
+                        buy_enabled=True,
+                        sell_enabled=True,
+                        currency_code="BRL",
                         positions=[
                             SimpleNamespace(
                                 id=ai + 1,
@@ -156,10 +167,10 @@ class AuditContextFactory:
         class_aggregates: list[dict[str, Any]] = []
         portfolio_invested = 0.0
         portfolio_current = 0.0
-        for ci, klass in enumerate(asset_classes):
+        for _ci, klass in enumerate(asset_classes):
             class_invested = 0.0
             class_current = 0.0
-            for asset in klass.assets:
+            for _asset in klass.assets:
                 class_invested += 100 * 10.0
                 class_current += 100 * 12.0
             portfolio_invested += class_invested
@@ -188,6 +199,12 @@ class AuditContextFactory:
                             "asset_pct": 50.0,
                             "current_pct_class": 50.0,
                             "current_pct_total": 25.0,
+                            # asset-trade-flags: the dashboard's
+                            # ``class_data.assets.append(...)`` reads
+                            # these three fields off every asset.
+                            "buy_enabled": True,
+                            "sell_enabled": True,
+                            "currency_code": "BRL",
                         }
                         for a in klass.assets
                     ],
@@ -396,12 +413,16 @@ def _collect_rules_for_element(
             continue
         # For default, skip rules with pseudo-classes (they don't
         # apply in the default state).
-        if state == "default" and has_state and f":{state}" not in selector:
+        if (
+            state == "default"
+            and has_state
+            and f":{state}" not in selector
+            and any(f":{s}" in selector for s in ("hover", "active", "focus", "disabled"))
+        ):
             # "default" should still match rules without pseudo-classes
             # AND rules that happen to have :hover etc. — we only
             # skip when another pseudo-class is explicitly present.
-            if any(f":{s}" in selector for s in ("hover", "active", "focus", "disabled")):
-                continue
+            continue
 
         # Match element against the selector (strip pseudo for matching).
         import re

@@ -193,6 +193,10 @@ def test_alembic_upgrade_creates_assets_table(omaha_db) -> None:
         assert {"id", "asset_class_id", "name", "display_order", "created_at"}.issubset(
             asset_cols
         ), asset_cols
+        # asset-trade-flags: three new trade-control columns land
+        # via the 0016 migration; verify they made it onto the
+        # table along with the rest of the columns.
+        assert {"buy_enabled", "sell_enabled", "currency_code"}.issubset(asset_cols), asset_cols
 
         # Unique constraint
         unique_constraints = inspector.get_unique_constraints("assets")

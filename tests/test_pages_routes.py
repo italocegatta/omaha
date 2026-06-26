@@ -763,7 +763,10 @@ def test_asset_table_has_colgroup(client: TestClient) -> None:
     )
 
     cols = _re.findall(r"<col\b", tables_with_colgroup[0])
-    assert len(cols) == 8, f"expected 8 <col> elements, found {len(cols)}"
+    # asset-trade-flags: 3 new trade-control columns added (Compra,
+    # Venda, Moeda), so the colgroup now has 11 <col> elements
+    # instead of 8.
+    assert len(cols) == 11, f"expected 11 <col> elements, found {len(cols)}"
 
 
 def test_class_data_blob_exposes_current_value(client: TestClient) -> None:
@@ -798,7 +801,9 @@ def test_class_data_blob_exposes_current_value(client: TestClient) -> None:
     try:
         parsed = _json.loads(payload)
     except _json.JSONDecodeError as exc:  # pragma: no cover — defensive
-        raise AssertionError(f"classSection JSON malformed: {exc}; payload={payload[:300]!r}")
+        raise AssertionError(
+            f"classSection JSON malformed: {exc}; payload={payload[:300]!r}"
+        ) from exc
     assert "current_value" in parsed, f"current_value missing from classSection JSON: {parsed!r}"
     assert isinstance(parsed["current_value"], (int, float)), (
         f"current_value must be numeric, got {type(parsed['current_value']).__name__}: "
