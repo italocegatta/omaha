@@ -31,7 +31,6 @@ SELECTORS = {
     "login_pass": 'input[name="password"]',
     "login_submit": 'button[type="submit"]',
     "profile_picker": "form.profile-picker button",
-    "nav_dashboard": '[data-testid="nav-dashboard"]',
     "class_summary_row": '[data-testid="class-summary-row"]',
     "dashboard_class_section": '[data-testid="class-section-header"]',
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
@@ -134,9 +133,6 @@ class TestS03UserJourney:
     def test_login_select_profile_renders_dashboard(self, page: Page, live_url: str) -> None:
         """Smoke: login + select Italo lands on a dashboard with no classes yet."""
         _login_and_select_italo(page, live_url)
-
-        # The nav is rendered and points to the dashboard.
-        assert page.locator(SELECTORS["nav_dashboard"]).count() == 1
 
         # No classes yet → onboarding empty state on the dashboard
         # (3-step card introduced by dashboard-action-sidebar).

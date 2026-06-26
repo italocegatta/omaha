@@ -429,33 +429,84 @@ The dashboard's per-asset inline editors (`alvo % classe` and `alvo % total` cel
 
 ### Requirement: Class card header inline pills
 
-The class section header MUST carry three inline pills between the
-class name and the × delete button: an `Alvo` pill, an `Atual`
-pill, and a per-class `Sobra/Falta` delta pill. The three pills
-are the single source of truth for class-level metrics — no other
-element in the class section or asset table duplicates these
-numbers.
+The class section header MUST carry three inline pills
+(`Alvo`, `Atual`, and per-class `Sobra/Falta` delta) and one
+plain-text consolidated `Valor` stat. The four items MUST be
+laid out across the columns of an 8-column CSS grid that
+mirrors the asset table column structure (see
+`class-section-totals` capability for the alignment
+contract). The `×` delete button MUST be placed immediately
+after the class name in the leading grid slot, NOT at the
+trailing edge of the header row.
 
 The `Alvo` pill MUST render the class target percentage as
-`Alvo NN%` (the existing `commitEditClassPct` flow turns the pill
-into an inline editor on click). The pill MUST have a dashed
-border to signal "click to edit" and carry
+`Alvo NN%` (the existing `commitEditClassPct` flow turns the
+pill into an inline editor on click). The pill MUST have a
+dashed border to signal "click to edit" and carry
 `data-testid="class-target-pct-view"`.
 
 The `Atual` pill MUST render the class current percentage as
 `Atual NN.NN%` (two-decimal format) and carry
-`data-testid="class-current-pct"`. The pill MUST use the modifier
-class `pct-current-pill--ok` when `|classCurrentPct - classTargetPct| <= 0.01`
-(within tolerance) and `pct-current-pill--off` otherwise. The
-status colour is the single visual signal that the class is on
-target; the user reads the `Sobra/Falta` pill for the magnitude.
+`data-testid="class-current-pct"`. The pill MUST use the
+modifier class `pct-current-pill--ok` when
+`|classCurrentPct - classTargetPct| <= 0.01` (within
+tolerance) and `pct-current-pill--off` otherwise.
 
-The delta pill MUST carry `data-testid="class-delta-badge"` and
-render the per-class Sobra/Falta message (`Sobra X%` /
-`Falta X%`) when `|classDelta| > 0.01`. The pill MUST NOT render
-when `|classDelta| <= 0.01`. The pill MUST always show when off,
-regardless of whether the user is mid-edit on an asset (the
-previous "only during inline edit" guard is removed).
+The delta pill MUST carry `data-testid="class-delta-badge"`
+and render the per-class Sobra/Falta message
+(`Sobra X%` / `Falta X%`) when `|classDelta| > 0.01`. The
+pill MUST NOT render when `|classDelta| <= 0.01`.
+
+The consolidated `Valor` stat MUST render the class's
+`current_value` (sum of `current_value` across the class's
+assets) as plain text (NOT a pill) in BRL with no decimal
+fraction digits, and MUST carry
+`data-testid="class-total-value"`. Empty state (class with
+no assets, `current_value == 0`): the element renders `—`
+instead of `R$ 0`.
+
+#### Scenario: Header has consolidated Valor + three pills + × in the leading slot
+
+- **WHEN** the dashboard renders a class section header at a
+  desktop viewport (>= 480px)
+- **THEN** the header (data-testid="class-section-header")
+  contains, in DOM order: chevron, colour swatch, class name,
+  × button (data-testid="class-delete-btn"), consolidated
+  Valor (data-testid="class-total-value"), `Sobra/Falta` pill
+  (data-testid="class-delta-badge", when rendered), `Alvo`
+  pill (data-testid="class-target-pct-view"), and `Atual`
+  pill (data-testid="class-current-pct")
+- **AND** the × delete button is a sibling of the class name
+  inside the leading flex group, NOT a trailing child of the
+  header row
+
+#### Scenario: × button stays visible after move (discreet gray, red on hover)
+
+- **WHEN** the dashboard renders a class section header
+- **THEN** the × button (data-testid="class-delete-btn") is
+  visible (the existing visibility contract from
+  `dashboard-inline-editing` is unchanged)
+- **AND** the × button's computed `color` in steady state is
+  the value of the `--muted` CSS custom property (a low-luminance
+  gray — the destructive action is intentionally discreet and
+  mirrors the per-asset × button styling)
+- **AND** the × button's computed `color` flips to the value of
+  the `--negative` CSS custom property on `:hover` (red, with a
+  light-red `var(--error-bg)` background) so the operator sees
+  what the click does before committing
+- **AND** the click handler still opens the
+  `.class-delete-confirm` dialog and DELETEs
+  `/api/classes/{id}` on confirm (no behaviour change)
+
+#### Scenario: Clicking × from the new position still opens the confirm dialog
+
+- **WHEN** the user clicks the × button (now positioned right
+  after the class name)
+- **THEN** the confirm dialog
+  (data-testid="class-delete-confirm") appears
+- **AND** the rest of the contract from
+  `dashboard-inline-editing` "Remoção de classe com
+  confirmação" is unchanged
 
 #### Scenario: Alvo pill renders class target
 
@@ -517,43 +568,37 @@ previous "only during inline edit" guard is removed).
 - **AND** the delta pill (`data-testid="class-delta-badge"`)
   appears with the new "Sobra/Falta" message
 
-#### Scenario: Pills share the header row with the × button
-
-- **WHEN** the dashboard renders a class section header at a
-  desktop viewport (>= 480px)
-- **THEN** the chevron, colour swatch, class name, three pills,
-  and × delete button are all on the same horizontal row
-- **AND** the three pills sit between the class name and the ×
-  button
-- **AND** no element with `data-testid="class-section-stats"` is
-  in the DOM (the legacy vertical stats stack is removed)
-
-### Requirement: × delete button is always visible
+### Requirement: × delete button is always visible (discreet by default, red on hover)
 
 The class section header's × delete button MUST be visible at all
-times in steady state (no hover required), and MUST render with a
-visible red border (`color: var(--negative)` plus a 1px border in
-the same colour family) so the destructive action is scannable
-from a glance. The hover state MUST darken both the border and the
-background to confirm the action. The button carries
-`data-testid="class-delete-btn"`.
+times in steady state (no hover required). In steady state the
+button MUST render discreetly with `color: var(--muted)` and a
+transparent border / background (no shouty red default — the
+destructive action is intentionally muted and mirrors the per-asset
+× button styling). On `:hover` the button MUST flip to a destructive
+red treatment — `color: var(--negative)` and a `var(--error-bg)`
+background — so the operator sees what the click does before
+committing. The button carries `data-testid="class-delete-btn"`.
 
-#### Scenario: × button is red in steady state
+#### Scenario: × button is discreet gray in steady state
 
 - **WHEN** the dashboard renders a class section header without
   any user interaction
 - **THEN** the × button is visible
 - **AND** the button's computed `color` is the value of the
-  `--negative` CSS custom property
-- **AND** the button has a visible border (computed `border-style`
-  is not `none` and `border-color` is not transparent)
+  `--muted` CSS custom property (a low-luminance gray)
+- **AND** the button has a transparent border (computed
+  `border-color` is transparent and `background-color` is
+  transparent in steady state)
 
-#### Scenario: × button hover darkens
+#### Scenario: × button hover turns red
 
 - **WHEN** the user hovers the × button
-- **THEN** the button's background darkens (compared to the
-  steady-state background)
-- **AND** the button's border darkens
+- **THEN** the button's computed `color` becomes the value of
+  the `--negative` CSS custom property
+- **AND** the button's background becomes a light-red fill
+  (`var(--error-bg)`)
+- **AND** the button's border becomes a red-tinted 1px line
 
 ### Requirement: Layout do dashboard usa largura máxima de 1400px
 
@@ -642,44 +687,96 @@ pill) shows broken state.
 - **AND** the browser console emits zero `classCurrentPct is
   not defined` warnings
 
-### Requirement: Column widths
-The asset table MUST declare explicit widths for each of the 8 columns
-so text columns ("Ativo", "Classe") get enough room for typical
-Brazilian-portuguese asset names and class names, and numeric columns
-("Qtd", "Alvo % classe", etc.) stay readable without wasting space.
+### Requirement: Asset table column proportions live in CSS variables
 
-The widths MUST sum to 100% of the table width and MUST be applied via
-CSS (`.asset-table th:nth-child(N) { width: X%; }`) so the layout is
-centralised and survives Jinja template regeneration. The widths MUST
-be:
+The asset table column widths MUST be defined as CSS custom
+properties at `:root` (one per column, `--col-ativo`
+through `--col-atual-total`). The table MUST consume these
+variables via a `<colgroup>` with `<col class="col-N">`
+elements whose `width` is set via the corresponding variable
+in `src/omaha/static/app.css`. The table MUST use
+`table-layout: fixed` and `width: 100%` so the
+`<colgroup>` widths are authoritative.
 
-| Column | Width |
-|---|---|
-| Ativo | 24% |
-| Classe | 18% |
-| Qtd | 6% |
-| Valor | 14% |
-| Alvo % classe | 11% |
-| Atual % classe | 11% |
-| Alvo % total | 9% |
-| Atual % total | 7% |
+The proportions (in `fr` units, expressed as percentages for
+both grid and `<col>` compatibility) are:
 
-The `<th>` elements MUST have `transition: width 200ms` so any width
-change (initial paint, future responsive adjustments) animates
-smoothly.
+| Column | CSS variable     | Width |
+|--------|------------------|-------|
+| Ativo | `--col-ativo`    | 25.5% |
+| Classe | `--col-classe`  | 15.3% |
+| Qtd | `--col-qtd`       | 6.2% |
+| Valor | `--col-valor`   | 12.2% |
+| Alvo % classe | `--col-alvo-classe` | 10.2% |
+| Atual % classe | `--col-atual-classe` | 10.2% |
+| Alvo % total | `--col-alvo-total`   | 10.2% |
+| Atual % total | `--col-atual-total` | 10.2% |
 
-#### Scenario: Column widths match the spec
-- **WHEN** the dashboard renders the asset table at a standard desktop
-  viewport (1280-1920px wide)
-- **THEN** the `getBoundingClientRect().width` of each `<th>` matches
-  the spec ratio within ±1px tolerance
-- **AND** the sum of all 8 column widths equals the table width (no
-  overflow, no underflow)
+The previous hard-coded percentage widths (24% / 18% / 6% /
+14% / 11% / 11% / 9% / 7%) are superseded. The `fr`-equivalent
+percentages distribute the table's 100% width across the
+available container width (wider screens give more room to
+text columns).
 
-#### Scenario: Text columns are wide enough for typical names
-- **WHEN** an asset has a name like "Tesouro Selic 2029" or a class
-  has a name like "Renda Fixa Pós-Fixada"
-- **THEN** the "Ativo" and "Classe" columns render the full name
-  without ellipsis
-- **AND** the numeric columns ("Qtd", "Valor", "Alvo % classe", etc.)
-  render their values with the existing number/percentage formatting
+Long asset names MUST wrap inside their `<td>` via
+`overflow-wrap: break-word` rather than overflow horizontally
+or force the column to grow.
+
+The `.class-section-header` MUST consume the same variables
+via `grid-template-columns: var(--col-ativo) var(--col-classe)
+... var(--col-atual-total)` so the header and the table
+re-align automatically when any variable changes.
+
+#### Scenario: Column widths are CSS-variable-driven
+
+- **WHEN** the dashboard renders an asset table
+- **THEN** the `<table class="asset-table">` element contains
+  a `<colgroup>` with 8 `<col>` elements (one per column)
+- **AND** the `width` of each `<col>` resolves to the
+  corresponding `--col-*` CSS custom property's value
+- **AND** the table's computed `table-layout` is `fixed`
+
+#### Scenario: Header and table share the same column template
+
+- **WHEN** both the class section header and the asset table
+  are rendered
+- **THEN** the computed `grid-template-columns` of
+  `.class-section-header` matches the computed `width` per
+  column on `.asset-table col` (8 columns, same proportions)
+- **AND** mutating any `--col-*` value in DevTools
+  re-aligns both header and table on the next layout
+
+#### Scenario: Long asset names wrap, columns stay fixed
+
+- **GIVEN** an asset with a name longer than the Ativo
+  column can fit on one line (e.g. `"Tesouro Selic 2029 -
+  LFT Prefixado com Juros Semestrais"`)
+- **WHEN** the dashboard renders the asset table
+- **THEN** the `<td>` wrapping the name contains line
+  breaks (`overflow-wrap: break-word`)
+- **AND** the `<th>` width stays at the CSS-variable value
+  (the table does not grow to fit the name)
+
+#### Scenario: Sum of column widths equals the table width
+
+- **WHEN** the dashboard renders the asset table
+- **THEN** the sum of the 8 `<col>` computed `width` values
+  equals the table's `clientWidth` (no overflow, no
+  underflow)
+
+#### Scenario: Testids on table headers remain stable
+
+- **WHEN** the dashboard renders the asset table
+- **THEN** every `<th>` carries the existing
+  `data-testid` from `dashboard-inline-editing`:
+  - `asset-table-th-name`
+  - `asset-table-th-class`
+  - `asset-table-th-qty`
+  - `asset-table-th-current-value`
+  - `asset-table-th-target-pct-class`
+  - `asset-table-th-current-pct-class`
+  - `asset-table-th-target-pct-total`
+  - `asset-table-th-current-pct-total`
+- **AND** the sort click handlers (`@click="sortBy('name')"`
+  etc.) and the sort indicator spans
+  (`asset-table-sort-*`) are unchanged
