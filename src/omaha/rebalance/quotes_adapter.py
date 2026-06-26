@@ -40,7 +40,7 @@ if it wants to eliminate that.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -49,7 +49,7 @@ import pandas as pd
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from omaha.models import Asset, Position
+from omaha.models import Asset
 from omaha.quotes.cache import QuoteCache
 from omaha.rebalance.market_prices import (
     USD_BRL_QUOTE_SYMBOL,
@@ -132,9 +132,7 @@ class OmahaMarketPriceLookup:
     # Internals
     # ------------------------------------------------------------------
 
-    def _load_asset_meta(
-        self, asset_keys: list[str]
-    ) -> dict[str, _AssetMeta]:
+    def _load_asset_meta(self, asset_keys: list[str]) -> dict[str, _AssetMeta]:
         """Resolve per-asset quote strategy from the DB.
 
         Single query per ``get_quotes`` call: loads ``Asset`` rows
@@ -166,11 +164,7 @@ class OmahaMarketPriceLookup:
                 currency_code=asset.currency_code,
                 quote_kind=_parent_quote_kind(asset),
                 broker_ticker=first_pos.broker_ticker if first_pos is not None else None,
-                fallback_price=(
-                    float(first_pos.current_price)
-                    if first_pos is not None
-                    else 0.0
-                ),
+                fallback_price=(float(first_pos.current_price) if first_pos is not None else 0.0),
             )
         return result
 
@@ -256,9 +250,7 @@ class OmahaMarketPriceLookup:
             if cached is not None and cached.fresh:
                 price = quote_price_from_cache(float(cached.quote.price))
                 quote_frame.at[idx, "quote_price"] = price
-                quote_frame.at[idx, "quote_timestamp"] = _format_timestamp(
-                    cached.quote.fetched_at
-                )
+                quote_frame.at[idx, "quote_timestamp"] = _format_timestamp(cached.quote.fetched_at)
                 quote_frame.at[idx, "quote_status"] = quote_status_for(
                     quote_price=price,
                     currency_code=meta.currency_code,
@@ -320,11 +312,11 @@ def _format_timestamp(value: datetime | None) -> str:
     if value is None:
         return ""
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc).isoformat()
-    return value.astimezone(timezone.utc).isoformat()
+        return value.replace(tzinfo=UTC).isoformat()
+    return value.astimezone(UTC).isoformat()
 
 
-def _as_protocol(impl: OmahaMarketPriceLookup) -> "MarketPriceLookup":
+def _as_protocol(impl: OmahaMarketPriceLookup) -> MarketPriceLookup:
     """Satisfy the type checker; the dataclass already implements the Protocol."""
     return impl
 

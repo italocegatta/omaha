@@ -30,7 +30,6 @@ migration, no UI change, no new route in this phase.
 
 from __future__ import annotations
 
-from omaha.rebalance.models import PortfolioSetup, RebalanceValidationError
 from omaha.rebalance.builders import build_position_frame, build_setup_from_db
 from omaha.rebalance.market_prices import (
     MarketPriceLookup,
@@ -40,6 +39,7 @@ from omaha.rebalance.market_prices import (
     is_queryable_quote_symbol,
     resolve_quote_symbol,
 )
+from omaha.rebalance.models import PortfolioSetup, RebalanceValidationError
 from omaha.rebalance.quotes_adapter import OmahaMarketPriceLookup
 
 __all__ = [

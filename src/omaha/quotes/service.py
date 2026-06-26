@@ -42,14 +42,14 @@ import asyncio
 import logging
 import random
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import select
 
 from omaha.config import settings
 from omaha.db import SessionLocal
-from omaha.models import Asset, AssetClass, Position, Quote, QuoteKind
+from omaha.models import Asset, AssetClass, Position, QuoteKind
 from omaha.quotes.cache import QuoteCache
 from omaha.quotes.provider import Quote, QuoteProvider
 from omaha.rebalance.market_prices import USD_BRL_QUOTE_SYMBOL
@@ -118,7 +118,7 @@ class QuoteService:
         """True iff the breaker is currently open (skip refreshes)."""
         if self._circuit_open_until is None:
             return False
-        return datetime.now(tz=timezone.utc).replace(tzinfo=None) < self._circuit_open_until
+        return datetime.now(tz=UTC).replace(tzinfo=None) < self._circuit_open_until
 
     async def refresh_once(self) -> RefreshReport:
         """Run a single refresh batch and return a :class:`RefreshReport`.
@@ -191,19 +191,13 @@ class QuoteService:
             rows = session.execute(stmt).scalars().all()
             symbols = [row for row in rows if row]
 
-            usd_stmt = (
-                select(Asset.currency_code)
-                .where(Asset.currency_code == "USD")
-                .limit(1)
-            )
+            usd_stmt = select(Asset.currency_code).where(Asset.currency_code == "USD").limit(1)
             has_usd = session.execute(usd_stmt).first() is not None
             if has_usd and USD_BRL_QUOTE_SYMBOL not in symbols:
                 symbols.append(USD_BRL_QUOTE_SYMBOL)
         return symbols
 
-    def _apply_results(
-        self, symbols: list[str], results: list[Quote | None]
-    ) -> RefreshReport:
+    def _apply_results(self, symbols: list[str], results: list[Quote | None]) -> RefreshReport:
         """Write successful results to the cache, update breaker state.
 
         Returns a :class:`RefreshReport`. A partial failure resets
@@ -214,7 +208,7 @@ class QuoteService:
         """
         refreshed = 0
         failed = 0
-        for symbol, quote in zip(symbols, results, strict=True):
+        for _symbol, quote in zip(symbols, results, strict=True):
             if quote is None:
                 failed += 1
                 continue
@@ -238,7 +232,7 @@ class QuoteService:
         if report.full_failure:
             self._consecutive_failures += 1
             if self._consecutive_failures >= self._threshold:
-                now = datetime.now(tz=timezone.utc).replace(tzinfo=None)
+                now = datetime.now(tz=UTC).replace(tzinfo=None)
                 self._circuit_open_until = _add_seconds(now, self._cooldown)
                 logger.error(
                     "quote refresh: circuit breaker OPEN for %ss "

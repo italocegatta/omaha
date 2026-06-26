@@ -56,7 +56,7 @@ import pandas as pd
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from omaha.models import Asset, AssetClass, Position, Profile
+from omaha.models import Asset, AssetClass, Profile
 from omaha.rebalance.models import PortfolioSetup
 
 # Decimal columns from ``Asset.target_pct`` / ``AssetClass.target_pct``
@@ -102,9 +102,7 @@ _POSITIONS_COLUMNS = [
 ]
 
 
-def build_setup_from_db(
-    db: Session, profile: Profile
-) -> tuple[PortfolioSetup, list[str]]:
+def build_setup_from_db(db: Session, profile: Profile) -> tuple[PortfolioSetup, list[str]]:
     """Translate ``profile``'s classes+assets into a :class:`PortfolioSetup`.
 
     Returns ``(setup, warnings)``. ``warnings`` is always a list (never
@@ -296,9 +294,7 @@ def _build_assets_frame(
     return df.reset_index(drop=True), []
 
 
-def _build_collision_warnings(
-    df: pd.DataFrame, collisions: list[str]
-) -> list[str]:
+def _build_collision_warnings(df: pd.DataFrame, collisions: list[str]) -> list[str]:
     """Build one warning per cross-class ``asset_key`` collision.
 
     Each warning names both ``asset_class_id`` values that own the

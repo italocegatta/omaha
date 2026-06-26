@@ -23,7 +23,6 @@ from omaha.db import SessionLocal
 from omaha.models import Asset, AssetClass, Position, Profile, QuoteKind
 from omaha.rebalance.builders import build_position_frame, build_setup_from_db
 
-
 # ---------------------------------------------------------------------------
 # Fixture: wipe the dashboard tables before each test, expose the
 # Italo profile as the fixture anchor.
@@ -90,7 +89,9 @@ def _seed_class(
         return klass.id
 
 
-def _seed_positions(asset_id: int, rows: list[tuple[str, str, str, str, str | None, str | None]]) -> None:
+def _seed_positions(
+    asset_id: int, rows: list[tuple[str, str, str, str, str | None, str | None]]
+) -> None:
     """Create positions for ``asset_id``.
 
     Each row is ``(broker_ticker, qty, avg_price, current_price,
@@ -118,11 +119,7 @@ def _seed_positions(asset_id: int, rows: list[tuple[str, str, str, str, str | No
 def _asset_id(klass_id: int, name: str) -> int:
     """Return the asset id for ``(klass_id, name)``."""
     with SessionLocal() as db:
-        asset = (
-            db.query(Asset)
-            .filter(Asset.asset_class_id == klass_id, Asset.name == name)
-            .one()
-        )
+        asset = db.query(Asset).filter(Asset.asset_class_id == klass_id, Asset.name == name).one()
         return asset.id
 
 
@@ -135,12 +132,16 @@ def test_setup_happy_path_three_classes_five_assets(italo_profile: Profile) -> N
     """Three classes (60/30/10) × five assets → target sums to 1.0."""
     _seed_class(italo_profile.id, "RF", "60", [("Selic", "100")], quote_kind=QuoteKind.AUTO.value)
     _seed_class(
-        italo_profile.id, "RV", "30",
+        italo_profile.id,
+        "RV",
+        "30",
         [("PETR4", "50"), ("VALE3", "50")],
         quote_kind=QuoteKind.AUTO.value,
     )
     _seed_class(
-        italo_profile.id, "FII", "10",
+        italo_profile.id,
+        "FII",
+        "10",
         [("HGLG11", "60"), ("MXRF11", "40")],
         quote_kind=QuoteKind.AUTO.value,
     )
@@ -197,12 +198,16 @@ def test_setup_empty_profile_returns_empty_dataframes_with_schema(italo_profile:
 def test_setup_cross_class_name_collision_groups_and_warns(italo_profile: Profile) -> None:
     """Two classes with the same asset name → groupby keeps one row + warning."""
     _seed_class(
-        italo_profile.id, "RF", "60",
+        italo_profile.id,
+        "RF",
+        "60",
         [("Tesouro", "100")],
         quote_kind=QuoteKind.AUTO.value,
     )
     _seed_class(
-        italo_profile.id, "RV", "30",
+        italo_profile.id,
+        "RV",
+        "30",
         [("Tesouro", "100")],  # same asset name, different class
         quote_kind=QuoteKind.AUTO.value,
     )
@@ -261,7 +266,7 @@ def test_setup_asset_order_is_zero_indexed_per_class(italo_profile: Profile) -> 
         )
         db.add(klass)
         db.flush()
-        for asset_index, (asset_name, display_order) in enumerate(
+        for _asset_index, (asset_name, display_order) in enumerate(
             [("Selic", 7), ("IPCA", 3), ("CDB", 99)]  # gaps inside the class
         ):
             db.add(
@@ -316,7 +321,9 @@ def test_setup_no_warning_for_empty_class_with_zero_target(italo_profile: Profil
 def test_position_three_positions_aggregate_totals(italo_profile: Profile) -> None:
     """Three positions on one asset → sums ``qty``, ``total_invested``, ``total_current``."""
     klass_id = _seed_class(
-        italo_profile.id, "RV", "100",
+        italo_profile.id,
+        "RV",
+        "100",
         [("PETR4", "100")],
         quote_kind=QuoteKind.AUTO.value,
     )
@@ -346,7 +353,9 @@ def test_position_three_positions_aggregate_totals(italo_profile: Profile) -> No
 def test_position_asset_with_zero_positions_yields_zero_totals(italo_profile: Profile) -> None:
     """Asset with no positions → row has qty=0, invested=0, current=0, weight=0."""
     _seed_class(
-        italo_profile.id, "RV", "100",
+        italo_profile.id,
+        "RV",
+        "100",
         [("PETR4", "100")],
         quote_kind=QuoteKind.AUTO.value,
     )
@@ -366,7 +375,9 @@ def test_position_asset_with_zero_positions_yields_zero_totals(italo_profile: Pr
 def test_position_empty_portfolio_yields_zero_weight_per_asset(italo_profile: Profile) -> None:
     """total_current == 0 → every row's current_weight is 0.0 (not NaN)."""
     klass_id = _seed_class(
-        italo_profile.id, "RV", "100",
+        italo_profile.id,
+        "RV",
+        "100",
         [("PETR4", "100"), ("VALE3", "100")],
         quote_kind=QuoteKind.AUTO.value,
     )
@@ -389,7 +400,9 @@ def test_position_empty_portfolio_yields_zero_weight_per_asset(italo_profile: Pr
 def test_position_null_totals_treated_as_zero(italo_profile: Profile) -> None:
     """``total_invested`` / ``total_current`` NULL → contributes 0 to the sum."""
     klass_id = _seed_class(
-        italo_profile.id, "RV", "100",
+        italo_profile.id,
+        "RV",
+        "100",
         [("PETR4", "100")],
         quote_kind=QuoteKind.AUTO.value,
     )
@@ -418,12 +431,16 @@ def test_position_null_totals_treated_as_zero(italo_profile: Profile) -> None:
 def test_position_current_weight_normalized_to_total(italo_profile: Profile) -> None:
     """``current_weight`` is each asset's share of the portfolio's total ``current_value``."""
     rf_id = _seed_class(
-        italo_profile.id, "RF", "60",
+        italo_profile.id,
+        "RF",
+        "60",
         [("Selic", "100")],
         quote_kind=QuoteKind.AUTO.value,
     )
     rv_id = _seed_class(
-        italo_profile.id, "RV", "40",
+        italo_profile.id,
+        "RV",
+        "40",
         [("PETR4", "100")],
         quote_kind=QuoteKind.AUTO.value,
     )
@@ -435,7 +452,7 @@ def test_position_current_weight_normalized_to_total(italo_profile: Profile) -> 
         df = build_position_frame(db, profile)
 
     # Total current_value = 2000; Selic 1200 → 0.6; PETR4 800 → 0.4.
-    weights = dict(zip(df["asset_name"], df["current_weight"]))
+    weights = dict(zip(df["asset_name"], df["current_weight"], strict=False))
     assert weights["Selic"] == pytest.approx(0.6)
     assert weights["PETR4"] == pytest.approx(0.4)
 

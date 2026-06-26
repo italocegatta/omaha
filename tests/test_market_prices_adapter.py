@@ -21,21 +21,18 @@ QuoteService tests reuse the same fake-provider pattern from
 
 from __future__ import annotations
 
+import importlib
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-import numpy as np
 import pandas as pd
 import pytest
 from sqlalchemy import text
 
-import importlib
-import sys
 import omaha.db  # noqa: F401 — referenced at call time via importlib.import_module
 import omaha.quotes.cache  # noqa: F401 — resolved at call time via importlib
 import omaha.rebalance.quotes_adapter  # noqa: F401 — resolved at call time via importlib
-
 from omaha.models import Asset, AssetClass, Position, Profile, QuoteKind
 from omaha.quotes.provider import Quote as ProviderQuote
 from omaha.rebalance.market_prices import (
@@ -64,7 +61,7 @@ def _quote_cache_cls():
 
 
 def _adapter_cls():
-    """Return the ``OmahaMarketPriceLookup`` class from the live ``omaha.rebalance.quotes_adapter`` module."""
+    """Return the ``OmahaMarketPriceLookup`` class from the live rebalance adapter module."""
     return importlib.import_module("omaha.rebalance.quotes_adapter").OmahaMarketPriceLookup
 
 
@@ -95,7 +92,7 @@ def _wipe_all() -> None:
 
 def _now_naive() -> datetime:
     """Return the current time as naive UTC (the cache convention)."""
-    return datetime.now(tz=timezone.utc).replace(tzinfo=None)
+    return datetime.now(tz=UTC).replace(tzinfo=None)
 
 
 # ---------------------------------------------------------------------------
@@ -146,7 +143,9 @@ def test_is_queryable_quote_symbol_pattern_check() -> None:
 
 def test_build_empty_quote_frame_full_schema_for_empty_input() -> None:
     """Empty input → frame with the 7 expected columns and zero rows."""
-    frame = build_empty_quote_frame(pd.DataFrame(columns=["asset_key", "asset_name", "currency_code"]), status="unavailable")
+    frame = build_empty_quote_frame(
+        pd.DataFrame(columns=["asset_key", "asset_name", "currency_code"]), status="unavailable"
+    )
     assert frame.empty
     assert list(frame.columns) == [
         "asset_key",
@@ -175,12 +174,21 @@ def test_noop_market_price_lookup_returns_all_not_requested() -> None:
 
 def test_quote_status_for_usd_requires_usdbrl() -> None:
     """USD asset with non-finite BRL=X → ``unavailable`` even if own price is fine."""
-    assert quote_status_for(quote_price=190.0, currency_code="USD", usdbrl_rate=float("nan")) == "unavailable"
+    assert (
+        quote_status_for(quote_price=190.0, currency_code="USD", usdbrl_rate=float("nan"))
+        == "unavailable"
+    )
     assert quote_status_for(quote_price=190.0, currency_code="USD", usdbrl_rate=5.0) == "available"
     # BRL asset: stale BRL=X is irrelevant (NaN is the per-row default for BRL).
-    assert quote_status_for(quote_price=38.0, currency_code="BRL", usdbrl_rate=float("nan")) == "available"
+    assert (
+        quote_status_for(quote_price=38.0, currency_code="BRL", usdbrl_rate=float("nan"))
+        == "available"
+    )
     # Non-finite own price is always unavailable.
-    assert quote_status_for(quote_price=float("nan"), currency_code="BRL", usdbrl_rate=5.0) == "unavailable"
+    assert (
+        quote_status_for(quote_price=float("nan"), currency_code="BRL", usdbrl_rate=5.0)
+        == "unavailable"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -233,7 +241,7 @@ def _seed_class_with_asset(
         db.add(asset)
         db.flush()
         if positions:
-            for ticker, cur_price, broker_ticker in positions:
+            for _ticker, cur_price, broker_ticker in positions:
                 db.add(
                     Position(
                         asset_id=asset.id,
@@ -265,7 +273,7 @@ def _seed_quote(symbol: str, price: str, currency: str, fetched_at: datetime | N
         db.commit()
 
 
-def _build_lookup() -> "OmahaMarketPriceLookup":
+def _build_lookup():
     """Build a fresh adapter with a real cache + session."""
     return _adapter_cls()(cache=_quote_cache_cls()(), db=_session()())
 
@@ -274,7 +282,11 @@ def test_adapter_auto_brl_with_fresh_cache_returns_available() -> None:
     """Auto BRL asset + fresh ``PETR4.SA`` row → ``available`` + 38.50."""
     profile_id = _seed_italo_profile()
     _seed_class_with_asset(
-        profile_id, "RV", "100", "PETR4", "100",
+        profile_id,
+        "RV",
+        "100",
+        "PETR4",
+        "100",
         quote_kind=QuoteKind.AUTO.value,
         positions=[("PETR4.SA", "38.50", "PETR4")],
     )
@@ -283,7 +295,7 @@ def test_adapter_auto_brl_with_fresh_cache_returns_available() -> None:
     # Verify the cache sees the row.
     sl = importlib.import_module("omaha.db").SessionLocal
     with sl() as db:
-        rows = db.execute(text("SELECT symbol, price, fetched_at FROM quotes")).all()
+        db.execute(text("SELECT symbol, price, fetched_at FROM quotes")).all()
 
     lookup = _build_lookup()
     assets = pd.DataFrame(
@@ -307,7 +319,11 @@ def test_adapter_auto_brl_with_stale_cache_returns_unavailable() -> None:
     """Cache row older than TTL → ``unavailable`` + NaN price."""
     profile_id = _seed_italo_profile()
     _seed_class_with_asset(
-        profile_id, "RV", "100", "PETR4", "100",
+        profile_id,
+        "RV",
+        "100",
+        "PETR4",
+        "100",
         quote_kind=QuoteKind.AUTO.value,
         positions=[("PETR4.SA", "38.50", "PETR4")],
     )
@@ -333,7 +349,11 @@ def test_adapter_none_class_falls_back_to_position_current_price() -> None:
     """``quote_kind = none`` → broker-published ``current_price`` + ``not-requested``."""
     profile_id = _seed_italo_profile()
     _seed_class_with_asset(
-        profile_id, "Tesouro", "100", "Selic", "100",
+        profile_id,
+        "Tesouro",
+        "100",
+        "Selic",
+        "100",
         quote_kind=QuoteKind.NONE.value,
         positions=[("TESOURO_SELIC_2029", "145.32", "TESOURO_SELIC_2029")],
     )
@@ -361,7 +381,11 @@ def test_adapter_manual_class_uses_position_current_price() -> None:
     """``quote_kind = manual`` shares the ``none`` fallback path."""
     profile_id = _seed_italo_profile()
     _seed_class_with_asset(
-        profile_id, "CDB", "100", "Itau", "100",
+        profile_id,
+        "CDB",
+        "100",
+        "Itau",
+        "100",
         quote_kind=QuoteKind.MANUAL.value,
         positions=[("CDB_ITAU_2030", "200.00", "CDB_ITAU_2030")],
     )
@@ -384,7 +408,11 @@ def test_adapter_usd_with_fresh_brl_x_populates_usdbrl_rate() -> None:
     """USD asset + fresh ``BRL=X`` → ``usdbrl_rate`` populated + own quote fresh."""
     profile_id = _seed_italo_profile()
     _seed_class_with_asset(
-        profile_id, "US", "100", "AAPL", "100",
+        profile_id,
+        "US",
+        "100",
+        "AAPL",
+        "100",
         quote_kind=QuoteKind.AUTO.value,
         currency_code="USD",
         positions=[("AAPL", "190.00", "AAPL")],
@@ -412,7 +440,11 @@ def test_adapter_usd_with_missing_brl_x_is_unavailable() -> None:
     """USD asset + stale/missing ``BRL=X`` → ``unavailable`` regardless of own quote."""
     profile_id = _seed_italo_profile()
     _seed_class_with_asset(
-        profile_id, "US", "100", "AAPL", "100",
+        profile_id,
+        "US",
+        "100",
+        "AAPL",
+        "100",
         quote_kind=QuoteKind.AUTO.value,
         currency_code="USD",
         positions=[("AAPL", "190.00", "AAPL")],
@@ -438,7 +470,11 @@ def test_adapter_usd_with_stale_brl_x_is_unavailable() -> None:
     """USD asset + stale ``BRL=X`` (older than TTL) → ``unavailable``."""
     profile_id = _seed_italo_profile()
     _seed_class_with_asset(
-        profile_id, "US", "100", "AAPL", "100",
+        profile_id,
+        "US",
+        "100",
+        "AAPL",
+        "100",
         quote_kind=QuoteKind.AUTO.value,
         currency_code="USD",
         positions=[("AAPL", "190.00", "AAPL")],
@@ -464,7 +500,11 @@ def test_adapter_asset_with_no_position_returns_zero_quote() -> None:
     ``quote_status = "not-requested"``."""
     profile_id = _seed_italo_profile()
     _seed_class_with_asset(
-        profile_id, "RV", "100", "PETR4", "100",
+        profile_id,
+        "RV",
+        "100",
+        "PETR4",
+        "100",
         quote_kind=QuoteKind.AUTO.value,
         # no positions
     )
