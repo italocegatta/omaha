@@ -52,6 +52,7 @@ from omaha.db import SessionLocal
 from omaha.models import Asset, AssetClass, Position, Quote, QuoteKind
 from omaha.quotes.cache import QuoteCache
 from omaha.quotes.provider import Quote, QuoteProvider
+from omaha.rebalance.market_prices import USD_BRL_QUOTE_SYMBOL
 
 if TYPE_CHECKING:
     pass
@@ -170,6 +171,14 @@ class QuoteService:
         Uses a single SQL query joined through ``asset_class`` so a
         future per-asset ``quote_kind`` override can be honored by
         swapping the join filter without restructuring the call sites.
+
+        When at least one ``Asset`` with ``currency_code == "USD"``
+        exists (across all profiles), ``BRL=X`` is appended so the
+        FX rate stays warm in the cache for the rebalance solver.
+        See ``openspec/changes/rebalance-infra/design.md`` Decision 2
+        — the FX rate is required by :class:`OmahaMarketPriceLookup`
+        when quoting USD assets, and the cache is the only path that
+        avoids an HTTP call on the rebalance request path.
         """
         with SessionLocal() as session:
             stmt = (
@@ -180,7 +189,17 @@ class QuoteService:
                 .distinct()
             )
             rows = session.execute(stmt).scalars().all()
-        return [row for row in rows if row]
+            symbols = [row for row in rows if row]
+
+            usd_stmt = (
+                select(Asset.currency_code)
+                .where(Asset.currency_code == "USD")
+                .limit(1)
+            )
+            has_usd = session.execute(usd_stmt).first() is not None
+            if has_usd and USD_BRL_QUOTE_SYMBOL not in symbols:
+                symbols.append(USD_BRL_QUOTE_SYMBOL)
+        return symbols
 
     def _apply_results(
         self, symbols: list[str], results: list[Quote | None]

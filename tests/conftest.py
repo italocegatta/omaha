@@ -179,6 +179,8 @@ _INTEGRATION_PREFIXES = (
     "tests/test_quote_routes.py",
     "tests/test_quote_service.py",
     "tests/test_real_csv_flow.py",
+    "tests/test_rebalance_builders.py",
+    "tests/test_market_prices_adapter.py",
     "tests/test_seed.py",
     "tests/test_seed_from_csv.py",
 )

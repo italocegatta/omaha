@@ -35,11 +35,25 @@ PortfolioSetup (categories + assets com target_weights, buy/sell_enabled, curren
 
 ## Design Decisions
 
+Decisões globais (escopo do plano inteiro):
+
 | # | Decisão | Valor |
 |---|---|---|
 | 1 | "Aplicar" o rebalance = **executar o otimizador e exibir o plano** | Não executa ordens reais. O usuário vê o plano e age manualmente na corretora. |
 | 2 | `currency_code` por **ativo**, não por classe | Cada `Asset` tem sua própria moeda (BRL/USD). A `AssetClass` não carrega moeda. |
 | 3 | Default `buy_enabled` / `sell_enabled` = **False** | Conservador: ativos importados/herdados começam bloqueados. Usuário opt-in explícito. |
+
+Decisões da Fase 2 (`rebalance-infra` — data bridges + adapter
+`MarketPriceLookup`). Detalhes completos + alternativas rejeitadas em
+`openspec/changes/rebalance-infra/design.md`:
+
+| # | Decisão | Valor |
+|---|---|---|
+| 4 | Colisão cross-class de `Asset.name` | `groupby("asset_key").first()` + warning por colisão nomeando ambos `AssetClass`. Zero migration, casa com `_validate_rebalance_inputs` do solver. Trade-off: dashboard mostra as duas linhas; solver trata como uma; warning expõe o shadow no modal. |
+| 5 | `BRL=X` entra via `QuoteService._collect_symbols`, não no request path | Append automático sempre que existir algum `Asset.currency_code == "USD"`. Cache fica quente, latência da rota inalterada. Trade-off: `BRL=X` pode estar até 15 min stale (TTL do cache); aceitável para portfolio familiar — modal exibe "Cotação de HH:MM". |
+| 6 | Builder emite coluna `quote_kind` extra (não usada pelo solver) | `assets["quote_kind"] = AssetClass.quote_kind`. Solver ignora colunas desconhecidas (CVXPY lê só named vars). Single source of truth, `get_quotes(assets)` continua sendo a única assinatura. |
+| 7 | Classe vazia com `target_pct > 0` emite warning, não erro | Builder retorna warnings list; solver roda. Modal renderiza o warning; operador decide se adiciona ativos ou zera o target. Trade-off: o solver pode alocar caixa residual; warning torna o motivo visível. |
+| 8 | Refactor de `portfolio_aggregates` é privado + duplicação deliberada nos builders | Extraído `_compute_class_totals(assets)` em `routes/pages.py`. Os builders de rebalance **não** importam o helper — re-implementam o mesmo loop (~20 linhas) em `rebalance/builders.py`. ~20 linhas de duplicação é mais barato que o blast radius de três test files + audit pipeline. |
 
 ## Lacunas vs Estado Atual
 

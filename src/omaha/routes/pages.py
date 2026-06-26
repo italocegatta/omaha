@@ -193,63 +193,23 @@ def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
     ZERO = Decimal("0")
     HUNDRED = Decimal("100")
 
-    # First pass: per-asset totals and per-class totals, in one walk.
+    # First pass: per-class totals via the shared helper, in one walk.
     class_rows: list[dict[str, Any]] = []
     portfolio_invested = ZERO
     portfolio_current = ZERO
 
     for index, klass in enumerate(asset_classes):
-        class_invested = ZERO
-        class_current = ZERO
-        asset_rows: list[dict[str, Any]] = []
-        for asset in klass.assets:
-            asset_invested = ZERO
-            asset_current = ZERO
-            asset_qty = ZERO
-            for pos in asset.positions:
-                qty = pos.qty or ZERO
-                asset_qty += qty
-                # broker-csv-import-totals: sum the broker-published
-                # per-row totals directly. ``NULL`` (legacy position
-                # or CSV that did not publish the column) contributes
-                # ``Decimal('0')`` — never recompute ``qty * price``;
-                # that arithmetic is the exact drift source this
-                # change eliminates.
-                asset_invested += pos.total_invested or ZERO
-                asset_current += pos.total_current or ZERO
-            class_invested += asset_invested
-            class_current += asset_current
-            # ``target_pct_total`` only depends on the asset's stored
-            # target_pct and the class's stored target_pct, both of
-            # which are constant for the request — compute it now
-            # alongside the per-row dict so the second pass doesn't
-            # have to re-walk the loop. The Alpine inline editor in
-            # the dashboard template uses this field as the
-            # ``target % total`` column.
-            target_pct_total = (asset.target_pct or ZERO) * (klass.target_pct or ZERO) / HUNDRED
-            asset_rows.append(
-                {
-                    "id": asset.id,
-                    "name": asset.name,
-                    "position_count": len(asset.positions),
-                    "qty": asset_qty,
-                    "invested": asset_invested,
-                    "current_value": asset_current,
-                    "target_pct_class": asset.target_pct or ZERO,
-                    "target_pct_total": target_pct_total,
-                    # asset-trade-flags: propagate the three per-asset
-                    # trade-control attributes so the dashboard's
-                    # inline toggle UI can render the current state
-                    # without an extra round-trip per asset row. The
-                    # template's ``x-data`` initializer copies these
-                    # into the local Alpine store (``assets``) so a
-                    # PATCH mutates the in-memory copy and the next
-                    # render reads the new value without a reload.
-                    "buy_enabled": asset.buy_enabled,
-                    "sell_enabled": asset.sell_enabled,
-                    "currency_code": asset.currency_code,
-                }
-            )
+        # ``_compute_class_totals`` owns the per-asset qty/invested/
+        # current summing loop (and the per-asset
+        # ``target_pct_total`` calc, which only depends on the asset
+        # + class target_pct — both constant for the request). The
+        # dashboard helper just glues the per-class result into the
+        # class-level row and computes the class's portfolio share
+        # in the second pass.
+        totals = _compute_class_totals(klass)
+        class_invested = totals["class_invested"]
+        class_current = totals["class_current"]
+        asset_rows = totals["assets"]
         portfolio_invested += class_invested
         portfolio_current += class_current
         class_rows.append(
@@ -331,4 +291,101 @@ def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
             "gain_pct": portfolio_gain_pct,
         },
         "classes": classes_out,
+    }
+
+
+def _compute_class_totals(klass: AssetClass) -> dict[str, Any]:
+    """Compute per-asset + per-class totals for a single :class:`AssetClass`.
+
+    Private helper extracted from :func:`portfolio_aggregates` for
+    two reasons:
+
+    * ``portfolio_aggregates`` reads cleaner when the inner summing
+      loop is named — the outer function only cares about
+      class-level roll-ups + percentage calc.
+    * ``audit/inventory.py:155`` and the dashboard tests build
+      hand-crafted per-asset dicts to mirror this shape. Keeping the
+      single source of truth here means a future column addition
+      (e.g. ``current_pct_class`` rename) only changes one place.
+
+    Note: the rebalance builders (:mod:`omaha.rebalance.builders`)
+    deliberately do NOT call this helper — they re-implement the
+    same Decimal-summing loop against a different schema. See
+    ``openspec/changes/rebalance-infra/design.md`` Decision 5:
+    ``portfolio_aggregates`` is consumed by the dashboard, the
+    audit pipeline, and three test files; sharing the helper risks
+    breaking the audit pipeline silently when the rebalance schema
+    evolves.
+
+    Returns a dict with three keys:
+
+    * ``class_invested`` / ``class_current`` — sum of the per-asset
+      totals (which themselves sum the broker-published
+      ``total_invested`` / ``total_current`` directly — see
+      ``broker-csv-import-totals``).
+    * ``assets`` — list of per-asset dicts in
+      ``klass.assets`` order. Each dict carries the fields the
+      dashboard template and the Alpine inline editor consume
+      (``id``, ``name``, ``position_count``, ``qty``, ``invested``,
+      ``current_value``, ``target_pct_class``, ``target_pct_total``,
+      ``buy_enabled``, ``sell_enabled``, ``currency_code``).
+    """
+    ZERO = Decimal("0")
+    HUNDRED = Decimal("100")
+
+    class_invested = ZERO
+    class_current = ZERO
+    asset_rows: list[dict[str, Any]] = []
+    for asset in klass.assets:
+        asset_invested = ZERO
+        asset_current = ZERO
+        asset_qty = ZERO
+        for pos in asset.positions:
+            qty = pos.qty or ZERO
+            asset_qty += qty
+            # broker-csv-import-totals: sum the broker-published
+            # per-row totals directly. ``NULL`` (legacy position
+            # or CSV that did not publish the column) contributes
+            # ``Decimal('0')`` — never recompute ``qty * price``;
+            # that arithmetic is the exact drift source this
+            # change eliminates.
+            asset_invested += pos.total_invested or ZERO
+            asset_current += pos.total_current or ZERO
+        class_invested += asset_invested
+        class_current += asset_current
+        # ``target_pct_total`` only depends on the asset's stored
+        # target_pct and the class's stored target_pct, both of
+        # which are constant for the request — compute it now
+        # alongside the per-row dict so the second pass doesn't
+        # have to re-walk the loop. The Alpine inline editor in
+        # the dashboard template uses this field as the
+        # ``target % total`` column.
+        target_pct_total = (asset.target_pct or ZERO) * (klass.target_pct or ZERO) / HUNDRED
+        asset_rows.append(
+            {
+                "id": asset.id,
+                "name": asset.name,
+                "position_count": len(asset.positions),
+                "qty": asset_qty,
+                "invested": asset_invested,
+                "current_value": asset_current,
+                "target_pct_class": asset.target_pct or ZERO,
+                "target_pct_total": target_pct_total,
+                # asset-trade-flags: propagate the three per-asset
+                # trade-control attributes so the dashboard's
+                # inline toggle UI can render the current state
+                # without an extra round-trip per asset row. The
+                # template's ``x-data`` initializer copies these
+                # into the local Alpine store (``assets``) so a
+                # PATCH mutates the in-memory copy and the next
+                # render reads the new value without a reload.
+                "buy_enabled": asset.buy_enabled,
+                "sell_enabled": asset.sell_enabled,
+                "currency_code": asset.currency_code,
+            }
+        )
+    return {
+        "class_invested": class_invested,
+        "class_current": class_current,
+        "assets": asset_rows,
     }
