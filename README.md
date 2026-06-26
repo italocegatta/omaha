@@ -66,7 +66,7 @@ Discover them any time with `uv run task --list`.
 | `db-migrate`    | Apply pending Alembic migrations.                                               |
 | `db-revision`   | Create a new Alembic revision: `task db-revision -m "add foo column"`.          |
 | `db-seed`       | Run the idempotent family + profiles seed.                                      |
-| `db-reset`      | Wipe + reseed Italo's profile for manual import-flow testing.                   |
+| `db-reset`      | Wipe + reseed BOTH profiles (Italo + Ana) for manual import-flow testing.       |
 | `docker-build`  | Build the dev Docker image from docker-compose.yml.                             |
 | `docker-down`   | Stop and remove the dev Docker Compose stack.                                   |
 | `docker-up`     | Start the dev Docker Compose stack in detached mode.                            |
@@ -227,26 +227,30 @@ test session.
 
 ## Testing the app
 
-The canonical dev DB reset script (`scripts/dev_reset.py`) wipes Italo's
-profile and re-seeds the same state the e2e suite uses. Run it before
-any manual import-flow test:
+The canonical dev DB reset task now wipes + reseeds BOTH profiles
+(Italo + Ana) from their CSV triplets in one invocation
+(`scripts.reset_both_profiles.py`). Run it before any manual
+import-flow test:
 
 ```bash
 uv run task db-reset
 # expected:
-#   reset OK — Italo now has 3 classes (Renda Fixa@60%, Acoes@30%, FIIs@10%)
-#   and 43 assets. 5 unmatched on import: MXRF11, BPAC11, HGLG11, XPLG11, VINO11
+#   profile=italo mode=reset classes=6 assets=48 positions=47
+#   profile=ana   mode=reset classes=6 assets=~40 positions=~43
 ```
 
 Then in the browser:
 
 1. Run `URL=$(bash scripts/print_lan_url.sh)/login` and open `$URL` in
-   the browser. Sign in as `family` with the `ADMIN_PASSWORD` from your `.env`.
-2. Pick the **Italo** profile. The dashboard renders the polished
-   distribution view: portfolio header (invested / current / gain, BRL
-   + %, color-coded), per-class sections with color swatches and a
-   target-vs-current compare bar, and per-asset rows with progress bars
-   (qty, current value, % of class).
+   the browser. Sign in as `Italo` or `Ana` with the `ADMIN_PASSWORD`
+   from your `.env`. Login lands directly on the named user's own
+   dashboard — no intermediate picker page.
+2. The dashboard renders the polished distribution view: portfolio
+   header (invested / current / gain, BRL + %, color-coded), per-class
+   sections with color swatches and a target-vs-current compare bar,
+   and per-asset rows with progress bars (qty, current value, % of
+   class). Switch profiles via the header chip — any logged-in user
+   can view any profile.
 3. Click **Importar CSV** in the sidebar to test the CSV importer:
    - The fixture at `tests/fixtures/sample_broker.csv` is the same
      file the e2e tests use: 48 rows, 43 auto-match against the

@@ -46,7 +46,6 @@
   </aside>
 
   <div class="dashboard-card">
-    <h1 class="profile-name" data-testid="profile-name">Bem-vindo, {{ profile.name }}</h1>
 
   {% if asset_classes %}
   <section class="class-summary" data-testid="class-summary">
@@ -323,6 +322,7 @@
   {% else %}
   <div class="empty-state-onboarding" data-testid="empty-state-onboarding">
     <h2 class="empty-state-onboarding-title">Vamos comecar</h2>
+    <p class="empty-state-onboarding-subtitle" data-testid="empty-state-onboarding-subtitle">Esta carteira ainda nao tem classes.</p>
     <div class="empty-state-step">
       <span class="empty-state-step-number">1.</span>
       <span>Crie uma classe</span>

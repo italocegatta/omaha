@@ -37,7 +37,7 @@
 <body @keydown.escape.window="$store.sidebar.close()">
   <header class="app-header">
     <div class="app-header-left">
-      {% if profile is defined and profile %}
+      {% if owner is defined and owner %}
       <button type="button"
               class="app-header-hamburger"
               data-testid="app-header-hamburger"
@@ -47,19 +47,45 @@
               @click="$store.sidebar.toggle()">☰</button>
       {% endif %}
       <h1>Omaha</h1>
-      {% if user is defined and user %}
+      {% if viewer is defined and viewer %}
       <nav class="main-nav" data-testid="main-nav">
         <a href="/" data-testid="nav-dashboard">Dashboard</a>
       </nav>
       {% endif %}
     </div>
     <div class="app-header-right">
-      <span class="current-profile">
-        {% if profile is defined and profile %}Perfil: {{ profile.name }}
-        {% else %}(sem perfil){% endif %}
-      </span>
-      {% if user is defined and user %}
-      <form class="profile-switcher" method="post" action="/logout">
+      {% if viewer is defined and viewer and owner is defined and owner %}
+        {# Profile chip — native <select> with server-rendered options.
+           The currently-active profile (owner) is marked via the
+           `selected` attribute (the browser renders the active row
+           with its own selection state, no extra glyph needed).
+           On change, the form's action is rewritten client-side and
+           the form submits to /profiles/{id}/select.
+
+           The viewer-vs-owner distinction used to surface here as
+           a muted "Ana" label, but it acted like a stale breadcrumb
+           — the operator's own session is the only thing that
+           matters; whoever logged in is implicit from the chip
+           option they picked. The label was removed. #}
+        <form class="profile-switcher"
+              method="post"
+              data-testid="profile-switcher-form"
+              id="profile-switcher-form"
+              action="/profiles/{{ owner.id }}/select">
+          <select name="profile_id"
+                  data-testid="profile-switcher"
+                  aria-label="Selecionar perfil"
+                  onchange="this.form.action='/profiles/'+this.value+'/select'; this.form.submit()">
+            {% for p in profiles %}
+              <option value="{{ p.id }}"{% if p.id == owner.id %} selected{% endif %}>{{ p.name }}</option>
+            {% endfor %}
+          </select>
+        </form>
+      {% endif %}
+      {% if viewer is defined and viewer %}
+      {# Logout form: class renamed from profile-switcher (D5) so the
+         new chip can honestly claim that class name. #}
+      <form class="logout-form" method="post" action="/logout">
         <button type="submit">Sair</button>
       </form>
       {% endif %}

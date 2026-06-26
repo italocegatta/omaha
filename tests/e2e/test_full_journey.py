@@ -113,11 +113,14 @@ CATEGORY_CLASS_MAP: dict[str, str | None] = {
 }
 
 # Selectors reused from S04/S05 with the same data-testid markers.
+# direct-landing-with-header-profile-switcher: the ``profile_picker``
+# selector is gone — login lands on / directly; the header chip
+# (``profile_switcher``) drives cross-profile switching.
 SELECTORS = {
     "login_user": 'input[name="username"]',
     "login_pass": 'input[name="password"]',
     "login_submit": 'button[type="submit"]',
-    "profile_picker": "form.profile-picker button",
+    "profile_switcher": '[data-testid="profile-switcher"]',
     "class_summary_row": '[data-testid="class-summary-row"]',
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
     "dashboard_import_btn": '[data-testid="dashboard-import-btn"]',

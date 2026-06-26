@@ -88,7 +88,9 @@ def factory() -> AuditContextFactory:
         ("import.html", {"user", "profile"}),
         ("import_review.html", {"user", "profile", "auto_count", "unmatched_count"}),
         ("login.html", {"user", "error"}),
-        ("profiles.html", {"user", "profile", "profiles"}),
+        # direct-landing-with-header-profile-switcher: profiles.html
+        # was deleted (the picker page is gone); the dashboard picks up
+        # the chip + viewer label via the new common context instead.
     ],
 )
 def test_context_for_templates(
@@ -127,7 +129,8 @@ def test_context_for_unknown_template_returns_base(factory: AuditContextFactory)
         ("import.html", "import"),
         ("import_review.html", "import"),
         ("login.html", "login"),
-        ("profiles.html", "profile"),
+        # direct-landing-with-header-profile-switcher: profiles.html
+        # was deleted (the picker page is gone).
     ],
 )
 def test_render_page_produces_template_specific_anchor(

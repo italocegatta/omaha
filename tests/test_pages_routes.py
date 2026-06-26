@@ -189,25 +189,41 @@ def test_aggregates_handles_negative_gain() -> None:
 
 
 def _login_and_select(client: TestClient, profile_name: str = "Italo") -> int:
-    """Log in as ``Italo`` and select the named profile.
+    """Log in as ``profile_name`` — login auto-binds the landing profile.
+
+    direct-landing-with-header-profile-switcher: ``POST /login`` now
+    binds ``active_profile_id`` to the logged-in user's first profile
+    and redirects to ``/``. The explicit ``POST /profiles/{id}/select``
+    step is gone. The helper logs in as the user whose profile we
+    want to land on (the seed creates one user per account).
 
     Returns the profile id (needed to seed classes/assets in tests
     that build state via HTTP). For pure-DB tests, callers can
     ignore the return value.
+
+    Asserts the dashboard renders the profile name in the header
+    chip (the h1 "Bem-vindo" element is gone).
     """
-    client.post("/login", data={"username": "Italo", "password": TEST_PASSWORD})
+    client.post(
+        "/login",
+        data={"username": profile_name, "password": TEST_PASSWORD},
+    )
     from omaha.db import SessionLocal
 
     db = SessionLocal()
     try:
         profile = db.query(Profile).filter(Profile.name == profile_name).first()
         assert profile is not None, f"profile {profile_name!r} not seeded"
-        # The form expects the numeric id and redirects 303 to '/'.
-        # TestClient follows the 303 automatically, so we just verify
-        # the final response is the dashboard for the picked profile.
-        resp = client.post(f"/profiles/{profile.id}/select")
+        # The dashboard response should carry the profile name in
+        # the sidebar wordmark or the chip. The h1 "Bem-vindo" is gone.
+        resp = client.get("/")
         assert resp.status_code == 200, resp.text
-        assert f"Bem-vindo, {profile_name}" in resp.text, resp.text
+        # The chip's <select> carries the active profile name with
+        # the `selected` attribute (no ✓ glyph — the browser's own
+        # selection state is enough).
+        assert f'value="{profile.id}" selected>{profile_name}<' in resp.text, (
+            f"profile {profile_name!r} chip not selected; got: {resp.text[:500]}"
+        )
         return profile.id
     finally:
         db.close()

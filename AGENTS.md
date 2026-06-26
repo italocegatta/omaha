@@ -112,13 +112,16 @@ broker CSV's totals the source of truth (instead of the omaha DB).
   the CSV path — flag it.
 - Loading fixtures in tests is fine (tests have their own scope).
   For the dev DB the user inspects (URL via `bash scripts/print_lan_url.sh`),
-  the default test-readiness state is **populated** — Italo: 6 asset
+  the default test-readiness state is **populated for both profiles** —
+  Italo + Ana, each seeded from their own CSV triplet. Italo: 6 asset
   classes (RF Dinâmica@25 / RF Pós@20 / Internacional@18 / FII@15 /
-  Cripto@8 / Ações@14), 48 assets, 47 positions — produced by
-  `uv run task db-reset`. Run it before any delivery that the user is
-  expected to inspect in the browser. If the user explicitly asks for
-  an asset-free surface (e.g. "I want to test the import flow from
-  scratch"), run `uv run task db-clear-assets` instead.
+  Cripto@8 / Ações@14), 48 assets, 47 positions. Ana: 6 classes, ~40
+  assets, ~43 positions. Both produced by `uv run task db-reset`
+  (which now calls `scripts.reset_both_profiles.py` to seed both
+  profiles in one invocation). Run it before any delivery that the
+  user is expected to inspect in the browser. If the user explicitly
+  asks for an asset-free surface (e.g. "I want to test the import
+  flow from scratch"), run `uv run task db-clear-assets` instead.
 
 ## Alpine `<select>` + dynamic `<template x-for>` options — binding gotcha
 
@@ -310,7 +313,7 @@ Canonical tasks (full list: `uv run task --list`):
 | `db-migrate`      | `alembic upgrade head`                                   |
 | `db-revision`     | `alembic revision --autogenerate` (pass `-m "msg"`)       |
 | `db-seed`         | idempotent family + profiles seed                        |
-| `db-reset`        | wipe + reseed Italo for manual import-flow testing       |
+| `db-reset`        | wipe + reseed BOTH profiles (Italo + Ana) for delivery   |
 | `db-clear-assets` | delete ALL asset rows (keeps classes)                    |
 | `db-current`      | show Alembic head                                        |
 | `db-history`      | show full migration timeline                             |
@@ -352,4 +355,4 @@ and picks up new tasks automatically as they're added.
 - `docker compose -f prod.yml down` preserves the `omaha-data` named
   volume; only `down -v` wipes the DB.
 - `db-clear-assets` is the asset wipe, NOT `db-reset` (which reseeds
-  the full family + profile).
+  the full family + both profiles via `scripts.reset_both_profiles.py`).
