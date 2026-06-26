@@ -69,8 +69,6 @@
     {% endif %}
 
     <section class="dashboard-distribution" data-testid="dashboard-distribution">
-      <h2>Distribuicao</h2>
-
       {# asset-table-view 9.x — sticky alert card with portfolio + per-class deviations.
          Wrapped in an empty x-data so the x-if is evaluated inside an Alpine
          component and re-renders when $store.classSum updates after init. #}
@@ -98,44 +96,59 @@
       </div>
 
       {% for c in class_aggregates %}
-      {% set class_data = {"id": c.id, "name": c.name, "target_pct": (c.target_pct | float), "color": c.color, "current_pct": (c.current_pct | float), "assets": []} %}
+      {% set class_data = {"id": c.id, "name": c.name, "target_pct": (c.target_pct | float), "color": c.color, "current_pct": (c.current_pct | float), "current_value": (c.current_value | float), "assets": []} %}
       {% for a in c.assets %}
       {% set _ = class_data.assets.append({"id": a.id, "name": a.name, "target_pct": (a.target_pct_class | float), "current_pct_class": (a.current_pct_class | float), "current_pct_total": (a.current_pct_total | float), "target_pct_total": (a.target_pct_total | float), "position_count": a.position_count, "current_value": (a.current_value | float)}) %}
       {% endfor %}
       <article class="class-section" data-testid="class-summary-row" data-class-id="{{ c.id }}" x-data='classSection({{ class_data | tojson }})'>
         <header class="class-section-header" data-testid="class-section-header" @click="isOpen = !isOpen">
-          <span class="class-chevron" data-testid="class-chevron" :class="{'class-chevron--open': isOpen}">▸</span>
-          <span class="class-color-swatch" data-testid="class-color-swatch" style="background:{{ c.color }}"></span>
-          <span class="class-section-name" data-testid="class-section-name">{{ c.name }}</span>
-          <span class="pct-target-pill" data-testid="class-target-pct-view" x-show="!editingClassPct" @click.stop="startEditClassPct()" title="Clique para editar">Alvo <span x-text="classTargetPct"></span>%</span>
-          <span class="pct-target-pill" data-testid="class-target-pct-edit" x-show="editingClassPct" x-cloak>
-            Alvo
-            <input type="number"
-                   step="0.01"
-                   min="0"
-                   max="100"
-                   class="class-inline-edit-input"
-                   data-testid="class-inline-edit-input"
-                   x-model="editClassPctValue"
-                   @keyup.enter="commitEditClassPct()"
-                   @keyup.escape.window="cancelEditClassPct()"
-                   @blur="commitEditClassPct()"
-                   :disabled="savingClassPct"
-                   @click.stop>
-            <span class="class-inline-edit-error"
-                  data-testid="class-inline-edit-error"
-                  x-show="editClassPctError"
-                  x-text="editClassPctError"
-                  x-cloak></span>
+          <div class="hdr-leading">
+            <span class="class-chevron" data-testid="class-chevron" :class="{'class-chevron--open': isOpen}">▸</span>
+            <span class="class-color-swatch" data-testid="class-color-swatch" style="background:{{ c.color }}"></span>
+            <span class="class-section-name" data-testid="class-section-name">{{ c.name }}</span>
+            <button type="button"
+                    class="class-section-delete-btn"
+                    data-testid="class-delete-btn"
+                    @click.stop="showDeleteConfirm = true"
+                    x-show="!showDeleteConfirm && !deleting"
+                    title="Remover classe">×</button>
+          </div>
+
+          <span class="hdr-valor"
+                data-testid="class-total-value"
+                x-text="classCurrentValue > 0 ? formatBRLCompact(classCurrentValue) : '—'"></span>
+
+          <span class="hdr-delta">
+            <span class="pct-delta-pill" :class="classDelta > 0 ? 'pct-delta-pill--short' : 'pct-delta-pill--long'" data-testid="class-delta-badge" x-show="classDeltaMessage" x-text="classDeltaMessage"></span>
           </span>
-          <span class="pct-current-pill" :class="'pct-current-pill--' + classCurrentStatus" data-testid="class-current-pct">Atual <span x-text="Number(classCurrentPct).toFixed(2)"></span>%</span>
-          <span class="pct-delta-pill" :class="classDelta > 0 ? 'pct-delta-pill--short' : 'pct-delta-pill--long'" data-testid="class-delta-badge" x-show="classDeltaMessage" x-text="classDeltaMessage"></span>
-          <button type="button"
-                  class="class-section-delete-btn"
-                  data-testid="class-delete-btn"
-                  @click.stop="showDeleteConfirm = true"
-                  x-show="!showDeleteConfirm && !deleting"
-                  title="Remover classe">×</button>
+
+          <span class="hdr-alvo">
+            <span class="pct-target-pill" data-testid="class-target-pct-view" x-show="!editingClassPct" @click.stop="startEditClassPct()" title="Clique para editar">Alvo <span x-text="classTargetPct"></span>%</span>
+            <span class="pct-target-pill" data-testid="class-target-pct-edit" x-show="editingClassPct" x-cloak>
+              Alvo
+              <input type="number"
+                     step="0.01"
+                     min="0"
+                     max="100"
+                     class="class-inline-edit-input"
+                     data-testid="class-inline-edit-input"
+                     x-model="editClassPctValue"
+                     @keyup.enter="commitEditClassPct()"
+                     @keyup.escape.window="cancelEditClassPct()"
+                     @blur="commitEditClassPct()"
+                     :disabled="savingClassPct"
+                     @click.stop>
+              <span class="class-inline-edit-error"
+                    data-testid="class-inline-edit-error"
+                    x-show="editClassPctError"
+                    x-text="editClassPctError"
+                    x-cloak></span>
+            </span>
+          </span>
+
+          <span class="hdr-atual">
+            <span class="pct-current-pill" :class="'pct-current-pill--' + classCurrentStatus" data-testid="class-current-pct">Atual <span x-text="Number(classCurrentPct).toFixed(2)"></span>%</span>
+          </span>
         </header>
         <div class="class-delete-confirm"
              data-testid="class-delete-confirm"
@@ -172,6 +185,16 @@
            per-class `+ Ativo` button/form, the chevron toggle, and the
            `class-section-body--collapsed` hook are removed in 4.4. #}
         <table class="asset-table" data-testid="asset-table">
+          <colgroup>
+            <col class="col-ativo">
+            <col class="col-classe">
+            <col class="col-qtd">
+            <col class="col-valor">
+            <col class="col-alvo-classe">
+            <col class="col-atual-classe">
+            <col class="col-alvo-total">
+            <col class="col-atual-total">
+          </colgroup>
           <thead>
             <tr>
               <th data-testid="asset-table-th-name" @click="sortBy('name')">Ativo <span data-testid="asset-table-sort-name" x-text="sortIndicator('name')"></span></th>
@@ -797,6 +820,7 @@
       // ``classTargetPct`` was being copied before this change.
       classColor: initial.color,
       classCurrentPct: initial.current_pct,
+      classCurrentValue: initial.current_value,
 
       // Register with the class allocation sum store on init so the
       // Distribution header shows the live total across all classes.
@@ -948,6 +972,19 @@
         // per-class iteration moved to the assetTable component.
         var n = Number(value) || 0;
         return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      },
+      formatBRLCompact: function (value) {
+        // BRL with zero fraction digits — class-section "Valor" cell.
+        // The template gates on classCurrentValue > 0 and swaps in an
+        // em-dash for empty classes, so this is always called with
+        // a positive value.
+        var n = Number(value) || 0;
+        return n.toLocaleString('pt-BR', {
+          style: 'currency',
+          currency: 'BRL',
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        });
       },
 
       // asset-table-view 6.x/7.x: sortable asset table state. Lives

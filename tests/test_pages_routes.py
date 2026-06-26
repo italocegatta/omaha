@@ -495,3 +495,305 @@ def test_dashboard_sends_no_store_cache_control(client: TestClient) -> None:
         f"middleware unexpectedly injected no-store on /login: "
         f"{login_page.headers.get('cache-control')!r}"
     )
+
+
+# ---------------------------------------------------------------------------
+# class-section-consolidated-totals — header stats + colgroup
+# ---------------------------------------------------------------------------
+
+
+import json as _json  # noqa: E402  — local import keeps the upstream module-order stable
+import re as _re  # noqa: E402
+
+
+def _extract_class_section_blocks(body: str) -> list[str]:
+    """Return one HTML slice per <article class="class-section"> block.
+
+    The dashboard renders one class section per ``class_aggregates``
+    entry; this helper splits the body at the article boundary so
+    per-class assertions can target a single block.
+    """
+    return _re.findall(
+        r'<article class="class-section"[^>]*>.*?(?=<article class="class-section"|</section>)',
+        body,
+        flags=_re.DOTALL,
+    )
+
+
+def test_class_section_renders_consolidated_value(client: TestClient) -> None:
+    """class-section-consolidated-totals 4.1: the new ``.hdr-valor``
+    cell carries the consolidated ``current_value`` formatter.
+
+    The cell uses Alpine ``x-text`` to render the BRL string at
+    hydration time, so the server-rendered body carries the
+    expression, not the formatted value. The assertion verifies the
+    ``x-text`` expression matches the compact BRL formatter contract
+    (BRL with zero fraction digits, em-dash sentinel for empty
+    classes). Real hydration is exercised by the e2e suite.
+    """
+    profile_id = _login_and_select(client, profile_name="Italo")
+    # qty 85.5 * price 110 = 9405; formatBRLCompact → "R$ 9.405".
+    _seed_class_with_position(
+        profile_id=profile_id,
+        class_name="Renda Fixa",
+        target_pct="60.00",
+        asset_name="TESOURO",
+        qty="85.5",
+        avg="100",
+        cur="110",
+        broker_ticker="TESOURO_2029",
+    )
+
+    r = client.get("/")
+    assert r.status_code == 200, r.text
+    body = r.text
+
+    assert 'data-testid="class-total-value"' in body, body
+
+    blocks = _extract_class_section_blocks(body)
+    assert blocks, "no class-section article found in body"
+    block = blocks[0]
+    match = _re.search(
+        r'<span class="hdr-valor"[^>]*data-testid="class-total-value"[^>]*x-text="([^"]+)"',
+        block,
+    )
+    assert match is not None, f"class-total-value x-text not found in {block[:500]!r}"
+    expr = match.group(1)
+    # Contract: positive value → formatBRLCompact; zero/empty → em-dash.
+    assert "formatBRLCompact" in expr, f"expected formatBRLCompact in x-text, got {expr!r}"
+    assert "classCurrentValue" in expr, f"expected classCurrentValue in x-text, got {expr!r}"
+    assert "'—'" in expr, f"expected em-dash sentinel in x-text, got {expr!r}"
+    # The header value MUST NOT carry any pill class — it is plain text.
+    assert "pct-target-pill" not in block.split("class-total-value")[0].split("hdr-valor")[1], block
+
+
+def test_class_section_renders_em_dash_when_empty(client: TestClient) -> None:
+    """class-section-consolidated-totals 4.2: a class with no assets
+    falls back to the em-dash sentinel at ``.hdr-valor`` instead of
+    ``R$ 0`` (verified via the ``x-text`` expression contract; real
+    hydration runs in e2e).
+    """
+    profile_id = _login_and_select(client, profile_name="Italo")
+    from omaha.db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        db.add(
+            AssetClass(
+                profile_id=profile_id,
+                name="Vazia",
+                target_pct=Decimal("10.00"),
+                display_order=0,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    r = client.get("/")
+    assert r.status_code == 200, r.text
+    body = r.text
+
+    blocks = _extract_class_section_blocks(body)
+    assert blocks, "no class-section article found in body"
+    block = blocks[0]
+    match = _re.search(
+        r'<span class="hdr-valor"[^>]*data-testid="class-total-value"[^>]*x-text="([^"]+)"',
+        block,
+    )
+    assert match is not None, f"class-total-value x-text not found in {block[:500]!r}"
+    expr = match.group(1)
+    # The em-dash sentinel branch is the negative-side of the
+    # conditional; it MUST exist (the gate on classCurrentValue > 0
+    # is the contract).
+    assert "classCurrentValue > 0" in expr, (
+        f"empty-class sentinel requires classCurrentValue > 0 gate, got {expr!r}"
+    )
+    assert "'—'" in expr, f"expected em-dash sentinel in x-text, got {expr!r}"
+    assert "R$ 0" not in expr, f"empty-class x-text must not mention 'R$ 0', got {expr!r}"
+
+
+def test_class_section_renders_pct_with_two_decimals_when_empty(client: TestClient) -> None:
+    """class-section-consolidated-totals 4.3: an empty class still
+    renders ``Atual`` with the two-decimal format. The label "Atual"
+    is the static text rendered server-side; the numeric value
+    comes from Alpine ``x-text`` after hydration.
+    """
+    profile_id = _login_and_select(client, profile_name="Italo")
+    from omaha.db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        db.add(
+            AssetClass(
+                profile_id=profile_id,
+                name="Vazia",
+                target_pct=Decimal("10.00"),
+                display_order=0,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    r = client.get("/")
+    assert r.status_code == 200, r.text
+    body = r.text
+
+    blocks = _extract_class_section_blocks(body)
+    assert blocks, "no class-section article found in body"
+    block = blocks[0]
+    match = _re.search(
+        r'<span class="pct-current-pill"[^>]*data-testid="class-current-pct"[^>]*>(.*?)</span>',
+        block,
+    )
+    assert match is not None, f"class-current-pill span not found in {block[:500]!r}"
+    inner = match.group(1)
+    # The literal "Atual" label is in the static template; the value
+    # is hydrated by Alpine via x-text on the inner <span>.
+    assert "Atual" in inner, f"expected 'Atual' label in pill, got {inner!r}"
+    inner_match = _re.search(r'x-text="([^"]+)"', inner)
+    assert inner_match is not None, f"x-text not found inside pill: {inner!r}"
+    expr = inner_match.group(1)
+    # Contract: toFixed(2) — the slot exists with 0% of the portfolio
+    # for empty classes, that is itself meaningful.
+    assert "toFixed(2)" in expr, f"expected toFixed(2) in x-text, got {expr!r}"
+    assert "classCurrentPct" in expr, f"expected classCurrentPct in x-text, got {expr!r}"
+
+
+def test_class_section_delete_btn_precedes_stats(client: TestClient) -> None:
+    """class-section-consolidated-totals 4.4: the × delete button
+    sits BEFORE ``class-total-value`` in DOM order (it's grouped
+    with the class identity, not the trailing stats row).
+    """
+    profile_id = _login_and_select(client, profile_name="Italo")
+    _seed_class_with_position(
+        profile_id=profile_id,
+        class_name="Renda Fixa",
+        target_pct="60.00",
+        asset_name="TESOURO",
+        qty="10",
+        avg="100",
+        cur="110",
+        broker_ticker="TESOURO_2029",
+    )
+
+    r = client.get("/")
+    assert r.status_code == 200, r.text
+    body = r.text
+
+    blocks = _extract_class_section_blocks(body)
+    assert blocks, "no class-section article found in body"
+    block = blocks[0]
+
+    delete_idx = block.find('data-testid="class-delete-btn"')
+    total_idx = block.find('data-testid="class-total-value"')
+    alvo_idx = block.find('data-testid="class-target-pct-view"')
+    atual_idx = block.find('data-testid="class-current-pct"')
+
+    assert delete_idx != -1, "class-delete-btn not found in class block"
+    assert total_idx != -1, "class-total-value not found in class block"
+    assert alvo_idx != -1, "class-target-pct-view not found in class block"
+    assert atual_idx != -1, "class-current-pct not found in class block"
+
+    # The × button lives inside .hdr-leading (cols 1-3); the stats
+    # follow in cols 4-8. The DOM order matches the grid order.
+    assert delete_idx < total_idx, (
+        f"class-delete-btn (idx {delete_idx}) must precede "
+        f"class-total-value (idx {total_idx})"
+    )
+    assert total_idx < alvo_idx, (
+        f"class-total-value (idx {total_idx}) must precede "
+        f"class-target-pct-view (idx {alvo_idx})"
+    )
+    assert alvo_idx < atual_idx, (
+        f"class-target-pct-view (idx {alvo_idx}) must precede "
+        f"class-current-pct (idx {atual_idx})"
+    )
+
+
+def test_asset_table_has_colgroup(client: TestClient) -> None:
+    """class-section-consolidated-totals 4.5: the asset table
+    declares a ``<colgroup>`` with exactly 8 ``<col>`` elements,
+    one per column, so the ``table-layout: fixed`` widths are
+    authoritative.
+    """
+    profile_id = _login_and_select(client, profile_name="Italo")
+    _seed_class_with_position(
+        profile_id=profile_id,
+        class_name="Renda Fixa",
+        target_pct="60.00",
+        asset_name="TESOURO",
+        qty="10",
+        avg="100",
+        cur="110",
+        broker_ticker="TESOURO_2029",
+    )
+
+    r = client.get("/")
+    assert r.status_code == 200, r.text
+    body = r.text
+
+    # Find every <table class="asset-table">...</table> region and
+    # check exactly one of them carries a colgroup with 8 cols.
+    table_matches = _re.findall(
+        r'<table class="asset-table"[^>]*>(.*?)</table>',
+        body,
+        flags=_re.DOTALL,
+    )
+    assert table_matches, "no <table class=\"asset-table\"> found"
+
+    tables_with_colgroup = [
+        t for t in table_matches if "<colgroup>" in t and "</colgroup>" in t
+    ]
+    assert len(tables_with_colgroup) == 1, (
+        f"expected exactly 1 <table class=\"asset-table\"> with <colgroup>, "
+        f"found {len(tables_with_colgroup)}"
+    )
+
+    cols = _re.findall(r"<col\b", tables_with_colgroup[0])
+    assert len(cols) == 8, f"expected 8 <col> elements, found {len(cols)}"
+
+
+def test_class_data_blob_exposes_current_value(client: TestClient) -> None:
+    """class-section-consolidated-totals 4.6: the Alpine
+    ``classSection(...)`` factory receives the class's
+    ``current_value`` as a numeric field (NOT undefined).
+    """
+    profile_id = _login_and_select(client, profile_name="Italo")
+    _seed_class_with_position(
+        profile_id=profile_id,
+        class_name="Renda Fixa",
+        target_pct="60.00",
+        asset_name="TESOURO",
+        qty="10",
+        avg="100",
+        cur="110",
+        broker_ticker="TESOURO_2029",
+    )
+
+    r = client.get("/")
+    assert r.status_code == 200, r.text
+    body = r.text
+
+    # Extract the first ``x-data='classSection({...})'`` blob. The
+    # template escapes single-quotes in the JSON via Jinja's |tojson,
+    # so a balanced-brace scan inside the attribute value is safe.
+    attr_match = _re.search(r"x-data='classSection\((\{.*?\})\)'", body, flags=_re.DOTALL)
+    assert attr_match is not None, "classSection x-data blob not found in body"
+    payload = attr_match.group(1)
+    # tojson may emit double-quoted JSON inside single-quoted attr
+    # value. Parse with stdlib json; on failure, dump for triage.
+    try:
+        parsed = _json.loads(payload)
+    except _json.JSONDecodeError as exc:  # pragma: no cover — defensive
+        raise AssertionError(f"classSection JSON malformed: {exc}; payload={payload[:300]!r}")
+    assert "current_value" in parsed, f"current_value missing from classSection JSON: {parsed!r}"
+    assert isinstance(parsed["current_value"], (int, float)), (
+        f"current_value must be numeric, got {type(parsed['current_value']).__name__}: "
+        f"{parsed['current_value']!r}"
+    )
+    # 10 shares @ 110 current_price → 1100.00.
+    assert parsed["current_value"] == pytest.approx(1100.0, abs=0.01), (
+        f"expected current_value ≈ 1100.0, got {parsed['current_value']!r}"
+    )

@@ -67,6 +67,24 @@
 
   /* Hover surface for editable table cells (asset-table-view 5.3). */
   --bg-hover: oklch(0.93 0.003 60);
+
+  /* Single source of truth for asset table column proportions
+     (class-section-consolidated-totals). Read by both the
+     .class-section-header grid-template-columns and the
+     <colgroup> <col> widths — change once, both realign.
+
+     Percentages, not fr units: <col width="X"> only honours
+     length / percentage / auto, not fr; grid-template-columns
+     also accepts percentages, so both consumers resolve to the
+     same value. Sum = 100%. */
+  --col-ativo: 25.5%;
+  --col-classe: 15.3%;
+  --col-qtd: 6.2%;
+  --col-valor: 12.2%;
+  --col-alvo-classe: 10.2%;
+  --col-atual-classe: 10.2%;
+  --col-alvo-total: 10.2%;
+  --col-atual-total: 10.2%;
 }
 
 /* Cycle beyond 6 classes: nth-of-type selectors reuse tokens 1-6.
@@ -180,6 +198,18 @@ header.app-header .main-nav a {
   padding: 0.25rem 0;
 }
 header.app-header .main-nav a:hover { color: var(--accent); }
+/* App-header wordmark — Source Serif 4 display face, sized larger
+   than the legacy 1.1rem and tracked tight for the editorial
+   register the rest of the brand surface uses (see
+   .sidebar-wordmark + .profile-name). */
+header.app-header .app-header-wordmark {
+  font-family: "Source Serif 4", "IBM Plex Serif", Georgia, serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0;
+}
 header.app-header h1 { font-size: 1.1rem; margin: 0; }
 header.app-header .current-profile { color: var(--muted); font-size: 0.9rem; }
 
@@ -841,16 +871,49 @@ p.error, .error {
   border-radius: 8px;
 }
 .class-section-header {
-  display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+  /* class-section-consolidated-totals: 8-col grid mirrors the asset
+     table's <colgroup> widths (driven by the same --col-* CSS
+     variables). Stats sit under their matching <th>; the leading
+     group (chevron + swatch + name + ×) spans cols 1-3.
+     No gap: the table cells use td/th padding for visual separation,
+     and a gap here would shift each cell by 8px from the matching
+     <th> (col 5 is shifted by 4 × 8 = 32px). */
+  display: grid;
+  grid-template-columns:
+    var(--col-ativo) var(--col-classe) var(--col-qtd)
+    var(--col-valor) var(--col-alvo-classe) var(--col-atual-classe)
+    var(--col-alvo-total) var(--col-atual-total);
+  align-items: center;
   margin-bottom: 0.5rem;
   cursor: pointer;
   user-select: none;
 }
+.hdr-leading {
+  grid-column: 1 / span 3;
+  display: flex; align-items: center; gap: 0.6rem;
+}
+.hdr-valor {
+  grid-column: 4;
+  /* Left-aligned so the BRL string sits over the "Valor" column
+     rather than at col 4's right edge (which visually straddles the
+     col 4 / col 5 boundary and reads as "between columns"). */
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.hdr-delta { grid-column: 5; justify-self: start; }
+.hdr-alvo { grid-column: 7; justify-self: start; }
+.hdr-atual { grid-column: 8; justify-self: start; }
 .class-color-swatch {
   display: inline-block; width: 14px; height: 14px;
   border-radius: 3px; flex-shrink: 0;
 }
-.class-section-name { font-weight: 600; font-size: 0.95rem; flex: 1; }
+/* class-section-consolidated-totals: name sits at its natural
+   width so the trailing × button hugs the name (was flex: 1, which
+   pushed × to the right edge of the leading grid slot). min-width
+   0 keeps long names from overflowing the cols 1-3 area; they wrap
+   instead. */
+.class-section-name { font-weight: 600; font-size: 0.95rem; flex: 0 0 auto; min-width: 0; }
 
 /* Class section body collapse animation (S05 T01). Uses
    max-height transition with a generous upper bound so the
@@ -1047,33 +1110,32 @@ p.error, .error {
   border-bottom: 2px solid var(--border);
   font-weight: 600;
   white-space: nowrap;
-  /* fix-asset-table-ui-bugs: animate width so the first-paint
-     (uniform 12.5% per column) transitions smoothly to the spec
-     widths declared in the next block. Also defends against future
-     header text overflow with an ellipsis. */
-  transition: width 200ms ease-out;
   text-overflow: ellipsis;
   overflow: hidden;
 }
-/* fix-asset-table-ui-bugs: explicit column widths so the text
-   columns ("Ativo", "Classe") get enough room for typical Brazilian-
-   portuguese asset/class names, and the numeric columns stay
-   readable without wasting space. Sum = 100%. Centralised here (not
-   inline on the <th>) so the layout survives Jinja template
-   regeneration. */
-.asset-table th:nth-child(1) { width: 24%; } /* Ativo            */
-.asset-table th:nth-child(2) { width: 18%; } /* Classe           */
-.asset-table th:nth-child(3) { width:  6%; } /* Qtd              */
-.asset-table th:nth-child(4) { width: 14%; } /* Valor            */
-.asset-table th:nth-child(5) { width: 11%; } /* Alvo % classe    */
-.asset-table th:nth-child(6) { width: 11%; } /* Atual % classe   */
-.asset-table th:nth-child(7) { width:  9%; } /* Alvo % total     */
-.asset-table th:nth-child(8) { width:  7%; } /* Atual % total    */
+/* class-section-consolidated-totals: column widths are CSS-variable-
+   driven so the header grid and the <colgroup> can both consume
+   the same source. The 24% / 18% / ... percentage table and the
+   `transition: width 200ms` rule from the legacy fix-asset-table-ui-
+   bugs contract are superseded (the fr units below distribute the
+   table's 100% width across the available container width). */
+.asset-table col:nth-child(1) { width: var(--col-ativo); }
+.asset-table col:nth-child(2) { width: var(--col-classe); }
+.asset-table col:nth-child(3) { width: var(--col-qtd); }
+.asset-table col:nth-child(4) { width: var(--col-valor); }
+.asset-table col:nth-child(5) { width: var(--col-alvo-classe); }
+.asset-table col:nth-child(6) { width: var(--col-atual-classe); }
+.asset-table col:nth-child(7) { width: var(--col-alvo-total); }
+.asset-table col:nth-child(8) { width: var(--col-atual-total); }
 
 .asset-table td {
   padding: 0.4rem;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
+  /* class-section-consolidated-totals: long asset names wrap inside
+     the cell instead of forcing column growth (table-layout: fixed
+     honours the <colgroup> widths). */
+  overflow-wrap: break-word;
 }
 
 .asset-table tbody tr:nth-child(even) {
@@ -1343,21 +1405,19 @@ td.editing {
     padding: 0.75rem;
   }
 
-  /* Class header: stack stats below name on small screens */
+  /* Class header: collapse the 8-col grid to 2 cols on narrow
+     screens so the stats wrap below the leading group instead of
+     overflowing horizontally. flex-wrap + flex-direction rules
+     from the legacy layout no longer apply (the header is a grid
+     container now). */
   .class-section-header {
-    flex-wrap: wrap;
-    gap: 0.3rem;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
   }
+  .hdr-leading { grid-column: 1 / -1; }
   .class-section-name {
     min-width: 0;
     font-size: 0.9rem;
-  }
-  .class-section-stats {
-    width: 100%;
-    flex-direction: row;
-    justify-content: flex-start;
-    gap: 0.75rem;
-    margin-left: calc(22px + 1.8rem); /* offset past chevron + swatch */
   }
 
   /* Collapsed body still works — the stats are in the header,
@@ -1524,6 +1584,11 @@ td.editing {
    ============================================================= */
 
 .class-section-delete-btn {
+  /* Mirrors the per-asset × button (`.dashboard-asset-delete-btn`):
+     muted gray by default (discreet — the action is destructive but
+     the affordance should not shout), flips to red on hover to
+     signal what the click does. The confirm dialog still anchors
+     the actual destructive decision. */
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1534,9 +1599,9 @@ td.editing {
   font-size: 1rem;
   font-weight: 400;
   line-height: 1;
-  color: var(--negative);
-  background: color-mix(in srgb, var(--negative) 6%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--negative) 30%, transparent);
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: 4px;
   cursor: pointer;
   flex-shrink: 0;
@@ -1545,8 +1610,8 @@ td.editing {
 
 .class-section-delete-btn:hover {
   color: var(--negative);
-  background: color-mix(in srgb, var(--negative) 14%, var(--surface));
-  border-color: color-mix(in srgb, var(--negative) 55%, transparent);
+  background: var(--error-bg);
+  border-color: color-mix(in srgb, var(--negative) 30%, transparent);
 }
 
 .class-delete-confirm {

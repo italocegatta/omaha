@@ -53,15 +53,20 @@ instead of `R$ 0`.
   inside the leading flex group, NOT a trailing child of the
   header row
 
-#### Scenario: × button stays visible and red after move
+#### Scenario: × button stays visible after move (discreet gray, red on hover)
 
 - **WHEN** the dashboard renders a class section header
 - **THEN** the × button (data-testid="class-delete-btn") is
   visible (the existing visibility contract from
   `dashboard-inline-editing` is unchanged)
-- **AND** the × button's computed `color` is the value of
-  the `--negative` CSS custom property (the existing red
-  treatment is unchanged)
+- **AND** the × button's computed `color` in steady state is
+  the value of the `--muted` CSS custom property (a low-luminance
+  gray — the destructive action is intentionally discreet and
+  mirrors the per-asset × button styling)
+- **AND** the × button's computed `color` flips to the value of
+  the `--negative` CSS custom property on `:hover` (red, with a
+  light-red `var(--error-bg)` background) so the operator sees
+  what the click does before committing
 - **AND** the click handler still opens the
   `.class-delete-confirm` dialog and DELETEs
   `/api/classes/{id}` on confirm (no behaviour change)

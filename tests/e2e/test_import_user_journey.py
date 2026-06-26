@@ -166,7 +166,6 @@ SELECTORS = {
     "login_pass": 'input[name="password"]',
     "login_submit": 'button[type="submit"]',
     "profile_picker": "form.profile-picker button",
-    "nav_dashboard": '[data-testid="nav-dashboard"]',
     "class_summary_row": '[data-testid="class-summary-row"]',
     "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
     # Dashboard import modal
