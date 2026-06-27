@@ -1,0 +1,245 @@
+"""Integration tests for POST /api/rebalance.
+
+Covers the spec §"POST /api/rebalance returns a
+RebalancePlanResponse", §"Request validates contribution greater
+than zero", and §"RebalanceValidationError maps to HTTP 400".
+
+The DB is the session-scoped SQLite from ``tests/conftest.py``.
+Each test wipes the dashboard tables so leftover state from
+sibling tests doesn't leak in.
+
+Session-locality gotcha
+-----------------------
+``omaha.db.SessionLocal`` is bound to the engine at import time.
+``_omaha_test_env`` deletes ``omaha.*`` from ``sys.modules`` and
+re-imports with the test ``DATABASE_URL`` — but the test module's
+local ``SessionLocal`` name (imported at the top of the file) is
+already bound to the OLD engine pointing at the dev DB. The
+helpers below therefore re-import ``omaha.db`` inside the function
+body so they always pick up the fresh ``SessionLocal``.
+"""
+
+from __future__ import annotations
+
+from decimal import Decimal
+
+import pytest
+from fastapi.testclient import TestClient
+
+from omaha.models import Asset, AssetClass, QuoteKind
+
+# Mirror the seed profile owners from test_assets_trade_flags.py.
+_PROFILE_OWNERS = {1: "Italo", 2: "Ana"}
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _wipe_tables(_omaha_test_env: dict[str, str]) -> None:
+    """Wipe classes / assets before each test (via a fresh engine on the test DB)."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    engine = create_engine(_omaha_test_env["db_url"], future=True)
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    db = SessionLocal()
+    try:
+        db.query(Asset).delete()
+        db.query(AssetClass).delete()
+        db.commit()
+    finally:
+        db.close()
+        engine.dispose()
+    yield
+
+
+def _login_and_select(client: TestClient, profile_id: int = 1) -> None:
+    """Log in with seed credentials and bind active_profile_id."""
+    client.post(
+        "/login",
+        data={"username": _PROFILE_OWNERS[profile_id], "password": "test-password"},
+        follow_redirects=False,
+    )
+
+
+def _seed_class(
+    profile_id: int,
+    name: str,
+    target_pct: str,
+    assets: list[tuple[str, str]],
+    _omaha_test_env: dict[str, str] | None = None,
+) -> int:
+    """Create a class + its assets, return the class id."""
+    assert _omaha_test_env is not None
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    engine = create_engine(_omaha_test_env["db_url"], future=True)
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    db = SessionLocal()
+    try:
+        klass = AssetClass(
+            profile_id=profile_id,
+            name=name,
+            target_pct=Decimal(target_pct),
+            display_order=0,
+            quote_kind=QuoteKind.NONE.value,
+        )
+        db.add(klass)
+        db.flush()
+        for index, (asset_name, asset_pct) in enumerate(assets):
+            db.add(
+                Asset(
+                    asset_class_id=klass.id,
+                    name=asset_name,
+                    target_pct=Decimal(asset_pct),
+                    display_order=index,
+                )
+            )
+        db.commit()
+        return klass.id
+    finally:
+        db.close()
+        engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# §"POST /api/rebalance returns a RebalancePlanResponse"
+# ---------------------------------------------------------------------------
+
+
+def test_active_profile_returns_200_with_plan(
+    client: TestClient, _omaha_test_env: dict[str, str]
+) -> None:
+    """A logged-in user with an active profile gets a 200 + plan."""
+    _seed_class(1, "RF", "60", [("Selic", "100")], _omaha_test_env=_omaha_test_env)
+    _seed_class(1, "RV", "40", [("PETR4", "100")], _omaha_test_env=_omaha_test_env)
+
+    _login_and_select(client, profile_id=1)
+
+    response = client.post(
+        "/api/rebalance",
+        json={"contribution": 5000.0},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "asset_plan" in body
+    assert "category_plan" in body
+    assert "metrics" in body
+    assert "warnings" in body
+    assert "applied_policy" in body
+    assert body["metrics"]["contribution"] == 5000.0
+
+
+def test_unauthenticated_request_returns_redirect(client: TestClient) -> None:
+    """An unauthenticated request bounces to /login (303 per require_user)."""
+    response = client.post(
+        "/api/rebalance",
+        json={"contribution": 1000.0},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    assert response.headers["Location"] == "/login"
+
+
+# ---------------------------------------------------------------------------
+# §"Request validates contribution greater than zero"
+# ---------------------------------------------------------------------------
+
+
+def test_zero_contribution_returns_422(client: TestClient) -> None:
+    """``contribution = 0`` returns 422 with the PT-BR validation message."""
+    _login_and_select(client, profile_id=1)
+
+    response = client.post(
+        "/api/rebalance",
+        json={"contribution": 0},
+    )
+
+    assert response.status_code == 422
+
+
+def test_negative_contribution_returns_422(client: TestClient) -> None:
+    """``contribution < 0`` returns 422."""
+    _login_and_select(client, profile_id=1)
+
+    response = client.post(
+        "/api/rebalance",
+        json={"contribution": -100.0},
+    )
+
+    assert response.status_code == 422
+
+
+def test_missing_contribution_returns_422(client: TestClient) -> None:
+    """Missing ``contribution`` returns 422 (Pydantic)."""
+    _login_and_select(client, profile_id=1)
+
+    response = client.post(
+        "/api/rebalance",
+        json={},
+    )
+
+    assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# §"RebalanceValidationError maps to HTTP 400"
+# ---------------------------------------------------------------------------
+
+
+def test_solver_validation_error_returns_400(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, _omaha_test_env: dict[str, str]
+) -> None:
+    """When the solver raises ``RebalanceValidationError``, the route returns 400.
+
+    The bridge itself does NOT raise — Phase 4's solver will. The
+    test injects a solver that raises to exercise the error-mapping
+    branch in the route.
+    """
+    from omaha.rebalance.models import RebalanceValidationError
+
+    _login_and_select(client, profile_id=1)
+    _seed_class(1, "RF", "100", [("Selic", "100")], _omaha_test_env=_omaha_test_env)
+
+    def raising_solver(setup, positions, quotes, contribution):
+        raise RebalanceValidationError("Classes devem somar 100%")
+
+    from omaha.routes import rebalance as rebalance_routes
+    from omaha.rebalance import glue
+
+    monkeypatch.setattr(glue, "stub_solver", raising_solver)
+
+    response = client.post(
+        "/api/rebalance",
+        json={"contribution": 1000.0},
+    )
+
+    assert response.status_code == 400
+    assert "Classes devem somar 100%" in response.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# Empty profile returns 200 + EMPTY_PROFILE warning
+# ---------------------------------------------------------------------------
+
+
+def test_empty_profile_returns_200_with_warning(client: TestClient) -> None:
+    """A profile with zero classes returns 200 + EMPTY_PROFILE warning."""
+    _login_and_select(client, profile_id=1)
+
+    response = client.post(
+        "/api/rebalance",
+        json={"contribution": 1000.0},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["asset_plan"] == []
+    assert body["category_plan"] == []
+    codes = [w["code"] for w in body["warnings"]]
+    assert "EMPTY_PROFILE" in codes

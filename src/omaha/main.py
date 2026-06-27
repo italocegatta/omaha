@@ -54,6 +54,7 @@ from omaha.routes import health as health_routes
 from omaha.routes import imports as imports_routes
 from omaha.routes import pages as pages_routes
 from omaha.routes import quotes as quotes_routes
+from omaha.routes import rebalance as rebalance_routes
 
 _PACKAGE_DIR = Path(__file__).resolve().parent
 _TEMPLATES_DIR = _PACKAGE_DIR / "templates"
@@ -192,6 +193,7 @@ def create_app() -> FastAPI:
     app.include_router(assets_routes.router)
     app.include_router(imports_routes.router)
     app.include_router(quotes_routes.router)
+    app.include_router(rebalance_routes.router)
 
     # ``/static`` is mounted at the package's static directory.
     # The directory must exist for the mount to succeed — the T03

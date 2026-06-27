@@ -82,7 +82,7 @@ class RebalancePlan:
 
 def _fixture_path() -> Path:
     return (
-        Path(__file__).resolve().parents[2]
+        Path(__file__).resolve().parents[3]
         / "tests"
         / "fixtures"
         / "rebalance_stub_fixture.json"
