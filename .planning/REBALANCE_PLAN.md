@@ -268,15 +268,18 @@ com dados mockados enquanto o motor não fica pronto.
 
 ## Ordem de OpenSpec Changes Sugerida
 
-| # | Change | Fase | Gaps | Descrição |
-|---|---|---|---|---|
-| 1 | `asset-trade-flags` | 1 | A, B | Modelo + migration + seeds + UI toggles + PATCH estendido |
-| 2 | `rebalance-infra` | 2 | E, F, G | Builders (setup, position), adapter MarketPriceLookup |
-| 3a | `rebalance-route` | 3 | C, D | Modal de aporte + Alpine store + POST route (pode chamar solver stub) |
-| 3b | `rebalance-engine` | 4 | H | Motor CVXPY + constantes + validação + policy cascade |
-| 4 | `rebalance-results` | 5 | — | Tabela de ordens, métricas, exibição no modal |
+| # | Change | Fase | Gaps | Descrição | Status |
+|---|---|---|---|---|---|
+| 1 | `asset-trade-flags` | 1 | A, B | Modelo + migration + seeds + UI toggles + PATCH estendido | ✅ archived 2026-06-26 |
+| 2 | `rebalance-infra` | 2 | E, F, G | Builders (setup, position), adapter MarketPriceLookup | ✅ archived 2026-06-26 |
+| 3a | `rebalance-route` | 3 | C, D | POST /api/rebalance + Pydantic schemas + glue + solver stub | 🟢 apply-ready (`openspec/changes/rebalance-route/`) |
+| 3b | `rebalance-engine` | 4 | H | Motor CVXPY + constantes + validação + policy cascade | 🔴 não iniciada |
+| 4 | `rebalance-page` | 3b/5 | — | Página `/rebalance` + sidebar "Rebalancear" + Alpine store + tabela | 🔴 não iniciada (consome o contrato definido em 3a) |
 
-Changes 3a e 3b podem ser paralelizadas técnica e temporalmente.
+**Divisão Fase 3 / Fase 5:** a UI foi separada da rota (3a é puro backend + contrato JSON; 4 é UI que consome o contrato). Justificativa em `openspec/changes/rebalance-route/design.md` Decision 1 e `proposal.md` "Next change".
+
+Changes 3a, 3b e 4 podem ser paralelizadas técnica e temporalmente
+(3a define o contrato, 3b é independente, 4 depende apenas de 3a).
 
 ## Riscos e Observações
 
