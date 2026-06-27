@@ -82,10 +82,7 @@ class RebalancePlan:
 
 def _fixture_path() -> Path:
     return (
-        Path(__file__).resolve().parents[3]
-        / "tests"
-        / "fixtures"
-        / "rebalance_stub_fixture.json"
+        Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "rebalance_stub_fixture.json"
     )
 
 
@@ -96,19 +93,11 @@ def _load_fixture() -> dict:
 def _to_plan(data: dict) -> RebalancePlan:
     return RebalancePlan(
         contribution=float(data["contribution"]),
-        asset_classes=[
-            RebalanceAssetClassNative(**cls) for cls in data["asset_classes"]
-        ],
-        asset_plan=[
-            RebalanceAssetPlanRowNative(**asset) for asset in data["assets"]
-        ],
-        category_plan=[
-            RebalanceCategoryPlanRowNative(**cat) for cat in data["category_plan"]
-        ],
+        asset_classes=[RebalanceAssetClassNative(**cls) for cls in data["asset_classes"]],
+        asset_plan=[RebalanceAssetPlanRowNative(**asset) for asset in data["assets"]],
+        category_plan=[RebalanceCategoryPlanRowNative(**cat) for cat in data["category_plan"]],
         metrics=RebalancePlanMetricsNative(**data["metrics"]),
-        warnings=[
-            RebalanceWarningNative(**warning) for warning in data["warnings"]
-        ],
+        warnings=[RebalanceWarningNative(**warning) for warning in data["warnings"]],
         applied_policy=data["applied_policy"],
     )
 
@@ -131,9 +120,7 @@ def stub_solver(
     deterministic output.
     """
     if setup.assets.empty and setup.categories.empty:
-        raise ValueError(
-            "empty profile: assets and categories are both empty"
-        )
+        raise ValueError("empty profile: assets and categories are both empty")
 
     data = _load_fixture()
     data["metrics"]["contribution"] = float(contribution)

@@ -43,7 +43,9 @@ from omaha.rebalance.schemas import RebalancePlanResponse, RebalanceRequest
 router = APIRouter(tags=["rebalance"])
 
 
-@router.post("/api/rebalance", response_model=RebalancePlanResponse, response_model_exclude_none=False)
+@router.post(
+    "/api/rebalance", response_model=RebalancePlanResponse, response_model_exclude_none=False
+)
 def post_rebalance(
     payload: RebalanceRequest,
     db: DbSession,
