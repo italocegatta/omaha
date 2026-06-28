@@ -299,12 +299,30 @@ session-scoped).
 
 ## Delivery finalization — restart + ready-to-test
 
-Run the full checklist before reporting any browser-visible change as
-done. **Use the `refresh-for-test` skill** — it owns the recipe
-(restart uvicorn → smoke-check `/healthz` → pick DB task → verify row
-counts → visual dashboard check → report LAN URL + DB state) and uses
-`taskipy` tasks (`db-migrate` / `db-reset` / `db-clear-assets` /
-`db-seed`) per the table below.
+Run the full checklist before reporting **ANY** browser-visible change
+as done — including follow-up patches and layout fixes, not just the
+initial delivery. **Use the `refresh-for-test` skill** — it owns the
+recipe (restart uvicorn → smoke-check `/healthz` → pick DB task →
+verify row counts → visual dashboard check → report LAN URL + DB state)
+and uses `taskipy` tasks (`db-migrate` / `db-reset` / `db-clear-assets`
+/ `db-seed`) per the table below.
+
+**Rule:** the recipe runs in full after every browser-visible change.
+A follow-up patch that "just fixes CSS" still needs:
+1. `uv run task db-reset` (the DB might have been wiped during
+   empty-state testing — and usually was).
+2. Restart uvicorn (Jinja may serve stale template bytes without
+   reload; CSS definitely needs a fresh request).
+3. Smoke `curl $URL/healthz`.
+4. Verify the rendered page contains seeded class names
+   (`curl -b cookie "$URL/" | grep -c "RF Din"`).
+5. Report LAN URL + DB row counts in the final message.
+
+**Skipping any step is a delivery failure.** The user opens the URL,
+sees an empty dashboard (because the DB was wiped during the agent's
+own testing), and concludes the feature is broken. The user has had
+to ask "run db-reset" repeatedly across sessions — this rule is the
+hard barrier. If the recipe feels redundant, run it anyway.
 
 **Rule of thumb:** default for delivery = **populated** (`db-reset` →
 Italo: 6 classes + 48 assets + 47 positions) unless the user explicitly
