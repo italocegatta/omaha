@@ -17,10 +17,10 @@ Error mapping
 ``RebalanceValidationError`` (raised by the solver's
 ``_validate_rebalance_inputs``) maps to HTTP 400 with the
 validation message in ``detail``. Pydantic validation errors
-(e.g. ``contribution <= 0``) map to 422 via FastAPI's default
-exception handler. Any other exception propagates to FastAPI's
-default 500 handler — the route does NOT catch generic exceptions
-(no stack-trace leakage in the response).
+(missing field, non-finite float) map to 422 via FastAPI's
+default exception handler. Any other exception propagates to
+FastAPI's default 500 handler — the route does NOT catch generic
+exceptions (no stack-trace leakage in the response).
 
 Stateless
 ---------
@@ -32,7 +32,6 @@ for any client-side caching of the last plan if desired.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 
 from omaha.auth import DbSession, require_active_profile, require_user
 from omaha.models import Profile, User

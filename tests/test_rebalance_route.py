@@ -147,12 +147,17 @@ def test_unauthenticated_request_returns_redirect(client: TestClient) -> None:
 
 
 # ---------------------------------------------------------------------------
-# §"Request validates contribution greater than zero"
+# §"Request validates contribution as a finite float"
 # ---------------------------------------------------------------------------
 
 
-def test_zero_contribution_returns_422(client: TestClient) -> None:
-    """``contribution = 0`` returns 422 with the PT-BR validation message."""
+def test_zero_contribution_renders_plan(client: TestClient) -> None:
+    """``contribution = 0`` returns 200 with the populated plan.
+
+    rebalance-page contract extension: zero is a valid rebalance-only
+    scenario (no new money, just reallocation). Previously rejected
+    with 422 by ``Field(gt=0)``; now accepted.
+    """
     _login_and_select(client, profile_id=1)
 
     response = client.post(
@@ -160,11 +165,19 @@ def test_zero_contribution_returns_422(client: TestClient) -> None:
         json={"contribution": 0},
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 200
+    body = response.json()
+    assert body["metrics"]["contribution"] == 0.0
 
 
-def test_negative_contribution_returns_422(client: TestClient) -> None:
-    """``contribution < 0`` returns 422."""
+def test_negative_contribution_renders_plan(client: TestClient) -> None:
+    """``contribution < 0`` returns 200 with the populated plan.
+
+    rebalance-page contract extension: negative is accepted
+    server-side (withdrawal support in Phase 4). The page gates this
+    client-side for v1; the route stays permissive for forward
+    compatibility with the CVXPY solver.
+    """
     _login_and_select(client, profile_id=1)
 
     response = client.post(
@@ -172,7 +185,19 @@ def test_negative_contribution_returns_422(client: TestClient) -> None:
         json={"contribution": -100.0},
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 200
+    body = response.json()
+    assert body["metrics"]["contribution"] == -100.0
+
+
+# Note: NaN / Infinity coverage for the contract lives in
+# ``tests/test_rebalance_schemas.py::test_request_rejects_nan_contribution``
+# and ``test_request_rejects_infinity_contribution`` — the Pydantic
+# validator is the boundary that matters, and the schema tests exercise
+# it directly without having to round-trip a non-JSON-compliant value
+# through Starlette's JSONResponse encoder (which would raise a
+# separate error in the error-rendering path before the test could
+# assert 422).
 
 
 def test_missing_contribution_returns_422(client: TestClient) -> None:
@@ -209,7 +234,6 @@ def test_solver_validation_error_returns_400(
     def raising_solver(setup, positions, quotes, contribution):
         raise RebalanceValidationError("Classes devem somar 100%")
 
-    from omaha.routes import rebalance as rebalance_routes
     from omaha.rebalance import glue
 
     monkeypatch.setattr(glue, "stub_solver", raising_solver)

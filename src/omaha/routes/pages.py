@@ -1,4 +1,4 @@
-"""Protected pages: dashboard, profile selection.
+"""Protected pages: dashboard, profile selection, rebalance.
 
 Routing contract
 ----------------
@@ -11,6 +11,19 @@ Routing contract
   but accepts ANY profile id (any user can view any profile — the
   prior ``profile.user_id != user.id`` 404 check is gone). Sets
   ``active_profile_id`` in the session and redirects to ``/``.
+- ``GET /rebalance`` — requires a logged-in user with an active
+  profile. Renders the empty placeholder for the rebalance page
+  (``rebalance.html``). When the active profile has zero classes,
+  the main area renders the empty-state card instead; the sidebar
+  form is present but inert (form fields carry the ``disabled``
+  attribute). See ``rebalance.html`` for the layout.
+- ``POST /rebalance`` — same auth gate. Reads ``contribution`` from
+  the form body, runs ``rebalance.glue.run_rebalance``, and
+  re-renders ``rebalance.html`` with the resulting plan in context.
+  No JSON wire trip — the page is server-side rendered, the same
+  URL is reused (no PRG redirect). Solver validation failures
+  (``RebalanceValidationError``) re-render the page with an inline
+  ``form_error``; the route never returns 400 for that case.
 
 The header chip (base.html) drives the select endpoint via a native
 ``<select>``: when the operator picks a different profile, the form's
@@ -21,20 +34,27 @@ The dashboard template inherits a Jinja context that always carries
 ``profiles`` (every profile in the DB, in ``display_order`` order),
 ``viewer`` (the logged-in ``User``), and ``owner`` (the active
 ``Profile``) so the header chip + viewer label can render without
-any extra round-trip per route.
+any extra round-trip per route. The rebalance page extends that
+context with ``plan`` (the ``RebalancePlanResponse`` or ``None``),
+``zero_classes`` (bool), and ``sidebar_inert`` (bool — the form is
+disabled when the profile has zero classes).
 """
 
 from __future__ import annotations
 
+import math
 from decimal import Decimal
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import selectinload
 
 from omaha.auth import DbSession, get_active_profile, require_user
 from omaha.models import Asset, AssetClass, Profile, User
+from omaha.rebalance.glue import run_rebalance
+from omaha.rebalance.models import RebalanceValidationError
+from omaha.rebalance.schemas import RebalancePlanResponse
 
 router = APIRouter(tags=["pages"])
 
@@ -138,6 +158,159 @@ def select_profile(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     request.session["active_profile_id"] = profile.id
     return RedirectResponse("/", status_code=303)
+
+
+def _load_asset_classes(db: DbSession, profile: Profile) -> list[AssetClass]:
+    """Load the active profile's ``AssetClass`` rows (ordered, no nested eager).
+
+    Used by both the dashboard index and the rebalance page to detect
+    the zero-classes state. The dashboard path still eager-loads
+    assets + positions because it needs the per-asset data; the
+    rebalance page only needs the row count, so we skip the eager
+    load to keep ``GET /rebalance`` cheap.
+    """
+    return (
+        db.query(AssetClass)
+        .filter(AssetClass.profile_id == profile.id)
+        .order_by(AssetClass.display_order)
+        .all()
+    )
+
+
+def _render_rebalance(
+    request: Request,
+    db: DbSession,
+    user: User,
+    profile: Profile,
+    *,
+    plan: RebalancePlanResponse | None = None,
+    form_error: str | None = None,
+) -> Response:
+    """Build the Jinja context for ``rebalance.html`` and render it.
+
+    Centralises the shared context assembly so GET and POST use the
+    same path. ``plan`` is the resolved plan (or ``None`` for the
+    initial placeholder); ``form_error`` is the inline error string
+    when the POST hit a validation failure (non-finite contribution
+    or solver validation error).
+
+    The plan object passed to Jinja is the Pydantic model itself so
+    the template can access typed fields (``plan.metrics.contribution``,
+    ``plan.warnings``). The Alpine ``rebalancePage({plan: ...})``
+    initializer uses a ``tojson``-serialized dump via the template —
+    the template references ``plan`` (the model) for server-side
+    rendering and ``plan_dict`` (the dict) for the Alpine store.
+    """
+    asset_classes = _load_asset_classes(db, profile)
+    zero_classes = len(asset_classes) == 0
+    context = _common_context(request, db, user, profile)
+    context.update(
+        {
+            "plan": plan,
+            "plan_dict": plan.model_dump(mode="json") if plan is not None else None,
+            "zero_classes": zero_classes,
+            "sidebar_inert": zero_classes,
+            "form_error": form_error,
+            "contribution": plan.metrics.contribution if plan is not None else None,
+        }
+    )
+    return _templates(request).TemplateResponse(request, "rebalance.html", context)
+
+
+@router.get("/rebalance", response_class=HTMLResponse, response_model=None)
+def get_rebalance(
+    request: Request,
+    db: DbSession,
+    user: User = Depends(require_user),
+) -> Response:
+    """Render the rebalance page in its placeholder state.
+
+    When the active profile has zero classes, the main area renders
+    the empty-state card. Otherwise it renders the "defina um aporte"
+    placeholder. The sidebar form is present in both cases; it is
+    disabled only when the profile has zero classes (the operator
+    must create a class first via the dashboard's "+ Nova classe"
+    button).
+    """
+    profile = get_active_profile(request, db)
+    if profile is None:
+        request.session.pop("active_profile_id", None)
+        return RedirectResponse("/login", status_code=303)
+    return _render_rebalance(request, db, user, profile)
+
+
+@router.post("/rebalance", response_class=HTMLResponse, response_model=None)
+def post_rebalance(
+    request: Request,
+    db: DbSession,
+    user: User = Depends(require_user),
+    contribution: str = Form(default=""),
+) -> Response:
+    """Run the rebalance pipeline and re-render the page with the plan.
+
+    ``contribution`` is bound as a raw string because the wire
+    boundary (HTML form) is untyped — we parse it here so a
+    malformed value surfaces as ``form_error="Valor inválido..."``
+    instead of a 422 (the JSON route owns the 422; the page flow is
+    fully render-driven and never produces a 4xx response once the
+    user is authenticated).
+
+    Server-side accepts any finite float (positive, zero, negative)
+    per the ``rebalance-route`` contract extension; the page itself
+    gates ``contribution < 0`` client-side for v1 (withdrawal is a
+    Phase 4 feature). Solver validation failures map to
+    ``form_error`` with the validation message verbatim — the page
+    re-renders, no redirect, no 4xx.
+    """
+    profile = get_active_profile(request, db)
+    if profile is None:
+        request.session.pop("active_profile_id", None)
+        return RedirectResponse("/login", status_code=303)
+
+    # Empty / missing contribution field — distinct from "0" which is
+    # a valid rebalance-only scenario. Mirror the JSON route's 422
+    # path inline so the user sees the same copy on the page.
+    if contribution is None or contribution.strip() == "":
+        return _render_rebalance(
+            request,
+            db,
+            user,
+            profile,
+            form_error="Informe um valor de aporte (em R$).",
+        )
+
+    try:
+        parsed = float(contribution)
+    except ValueError:
+        return _render_rebalance(
+            request,
+            db,
+            user,
+            profile,
+            form_error="Valor inválido. Use um número finito.",
+        )
+
+    if not math.isfinite(parsed):
+        return _render_rebalance(
+            request,
+            db,
+            user,
+            profile,
+            form_error="Valor inválido. Use um número finito.",
+        )
+
+    try:
+        plan = run_rebalance(db, profile, parsed)
+    except RebalanceValidationError as exc:
+        return _render_rebalance(
+            request,
+            db,
+            user,
+            profile,
+            form_error=str(exc),
+        )
+
+    return _render_rebalance(request, db, user, profile, plan=plan)
 
 
 __all__ = ["router", "portfolio_aggregates"]

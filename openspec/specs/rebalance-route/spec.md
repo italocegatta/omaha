@@ -31,11 +31,13 @@ matching every other JSON route in the project.
 
 - **WHEN** the authenticated user has an active profile with at least
   one `AssetClass` and one `Asset`, and `POST /api/rebalance` is called
-  with `{"contribution": 5000.00}`
+  with `{"contribution": 0}`
 - **THEN** the response is HTTP 200 with a `RebalancePlanResponse`
   whose `asset_plan` length equals the number of `Asset` rows in the
   profile, whose `category_plan` length equals the number of
-  `AssetClass` rows, and whose `metrics.contribution` equals `5000.00`
+  `AssetClass` rows, and whose `metrics.contribution` equals `0.00`
+  (zero is the canonical rebalance-only case — no new money, just
+  reallocation)
 
 #### Scenario: Unauthenticated request returns 401
 
@@ -50,28 +52,61 @@ matching every other JSON route in the project.
 - **THEN** the response is HTTP 400 (FastAPI default for
   `require_active_profile` failure)
 
-### Requirement: Request validates contribution greater than zero
+### Requirement: Request validates contribution as a finite float
 
-The system SHALL reject `contribution <= 0` with HTTP 422 and a
-`detail` message stating that the aporte must be greater than zero.
+The system SHALL accept `contribution` as any finite float (positive,
+zero, or negative). The system SHALL reject `NaN` and `Infinity` (and
+`-Infinity`) with HTTP 422 and a `detail` message stating that the
+aporte must be a finite number.
 
-#### Scenario: Zero contribution returns 422
+A missing `contribution` field SHALL be rejected with HTTP 422
+(Pydantic required-field error).
 
-- **WHEN** `POST /api/rebalance` is called with `{"contribution": 0}`
-- **THEN** the response is HTTP 422 with `detail` containing
-  `"Aporte deve ser maior que zero"`
+*(This requirement replaces "Request validates contribution greater
+than zero" — zero is now valid for rebalance-only plans; negative is
+permitted for future withdrawal support. The page gates
+`contribution < 0` client-side with explanatory copy, but the server
+contract stays permissive.)*
 
-#### Scenario: Negative contribution returns 422
+#### Scenario: Positive contribution renders the plan
 
 - **WHEN** `POST /api/rebalance` is called with
-  `{"contribution": -100.00}`
-- **THEN** the response is HTTP 422 with `detail` containing
-  `"Aporte deve ser maior que zero"`
+  `{"contribution": 5000.00}`
+- **THEN** the response is HTTP 200 with the populated
+  `RebalancePlanResponse`
+
+#### Scenario: Zero contribution renders the plan
+
+- **WHEN** `POST /api/rebalance` is called with `{"contribution": 0}`
+- **THEN** the response is HTTP 200 with the populated
+  `RebalancePlanResponse` (rebalance-only — no new money, just
+  reallocation)
+
+#### Scenario: Negative contribution renders the plan
+
+- **WHEN** `POST /api/rebalance` is called with
+  `{"contribution": -1000.00}`
+- **THEN** the response is HTTP 200 with the populated
+  `RebalancePlanResponse` (withdrawal; the page gates this
+  client-side for v1, but the route is permissive in preparation for
+  the CVXPY solver's withdrawal support)
+
+#### Scenario: NaN contribution returns 422
+
+- **WHEN** `POST /api/rebalance` is called with
+  `{"contribution": NaN}` (Pydantic rejects via JSON parsing)
+- **THEN** the response is HTTP 422
+
+#### Scenario: Infinity contribution returns 422
+
+- **WHEN** `POST /api/rebalance` is called with
+  `{"contribution": Infinity}` (or `"-Infinity"` as a string)
+- **THEN** the response is HTTP 422
 
 #### Scenario: Missing contribution field returns 422
 
 - **WHEN** `POST /api/rebalance` is called with `{}`
-- **THEN** the response is HTTP 422 (Pydantic validation error)
+- **THEN** the response is HTTP 422 (Pydantic required-field error)
 
 ### Requirement: Wire format exposes a v1 subset of the solver's native output
 

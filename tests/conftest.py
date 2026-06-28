@@ -181,6 +181,7 @@ _INTEGRATION_PREFIXES = (
     "tests/test_real_csv_flow.py",
     "tests/test_rebalance_builders.py",
     "tests/test_rebalance_glue.py",
+    "tests/test_rebalance_page.py",
     "tests/test_rebalance_route.py",
     "tests/test_rebalance_schemas.py",
     "tests/test_market_prices_adapter.py",

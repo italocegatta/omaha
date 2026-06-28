@@ -33,6 +33,49 @@
       });
     });
   </script>
+  <script>
+    /* rebalance-page — the sidebar "Rebalancear" form component.
+       Defined on the base template (not on rebalance.html) because
+       the sidebar form is included in every authenticated page
+       (dashboard + /rebalance). The validate() handler gates
+       ``contribution < 0`` client-side for v1 (the server accepts
+       negative for Phase 4 withdrawal support, but the page UI is
+       more restrictive — see openspec/changes/rebalance-page
+       Decision 3 + Decision 9). */
+    document.addEventListener('alpine:init', function () {
+      window.rebalanceForm = function (initial) {
+        return {
+          contribution: '',
+          computing: false,
+          error: '',
+          inert: !!(initial && initial.inert),
+          validate: function (event) {
+            this.error = '';
+            var raw = this.contribution;
+            if (raw === '' || raw === null || raw === undefined) {
+              // Browser's native ``required`` attribute handles this.
+              return;
+            }
+            var parsed = Number(raw);
+            if (!isFinite(parsed)) {
+              event.preventDefault();
+              this.error = 'Valor inválido. Use um número finito.';
+              return;
+            }
+            if (parsed < 0) {
+              event.preventDefault();
+              this.error =
+                'Saques serão suportados em versão futura. Por enquanto, ' +
+                'deixe o aporte em zero ou positivo.';
+              return;
+            }
+            // Submission proceeds; the server picks the form up and
+            // re-renders the page. No client-side fetch.
+          },
+        };
+      };
+    });
+  </script>
 </head>
 <body @keydown.escape.window="$store.sidebar.close()">
   <header class="app-header">

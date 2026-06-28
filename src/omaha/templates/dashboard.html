@@ -1,50 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
-{# dashboard-action-sidebar — mobile backdrop lives outside the grid
-   so it covers the whole viewport when the drawer opens. #}
-<div class="app-sidebar-backdrop"
-     data-testid="app-sidebar-backdrop"
-     x-show="$store.sidebar.open"
-     @click="$store.sidebar.close()"
-     x-cloak></div>
+{# dashboard-action-sidebar — sidebar lives in _sidebar.html so the
+   dashboard and /rebalance share the same markup (including the
+   "Rebalancear" form). The include renders BOTH the mobile backdrop
+   (sibling to .dashboard, so it covers the whole viewport) AND the
+   <aside> (first column of the .dashboard grid). #}
+{% include "_sidebar.html" %}
 
 <div class="dashboard">
-  <aside class="app-sidebar"
-         data-testid="app-sidebar"
-         id="app-sidebar"
-         x-data
-         :class="$store.sidebar.open ? 'app-sidebar--open' : ''">
-    <h2 class="sidebar-wordmark"
-        data-testid="sidebar-wordmark">{{ profile.name }}</h2>
-
-    <button type="button"
-            class="sidebar-action"
-            data-testid="dashboard-import-btn"
-            x-data
-            :aria-current="$store.importModal.open ? 'true' : null"
-            @click="$store.importModal.openModal()">
-      Importar CSV
-    </button>
-
-    <button type="button"
-            class="sidebar-action"
-            data-testid="dashboard-add-asset-open"
-            x-data
-            :aria-current="$store.addAssetModal.open ? 'true' : null"
-            @click="$store.addAssetModal.openModal()">
-      + Novo ativo
-    </button>
-
-    <button type="button"
-            class="sidebar-action"
-            data-testid="empty-state-create-class"
-            x-data
-            :aria-current="$store.newClassModal.open ? 'true' : null"
-            @click="$store.newClassModal.openModal()">
-      + Nova classe
-    </button>
-  </aside>
-
   <div class="dashboard-card">
 
   {% if asset_classes %}

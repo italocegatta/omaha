@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Rebalancear — Omaha{% endblock %}
+{% block content %}
+{# rebalance-page — server-side rendered plan on /rebalance. The
+   sidebar (with the "Aporte" form) is shared with the dashboard via
+   the _sidebar.html include. The main card switches between three
+   states based on Jinja context:
+     * zero_classes: empty-state card (no AssetClass rows in profile)
+     * plan is None: placeholder card (no aporte submitted yet)
+     * plan present: full plan layout (metric cards, warnings, table) #}
+{% include "_sidebar.html" %}
+
+<div class="dashboard">
+  <div class="dashboard-card rebalance-card"
+       data-testid="rebalance-card">
+
+    <nav class="rebalance-nav"
+         data-testid="rebalance-nav"
+         aria-label="Navegação do plano de aporte">
+      <a href="/"
+         class="rebalance-nav-link"
+         data-testid="rebalance-nav-dashboard">← Dashboard</a>
+      <span class="rebalance-nav-link rebalance-nav-link--active"
+            data-testid="rebalance-nav-plan">Plano de aporte</span>
+    </nav>
+
+    {# Inline form-error banner — rendered above the placeholder / plan
+       / empty-state card so the operator sees the validation message
+       no matter which state the page is in. #}
+    {% if form_error %}
+    <div class="rebalance-form-error-banner"
+         data-testid="rebalance-form-error"
+         role="alert">
+      {{ form_error }}
+    </div>
+    {% endif %}
+
+    {% if zero_classes %}
+      {% include "_rebalance_empty.html" %}
+    {% elif plan is none %}
+      {% include "_rebalance_placeholder.html" %}
+    {% else %}
+      {% include "_rebalance_plan.html" %}
+    {% endif %}
+
+  </div>
+</div>
+
+<script>
+  // rebalance-page Alpine scope. Local component (no global store) —
+  // the page is self-contained: the sidebar form submits via plain
+  // HTML form POST and the plan arrives via server-side render.
+  // Alpine only owns the asset-plan table sort state.
+  //
+  // The plan payload is serialised into a <script type="application/json">
+  // element rendered by the partial template; we lift it to
+  // ``window.__rebalancePlan`` before Alpine initialises so the
+  // ``rebalancePage({ plan: ... })`` factory receives it. We can't
+  // inline the JSON into the ``x-data`` attribute directly because
+  // Jinja's ``tojson`` filter escapes ``"`` as ``\"`` (JSON
+  // convention), which HTML parsers don't recognise — the attribute
+  // closes at the first inner ``"`` and the rest leaks into the DOM
+  // as malformed attributes.
+  (function () {
+    var dataEl = document.querySelector('[data-testid="rebalance-plan-data"]');
+    if (dataEl) {
+      try {
+        window.__rebalancePlan = JSON.parse(dataEl.textContent);
+      } catch (e) {
+        console.error('rebalance-plan-data parse failed', e);
+        window.__rebalancePlan = { asset_plan: [], category_plan: [], metrics: {}, warnings: [], applied_policy: 'unknown' };
+      }
+    } else {
+      window.__rebalancePlan = { asset_plan: [], category_plan: [], metrics: {}, warnings: [], applied_policy: 'unknown' };
+    }
+  })();
+
+  document.addEventListener('alpine:init', function () {
+    // Sort comparator factory mirroring ``dashboard.html``'s
+    // ``sortFn`` pattern: numeric fields compare numerically,
+    // strings case-insensitively, ties break by ``asset_key`` so the
+    // order is stable across re-sorts. Action label is the
+    // human-readable translation — sort uses the raw enum string so
+    // 'buy' < 'hold' < 'sell' alphabetically (a stable, predictable
+    // ordering that won't surprise the operator).
+    function rebalanceSortFn(key, dir) {
+      var NUMERIC_KEYS = {
+        current_value: 1,
+        target_value: 1,
+        buy_amount: 1,
+        sell_amount: 1,
+        projected_value: 1,
+      };
+      return function (a, b) {
+        var cmp = 0;
+        if (key in NUMERIC_KEYS) {
+          var av = Number(a[key]) || 0;
+          var bv = Number(b[key]) || 0;
+          cmp = av - bv;
+        } else {
+          cmp = String(a[key] || '').localeCompare(String(b[key] || ''));
+        }
+        if (cmp === 0) {
+          cmp = String(a.asset_key || '').localeCompare(String(b.asset_key || ''));
+        }
+        return dir === 'asc' ? cmp : -cmp;
+      };
+    }
+
+    window.rebalancePage = function (initial) {
+      return {
+        plan: initial.plan,
+        sortKey: 'category_name',
+        sortDir: 'asc',
+        displayRows: [],
+        init: function () {
+          this.displayRows = this.plan.asset_plan.slice();
+        },
+        sortBy: function (key) {
+          if (this.sortKey === key) {
+            this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+          } else {
+            this.sortKey = key;
+            this.sortDir = 'asc';
+          }
+          this.displayRows = this.plan.asset_plan.slice().sort(
+            rebalanceSortFn(this.sortKey, this.sortDir)
+          );
+        },
+        sortIndicator: function (key) {
+          if (this.sortKey !== key) return '';
+          return this.sortDir === 'asc' ? '↑' : '↓';
+        },
+        actionLabel: function (action) {
+          if (action === 'buy') return 'Comprar';
+          if (action === 'sell') return 'Vender';
+          return 'Manter';
+        },
+        formatBRL: function (value) {
+          var n = Number(value) || 0;
+          return n.toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+          });
+        },
+      };
+    };
+  });
+</script>
+{% endblock %}

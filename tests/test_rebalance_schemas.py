@@ -90,16 +90,30 @@ def _sample_plan() -> RebalancePlanResponse:
 # ---------------------------------------------------------------------------
 
 
-def test_request_rejects_zero_contribution() -> None:
-    """``contribution <= 0`` must raise ValidationError (Pydantic)."""
-    with pytest.raises(ValidationError):
-        RebalanceRequest(contribution=0)
+def test_request_accepts_zero_contribution() -> None:
+    """``contribution = 0`` is accepted (rebalance-only case)."""
+    req = RebalanceRequest(contribution=0)
+    assert req.contribution == 0
 
 
-def test_request_rejects_negative_contribution() -> None:
-    """``contribution < 0`` must raise ValidationError (Pydantic)."""
+def test_request_accepts_negative_contribution() -> None:
+    """``contribution < 0`` is accepted (withdrawal; gated client-side)."""
+    req = RebalanceRequest(contribution=-100.0)
+    assert req.contribution == -100.0
+
+
+def test_request_rejects_nan_contribution() -> None:
+    """``NaN`` must raise ValidationError (Pydantic finite-float guard)."""
     with pytest.raises(ValidationError):
-        RebalanceRequest(contribution=-100.0)
+        RebalanceRequest.model_validate({"contribution": float("nan")})
+
+
+def test_request_rejects_infinity_contribution() -> None:
+    """``Infinity`` and ``-Infinity`` must raise ValidationError."""
+    with pytest.raises(ValidationError):
+        RebalanceRequest.model_validate({"contribution": float("inf")})
+    with pytest.raises(ValidationError):
+        RebalanceRequest.model_validate({"contribution": float("-inf")})
 
 
 def test_request_rejects_missing_field() -> None:

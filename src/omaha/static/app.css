@@ -2199,3 +2199,445 @@ td.editing {
   border-radius: 4px;
   font-size: 0.85rem;
 }
+
+/* =============================================================
+   rebalance-page — /rebalance plan layout
+   Reuses dashboard tokens (--surface, --border, --ink,
+   --ink-muted, --positive, --negative, --accent, --alert-warn,
+   --bg-hover). No new color tokens introduced.
+   ============================================================= */
+
+.rebalance-card {
+  /* Reuses .dashboard-card shape — same surface + border + radius.
+     The inner layout adds the nav row, the metric grid, and the
+     sortable table. */
+}
+
+.rebalance-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.rebalance-nav-link {
+  color: var(--ink-muted);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.rebalance-nav-link:hover {
+  color: var(--accent);
+}
+
+.rebalance-nav-link--active {
+  color: var(--ink);
+  font-weight: 600;
+  cursor: default;
+}
+
+/* Inline form-error banner (shown when the POST handler hit a
+   validation failure — malformed aporte, solver error). */
+.rebalance-form-error-banner {
+  margin: 0 0 1rem 0;
+  padding: 0.5rem 0.75rem;
+  background: var(--error-bg);
+  color: var(--error-fg);
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.rebalance-plan-summary {
+  margin-bottom: 1rem;
+}
+
+.rebalance-plan-summary-line {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+}
+
+.rebalance-plan-summary-label {
+  margin-right: 0.35rem;
+}
+
+.rebalance-plan-summary-policy {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  background: var(--bg-hover);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  color: var(--ink);
+}
+
+/* Stub banner (only rendered when applied_policy is the fixture v1). */
+.rebalance-stub-banner {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-sunk);
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+}
+
+.rebalance-stub-banner > summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.rebalance-stub-banner > summary > code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  background: var(--surface);
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+.rebalance-stub-banner p {
+  margin: 0.5rem 0 0 0;
+}
+
+/* Warnings panel (only rendered when warnings is non-empty). */
+.rebalance-warnings {
+  margin: 0 0 1rem 0;
+  padding: 0.5rem 0.75rem;
+  background: color-mix(in srgb, var(--alert-warn) 12%, transparent);
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--alert-warn) 35%, transparent);
+}
+
+.rebalance-warnings-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.rebalance-warnings-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  list-style: disc;
+}
+
+.rebalance-warnings-item {
+  font-size: 0.85rem;
+  color: var(--ink);
+  margin-bottom: 0.25rem;
+}
+
+.rebalance-warnings-code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  background: var(--surface);
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  margin-right: 0.4rem;
+}
+
+/* 6 metric cards in a 3x2 grid. */
+.rebalance-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.rebalance-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface-sunk);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.rebalance-stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-muted);
+  font-weight: 500;
+}
+
+.rebalance-stat-value {
+  font-family: "Source Serif 4", "IBM Plex Serif", Georgia, serif;
+  font-weight: 600;
+  font-size: 1.15rem;
+  color: var(--ink);
+}
+
+/* Sortable table — mirrors .asset-table's hairline style. */
+.rebalance-section-title {
+  margin: 1rem 0 0.5rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.rebalance-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.rebalance-table-th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface-sunk);
+  border-bottom: 1px solid var(--border);
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  user-select: none;
+}
+
+.rebalance-table-th:hover {
+  background: var(--bg-hover);
+}
+
+.rebalance-table-th--num {
+  text-align: right;
+}
+
+.rebalance-table-th-label {
+  margin-right: 0.25rem;
+}
+
+.rebalance-table-th-indicator {
+  display: inline-block;
+  min-width: 0.75rem;
+  color: var(--accent);
+}
+
+.rebalance-asset-cell,
+.rebalance-category-cell {
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+}
+
+.rebalance-asset-cell--num,
+.rebalance-category-cell--num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.rebalance-category-cell--pos {
+  color: var(--positive);
+}
+
+.rebalance-category-cell--neg {
+  color: var(--negative);
+}
+
+.rebalance-asset-row:last-child .rebalance-asset-cell,
+.rebalance-category-row:last-child .rebalance-category-cell {
+  border-bottom: none;
+}
+
+.rebalance-asset-cell--action {
+  text-align: center;
+}
+
+/* Action badge — square (border-radius 4px), bg-color 12% opacity,
+   ink-strong. Matches the empty-state aesthetic (radius 4px). */
+.rebalance-action-badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.rebalance-action-badge--buy {
+  background: color-mix(in srgb, var(--positive) 12%, transparent);
+  color: var(--positive-ink);
+  background-color: color-mix(in srgb, var(--positive) 18%, var(--surface));
+  color: var(--positive);
+}
+
+.rebalance-action-badge--sell {
+  background: color-mix(in srgb, var(--negative) 18%, var(--surface));
+  color: var(--negative);
+}
+
+.rebalance-action-badge--hold {
+  background: var(--bg-hover);
+  color: var(--ink);
+}
+
+.rebalance-empty-asset-plan {
+  margin: 1rem 0;
+  padding: 0.75rem;
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  background: var(--surface-sunk);
+}
+
+/* Empty-state card (zero AssetClass rows). */
+.rebalance-empty-state {
+  padding: 2rem 1rem;
+  text-align: center;
+  background: var(--surface-sunk);
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+}
+
+.rebalance-empty-state-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.rebalance-empty-state-body {
+  margin: 0 0 1rem 0;
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+}
+
+.rebalance-empty-state-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.rebalance-empty-state-link:hover {
+  text-decoration: underline;
+}
+
+/* Placeholder card (no aporte submitted yet). */
+.rebalance-placeholder {
+  padding: 2rem 1rem;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.rebalance-placeholder-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.rebalance-placeholder-body {
+  margin: 0 0 0.75rem 0;
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+}
+
+.rebalance-placeholder-hint {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+}
+
+.rebalance-placeholder-hint code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  background: var(--bg-hover);
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+}
+
+/* Sidebar form (Aporte + Rebalancear button). */
+.rebalance-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: auto;
+  padding: 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.rebalance-form-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-muted);
+  font-weight: 500;
+}
+
+.rebalance-form input[type="number"] {
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+  font-size: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.rebalance-form input[type="number"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.rebalance-form-input--error,
+.rebalance-form input.rebalance-form-input--error {
+  border-color: var(--negative);
+  outline: 1px solid var(--negative);
+}
+
+.rebalance-form-error {
+  margin: 0;
+  color: var(--negative);
+  font-size: 0.78rem;
+}
+
+.rebalance-form-submit {
+  padding: 0.45rem 0.75rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+
+.rebalance-form-submit:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.rebalance-form-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Active sidebar entry (when on /rebalance). */
+.sidebar-action--nav {
+  text-decoration: none;
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+
+.sidebar-action--active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  color: var(--accent);
+  font-weight: 600;
+}

@@ -1,0 +1,221 @@
+{# Main plan layout — 6 metric cards (3x2 grid) + policy line + stub
+   banner + warnings + asset plan table (8 cols, sortable) + category
+   summary table (4 cols). All numbers come from the
+   ``RebalancePlanResponse`` object passed in via Jinja context.
+
+   Alpine scope: a local ``rebalancePage({plan: ...})`` component on
+   the wrapping <section> owns the sort state. The plan rows are
+   snapshot into ``displayRows`` on init and rebuilt by ``sortBy`` on
+   user-driven resort — the dashboard uses the same pattern, see
+   ``dashboard.html`` ``classSection.displayAssets``. #}
+<section class="rebalance-plan"
+         data-testid="rebalance-plan"
+         x-data="rebalancePage({ plan: window.__rebalancePlan })">
+  <script type="application/json"
+          data-testid="rebalance-plan-data">{{ plan_dict | tojson }}</script>
+
+  <header class="rebalance-plan-summary">
+    <p class="rebalance-plan-summary-line">
+      <span class="rebalance-plan-summary-label">Política aplicada:</span>
+      <code class="rebalance-plan-summary-policy"
+            data-testid="rebalance-applied-policy">{{ plan.applied_policy }}</code>
+    </p>
+    {% if plan.applied_policy == "stub-fixture-v1" %}
+    <details class="rebalance-stub-banner"
+             data-testid="rebalance-stub-banner">
+      <summary>Mostrando fixture stub (solver CVXPY chegará em
+        <code>rebalance-engine</code>)</summary>
+      <p>Os números abaixo são determinísticos e frozen no
+        arquivo <code>tests/fixtures/rebalance_stub_fixture.json</code>.
+        Quando o solver real entrar, este banner some sozinho.</p>
+    </details>
+    {% endif %}
+  </header>
+
+  {% if plan.warnings %}
+  <section class="rebalance-warnings"
+           data-testid="rebalance-warnings">
+    <h3 class="rebalance-warnings-title">
+      ⚠ Avisos ({{ plan.warnings|length }})
+    </h3>
+    <ul class="rebalance-warnings-list">
+      {% for w in plan.warnings %}
+      <li class="rebalance-warnings-item"
+          data-testid="rebalance-warnings-item">
+        <code class="rebalance-warnings-code">{{ w.code }}</code>
+        <span class="rebalance-warnings-message">{{ w.message }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <section class="rebalance-stat-grid"
+           data-testid="rebalance-stat-grid"
+           aria-label="Métricas do plano">
+    <div class="rebalance-stat" data-testid="rebalance-stat-contribution">
+      <span class="rebalance-stat-label">Aporte</span>
+      <span class="rebalance-stat-value">{{ plan.metrics.contribution | brl }}</span>
+    </div>
+    <div class="rebalance-stat" data-testid="rebalance-stat-total-buy">
+      <span class="rebalance-stat-label">Comprar</span>
+      <span class="rebalance-stat-value">{{ plan.metrics.total_buy | brl }}</span>
+    </div>
+    <div class="rebalance-stat" data-testid="rebalance-stat-total-sell">
+      <span class="rebalance-stat-label">Vender</span>
+      <span class="rebalance-stat-value">{{ plan.metrics.total_sell | brl }}</span>
+    </div>
+    <div class="rebalance-stat" data-testid="rebalance-stat-residual-cash">
+      <span class="rebalance-stat-label">Caixa residual</span>
+      <span class="rebalance-stat-value">{{ plan.metrics.residual_cash | brl }}</span>
+    </div>
+    <div class="rebalance-stat" data-testid="rebalance-stat-current-deviation">
+      <span class="rebalance-stat-label">Desvio atual</span>
+      <span class="rebalance-stat-value">{{ plan.metrics.current_deviation_pct | round(2) }}%</span>
+    </div>
+    <div class="rebalance-stat" data-testid="rebalance-stat-projected-deviation">
+      <span class="rebalance-stat-label">Desvio projetado</span>
+      <span class="rebalance-stat-value">{{ plan.metrics.projected_deviation_pct | round(2) }}%</span>
+    </div>
+  </section>
+
+  <section class="rebalance-asset-section"
+           aria-label="Plano por ativo">
+    <h3 class="rebalance-section-title">Plano por ativo</h3>
+    {% if plan.asset_plan %}
+    <table class="rebalance-table"
+           data-testid="rebalance-asset-table">
+      <thead>
+        <tr>
+          <th class="rebalance-table-th"
+              data-testid="rebalance-asset-th-name"
+              @click="sortBy('asset_name')">
+            <span class="rebalance-table-th-label">Ativo</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicator('asset_name')"></span>
+          </th>
+          <th class="rebalance-table-th"
+              data-testid="rebalance-asset-th-category"
+              @click="sortBy('category_name')">
+            <span class="rebalance-table-th-label">Classe</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicator('category_name')"></span>
+          </th>
+          <th class="rebalance-table-th rebalance-table-th--num"
+              data-testid="rebalance-asset-th-current-value"
+              @click="sortBy('current_value')">
+            <span class="rebalance-table-th-label">Valor atual</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicator('current_value')"></span>
+          </th>
+          <th class="rebalance-table-th rebalance-table-th--num"
+              data-testid="rebalance-asset-th-target-value"
+              @click="sortBy('target_value')">
+            <span class="rebalance-table-th-label">Alvo</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicator('target_value')"></span>
+          </th>
+          <th class="rebalance-table-th rebalance-table-th--num"
+              data-testid="rebalance-asset-th-buy"
+              @click="sortBy('buy_amount')">
+            <span class="rebalance-table-th-label">Compra</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicator('buy_amount')"></span>
+          </th>
+          <th class="rebalance-table-th rebalance-table-th--num"
+              data-testid="rebalance-asset-th-sell"
+              @click="sortBy('sell_amount')">
+            <span class="rebalance-table-th-label">Venda</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicator('sell_amount')"></span>
+          </th>
+          <th class="rebalance-table-th rebalance-table-th--num"
+              data-testid="rebalance-asset-th-projected"
+              @click="sortBy('projected_value')">
+            <span class="rebalance-table-th-label">Projetado</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicator('projected_value')"></span>
+          </th>
+          <th class="rebalance-table-th"
+              data-testid="rebalance-asset-th-action"
+              @click="sortBy('action')">
+            <span class="rebalance-table-th-label">Ação</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicator('action')"></span>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="(row, i) in displayRows" :key="row.asset_key">
+          <tr class="rebalance-asset-row"
+              :data-asset-key="row.asset_key"
+              :data-testid="'rebalance-asset-row-' + row.asset_key">
+            <td class="rebalance-asset-cell"
+                x-text="row.asset_name"></td>
+            <td class="rebalance-asset-cell"
+                x-text="row.category_name"></td>
+            <td class="rebalance-asset-cell rebalance-asset-cell--num"
+                x-text="formatBRL(row.current_value)"></td>
+            <td class="rebalance-asset-cell rebalance-asset-cell--num"
+                x-text="formatBRL(row.target_value)"></td>
+            <td class="rebalance-asset-cell rebalance-asset-cell--num"
+                x-text="formatBRL(row.buy_amount)"></td>
+            <td class="rebalance-asset-cell rebalance-asset-cell--num"
+                x-text="formatBRL(row.sell_amount)"></td>
+            <td class="rebalance-asset-cell rebalance-asset-cell--num"
+                x-text="formatBRL(row.projected_value)"></td>
+            <td class="rebalance-asset-cell rebalance-asset-cell--action">
+              <span class="rebalance-action-badge"
+                    :class="'rebalance-action-badge--' + row.action"
+                    :data-testid="'rebalance-action-' + row.action"
+                    x-text="actionLabel(row.action)"></span>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+    {% else %}
+    <p class="rebalance-empty-asset-plan"
+       data-testid="rebalance-asset-table-empty">
+      Nenhum ativo para rebalancear.
+    </p>
+    {% endif %}
+  </section>
+
+  {% if plan.category_plan %}
+  <section class="rebalance-category-section"
+           aria-label="Resumo por classe">
+    <h3 class="rebalance-section-title">Resumo por classe</h3>
+    <table class="rebalance-table"
+           data-testid="rebalance-category-table">
+      <thead>
+        <tr>
+          <th class="rebalance-table-th"
+              data-testid="rebalance-category-th-name">Classe</th>
+          <th class="rebalance-table-th rebalance-table-th--num"
+              data-testid="rebalance-category-th-current">Valor atual</th>
+          <th class="rebalance-table-th rebalance-table-th--num"
+              data-testid="rebalance-category-th-projected">Projetado</th>
+          <th class="rebalance-table-th rebalance-table-th--num"
+              data-testid="rebalance-category-th-delta">Δ</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in plan.category_plan %}
+        <tr class="rebalance-category-row"
+            data-testid="rebalance-category-row-{{ loop.index0 }}">
+          <td class="rebalance-category-cell"
+              data-testid="rebalance-category-name">{{ c.category_name }}</td>
+          <td class="rebalance-category-cell rebalance-category-cell--num"
+              data-testid="rebalance-category-current">{{ c.current_value | brl }}</td>
+          <td class="rebalance-category-cell rebalance-category-cell--num"
+              data-testid="rebalance-category-projected">{{ c.projected_value | brl }}</td>
+          <td class="rebalance-category-cell rebalance-category-cell--num {% if c.delta < 0 %}rebalance-category-cell--neg{% elif c.delta > 0 %}rebalance-category-cell--pos{% endif %}"
+              data-testid="rebalance-category-delta">{{ c.delta | brl }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+</section>

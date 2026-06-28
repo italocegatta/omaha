@@ -1,0 +1,15 @@
+{# Empty-state card for /rebalance — rendered when the active profile
+   has zero AssetClass rows. The sidebar form is present but inert
+   (``sidebar_inert=True`` in the route context). The CTA links back
+   to the dashboard where the operator can use the "+ Nova classe"
+   modal to create the first class. #}
+<div class="rebalance-empty-state"
+     data-testid="rebalance-empty-state">
+  <h2 class="rebalance-empty-state-title">Nenhuma classe cadastrada</h2>
+  <p class="rebalance-empty-state-body">
+    Crie ao menos uma classe antes de rebalancear. Volte ao dashboard
+    e use o botão <strong>+ Nova classe</strong> no menu lateral.
+  </p>
+  <a href="/" class="rebalance-empty-state-link"
+     data-testid="rebalance-empty-state-link">← Voltar ao dashboard</a>
+</div>

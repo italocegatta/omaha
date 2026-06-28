@@ -9,9 +9,10 @@ Decision 1.
 
 from __future__ import annotations
 
+import math
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 RebalanceAction = Literal["buy", "sell", "hold"]
 
@@ -78,9 +79,38 @@ class RebalancePlanResponse(BaseModel):
 
 
 class RebalanceRequest(BaseModel):
-    """Request body for ``POST /api/rebalance``."""
+    """Request body for ``POST /api/rebalance``.
+
+    ``contribution`` accepts any finite float (positive, zero, or
+    negative). ``0`` is a valid rebalance-only case (no new money,
+    just reallocation). Negative values are accepted so the page can
+    experiment with withdrawals client-side in v1; the engine in
+    Phase 4 (``rebalance-engine``) will interpret them properly when
+    it lands. The ``finite_float`` validator rejects ``NaN`` /
+    ``Infinity`` so the wire boundary returns 422 for non-finite
+    values (Pydantic v2's default float field would accept them
+    otherwise).
+    """
 
     contribution: float = Field(
-        gt=0,
-        description="Aporte em R$ a ser aplicado no rebalanceamento.",
+        description=(
+            "Aporte em R$ a ser aplicado no rebalanceamento. Aceita "
+            "0 (rebalance sem dinheiro novo) e valores negativos "
+            "(saque; suporte do solver chega em rebalance-engine)."
+        ),
     )
+
+    @field_validator("contribution")
+    @classmethod
+    def _finite_float(cls, value: float) -> float:
+        """Reject ``NaN`` and ``Infinity`` with a Pydantic ValidationError.
+
+        Pydantic v2's default float field accepts non-finite values;
+        the v1 contract explicitly requires 422 on those, so this
+        validator enforces the finite-float guarantee at the wire
+        boundary (the page's client-side gate does not protect the
+        JSON route — a hand-crafted POST must still fail cleanly).
+        """
+        if not math.isfinite(value):
+            raise ValueError("contribution deve ser um número finito (NaN/Inf não são aceitos)")
+        return value
