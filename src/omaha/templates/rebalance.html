@@ -3,14 +3,11 @@
 {% block content %}
 {# rebalance-page — server-side rendered plan on /rebalance. The
    sidebar (with the "Aporte" form) is shared with the dashboard via
-   the _sidebar.html include. The main card switches between three
-   states based on Jinja context:
-     * zero_classes: empty-state card (no AssetClass rows in profile)
-     * plan is None: placeholder card (no aporte submitted yet)
-     * plan present: full plan layout (metric cards, warnings, table) #}
-{% include "_sidebar.html" %}
-
+   the _sidebar.html include. The backdrop is ``position: fixed`` so
+   it does not participate in the .dashboard grid; the <aside>
+   occupies the first column, the card takes the second. #}
 <div class="dashboard">
+  {% include "_sidebar.html" %}
   <div class="dashboard-card rebalance-card"
        data-testid="rebalance-card">
 

@@ -2,12 +2,12 @@
 {% block content %}
 {# dashboard-action-sidebar — sidebar lives in _sidebar.html so the
    dashboard and /rebalance share the same markup (including the
-   "Rebalancear" form). The include renders BOTH the mobile backdrop
-   (sibling to .dashboard, so it covers the whole viewport) AND the
-   <aside> (first column of the .dashboard grid). #}
-{% include "_sidebar.html" %}
-
+   "Rebalancear" form). The include renders both the mobile backdrop
+   and the <aside>; the backdrop is ``position: fixed`` so it does
+   NOT participate in the .dashboard grid flow, and the <aside>
+   occupies the first column of the grid (the card takes the second). #}
 <div class="dashboard">
+  {% include "_sidebar.html" %}
   <div class="dashboard-card">
 
   {% if asset_classes %}
