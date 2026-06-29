@@ -1,7 +1,13 @@
-{# Main plan layout — 6 metric cards (3x2 grid) + policy line + stub
-   banner + warnings + asset plan table (8 cols, sortable) + category
-   summary table (4 cols). All numbers come from the
+{# Main plan layout — 6 metric cards (1x6 row) + category summary table
+   (4 cols) + asset plan table (8 cols, sortable) + footer (policy line
+   + stub banner + warnings). All numbers come from the
    ``RebalancePlanResponse`` object passed in via Jinja context.
+
+   Layout order: stat grid → category summary → asset plan → footer
+   (policy + warnings). The footer surfaces the applied policy and any
+   plan-level warnings at the END so the operator's eye flows from
+   headline numbers → category rollup → per-asset detail → outcome
+   summary.
 
    Alpine scope: a local ``rebalancePage({plan: ...})`` component on
    the wrapping <section> owns the sort state. The plan rows are
@@ -12,43 +18,7 @@
          data-testid="rebalance-plan"
          x-data="rebalancePage({ plan: window.__rebalancePlan })">
   <script type="application/json"
-          data-testid="rebalance-plan-data">{{ plan_dict | tojson }}</script>
-
-  <header class="rebalance-plan-summary">
-    <p class="rebalance-plan-summary-line">
-      <span class="rebalance-plan-summary-label">Política aplicada:</span>
-      <code class="rebalance-plan-summary-policy"
-            data-testid="rebalance-applied-policy">{{ plan.applied_policy }}</code>
-    </p>
-    {% if plan.applied_policy == "stub-fixture-v1" %}
-    <details class="rebalance-stub-banner"
-             data-testid="rebalance-stub-banner">
-      <summary>Mostrando fixture stub (solver CVXPY chegará em
-        <code>rebalance-engine</code>)</summary>
-      <p>Os números abaixo são determinísticos e frozen no
-        arquivo <code>tests/fixtures/rebalance_stub_fixture.json</code>.
-        Quando o solver real entrar, este banner some sozinho.</p>
-    </details>
-    {% endif %}
-  </header>
-
-  {% if plan.warnings %}
-  <section class="rebalance-warnings"
-           data-testid="rebalance-warnings">
-    <h3 class="rebalance-warnings-title">
-      ⚠ Avisos ({{ plan.warnings|length }})
-    </h3>
-    <ul class="rebalance-warnings-list">
-      {% for w in plan.warnings %}
-      <li class="rebalance-warnings-item"
-          data-testid="rebalance-warnings-item">
-        <code class="rebalance-warnings-code">{{ w.code }}</code>
-        <span class="rebalance-warnings-message">{{ w.message }}</span>
-      </li>
-      {% endfor %}
-    </ul>
-  </section>
-  {% endif %}
+           data-testid="rebalance-plan-data">{{ plan_dict | tojson }}</script>
 
   <section class="rebalance-stat-grid"
            data-testid="rebalance-stat-grid"
@@ -78,6 +48,65 @@
       <span class="rebalance-stat-value">{{ plan.metrics.projected_deviation_pct | round(2) }}%</span>
     </div>
   </section>
+
+  {% if plan.category_plan %}
+  <section class="rebalance-category-section"
+           aria-label="Resumo por classe">
+    <h3 class="rebalance-section-title">Resumo por classe</h3>
+    <table class="rebalance-table"
+           data-testid="rebalance-category-table">
+      <thead>
+        <tr>
+          <th class="rebalance-table-th"
+              data-testid="rebalance-category-th-name"
+              @click="sortByCategory('category_name')">
+            <span class="rebalance-table-th-label">Classe</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicatorCategory('category_name')"></span>
+          </th>
+          <th class="rebalance-table-th rebalance-table-th--num"
+              data-testid="rebalance-category-th-current"
+              @click="sortByCategory('current_value')">
+            <span class="rebalance-table-th-label">Valor atual</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicatorCategory('current_value')"></span>
+          </th>
+          <th class="rebalance-table-th rebalance-table-th--num"
+              data-testid="rebalance-category-th-projected"
+              @click="sortByCategory('projected_value')">
+            <span class="rebalance-table-th-label">Projetado</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicatorCategory('projected_value')"></span>
+          </th>
+          <th class="rebalance-table-th rebalance-table-th--num"
+              data-testid="rebalance-category-th-delta"
+              @click="sortByCategory('delta')">
+            <span class="rebalance-table-th-label">Δ</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicatorCategory('delta')"></span>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="(c, i) in displayCategories" :key="c.category_name">
+          <tr class="rebalance-category-row"
+              :data-testid="'rebalance-category-row-' + i"
+              :data-category-name="c.category_name">
+            <td class="rebalance-category-cell"
+                x-text="c.category_name"></td>
+            <td class="rebalance-category-cell rebalance-category-cell--num"
+                x-text="formatBRL(c.current_value)"></td>
+            <td class="rebalance-category-cell rebalance-category-cell--num"
+                x-text="formatBRL(c.projected_value)"></td>
+            <td class="rebalance-category-cell rebalance-category-cell--num"
+                :class="c.delta < 0 ? 'rebalance-category-cell--neg' : (c.delta > 0 ? 'rebalance-category-cell--pos' : '')"
+                x-text="formatBRL(c.delta)"></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
 
   <section class="rebalance-asset-section"
            aria-label="Plano por ativo">
@@ -182,40 +211,41 @@
     {% endif %}
   </section>
 
-  {% if plan.category_plan %}
-  <section class="rebalance-category-section"
-           aria-label="Resumo por classe">
-    <h3 class="rebalance-section-title">Resumo por classe</h3>
-    <table class="rebalance-table"
-           data-testid="rebalance-category-table">
-      <thead>
-        <tr>
-          <th class="rebalance-table-th"
-              data-testid="rebalance-category-th-name">Classe</th>
-          <th class="rebalance-table-th rebalance-table-th--num"
-              data-testid="rebalance-category-th-current">Valor atual</th>
-          <th class="rebalance-table-th rebalance-table-th--num"
-              data-testid="rebalance-category-th-projected">Projetado</th>
-          <th class="rebalance-table-th rebalance-table-th--num"
-              data-testid="rebalance-category-th-delta">Δ</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for c in plan.category_plan %}
-        <tr class="rebalance-category-row"
-            data-testid="rebalance-category-row-{{ loop.index0 }}">
-          <td class="rebalance-category-cell"
-              data-testid="rebalance-category-name">{{ c.category_name }}</td>
-          <td class="rebalance-category-cell rebalance-category-cell--num"
-              data-testid="rebalance-category-current">{{ c.current_value | brl }}</td>
-          <td class="rebalance-category-cell rebalance-category-cell--num"
-              data-testid="rebalance-category-projected">{{ c.projected_value | brl }}</td>
-          <td class="rebalance-category-cell rebalance-category-cell--num {% if c.delta < 0 %}rebalance-category-cell--neg{% elif c.delta > 0 %}rebalance-category-cell--pos{% endif %}"
-              data-testid="rebalance-category-delta">{{ c.delta | brl }}</td>
-        </tr>
+  <footer class="rebalance-plan-footer">
+    {% if plan.warnings %}
+    <section class="rebalance-warnings"
+             data-testid="rebalance-warnings">
+      <h3 class="rebalance-warnings-title">
+        ⚠ Avisos ({{ plan.warnings|length }})
+      </h3>
+      <ul class="rebalance-warnings-list">
+        {% for w in plan.warnings %}
+        <li class="rebalance-warnings-item"
+            data-testid="rebalance-warnings-item">
+          <code class="rebalance-warnings-code">{{ w.code }}</code>
+          <span class="rebalance-warnings-message">{{ w.message }}</span>
+        </li>
         {% endfor %}
-      </tbody>
-    </table>
-  </section>
-  {% endif %}
+      </ul>
+    </section>
+    {% endif %}
+
+    <header class="rebalance-plan-summary">
+      <p class="rebalance-plan-summary-line">
+        <span class="rebalance-plan-summary-label">Política aplicada:</span>
+        <code class="rebalance-plan-summary-policy"
+              data-testid="rebalance-applied-policy">{{ plan.applied_policy }}</code>
+      </p>
+      {% if plan.applied_policy == "stub-fixture-v1" %}
+      <details class="rebalance-stub-banner"
+               data-testid="rebalance-stub-banner">
+        <summary>Mostrando fixture stub (solver CVXPY chegará em
+          <code>rebalance-engine</code>)</summary>
+        <p>Os números abaixo são determinísticos e frozen no
+          arquivo <code>tests/fixtures/rebalance_stub_fixture.json</code>.
+          Quando o solver real entrar, este banner some sozinho.</p>
+      </details>
+      {% endif %}
+    </header>
+  </footer>
 </section>

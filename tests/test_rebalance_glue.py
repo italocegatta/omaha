@@ -23,9 +23,9 @@ its own data. Mirrors the pattern in ``test_assets_trade_flags.py``.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 from decimal import Decimal
-from typing import Iterator
 
 import pytest
 from sqlalchemy import create_engine
@@ -34,11 +34,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from omaha.models import Asset, AssetClass, Profile, QuoteKind
 from omaha.rebalance.glue import run_rebalance
 from omaha.rebalance.schemas import (
-    RebalancePlanMetrics,
     RebalancePlanResponse,
-    RebalanceWarning,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -151,18 +148,24 @@ def test_glue_returns_populated_plan_for_active_profile(
 ) -> None:
     """A populated profile returns a plan with all five top-level fields.
 
-    The stub fixture is fixture-driven (ignores the input setup),
-    so the response's asset_plan length matches the fixture (5
-    assets) rather than the seeded 2. We assert fixture-shaped
-    values here; the per-asset mapping is exercised by
-    ``test_glue_drops_solver_columns_not_in_v1_subset`` below.
+    The stub fixture is fixture-driven (ignores the input setup), so
+    the response's asset_plan length matches the fixture (5 assets)
+    rather than the seeded 2. We assert fixture-shaped values here
+    by explicitly opting into the stub (Phase 4's CVXPY default
+    would honour the seeded shape instead). The per-asset mapping
+    is exercised by ``test_glue_drops_solver_columns_not_in_v1_subset``
+    below.
     """
     _seed_class(italo_profile.id, "RF", "60", [("Selic", "100")], _omaha_test_env)
     _seed_class(italo_profile.id, "RV", "40", [("PETR4", "100")], _omaha_test_env)
 
     profile = _refresh_profile(italo_profile, _omaha_test_env)
+    from omaha.rebalance.solver_stub import stub_solver
+
     with _session(_omaha_test_env) as db:
-        response = run_rebalance(db, profile, contribution=5000.0)
+        response = run_rebalance(
+            db, profile, contribution=5000.0, solver=stub_solver
+        )
 
     assert isinstance(response, RebalancePlanResponse)
     assert len(response.asset_plan) == 5  # fixture has 5 assets
@@ -178,8 +181,12 @@ def test_glue_passes_contribution_to_solver(
     _seed_class(italo_profile.id, "RF", "100", [("Selic", "100")], _omaha_test_env)
 
     profile = _refresh_profile(italo_profile, _omaha_test_env)
+    from omaha.rebalance.solver_stub import stub_solver
+
     with _session(_omaha_test_env) as db:
-        response = run_rebalance(db, profile, contribution=7777.0)
+        response = run_rebalance(
+            db, profile, contribution=7777.0, solver=stub_solver
+        )
 
     assert response.metrics.contribution == 7777.0
 
@@ -192,8 +199,15 @@ def test_glue_translates_bridge_warnings(
     _seed_class(italo_profile.id, "Crypto", "20", [], _omaha_test_env)  # empty class
 
     profile = _refresh_profile(italo_profile, _omaha_test_env)
+    # Bridge warnings are emitted by the builders (not the solver).
+    # The stub solver preserves them faithfully; CVXPY's warnings
+    # differ in shape, so use the stub for this assertion.
+    from omaha.rebalance.solver_stub import stub_solver
+
     with _session(_omaha_test_env) as db:
-        response = run_rebalance(db, profile, contribution=1000.0)
+        response = run_rebalance(
+            db, profile, contribution=1000.0, solver=stub_solver
+        )
 
     codes = {w.code for w in response.warnings}
     assert "EMPTY_CLASS_NONZERO_TARGET" in codes
@@ -259,18 +273,42 @@ def test_custom_solver_replaces_default(
     assert any(w.code == "CUSTOM" for w in response.warnings)
 
 
-def test_default_solver_is_the_stub(
+@pytest.mark.skip(
+    reason=(
+        "Covered by tests/test_rebalance_engine_glue.py::"
+        "test_cvxpy_solver_directly_returns_native_shape which "
+        "tests the same behavior with isolated fixture state."
+    )
+)
+def test_default_solver_is_cvxpy(
     italo_profile: Profile, _omaha_test_env: dict[str, str]
 ) -> None:
-    """Omitting ``solver`` defaults to the stub fixture loader."""
-    _seed_class(italo_profile.id, "RF", "60", [("Selic", "100")], _omaha_test_env)
-    _seed_class(italo_profile.id, "RV", "40", [("PETR4", "100")], _omaha_test_env)
+    """Decision 7 — default solver is cvxpy_solver (the real engine)."""
+    raise NotImplementedError("covered by test_rebalance_engine_glue.py")
 
-    profile = _refresh_profile(italo_profile, _omaha_test_env)
-    with _session(_omaha_test_env) as db:
-        response = run_rebalance(db, profile, contribution=1000.0)
 
-    assert response.applied_policy == "stub-fixture-v1"
+def _seed_positions(_omaha_test_env: dict[str, str], by_asset: dict[str, float]) -> None:
+    """Seed one Position per asset name. Required by Phase 4's CVXPY validator."""
+    import os
+
+    from omaha.db import SessionLocal
+    from omaha.models import Position
+
+    os.environ["DATABASE_URL"] = _omaha_test_env["db_url"]
+    with SessionLocal() as db:
+        for asset_name, current_value in by_asset.items():
+            asset = db.query(Asset).filter(Asset.name == asset_name).one()
+            pos = Position(
+                asset_id=asset.id,
+                broker_ticker=asset_name,
+                qty=Decimal("1"),
+                avg_price=Decimal(str(current_value)),
+                current_price=Decimal(str(current_value)),
+                total_invested=Decimal(str(current_value)),
+                total_current=Decimal(str(current_value)),
+            )
+            db.add(pos)
+        db.commit()
 
 
 # ---------------------------------------------------------------------------

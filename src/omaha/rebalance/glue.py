@@ -17,6 +17,7 @@ from omaha.rebalance.builders import (
     build_position_frame,
     build_setup_from_db,
 )
+from omaha.rebalance.engine import cvxpy_solver
 from omaha.rebalance.quotes_adapter import OmahaMarketPriceLookup
 from omaha.rebalance.schemas import (
     RebalanceAssetPlanRow,
@@ -25,7 +26,6 @@ from omaha.rebalance.schemas import (
     RebalancePlanResponse,
     RebalanceWarning,
 )
-from omaha.rebalance.solver_stub import stub_solver
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -67,7 +67,7 @@ def run_rebalance(
 ) -> RebalancePlanResponse:
     """Build inputs, run the solver, and return the v1 wire response."""
     if solver is None:
-        solver = stub_solver
+        solver = cvxpy_solver
 
     contribution = float(contribution)
 

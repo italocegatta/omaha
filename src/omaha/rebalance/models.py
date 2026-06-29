@@ -52,7 +52,20 @@ class RebalanceValidationError(ValueError):
     400 with the validation message; the modal renders the message
     next to the "Calcular" button so the operator knows which check
     fired without a stack trace.
+
+    Constructor accepts either a single ``str`` (legacy callers — the
+    string is wrapped in a one-element list) or a ``list[str]`` of all
+    failing messages (Phase 4 validator — multiple checks run
+    concurrently so the operator sees every failure in one go). The
+    string form (``str(exc)``) joins the messages with ``"\\n"`` so
+    both the route handler (``HTTPException(detail=str(exc))``) and the
+    page handler (``form_error=str(exc)``) keep working unchanged.
     """
+
+    def __init__(self, errors: str | list[str]) -> None:
+        messages = [errors] if isinstance(errors, str) else list(errors)
+        self.errors: tuple[str, ...] = tuple(messages)
+        super().__init__("\n".join(messages))
 
 
 __all__ = ["PortfolioSetup", "RebalanceValidationError"]

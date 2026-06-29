@@ -104,14 +104,48 @@
       };
     }
 
+    // Category-summary sort comparator. Mirrors ``rebalanceSortFn`` but
+    // only knows the 4 category fields and uses ``category_name`` as the
+    // stable tie-breaker (the only stable key on a category row). All
+    // monetary fields are numeric.
+    function rebalanceCategorySortFn(key, dir) {
+      var NUMERIC_KEYS = {
+        current_value: 1,
+        projected_value: 1,
+        delta: 1,
+      };
+      return function (a, b) {
+        var cmp = 0;
+        if (key in NUMERIC_KEYS) {
+          var av = Number(a[key]) || 0;
+          var bv = Number(b[key]) || 0;
+          cmp = av - bv;
+        } else {
+          cmp = String(a[key] || '').localeCompare(String(b[key] || ''));
+        }
+        if (cmp === 0) {
+          cmp = String(a.category_name || '').localeCompare(
+            String(b.category_name || '')
+          );
+        }
+        return dir === 'asc' ? cmp : -cmp;
+      };
+    }
+
     window.rebalancePage = function (initial) {
       return {
         plan: initial.plan,
         sortKey: 'category_name',
         sortDir: 'asc',
         displayRows: [],
+        categorySortKey: 'category_name',
+        categorySortDir: 'asc',
+        displayCategories: [],
         init: function () {
           this.displayRows = this.plan.asset_plan.slice();
+          this.displayCategories = this.plan.category_plan.slice().sort(
+            rebalanceCategorySortFn(this.categorySortKey, this.categorySortDir)
+          );
         },
         sortBy: function (key) {
           if (this.sortKey === key) {
@@ -124,9 +158,28 @@
             rebalanceSortFn(this.sortKey, this.sortDir)
           );
         },
+        sortByCategory: function (key) {
+          if (this.categorySortKey === key) {
+            this.categorySortDir =
+              this.categorySortDir === 'asc' ? 'desc' : 'asc';
+          } else {
+            this.categorySortKey = key;
+            this.categorySortDir = 'asc';
+          }
+          this.displayCategories = this.plan.category_plan.slice().sort(
+            rebalanceCategorySortFn(
+              this.categorySortKey,
+              this.categorySortDir
+            )
+          );
+        },
         sortIndicator: function (key) {
           if (this.sortKey !== key) return '';
           return this.sortDir === 'asc' ? '↑' : '↓';
+        },
+        sortIndicatorCategory: function (key) {
+          if (this.categorySortKey !== key) return '';
+          return this.categorySortDir === 'asc' ? '↑' : '↓';
         },
         actionLabel: function (action) {
           if (action === 'buy') return 'Comprar';

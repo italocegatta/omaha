@@ -162,6 +162,39 @@ def test_get_rebalance_populated_profile_renders_placeholder(
 def _seed_two_classes(_omaha_test_env: dict[str, str]) -> None:
     _seed_class(1, "RF", "60", [("Selic", "100")], _omaha_test_env=_omaha_test_env)
     _seed_class(1, "RV", "40", [("PETR4", "100")], _omaha_test_env=_omaha_test_env)
+    _seed_positions(_omaha_test_env, {"Selic": 6_000.0, "PETR4": 4_000.0})
+
+
+def _seed_positions(_omaha_test_env: dict[str, str], by_asset: dict[str, float]) -> None:
+    """Add one ``Position`` per asset name with the given current_value.
+
+    Required by Phase 4 (``rebalance-engine``) — the CVXPY solver's
+    validator rejects profiles whose ``current_value`` sum is zero.
+    Pre-Phase-4 stub returned a frozen fixture that bypassed this
+    check.
+    """
+    import os
+
+    from omaha.db import SessionLocal
+    from omaha.models import Position
+
+    db_url = _omaha_test_env["db_url"]
+    os.environ["DATABASE_URL"] = db_url
+
+    with SessionLocal() as db:
+        for asset_name, current_value in by_asset.items():
+            asset = db.query(Asset).filter(Asset.name == asset_name).one()
+            pos = Position(
+                asset_id=asset.id,
+                broker_ticker=asset_name,
+                qty=Decimal("1"),
+                avg_price=Decimal(str(current_value)),
+                current_price=Decimal(str(current_value)),
+                total_invested=Decimal(str(current_value)),
+                total_current=Decimal(str(current_value)),
+            )
+            db.add(pos)
+        db.commit()
 
 
 def test_post_rebalance_valid_contribution_renders_plan(
@@ -207,13 +240,18 @@ def test_post_rebalance_zero_contribution_renders_plan(
     assert 'data-testid="rebalance-stat-contribution"' in response.text
 
 
-def test_post_rebalance_negative_contribution_renders_plan(
+def test_post_rebalance_negative_contribution_renders_form_error(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
-    """``contribution = -1000`` renders the plan (server is permissive).
+    """``contribution = -1000`` re-renders with the engine's rejection message.
 
-    The page client-side gates ``< 0`` for v1, but the route is
-    permissive in preparation for Phase 4 withdrawal support.
+    Per design Decision 2, the Phase 4 CVXPY engine rejects negative
+    contributions with ``RebalanceValidationError`` ("O aporte
+    informado nao pode ser negativo."). The page maps the error to
+    inline ``form_error`` rather than rendering a plan. The page
+    client-side gates ``< 0`` for v1 (so users do not normally see
+    this), but the server-side defense still surfaces here when the
+    gate is bypassed.
     """
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
@@ -221,7 +259,10 @@ def test_post_rebalance_negative_contribution_renders_plan(
     response = client.post("/rebalance", data={"contribution": "-1000"})
 
     assert response.status_code == 200
-    assert 'data-testid="rebalance-plan"' in response.text
+    body = response.text
+    assert 'data-testid="rebalance-form-error"' in body
+    assert "negativo" in body
+    assert 'data-testid="rebalance-plan"' not in body
 
 
 def test_post_rebalance_missing_contribution_renders_form_error(
@@ -339,10 +380,25 @@ def test_category_summary_has_four_columns(
 
 
 def test_stub_banner_visible_under_fixture_stub(
-    client: TestClient, _omaha_test_env: dict[str, str]
+    client: TestClient,
+    _omaha_test_env: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """When the stub solver runs, ``applied_policy == "stub-fixture-v1"``
-    and the stub banner is rendered."""
+    and the stub banner is rendered.
+
+    Phase 4 changed the default solver to CVXPY; this test opts into
+    the stub via ``monkeypatch.setattr(glue, "cvxpy_solver", stub)``
+    so it preserves the original intent — the page renders the stub
+    banner when the stub runs.
+    """
+    from omaha.rebalance import glue
+    from omaha.rebalance.solver_stub import stub_solver
+
+    monkeypatch.setattr(
+        glue, "cvxpy_solver", lambda s, p, q, c: stub_solver(s, p, q, c)
+    )
+
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 

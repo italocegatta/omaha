@@ -106,6 +106,32 @@ def _seed_class(
         engine.dispose()
 
 
+def _seed_positions(
+    _omaha_test_env: dict[str, str], by_asset: dict[str, float]
+) -> None:
+    """Seed one Position per asset name. Required by Phase 4's CVXPY validator."""
+    import os
+
+    from omaha.db import SessionLocal as GlobalSessionLocal
+    from omaha.models import Position
+
+    os.environ["DATABASE_URL"] = _omaha_test_env["db_url"]
+    with GlobalSessionLocal() as db:
+        for asset_name, current_value in by_asset.items():
+            asset = db.query(Asset).filter(Asset.name == asset_name).one()
+            pos = Position(
+                asset_id=asset.id,
+                broker_ticker=asset_name,
+                qty=Decimal("1"),
+                avg_price=Decimal(str(current_value)),
+                current_price=Decimal(str(current_value)),
+                total_invested=Decimal(str(current_value)),
+                total_current=Decimal(str(current_value)),
+            )
+            db.add(pos)
+        db.commit()
+
+
 # ---------------------------------------------------------------------------
 # §"POST /api/rebalance returns a RebalancePlanResponse"
 # ---------------------------------------------------------------------------
@@ -117,6 +143,7 @@ def test_active_profile_returns_200_with_plan(
     """A logged-in user with an active profile gets a 200 + plan."""
     _seed_class(1, "RF", "60", [("Selic", "100")], _omaha_test_env=_omaha_test_env)
     _seed_class(1, "RV", "40", [("PETR4", "100")], _omaha_test_env=_omaha_test_env)
+    _seed_positions(_omaha_test_env, {"Selic": 6_000.0, "PETR4": 4_000.0})
 
     _login_and_select(client, profile_id=1)
 
@@ -236,7 +263,7 @@ def test_solver_validation_error_returns_400(
 
     from omaha.rebalance import glue
 
-    monkeypatch.setattr(glue, "stub_solver", raising_solver)
+    monkeypatch.setattr(glue, "cvxpy_solver", raising_solver)
 
     response = client.post(
         "/api/rebalance",

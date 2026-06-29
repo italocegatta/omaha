@@ -1269,6 +1269,24 @@ td.editing {
   margin-left: 0.25rem;
 }
 
+/* dashboard-inline-edit-friction: strip the native number-input
+   spinner from the three inline editors (class header + per-asset
+   class cell + per-asset total cell). Keyboard ↑/↓ still steps via
+   the `step` attribute. Firefox uses `-moz-appearance: textfield`;
+   WebKit/Blink (Chrome, Edge, Safari) needs the inner/outer spin
+   button pseudo-elements hidden. Modal forms keep the spinner. */
+.asset-inline-edit-input,
+.class-inline-edit-input {
+  -moz-appearance: textfield;
+}
+.asset-inline-edit-input::-webkit-outer-spin-button,
+.asset-inline-edit-input::-webkit-inner-spin-button,
+.class-inline-edit-input::-webkit-outer-spin-button,
+.class-inline-edit-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 .class-inline-edit-error {
   color: var(--negative);
   font-size: 0.7rem;
@@ -2340,12 +2358,25 @@ td.editing {
   margin-right: 0.4rem;
 }
 
-/* 6 metric cards in a 3x2 grid. */
+/* 6 metric cards in a single row (1x6). Wraps to 3x2 on narrow
+   viewports (< 720px) to keep each card legible on mobile. */
 .rebalance-stat-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.75rem;
   margin: 1rem 0;
+}
+
+@media (max-width: 720px) {
+  .rebalance-stat-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .rebalance-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .rebalance-stat {
