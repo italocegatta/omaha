@@ -395,9 +395,7 @@ def test_stub_banner_visible_under_fixture_stub(
     from omaha.rebalance import glue
     from omaha.rebalance.solver_stub import stub_solver
 
-    monkeypatch.setattr(
-        glue, "cvxpy_solver", lambda s, p, q, c: stub_solver(s, p, q, c)
-    )
+    monkeypatch.setattr(glue, "cvxpy_solver", lambda s, p, q, c: stub_solver(s, p, q, c))
 
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)

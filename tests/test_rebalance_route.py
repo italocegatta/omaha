@@ -106,9 +106,7 @@ def _seed_class(
         engine.dispose()
 
 
-def _seed_positions(
-    _omaha_test_env: dict[str, str], by_asset: dict[str, float]
-) -> None:
+def _seed_positions(_omaha_test_env: dict[str, str], by_asset: dict[str, float]) -> None:
     """Seed one Position per asset name. Required by Phase 4's CVXPY validator."""
     import os
 

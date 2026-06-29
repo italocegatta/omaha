@@ -163,9 +163,7 @@ def test_glue_returns_populated_plan_for_active_profile(
     from omaha.rebalance.solver_stub import stub_solver
 
     with _session(_omaha_test_env) as db:
-        response = run_rebalance(
-            db, profile, contribution=5000.0, solver=stub_solver
-        )
+        response = run_rebalance(db, profile, contribution=5000.0, solver=stub_solver)
 
     assert isinstance(response, RebalancePlanResponse)
     assert len(response.asset_plan) == 5  # fixture has 5 assets
@@ -184,9 +182,7 @@ def test_glue_passes_contribution_to_solver(
     from omaha.rebalance.solver_stub import stub_solver
 
     with _session(_omaha_test_env) as db:
-        response = run_rebalance(
-            db, profile, contribution=7777.0, solver=stub_solver
-        )
+        response = run_rebalance(db, profile, contribution=7777.0, solver=stub_solver)
 
     assert response.metrics.contribution == 7777.0
 
@@ -205,9 +201,7 @@ def test_glue_translates_bridge_warnings(
     from omaha.rebalance.solver_stub import stub_solver
 
     with _session(_omaha_test_env) as db:
-        response = run_rebalance(
-            db, profile, contribution=1000.0, solver=stub_solver
-        )
+        response = run_rebalance(db, profile, contribution=1000.0, solver=stub_solver)
 
     codes = {w.code for w in response.warnings}
     assert "EMPTY_CLASS_NONZERO_TARGET" in codes
@@ -280,9 +274,7 @@ def test_custom_solver_replaces_default(
         "tests the same behavior with isolated fixture state."
     )
 )
-def test_default_solver_is_cvxpy(
-    italo_profile: Profile, _omaha_test_env: dict[str, str]
-) -> None:
+def test_default_solver_is_cvxpy(italo_profile: Profile, _omaha_test_env: dict[str, str]) -> None:
     """Decision 7 — default solver is cvxpy_solver (the real engine)."""
     raise NotImplementedError("covered by test_rebalance_engine_glue.py")
 
