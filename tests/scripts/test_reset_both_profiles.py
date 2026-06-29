@@ -87,7 +87,7 @@ def test_main_prints_per_profile_counts(capsys: pytest.CaptureFixture[str]) -> N
         ("italo", "classes=7 assets=13 positions=11"),
         ("ana", "classes=7 assets=13 positions=11"),
     ):
-        line = next(l for l in captured.out.splitlines() if l.startswith(f"profile={profile}"))
+        line = next(r for r in captured.out.splitlines() if r.startswith(f"profile={profile}"))
         assert expected in line, f"missing fields in {line!r}"
 
 

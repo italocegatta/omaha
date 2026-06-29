@@ -103,7 +103,7 @@ def _validate_rebalance_inputs(
     asset_target_weights = setup.assets["target_weight"].to_numpy(dtype=float)
     asset_target_keys = setup.assets["category_key"].to_numpy()
     asset_sum_by_category: dict[str, float] = {}
-    for weight, key in zip(asset_target_weights, asset_target_keys):
+    for weight, key in zip(asset_target_weights, asset_target_keys, strict=False):
         asset_sum_by_category[key] = math.fsum([asset_sum_by_category.get(key, 0.0), weight])
     asset_targets_by_category = pd.Series(asset_sum_by_category)
     missing_categories = sorted(set(asset_targets_by_category.index) - set(category_targets.index))

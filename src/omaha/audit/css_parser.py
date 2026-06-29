@@ -261,20 +261,18 @@ def _build_registry(stylesheet: Stylesheet) -> dict[str, str]:
     registry: dict[str, str] = {}
     for node in stylesheet.rules:
         if node.type == "qualified-rule":
-            selector = _selector_text(node)
             decls = _extract_declarations(node)
             for name, value in decls.items():
-                if name.startswith("--"):
-                    # First-definition wins (source order).  A token
-                    # declared in :root takes precedence over a later
-                    # re-declaration in a component rule — but a
-                    # component-scoped override that appears *after*
-                    # :root should also be collected for completeness.
-                    # We keep a simple first-wins registry; the
-                    # inventory can report component overrides
-                    # separately if needed.
-                    if name not in registry:
-                        registry[name] = value
+                # First-definition wins (source order).  A token
+                # declared in :root takes precedence over a later
+                # re-declaration in a component rule — but a
+                # component-scoped override that appears *after*
+                # :root should also be collected for completeness.
+                # We keep a simple first-wins registry; the
+                # inventory can report component overrides
+                # separately if needed.
+                if name.startswith("--") and name not in registry:
+                    registry[name] = value
     return registry
 
 

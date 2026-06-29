@@ -123,7 +123,9 @@ class TestClassSectionAlignment:
                 return headers.map((h) => {
                     const total = h.querySelector('[data-testid="class-total-value"]');
                     const table = h.parentElement.querySelector('[data-testid="asset-table"]');
-                    const th = table ? table.querySelector('[data-testid="asset-table-th-current-value"]') : null;
+                    const th = table
+                        ? table.querySelector('[data-testid="asset-table-th-current-value"]')
+                        : null;
                     return {
                         totalLeft: total ? total.getBoundingClientRect().left : null,
                         thLeft: th ? th.getBoundingClientRect().left : null,
@@ -164,7 +166,9 @@ class TestClassSectionAlignment:
                 return headers.map((h) => {
                     const pill = h.querySelector('[data-testid="class-target-pct-view"]');
                     const table = h.parentElement.querySelector('[data-testid="asset-table"]');
-                    const th = table ? table.querySelector('[data-testid="asset-table-th-target-pct-total"]') : null;
+                    const th = table
+                        ? table.querySelector('[data-testid="asset-table-th-target-pct-total"]')
+                        : null;
                     return {
                         pillLeft: pill ? pill.getBoundingClientRect().left : null,
                         thLeft: th ? th.getBoundingClientRect().left : null,
@@ -205,7 +209,9 @@ class TestClassSectionAlignment:
                 return headers.map((h) => {
                     const pill = h.querySelector('[data-testid="class-current-pct"]');
                     const table = h.parentElement.querySelector('[data-testid="asset-table"]');
-                    const th = table ? table.querySelector('[data-testid="asset-table-th-current-pct-total"]') : null;
+                    const th = table
+                        ? table.querySelector('[data-testid="asset-table-th-current-pct-total"]')
+                        : null;
                     return {
                         pillLeft: pill ? pill.getBoundingClientRect().left : null,
                         thLeft: th ? th.getBoundingClientRect().left : null,
@@ -257,7 +263,9 @@ class TestClassSectionAlignment:
                 return headers.map((h) => {
                     const badge = h.querySelector('[data-testid="class-delta-badge"]');
                     const table = h.parentElement.querySelector('[data-testid="asset-table"]');
-                    const th = table ? table.querySelector('[data-testid="asset-table-th-target-pct-class"]') : null;
+                    const th = table
+                        ? table.querySelector('[data-testid="asset-table-th-target-pct-class"]')
+                        : null;
                     return {
                         badgeLeft: badge ? badge.getBoundingClientRect().left : null,
                         thLeft: th ? th.getBoundingClientRect().left : null,
@@ -299,7 +307,9 @@ class TestClassSectionAlignment:
             """() => {
                 const bodies = document.querySelectorAll('.class-section-body');
                 return bodies.length > 0 &&
-                    Array.from(bodies).every((b) => b.classList.contains('class-section-body--collapsed'));
+                    Array.from(bodies).every((b) =>
+                        b.classList.contains('class-section-body--collapsed')
+                    );
             }""",
             timeout=5000,
         )

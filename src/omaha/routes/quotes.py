@@ -35,6 +35,7 @@ sprinkling ``asyncio.get_event_loop()`` calls.
 
 from __future__ import annotations
 
+from contextlib import suppress
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -157,12 +158,10 @@ def post_refresh(
 
 async def _run_refresh(service) -> None:
     """Coroutine body for :func:`BackgroundTasks.add_task`."""
-    try:
-        await service.refresh_once()
-    except Exception:  # noqa: BLE001 — task must not crash silently
+    with suppress(Exception):  # task must not crash silently
         # The service's own logger already wrote the details; we
         # swallow here so the background task doesn't propagate.
-        pass
+        await service.refresh_once()
 
 
 __all__ = ["router"]
