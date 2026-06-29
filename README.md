@@ -67,6 +67,7 @@ Discover them any time with `uv run task --list`.
 | `db-revision`   | Create a new Alembic revision: `task db-revision -m "add foo column"`.          |
 | `db-seed`       | Run the idempotent family + profiles seed.                                      |
 | `db-reset`      | Wipe + reseed BOTH profiles (Italo + Ana) for manual import-flow testing.       |
+| `db-snapshot`   | Export live DB state (classes + assets + positions) to `data/seed/*.csv` for both profiles. Internal dev tool. |
 | `docker-build`  | Build the dev Docker image from docker-compose.yml.                             |
 | `docker-down`   | Stop and remove the dev Docker Compose stack.                                   |
 | `docker-up`     | Start the dev Docker Compose stack in detached mode.                            |
@@ -238,6 +239,34 @@ uv run task db-reset
 #   profile=italo mode=reset classes=6 assets=48 positions=47
 #   profile=ana   mode=reset classes=6 assets=~40 positions=~43
 ```
+
+### Snapshot the wallet state
+
+`db-reset` is destructive — it wipes the DB before reseeding. If you
+want to preserve your current wallet state across a destructive
+change (a migration test, a UI rework, or just a checkpoint), `task
+db-snapshot` exports the live DB to the CSV triplet under
+`data/seed/`:
+
+```bash
+uv run task db-snapshot
+# expected:
+#   italo: 6 classes, 48 assets, 47 positions -> 3 files written
+#   ana:   6 classes, ~40 assets, ~43 positions -> 3 files written
+#   snapshot OK: 196 rows across 6 files written
+```
+
+Inspect the change with `git diff data/seed/` and commit it if the
+new state is the new baseline. The next `db-reset` reproduces the
+snapshotted state from scratch.
+
+`total_invested` / `total_current` flow through the round-trip
+verbatim — they are the broker-published per-row totals, never
+recomputed from `qty * price` (see
+`broker-csv-import-totals`). Sentinel `qty = 1` rows (RDB / CDB /
+holding-to-maturity) get `totals = avg / cur` at seed time so the
+dashboard renders the broker-truth number; tradeable positions
+pick up totals the next time the broker CSV is imported.
 
 Then in the browser:
 

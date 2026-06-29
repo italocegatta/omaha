@@ -15,7 +15,7 @@ Three modes:
   inserted after their asset exists so the ``asset_id`` FK resolves.
 * ``upsert`` — no delete. Create-or-update classes by
   ``(profile_id, name)``, assets by ``(asset_class_id, name)``,
-  positions by ``(asset_id, broker_ticker=asset_name)``. Prints
+  positions by ``(asset_id, broker_ticker)``. Prints
   ``created`` / ``updated`` / ``unchanged`` per layer.
 * ``diff`` — no write. Read the triplet, validate, then print
   ``would-create`` / ``would-update`` / ``would-orphan`` sections.
@@ -65,7 +65,15 @@ ASSET_HEADER = (
     "sell_enabled",
     "currency_code",
 )
-POSITION_HEADER = ("asset_name", "qty", "avg_price", "current_price")
+POSITION_HEADER = (
+    "asset_name",
+    "broker_ticker",
+    "qty",
+    "avg_price",
+    "current_price",
+    "total_invested",
+    "total_current",
+)
 
 VALID_QUOTE_KINDS = frozenset({q.value for q in QuoteKind})
 VALID_CURRENCY_CODES = frozenset({"BRL", "USD"})
@@ -100,9 +108,17 @@ class AssetRow:
 @dataclass(frozen=True)
 class PositionRow:
     asset_name: str
+    broker_ticker: str
     qty: Decimal
     avg_price: Decimal
     current_price: Decimal
+    # broker-csv-import-totals: totals are broker-published values,
+    # NEVER recomputed from ``qty * price``. An empty cell in the CSV
+    # parses to ``None`` and contributes 0 to the dashboard aggregate
+    # (see ``routes/pages.py``); a non-empty cell is taken verbatim
+    # and inserted into ``Position.total_invested`` / ``total_current``.
+    total_invested: Decimal | None
+    total_current: Decimal | None
     line_no: int
 
 
@@ -140,6 +156,27 @@ def _decimal(raw: str, *, field: str, path: Path, line_no: int) -> Decimal:
         return Decimal(raw.strip())
     except Exception as exc:  # noqa: BLE001 — argparse-style catch
         abort(f"{path}:{line_no} {field}={raw!r} not a decimal: {exc}")
+
+
+def _optional_decimal(raw: str, *, field: str, path: Path, line_no: int) -> Decimal | None:
+    """Parse a CSV cell that may be empty (``None``) or a decimal.
+
+    Empty / whitespace-only cell → ``None``. Non-empty cell must
+    parse as :class:`~decimal.Decimal`; otherwise abort with the
+    line number. Used for ``total_invested`` / ``total_current``
+    so the broker-published values flow through the round-trip
+    without ever being recomputed from ``qty * price``.
+    """
+    s = raw.strip()
+    if not s:
+        return None
+    try:
+        value = Decimal(s)
+    except Exception as exc:  # noqa: BLE001 — argparse-style catch
+        abort(f"{path}:{line_no} {field}={raw!r} not a decimal: {exc}")
+    if value < 0:
+        abort(f"{path}:{line_no} {field}={value} < 0")
+    return value
 
 
 def _int(raw: str, *, field: str, path: Path, line_no: int) -> int:
@@ -248,6 +285,9 @@ def load_positions(profile: str) -> list[PositionRow]:
         asset_name = raw["asset_name"].strip()
         if not asset_name:
             abort(f"{path}:{idx} empty asset_name")
+        broker_ticker = raw["broker_ticker"].strip()
+        if not broker_ticker:
+            abort(f"{path}:{idx} empty broker_ticker")
         qty = _decimal(raw["qty"], field="qty", path=path, line_no=idx)
         if qty < 0:
             abort(f"{path}:{idx} qty={qty} < 0")
@@ -259,12 +299,26 @@ def load_positions(profile: str) -> list[PositionRow]:
         )
         if current_price < 0:
             abort(f"{path}:{idx} current_price={current_price} < 0")
+        # broker-csv-import-totals: totals are broker-published
+        # values. Empty cell → ``None`` (contributes 0 to the
+        # dashboard aggregate). Non-empty cell is taken verbatim;
+        # the parser never falls back to ``qty * price`` — that
+        # path is the exact drift source this code eliminates.
+        total_invested = _optional_decimal(
+            raw["total_invested"], field="total_invested", path=path, line_no=idx
+        )
+        total_current = _optional_decimal(
+            raw["total_current"], field="total_current", path=path, line_no=idx
+        )
         out.append(
             PositionRow(
                 asset_name=asset_name,
+                broker_ticker=broker_ticker,
                 qty=qty,
                 avg_price=avg_price,
                 current_price=current_price,
+                total_invested=total_invested,
+                total_current=total_current,
                 line_no=idx,
             )
         )
@@ -300,6 +354,7 @@ def validate(
     asset_names = {a.name for a in assets}
 
     # positions reference assets
+    seen_pairs: dict[tuple[str, str], int] = {}
     for p in positions:
         if p.asset_name not in asset_names:
             asset_path = SEED_DIR / f"{profile}_assets.csv"
@@ -309,6 +364,15 @@ def validate(
                 f"{pos_path}:{p.line_no} position references "
                 f"missing asset {p.asset_name!r}; assets that DO exist: {existing}"
             )
+        pair = (p.asset_name, p.broker_ticker)
+        if pair in seen_pairs:
+            pos_path = SEED_DIR / f"{profile}_positions.csv"
+            abort(
+                f"{pos_path}:{p.line_no} duplicate (asset_name, broker_ticker) "
+                f"= ({p.asset_name!r}, {p.broker_ticker!r}) "
+                f"(first seen at line {seen_pairs[pair]})"
+            )
+        seen_pairs[pair] = p.line_no
 
     # class sum
     ok, msg = validate_target_pct_sum([c.target_pct for c in classes])
@@ -445,22 +509,23 @@ def run_reset(
 
     positions_created = 0
     for p in positions:
-        # broker-csv-import-totals: seed positions are not broker-
-        # imported — there's no CSV column to read totals from. We
-        # store ``qty * avg`` / ``qty * cur`` as the seeded totals so
-        # the dashboard's "no-recompute" calc renders the seed values
-        # the user typed. The runtime path still never multiplies;
-        # the recompute happens once, here, at seed time, from the
-        # same numbers the seed CSV already carries.
+        # broker-csv-import-totals: totals are broker-published
+        # values; the CSV's ``total_invested`` / ``total_current``
+        # cells are inserted verbatim. ``None`` is a valid value
+        # (legacy seed positions or CSVs without the totals
+        # columns): the dashboard renders a 0 contribution in
+        # that case (see ``routes/pages.py``). The runtime path
+        # never recomputes from ``qty * price`` — that arithmetic
+        # is the exact drift source this code eliminates.
         db.add(
             Position(
                 asset_id=asset_by_name[p.asset_name].id,
                 qty=p.qty,
                 avg_price=p.avg_price,
                 current_price=p.current_price,
-                broker_ticker=p.asset_name,
-                total_invested=p.qty * p.avg_price,
-                total_current=p.qty * p.current_price,
+                broker_ticker=p.broker_ticker,
+                total_invested=p.total_invested,
+                total_current=p.total_current,
             )
         )
         positions_created += 1
@@ -612,7 +677,7 @@ def run_upsert(
     }
     for p in positions:
         asset = asset_by_name[p.asset_name]
-        key = (asset.id, p.asset_name)
+        key = (asset.id, p.broker_ticker)
         if key in pos_by_key:
             row = pos_by_key[key]
             changed = False
@@ -625,21 +690,23 @@ def run_upsert(
             if row.current_price != p.current_price:
                 row.current_price = p.current_price
                 changed = True
-            # broker-csv-import-totals: keep the seeded totals in
-            # sync with the recomputed values from qty/avg/cur.
-            new_total_invested = p.qty * p.avg_price
-            new_total_current = p.qty * p.current_price
-            if row.total_invested != new_total_invested:
-                row.total_invested = new_total_invested
+            # broker-csv-import-totals: the CSV's ``total_invested``
+            # / ``total_current`` cells are taken verbatim — never
+            # recomputed from ``qty * price``. When the CSV cell is
+            # empty (``None``), leave the existing row's value
+            # untouched: the CSV does not carry an opinion on this
+            # field, so the upsert should not overwrite.
+            if p.total_invested is not None and row.total_invested != p.total_invested:
+                row.total_invested = p.total_invested
                 changed = True
-            if row.total_current != new_total_current:
-                row.total_current = new_total_current
+            if p.total_current is not None and row.total_current != p.total_current:
+                row.total_current = p.total_current
                 changed = True
             if changed:
                 out["positions_updated"] += 1
                 print(
-                    f"updated: {p.asset_name} current_price "
-                    f"{row.current_price} -> {p.current_price}"
+                    f"updated: asset_name={p.asset_name} broker_ticker={p.broker_ticker} "
+                    f"current_price {row.current_price} -> {p.current_price}"
                 )
             else:
                 out["positions_unchanged"] += 1
@@ -650,15 +717,15 @@ def run_upsert(
                     qty=p.qty,
                     avg_price=p.avg_price,
                     current_price=p.current_price,
-                    broker_ticker=p.asset_name,
-                    # See run_reset comment: seed positions get
-                    # ``qty * avg`` / ``qty * cur`` as their totals.
-                    total_invested=p.qty * p.avg_price,
-                    total_current=p.qty * p.current_price,
+                    broker_ticker=p.broker_ticker,
+                    # broker-csv-import-totals: insert verbatim;
+                    # never recompute ``qty * price``.
+                    total_invested=p.total_invested,
+                    total_current=p.total_current,
                 )
             )
             out["positions_created"] += 1
-            print(f"created: position for {p.asset_name}")
+            print(f"created: position asset_name={p.asset_name} broker_ticker={p.broker_ticker}")
     db.commit()
 
     return out
@@ -790,9 +857,11 @@ def run_diff(
     would_update = []
     for p in positions:
         asset = asset_by_name[p.asset_name]
-        key = (asset.id, p.asset_name)
+        key = (asset.id, p.broker_ticker)
         if key not in pos_by_key:
-            would_create.append(f"  + position for {p.asset_name}")
+            would_create.append(
+                f"  + position asset_name={p.asset_name} broker_ticker={p.broker_ticker}"
+            )
             out["would_create_positions"] += 1
         else:
             row = pos_by_key[key]
@@ -802,15 +871,20 @@ def run_diff(
                 or row.current_price != p.current_price
             ):
                 would_update.append(
-                    f"  ~ {p.asset_name} current_price {row.current_price} -> {p.current_price}"
+                    f"  ~ asset_name={p.asset_name} broker_ticker={p.broker_ticker} "
+                    f"current_price {row.current_price} -> {p.current_price}"
                 )
                 out["would_update_positions"] += 1
     for _key, row in pos_by_key.items():
         asset = asset_by_name.get(row.asset_id)
         if asset is None:
             continue
-        if not any(p.asset_name == row.broker_ticker for p in positions):
-            print(f"  - position {asset.name} (orphan)")
+        if not any(
+            p.asset_name == asset.name and p.broker_ticker == row.broker_ticker for p in positions
+        ):
+            print(
+                f"  - position asset_name={asset.name} broker_ticker={row.broker_ticker} (orphan)"
+            )
             out["would_orphan_positions"] += 1
     if would_create:
         print(f"would-create: {len(would_create)}")

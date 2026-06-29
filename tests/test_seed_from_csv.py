@@ -417,8 +417,11 @@ def test_position_referencing_missing_asset_is_rejected(omaha_db, monkeypatch) -
     bad_path = REPO_ROOT / "data" / "seed" / "italo_positions.csv"
     backup = bad_path.read_text(encoding="utf-8")
     try:
-        # Change "SMH,14" to "TICKERFANTASMA,14"
-        bad = backup.replace("SMH,14", "TICKERFANTASMA,14")
+        # Change "SMH,SMH,14" to "TICKERFANTASMA,TICKERFANTASMA,14" — points
+        # asset_name at a non-existent asset. The new header has
+        # broker_ticker as the second column, so the replace must touch
+        # both the asset_name and the broker_ticker cells.
+        bad = backup.replace("SMH,SMH,14", "TICKERFANTASMA,TICKERFANTASMA,14")
         bad_path.write_text(bad, encoding="utf-8")
         r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
         assert r.returncode != 0, r.stderr
@@ -430,6 +433,157 @@ def test_position_referencing_missing_asset_is_rejected(omaha_db, monkeypatch) -
             assert session.query(Asset).count() == 0
     finally:
         bad_path.write_text(backup, encoding="utf-8")
+
+
+def test_reset_preserves_divergent_broker_ticker(omaha_db) -> None:
+    """``reset`` reads ``broker_ticker`` from the CSV verbatim.
+
+    Adds an asset "Petrobras PN" and a position row with
+    ``asset_name="Petrobras PN", broker_ticker="PETR4"`` to the
+    Italo CSVs, runs ``reset``, and asserts the resulting
+    :class:`Position` row has ``broker_ticker == "PETR4"`` while
+    still being linked to the asset named "Petrobras PN" (not to
+    the ticker). The dashboard renders under the asset name; the
+    broker ticker is the symbol the broker reports — this is the
+    whole point of the new column.
+    """
+    SessionLocal = omaha_db["SessionLocal"]
+    classes_path = REPO_ROOT / "data" / "seed" / "italo_classes.csv"
+    assets_path = REPO_ROOT / "data" / "seed" / "italo_assets.csv"
+    positions_path = REPO_ROOT / "data" / "seed" / "italo_positions.csv"
+    classes_backup = classes_path.read_text(encoding="utf-8")
+    assets_backup = assets_path.read_text(encoding="utf-8")
+    positions_backup = positions_path.read_text(encoding="utf-8")
+    try:
+        # Add an asset row for Petrobras PN under the Ações class.
+        # The seed CSVs end without a trailing newline; ensure we
+        # start the appended row on its own line.
+        assets_sep = "" if assets_backup.endswith("\n") else "\n"
+        positions_sep = "" if positions_backup.endswith("\n") else "\n"
+        assets_path.write_text(
+            assets_backup + assets_sep + "Ações,Petrobras PN,0.00,99,true,true,BRL\n",
+            encoding="utf-8",
+        )
+        # Add a position row with divergent broker_ticker. The
+        # totals columns are explicit — never recomputed from
+        # ``qty * price``.
+        positions_path.write_text(
+            positions_backup
+            + positions_sep
+            + "Petrobras PN,PETR4,100,32.50,38.75,3250.00,3875.00\n",
+            encoding="utf-8",
+        )
+
+        r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
+        assert r.returncode == 0, r.stderr
+
+        with SessionLocal() as session:
+            from omaha.models import Asset, Position
+
+            petrobras = session.query(Asset).filter(Asset.name == "Petrobras PN").one()
+            pos = session.query(Position).filter(Position.asset_id == petrobras.id).one()
+            assert pos.broker_ticker == "PETR4", pos.broker_ticker
+            assert pos.qty == Decimal("100")
+            assert pos.avg_price == Decimal("32.50")
+            assert pos.current_price == Decimal("38.75")
+            # broker-csv-import-totals: explicit values pass through
+            # verbatim, no ``qty * price`` recompute.
+            assert pos.total_invested == Decimal("3250.00"), pos.total_invested
+            assert pos.total_current == Decimal("3875.00"), pos.total_current
+    finally:
+        classes_path.write_text(classes_backup, encoding="utf-8")
+        assets_path.write_text(assets_backup, encoding="utf-8")
+        positions_path.write_text(positions_backup, encoding="utf-8")
+
+
+def test_reset_preserves_totals_verbatim_no_recompute(omaha_db) -> None:
+    """``total_invested`` / ``total_current`` flow through verbatim.
+
+    Pins the ``broker-csv-import-totals`` invariant: the seed
+    script never falls back to ``qty * price`` when the CSV has
+    explicit (non-empty) totals cells. Picks the SMH row (qty=14,
+    avg=992.67, cur=2264.47) and overwrites the CSV totals with
+    values that *do not* equal the product — the post-reset
+    position must carry the CSV-supplied numbers exactly.
+    """
+    SessionLocal = omaha_db["SessionLocal"]
+    positions_path = REPO_ROOT / "data" / "seed" / "italo_positions.csv"
+    backup = positions_path.read_text(encoding="utf-8")
+    try:
+        # The current Italo CSV row may have either empty or
+        # pre-populated totals cells; either way we want to inject
+        # sentinel values that DO NOT equal qty*avg / qty*cur.
+        # Strip the trailing two cells (whatever they are) and
+        # append the sentinels.
+        sentinel_invested = "99999.9999"
+        sentinel_current = "88888.8888"
+        lines = backup.splitlines(keepends=False)
+        new_lines: list[str] = []
+        for line in lines:
+            if line.startswith("SMH,SMH,14.00000000,992.67071429,2264.47000000,"):
+                new_lines.append(
+                    f"SMH,SMH,14.00000000,992.67071429,2264.47000000,{sentinel_invested},{sentinel_current}"
+                )
+            else:
+                new_lines.append(line)
+        assert any(ln.startswith("SMH,SMH,") for ln in new_lines), "SMH row missing"
+        positions_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+
+        r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
+        assert r.returncode == 0, r.stderr
+
+        with SessionLocal() as session:
+            from omaha.models import Asset, Position
+
+            smh = session.query(Asset).filter(Asset.name == "SMH").one()
+            pos = session.query(Position).filter(Position.asset_id == smh.id).one()
+            assert pos.total_invested == Decimal(sentinel_invested), pos.total_invested
+            assert pos.total_current == Decimal(sentinel_current), pos.total_current
+    finally:
+        positions_path.write_text(backup, encoding="utf-8")
+
+
+def test_reset_null_total_cells_contribute_zero(omaha_db) -> None:
+    """Empty ``total_invested`` / ``total_current`` cells parse to ``None``.
+
+    A legacy seed CSV without the totals columns (or one where the
+    user simply didn't fill them in) MUST NOT cause a recompute —
+    the dashboard then sees ``NULL`` and contributes ``Decimal('0')``
+    to the class / portfolio aggregate. This pins that contract so
+    a future change cannot silently start filling ``0`` instead of
+    ``NULL``.
+    """
+    SessionLocal = omaha_db["SessionLocal"]
+    positions_path = REPO_ROOT / "data" / "seed" / "italo_positions.csv"
+    backup = positions_path.read_text(encoding="utf-8")
+    try:
+        # Strip SMH's totals cells entirely (replace with empty
+        # cells) and assert the row's totals columns parse to
+        # ``None`` after reset.
+        lines = backup.splitlines(keepends=False)
+        new_lines: list[str] = []
+        smh_seen = False
+        for line in lines:
+            if line.startswith("SMH,SMH,14.00000000,992.67071429,2264.47000000,"):
+                smh_seen = True
+                new_lines.append("SMH,SMH,14.00000000,992.67071429,2264.47000000,,")
+            else:
+                new_lines.append(line)
+        assert smh_seen, "SMH row missing"
+        positions_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+
+        r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
+        assert r.returncode == 0, r.stderr
+
+        with SessionLocal() as session:
+            from omaha.models import Asset, Position
+
+            smh = session.query(Asset).filter(Asset.name == "SMH").one()
+            pos = session.query(Position).filter(Position.asset_id == smh.id).one()
+            assert pos.total_invested is None, pos.total_invested
+            assert pos.total_current is None, pos.total_current
+    finally:
+        positions_path.write_text(backup, encoding="utf-8")
 
 
 def test_non_tradeable_position_sentinel_preserves_value(omaha_db) -> None:

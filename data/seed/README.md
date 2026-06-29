@@ -20,7 +20,7 @@ For each profile (`italo`, `ana`):
 |------------------------------|---------------------------------------------------|-----------------------------------------------------------------|
 | `{profile}_classes.csv`      | `name,target_pct,display_order,quote_kind`        | Per-profile class list. `sum(target_pct)` must equal 100. `quote_kind` defaults to `none`. |
 | `{profile}_assets.csv`       | `class_name,name,target_pct,display_order,buy_enabled,sell_enabled,currency_code` | Per-asset target within its class. `sum(target_pct)` per class must equal 100. The three trade-control columns feed the Fase 1 rebalance foundation; `currency_code` must be one of `BRL`, `USD` (CHECK constraint `ck_asset_currency_code` in migration `0016_asset_trade_flags`). |
-| `{profile}_positions.csv`    | `asset_name,qty,avg_price,current_price`          | Current broker position. `asset_name` must match an asset row in `{profile}_assets.csv`. |
+| `{profile}_positions.csv`    | `asset_name,broker_ticker,qty,avg_price,current_price,total_invested,total_current` | Current broker position. `asset_name` must match an asset row in `{profile}_assets.csv`; `broker_ticker` is the broker-side symbol and MAY diverge from `asset_name` (e.g. `asset_name="Petrobras PN"`, `broker_ticker="PETR4"`). Uniqueness is per `(asset_name, broker_ticker)` pair — multi-broker positions on the same asset are supported. `total_invested` / `total_current` are the broker-published per-row totals; they are inserted **verbatim** (never recomputed from `qty * price`) and an empty cell parses to `NULL` (contributes `0` to the dashboard aggregate). |
 
 ## Validation rules (run by `seed_from_csv.py`)
 
@@ -44,6 +44,12 @@ For each profile (`italo`, `ana`):
    `currency_code` must be one of `BRL`, `USD` (case-insensitive;
    the loader upper-cases the value before insert). The DB
    `ck_asset_currency_code` CHECK rejects anything else.
+9. `total_invested` / `total_current` are optional (empty cell →
+   `NULL`); non-empty cell must be a decimal `>= 0`. They are
+   inserted verbatim into `Position.total_invested` /
+   `Position.total_current` — the seed script never falls back to
+   `qty * price` (see the `broker-csv-import-totals` change for
+   why this invariant matters).
 
 ### Header changes are hard fails (no silent fallback)
 
@@ -97,6 +103,10 @@ The seed script picks the sentinel automatically when both `Qtd` and
    `import_previews`, `assets`, `asset_classes` for the Italo profile
    and re-seeds from scratch. Use this only when the CSV is the new
    source of truth and the DB should reflect it.
+5. Or, freeze the current DB state with `uv run task db-snapshot`
+   and commit the resulting `git diff data/seed/`. The snapshot
+   exports live DB state to all 6 CSVs in the canonical profile set
+   (`italo`, `ana`).
 
 `db-seed-from-csv` aliases to the destructive `db-reset` for
 convenience; pass `-- --profile ana --mode <m>` for Ana or other

@@ -187,6 +187,7 @@ _INTEGRATION_PREFIXES = (
     "tests/test_market_prices_adapter.py",
     "tests/test_seed.py",
     "tests/test_seed_from_csv.py",
+    "tests/test_snapshot_to_csv.py",
 )
 
 

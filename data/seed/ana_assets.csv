@@ -9,11 +9,14 @@ RF Dinâmica,Tesouro IPCA+ 2040,0.00,6,true,true,BRL
 RF Dinâmica,Tesouro IPCA+ 2045,0.00,7,true,true,BRL
 RF Dinâmica,Tesouro IPCA+ 2050,18.75,8,true,true,BRL
 RF Dinâmica,Tesouro Renda+ Aposentadoria Extra 2065,18.75,9,true,true,BRL
+RF Dinâmica,CPTI11,0.00,10,true,true,BRL
 RF Pós,AUPO11,100.00,0,true,true,BRL
 RF Pós,Svn Renda Fixa Crédito,0.00,1,true,true,BRL
 RF Pós,Tesouro Selic 2027,0.00,2,true,true,BRL
 RF Pós,Tesouro Selic 2029,0.00,3,true,true,BRL
 RF Pós,Tesouro Selic 2031,0.00,4,true,true,BRL
+RF Pós,RDB Pós 120% CDI 15/05/2028 Caixinha Turbo NuCel,0.00,5,false,false,BRL
+RF Pós,RDB Pós 120% CDI 15/05/2028 Caixinha Turbo Ultravioleta,0.00,6,false,false,BRL
 Internacional,HTEK11,5.00,0,true,true,BRL
 Internacional,IAU,10.00,1,true,true,USD
 Internacional,IVV,25.00,2,true,true,USD
@@ -24,6 +27,7 @@ Internacional,SMH,10.00,6,true,true,USD
 Internacional,TFLO,1.00,7,true,true,USD
 Internacional,VNQ,14.00,8,true,true,USD
 Internacional,VT,20.00,9,true,true,USD
+Internacional,Conta corrente em dólar Avenue,0.00,10,true,true,BRL
 FII,BRCR11,6.67,0,true,true,BRL
 FII,CPTS11,15.00,1,true,true,BRL
 FII,LVBI11,5.00,2,true,true,BRL
@@ -45,3 +49,5 @@ Ações,RDB Pós 100% CDI 01/06/2035,0.00,3,true,true,BRL
 Ações,SLCE3,13.33,4,true,true,BRL
 Ações,VAMO3,13.33,5,true,true,BRL
 Ações,WIZC3,26.67,6,true,true,BRL
+Ações,RDB Pós 100% CDI 01/08/2033,0.00,7,false,false,BRL
+Ações,BRBI11,0.00,8,true,true,BRL
