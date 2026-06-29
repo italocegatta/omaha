@@ -16,7 +16,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
 from sqlalchemy import create_engine, text
 
 REPO_ROOT = Path(__file__).resolve().parent.parent

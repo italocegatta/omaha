@@ -45,12 +45,11 @@ from __future__ import annotations
 import asyncio
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Protocol
 
 import yfinance as yf
-
 
 # ---------------------------------------------------------------------------
 # Symbol mapper (pure)
@@ -200,8 +199,12 @@ class YFinanceProvider:
         ticker = yf.Ticker(mapped_symbol)
         fast_info = ticker.fast_info
         return {
-            "last_price": fast_info.get("last_price") if hasattr(fast_info, "get") else fast_info["last_price"],
-            "currency": fast_info.get("currency") if hasattr(fast_info, "get") else fast_info["currency"],
+            "last_price": fast_info.get("last_price")
+            if hasattr(fast_info, "get")
+            else fast_info["last_price"],
+            "currency": fast_info.get("currency")
+            if hasattr(fast_info, "get")
+            else fast_info["currency"],
         }
 
     def _quote_from_fast_info(
@@ -229,7 +232,7 @@ class YFinanceProvider:
             symbol=mapped_symbol if mapped_symbol != raw_symbol else raw_symbol,
             price=price_decimal,
             currency=currency,
-            fetched_at=datetime.now(tz=timezone.utc).replace(tzinfo=None),
+            fetched_at=datetime.now(tz=UTC).replace(tzinfo=None),
         )
 
 

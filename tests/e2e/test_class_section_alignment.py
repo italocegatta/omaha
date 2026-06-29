@@ -14,7 +14,6 @@ contract that the consolidated-totals change introduced.
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -326,16 +325,13 @@ class TestClassSectionAlignment:
 
         assert visibility is not None, "class-section-header not found"
         assert visibility["totalVisible"], (
-            f"class-total-value must stay visible when collapsed, "
-            f"got visibility={visibility}"
+            f"class-total-value must stay visible when collapsed, got visibility={visibility}"
         )
         assert visibility["alvoVisible"], (
-            f"class-target-pct-view must stay visible when collapsed, "
-            f"got visibility={visibility}"
+            f"class-target-pct-view must stay visible when collapsed, got visibility={visibility}"
         )
         assert visibility["atualVisible"], (
-            f"class-current-pct must stay visible when collapsed, "
-            f"got visibility={visibility}"
+            f"class-current-pct must stay visible when collapsed, got visibility={visibility}"
         )
         # The em-dash sentinel OR a BRL string — either is acceptable.
         assert visibility["totalText"] in {"—"} or (

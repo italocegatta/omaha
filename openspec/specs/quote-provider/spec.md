@@ -99,4 +99,3 @@ not block the FastAPI event loop.
 #### Scenario: Event loop stays responsive during a refresh
 - **WHEN** the provider fetches 50 symbols in a batch
 - **THEN** the FastAPI event loop can serve other requests during the batch (verified by a concurrent request returning within 1s)
-

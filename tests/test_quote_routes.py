@@ -29,13 +29,12 @@ convention in :mod:`tests.test_classes_routes`.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
-
 
 # ---------------------------------------------------------------------------
 # Per-test cleanup
@@ -94,7 +93,7 @@ def test_get_single_returns_cached_quote(client: TestClient) -> None:
                 symbol="PETR4.SA",
                 price=Decimal("38.50"),
                 currency="BRL",
-                fetched_at=datetime.now(tz=timezone.utc).replace(tzinfo=None),
+                fetched_at=datetime.now(tz=UTC).replace(tzinfo=None),
             )
         )
         db.commit()
@@ -129,7 +128,7 @@ def test_get_batch_returns_results_for_known_symbols_only(client: TestClient) ->
                 symbol="PETR4.SA",
                 price=Decimal("38.50"),
                 currency="BRL",
-                fetched_at=datetime.now(tz=timezone.utc).replace(tzinfo=None),
+                fetched_at=datetime.now(tz=UTC).replace(tzinfo=None),
             )
         )
         db.add(
@@ -137,7 +136,7 @@ def test_get_batch_returns_results_for_known_symbols_only(client: TestClient) ->
                 symbol="AAPL",
                 price=Decimal("190.00"),
                 currency="USD",
-                fetched_at=datetime.now(tz=timezone.utc).replace(tzinfo=None),
+                fetched_at=datetime.now(tz=UTC).replace(tzinfo=None),
             )
         )
         db.commit()

@@ -52,4 +52,3 @@ history.
 #### Scenario: Cache survives a reload
 - **WHEN** the application stores a quote and then restarts
 - **THEN** the next read for that symbol returns the stored price with the original `fetched_at` timestamp
-

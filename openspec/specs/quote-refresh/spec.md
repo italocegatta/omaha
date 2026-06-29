@@ -96,4 +96,3 @@ position SHALL NOT be refreshed (the cache is fed by real holdings).
 #### Scenario: Symbol list reflects current positions
 - **WHEN** the database contains 5 positions under AUTO classes and 3 positions under NONE classes
 - **THEN** the refresh fetches only the 5 AUTO-class symbols
-

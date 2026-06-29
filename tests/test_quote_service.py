@@ -22,9 +22,8 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import ClassVar
 
 import pytest
 from sqlalchemy import text
@@ -33,9 +32,7 @@ from omaha.db import SessionLocal
 from omaha.models import Asset, AssetClass, Position, Profile, QuoteKind
 from omaha.quotes.cache import QuoteCache
 from omaha.quotes.provider import Quote as ProviderQuote
-from omaha.quotes.provider import QuoteProvider
 from omaha.quotes.service import QuoteService
-
 
 # ---------------------------------------------------------------------------
 # Fake provider
@@ -88,25 +85,26 @@ def _seed_auto_profile(symbols: list[str]) -> int:
     asset it belongs to.
     """
     with SessionLocal() as db:
-        profile = (
-            db.query(Profile)
-            .filter(Profile.name == "Italo")
-            .one_or_none()
-        )
+        profile = db.query(Profile).filter(Profile.name == "Italo").one_or_none()
         if profile is None:
             profile = Profile(user_id=1, name="Italo", display_order=0)
             db.add(profile)
             db.flush()
 
         klass = AssetClass(
-            profile_id=profile.id, name="Ações", target_pct=Decimal("100"),
-            display_order=0, quote_kind=QuoteKind.AUTO.value,
+            profile_id=profile.id,
+            name="Ações",
+            target_pct=Decimal("100"),
+            display_order=0,
+            quote_kind=QuoteKind.AUTO.value,
         )
         db.add(klass)
         db.flush()
 
         asset = Asset(
-            asset_class_id=klass.id, name="Placeholder", target_pct=Decimal("100"),
+            asset_class_id=klass.id,
+            name="Placeholder",
+            target_pct=Decimal("100"),
             display_order=0,
         )
         db.add(asset)
@@ -149,12 +147,16 @@ def test_refresh_once_writes_successful_results_to_cache() -> None:
     _seed_auto_profile(["PETR4", "VALE3", "AAPL"])
     provider = _make_provider()
     provider.responses["PETR4"] = ProviderQuote(
-        symbol="PETR4.SA", price=Decimal("38.50"), currency="BRL",
-        fetched_at=datetime.now(tz=timezone.utc).replace(tzinfo=None),
+        symbol="PETR4.SA",
+        price=Decimal("38.50"),
+        currency="BRL",
+        fetched_at=datetime.now(tz=UTC).replace(tzinfo=None),
     )
     provider.responses["AAPL"] = ProviderQuote(
-        symbol="AAPL", price=Decimal("190.00"), currency="USD",
-        fetched_at=datetime.now(tz=timezone.utc).replace(tzinfo=None),
+        symbol="AAPL",
+        price=Decimal("190.00"),
+        currency="USD",
+        fetched_at=datetime.now(tz=UTC).replace(tzinfo=None),
     )
     # VALE3 missing → fetch returns None → reported as failed.
 
@@ -176,8 +178,10 @@ def test_refresh_once_partial_failure_does_not_trip_circuit() -> None:
     _seed_auto_profile(["PETR4", "AAPL"])
     provider = _make_provider()
     provider.responses["PETR4"] = ProviderQuote(
-        symbol="PETR4.SA", price=Decimal("38.50"), currency="BRL",
-        fetched_at=datetime.now(tz=timezone.utc).replace(tzinfo=None),
+        symbol="PETR4.SA",
+        price=Decimal("38.50"),
+        currency="BRL",
+        fetched_at=datetime.now(tz=UTC).replace(tzinfo=None),
     )
     # AAPL always fails → every iteration is partial.
 
@@ -235,8 +239,10 @@ def test_circuit_closes_after_cooldown() -> None:
     # Provider now returns a successful quote; refresh succeeds and the
     # failure counter resets to zero.
     provider.responses["PETR4"] = ProviderQuote(
-        symbol="PETR4.SA", price=Decimal("38.50"), currency="BRL",
-        fetched_at=datetime.now(tz=timezone.utc).replace(tzinfo=None),
+        symbol="PETR4.SA",
+        price=Decimal("38.50"),
+        currency="BRL",
+        fetched_at=datetime.now(tz=UTC).replace(tzinfo=None),
     )
     report = asyncio.run(service.refresh_once())
     assert report.refreshed == 1
@@ -268,8 +274,10 @@ def test_lock_serializes_concurrent_refreshes() -> None:
 
     provider = _SlowProvider()
     provider.responses["PETR4"] = ProviderQuote(
-        symbol="PETR4.SA", price=Decimal("38.50"), currency="BRL",
-        fetched_at=datetime.now(tz=timezone.utc).replace(tzinfo=None),
+        symbol="PETR4.SA",
+        price=Decimal("38.50"),
+        currency="BRL",
+        fetched_at=datetime.now(tz=UTC).replace(tzinfo=None),
     )
     service = QuoteService(provider=provider, threshold=3, cooldown_seconds=1)
 

@@ -17,7 +17,6 @@ from unittest.mock import patch
 
 import pytest
 
-from scripts import reset_both_profiles
 from scripts.reset_both_profiles import main
 
 

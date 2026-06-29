@@ -24,7 +24,6 @@ from omaha.db import SessionLocal
 from omaha.models import Asset, AssetClass, Position, Profile
 from omaha.rebalance.engine import cvxpy_solver
 from omaha.rebalance.glue import run_rebalance
-from omaha.rebalance.models import RebalanceValidationError
 
 POLICIES = {
     "contribution-only",

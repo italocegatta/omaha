@@ -26,7 +26,7 @@ for a fresh per-test SQLite DB. The ``quotes`` table is wiped in an
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -49,7 +49,7 @@ def _wipe_quotes() -> None:
 
 def _utc_now() -> datetime:
     """Naive UTC ``now`` to compare against the cache's stored timestamps."""
-    return datetime.now(tz=timezone.utc).replace(tzinfo=None)
+    return datetime.now(tz=UTC).replace(tzinfo=None)
 
 
 def test_upsert_writes_single_row() -> None:

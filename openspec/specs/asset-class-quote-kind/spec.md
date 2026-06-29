@@ -69,4 +69,3 @@ class editor (S02) can render a dropdown for it.
 #### Scenario: GET /api/classes returns quote_kind
 - **WHEN** a client calls `GET /api/classes`
 - **THEN** each class in the response includes the `quote_kind` field
-

@@ -484,4 +484,3 @@ required for the banner to disappear.
   contribution, *, solver=stub_solver)` explicitly
 - **THEN** the glue dispatches to `stub_solver` (the
   override works; backward compat preserved).
-

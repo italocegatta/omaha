@@ -33,8 +33,7 @@ old" signal).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from decimal import Decimal
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -74,7 +73,7 @@ def _now_utc() -> datetime:
     SQLAlchemy ``DateTime`` default), so we keep things consistent by
     always writing/reading naive UTC.
     """
-    return datetime.now(tz=timezone.utc).replace(tzinfo=None)
+    return datetime.now(tz=UTC).replace(tzinfo=None)
 
 
 class QuoteCache:
@@ -148,8 +147,10 @@ class QuoteCache:
         with _session_scope() as session:
             stmt = select(Quote).where(Quote.symbol.in_(symbols))
             rows = session.execute(stmt).scalars().all()
-        return {row.symbol: QuoteWithFreshness(quote=row, fresh=self._is_fresh(row.fetched_at))
-                for row in rows}
+        return {
+            row.symbol: QuoteWithFreshness(quote=row, fresh=self._is_fresh(row.fetched_at))
+            for row in rows
+        }
 
     @staticmethod
     def _is_fresh(fetched_at: datetime) -> bool:

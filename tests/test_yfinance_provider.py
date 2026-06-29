@@ -29,7 +29,6 @@ from unittest.mock import MagicMock, patch
 
 from omaha.quotes.provider import YFinanceProvider, map_symbol
 
-
 # ---------------------------------------------------------------------------
 # Symbol mapper (pure function)
 # ---------------------------------------------------------------------------

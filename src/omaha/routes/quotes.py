@@ -35,7 +35,7 @@ sprinkling ``asyncio.get_event_loop()`` calls.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
@@ -57,7 +57,7 @@ def _serialize(
 ) -> dict[str, object]:
     """Render a quote row as a JSON-safe dict."""
     if fetched_at.tzinfo is not None:
-        fetched_at = fetched_at.astimezone(timezone.utc).replace(tzinfo=None)
+        fetched_at = fetched_at.astimezone(UTC).replace(tzinfo=None)
     return {
         "symbol": symbol,
         "price": str(price),
