@@ -95,6 +95,7 @@
                      max="100"
                      class="class-inline-edit-input"
                      data-testid="class-inline-edit-input"
+                     x-ref="classPctInput"
                      x-model="editClassPctValue"
                      @keyup.enter="commitEditClassPct()"
                      @keyup.escape.window="cancelEditClassPct()"
@@ -216,6 +217,7 @@
                            max="100"
                            class="asset-inline-edit-input"
                            data-testid="asset-inline-edit-input"
+                           x-ref="assetClassPctInput"
                            :data-asset-id="a.id"
                            x-model="editingValue"
                            @keyup.enter="commitEdit()"
@@ -248,6 +250,7 @@
                            max="100"
                            class="asset-inline-edit-input"
                            data-testid="asset-target-pct-total-edit-input"
+                           x-ref="totalPctInput"
                            :data-asset-id="a.id"
                            x-model="editingTotalValue"
                            @keyup.enter="commitEditTotal()"
@@ -1122,6 +1125,27 @@
         this.editingClassPct = true;
         this.editClassPctValue = String(this.classTargetPct);
         this.editClassPctError = '';
+        var self = this;
+        // x-show toggles display:none; focus() silently no-ops on a
+        // hidden element. requestAnimationFrame waits for the next
+        // browser paint (the input is visible by then) and fires
+        // fast enough (≈16ms) that the user's first keystroke after
+        // the click lands in the input. A second rAF runs the
+        // select() so it survives Alpine's x-model re-sync that can
+        // reset the selection range right after the first paint.
+        // The class section has only one input per Alpine scope
+        // (``x-ref="classPctInput"``) so the testid selector is
+        // unambiguous.
+        requestAnimationFrame(function () {
+          var el = document.querySelector(
+            '[data-testid="class-inline-edit-input"]'
+          );
+          if (!el) return;
+          el.focus();
+          requestAnimationFrame(function () {
+            el.select();
+          });
+        });
       },
       cancelEditClassPct: function () {
         this.editingClassPct = false;
@@ -1131,12 +1155,14 @@
       commitEditClassPct: function () {
         if (this.editingClassPct === false) return;
         var self = this;
+        var pct = (self.editClassPctValue ?? '').toString().trim();
+        if (pct === '') pct = '0';
         self.savingClassPct = true;
         self.editClassPctError = '';
         fetch('/api/classes/' + self.classId, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ target_pct: self.editClassPctValue }),
+          body: JSON.stringify({ target_pct: pct }),
         })
           .then(function (r) {
             if (r.status === 200) {
@@ -1190,6 +1216,23 @@
         this.editingAssetId = id;
         this.editingValue = String(asset.target_pct);
         this.error = '';
+        // Scope the input lookup to the row whose asset id matches
+        // ``id`` — ``x-ref="assetClassPctInput"`` collides across
+        // rows in the same classSection Alpine scope, so
+        // ``this.$refs.assetClassPctInput`` resolves to the LAST
+        // matching input registered, which may be in a different
+        // row. Use a per-row data attribute selector instead.
+        var self = this;
+        requestAnimationFrame(function () {
+          var el = document.querySelector(
+            '.asset-inline-edit-input[data-asset-id="' + id + '"]:not([data-testid*="total"])'
+          );
+          if (!el) return;
+          el.focus();
+          requestAnimationFrame(function () {
+            el.select();
+          });
+        });
       },
       startEditTotal: function (id) {
         if (this.editingAssetId !== null) {
@@ -1200,6 +1243,17 @@
         this.editingTotalAssetId = id;
         this.editingTotalValue = String(asset.target_pct_total);
         this.errorTotal = '';
+        var self = this;
+        requestAnimationFrame(function () {
+          var el = document.querySelector(
+            '[data-testid="asset-target-pct-total-edit-input"][data-asset-id="' + id + '"]'
+          );
+          if (!el) return;
+          el.focus();
+          requestAnimationFrame(function () {
+            el.select();
+          });
+        });
       },
       cancelEditTotal: function () {
         this.editingTotalAssetId = null;
@@ -1215,12 +1269,14 @@
         if (this.editingAssetId === null) return;
         var id = this.editingAssetId;
         var self = this;
+        var pct = (self.editingValue ?? '').toString().trim();
+        if (pct === '') pct = '0';
         self.saving = true;
         self.error = '';
         fetch('/api/assets/' + id, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ target_pct: self.editingValue }),
+          body: JSON.stringify({ target_pct: pct }),
         })
           .then(function (r) {
             if (r.status === 200) {
@@ -1282,7 +1338,9 @@
       commitEditTotal: function () {
         if (this.editingTotalAssetId === null) return;
         var self = this;
-        var parsed = parseFloat(self.editingTotalValue);
+        var totalStr = (self.editingTotalValue ?? '').toString().trim();
+        if (totalStr === '') totalStr = '0';
+        var parsed = parseFloat(totalStr);
         var newTargetPct = self.classTargetPct > 0
           ? (parsed * 100) / self.classTargetPct
           : 0;

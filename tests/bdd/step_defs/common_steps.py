@@ -219,6 +219,152 @@ def type_value(page: Page, value: str):
 
 
 # ─────────────────────────────────────────────────────────────────────
+# dashboard-inline-edit-friction: single-click auto-focus steps.
+# These deliberately do NOT call ``focus()`` + select-all + delete
+# after the click — the dashboard's inline editor now auto-focuses
+# + pre-selects on the same click. Any further focus call would
+# mask a regression in the auto-focus path.
+# ─────────────────────────────────────────────────────────────────────
+
+
+@when(parsers.parse('clico na pill "Alvo" da classe "{class_name}" com um único clique'))
+def click_class_target_pill_once(page: Page, class_name: str):
+    section = page.locator(
+        f'[data-testid="class-summary-row"]:has('
+        f'[data-testid="class-section-name"]:text-is("{class_name}"))'
+    )
+    section.first.wait_for(state="visible", timeout=5000)
+    section.first.locator('[data-testid="class-target-pct-view"]').first.click()
+    section.first.locator('[data-testid="class-inline-edit-input"]').wait_for(
+        state="visible", timeout=5000
+    )
+
+
+@when(parsers.parse('clico no campo alvo % classe do ativo "{ticker}" com um único clique'))
+def click_asset_class_cell_once(page: Page, ticker: str):
+    row = page.locator(
+        f'[data-testid="dashboard-asset-row"]:has('
+        f'[data-testid="asset-row-name-text"]:text-is("{ticker}"))'
+    )
+    row.first.wait_for(state="visible", timeout=5000)
+    row.first.locator('[data-testid="asset-target-pct-class"]').click()
+    row.first.locator('[data-testid="asset-inline-edit-input"]').wait_for(
+        state="visible", timeout=5000
+    )
+
+
+@when(parsers.parse('clico no campo alvo % total do ativo "{ticker}" com um único clique'))
+def click_asset_total_cell_once(page: Page, ticker: str):
+    row = page.locator(
+        f'[data-testid="dashboard-asset-row"]:has('
+        f'[data-testid="asset-row-name-text"]:text-is("{ticker}"))'
+    )
+    row.first.wait_for(state="visible", timeout=5000)
+    row.first.locator('[data-testid="asset-target-pct-total"]').click()
+    row.first.locator('[data-testid="asset-target-pct-total-edit-input"]').wait_for(
+        state="visible", timeout=5000
+    )
+
+
+@when('limpo o input e pressiono "Enter"')
+def clear_input_and_press_enter(page: Page):
+    page.wait_for_function(
+        "() => document.activeElement?.tagName === 'INPUT' "
+        "&& document.activeElement?.type === 'number'",
+        timeout=3000,
+    )
+    active = page.locator(":focus")
+    active.fill("")
+    page.keyboard.press("Enter")
+    # Wait for the inline editor to close — that's the post-PATCH
+    # signal that Alpine has updated the model. The assertion
+    # step's filter(has_text=...) needs the re-rendered DOM, so
+    # blocking here keeps Playwright from racing the response.
+    page.wait_for_function(
+        "() => !document.querySelector('[data-testid=\"class-inline-edit-input\"]:focus') "
+        "&& !document.querySelector('[data-testid=\"asset-inline-edit-input\"]:focus')",
+        timeout=5000,
+    )
+
+
+@when("limpo o input e tiro o foco")
+def clear_input_and_blur(page: Page):
+    page.wait_for_function(
+        "() => document.activeElement?.tagName === 'INPUT' "
+        "&& document.activeElement?.type === 'number'",
+        timeout=3000,
+    )
+    active = page.locator(":focus")
+    active.fill("")
+    page.locator("body").click(position={"x": 5, "y": 5})
+    page.wait_for_function(
+        "() => !document.querySelector('[data-testid=\"class-inline-edit-input\"]:focus') "
+        "&& !document.querySelector('[data-testid=\"asset-inline-edit-input\"]:focus')",
+        timeout=5000,
+    )
+
+
+@then(parsers.parse('o input "{testid}" da classe "{class_name}" está focado'))
+def class_input_is_focused(page: Page, testid: str, class_name: str):
+    section = page.locator(
+        f'[data-testid="class-summary-row"]:has('
+        f'[data-testid="class-section-name"]:text-is("{class_name}"))'
+    )
+    section.first.wait_for(state="visible", timeout=5000)
+    input_loc = section.first.locator(f'[data-testid="{testid}"]')
+    input_loc.wait_for(state="visible", timeout=5000)
+    is_focused = input_loc.evaluate("el => el === document.activeElement")
+    assert is_focused, f"esperava {testid!r} da classe {class_name!r} focado"
+
+
+@then(parsers.parse('o input "{testid}" da classe "{class_name}" tem o valor pré-selecionado'))
+def class_input_value_selected(page: Page, testid: str, class_name: str):
+    """Assert the inline input's value is pre-selected.
+
+    ``<input type="number">`` returns ``null`` for ``selectionStart``
+    / ``selectionEnd`` in Chrome / Firefox (numeric inputs don't
+    expose a textual selection range), so we cannot measure the
+    selection length directly. Instead we type a single character
+    and assert the resulting value is just that character — proving
+    the keystroke replaced the pre-selected value rather than
+    appending to it.
+    """
+    section = page.locator(
+        f'[data-testid="class-summary-row"]:has('
+        f'[data-testid="class-section-name"]:text-is("{class_name}"))'
+    )
+    section.first.wait_for(state="visible", timeout=5000)
+    input_loc = section.first.locator(f'[data-testid="{testid}"]')
+    input_loc.wait_for(state="visible", timeout=5000)
+    pre_value = input_loc.evaluate("el => el.value")
+    input_loc.focus()
+    # Press a single key. If the value was selected, this REPLACES
+    # the value (resulting in just "9"). If not selected, it APPENDS
+    # (resulting in "<pre_value>9"). Escape cancels so we don't
+    # actually commit any change.
+    page.keyboard.press("9")
+    post_value = input_loc.evaluate("el => el.value")
+    page.keyboard.press("Escape")
+    assert post_value == "9", (
+        f"esperava valor pré-selecionado em {testid!r} da classe {class_name!r}: "
+        f"pre={pre_value!r}, após digitar 9 ficou {post_value!r} (deveria ser só '9')"
+    )
+
+
+@then(parsers.parse('o input "{testid}" do ativo "{ticker}" está focado'))
+def asset_input_is_focused(page: Page, testid: str, ticker: str):
+    row = page.locator(
+        f'[data-testid="dashboard-asset-row"]:has('
+        f'[data-testid="asset-row-name-text"]:text-is("{ticker}"))'
+    )
+    row.first.wait_for(state="visible", timeout=5000)
+    input_loc = row.first.locator(f'[data-testid="{testid}"]')
+    input_loc.wait_for(state="visible", timeout=5000)
+    is_focused = input_loc.evaluate("el => el === document.activeElement")
+    assert is_focused, f"esperava {testid!r} do ativo {ticker!r} focado"
+
+
+# ─────────────────────────────────────────────────────────────────────
 # Then — assertions
 # ─────────────────────────────────────────────────────────────────────
 

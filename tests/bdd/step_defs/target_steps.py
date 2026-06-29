@@ -57,6 +57,28 @@ def asset_saved_class_target(page: Page, ticker: str, text: str):
     )
 
 
+@then(parsers.parse('a alocação salva da célula alvo % classe do ativo "{ticker}" é "{text}"'))
+def asset_class_cell_saved(page: Page, ticker: str, text: str):
+    """Read the asset's ``alvo % classe`` cell (per-class target) — NOT
+    the total cell. The existing ``asset_saved_class_target`` step
+    reads the total cell, which is correct for "PATCH per-asset
+    total reflects in dashboard" but wrong for assertions about
+    edits to the class-level cell.
+    """
+    row = page.locator(
+        f'[data-testid="dashboard-asset-row"]:has([data-testid="asset-row-name-text"]:text-is("{ticker}"))'
+    )
+    cell = row.first.locator('[data-testid="asset-target-pct-class"]')
+    cell.wait_for(state="visible", timeout=5000)
+    button = cell.locator("button").first
+    button.wait_for(state="visible", timeout=10000)
+    expect(button).to_contain_text(text, timeout=10000)
+    inner = button.inner_text()
+    assert text in inner, (
+        f"esperava {text!r} na célula alvo % classe do ativo {ticker!r}, vi {inner!r}"
+    )
+
+
 @then(parsers.parse('o derivado "{ticker}" na carteira é "{text}"'))
 def derived_pct_total(page: Page, ticker: str, text: str):
     row = page.locator(

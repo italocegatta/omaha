@@ -209,3 +209,72 @@ def test_ana_sees_italo_classes_after_switch():
 )
 def test_italo_sees_ana_classes_after_switch():
     pass
+
+
+# ─────────────────────────────────────────────────────────────────────
+# dashboard_inline_editing.feature
+# dashboard-inline-edit-friction: one-click focus + empty→zero.
+# ─────────────────────────────────────────────────────────────────────
+
+
+@scenario(
+    "dashboard_inline_editing.feature",
+    "Clique único no alvo da classe foca o input",
+    features_base_dir="tests/bdd/features",
+)
+def test_click_class_target_pill_focuses_input():
+    pass
+
+
+@scenario(
+    "dashboard_inline_editing.feature",
+    "Clique único no alvo % classe do ativo foca o input",
+    features_base_dir="tests/bdd/features",
+)
+def test_click_asset_class_cell_focuses_input():
+    pass
+
+
+@scenario(
+    "dashboard_inline_editing.feature",
+    "Clique único no alvo % total do ativo foca o input",
+    features_base_dir="tests/bdd/features",
+)
+def test_click_asset_total_cell_focuses_input():
+    pass
+
+
+@scenario(
+    "dashboard_inline_editing.feature",
+    "Limpar o alvo da classe e pressionar Enter salva zero",
+    features_base_dir="tests/bdd/features",
+)
+def test_clear_class_target_enter_saves_zero():
+    pass
+
+
+@scenario(
+    "dashboard_inline_editing.feature",
+    "Limpar o alvo % classe do ativo e pressionar Enter salva zero",
+    features_base_dir="tests/bdd/features",
+)
+def test_clear_asset_class_target_enter_saves_zero():
+    pass
+
+
+@scenario(
+    "dashboard_inline_editing.feature",
+    "Limpar o alvo % total do ativo e pressionar Enter salva zero",
+    features_base_dir="tests/bdd/features",
+)
+def test_clear_asset_total_target_enter_saves_zero():
+    pass
+
+
+@scenario(
+    "dashboard_inline_editing.feature",
+    "Tirar o foco de input vazio da classe salva zero",
+    features_base_dir="tests/bdd/features",
+)
+def test_blur_empty_class_input_saves_zero():
+    pass
