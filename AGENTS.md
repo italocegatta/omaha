@@ -1,409 +1,127 @@
 # AGENTS.md
 
-Project-level rules for the coding agent. Overrides defaults.
-
-## Family password — locked
-
-**Canonical value:** `distendidos`.
-
-`ADMIN_PASSWORD` in `.env` / `.env.example` is the shared family password
-gating login for both profiles (Italo, Ana Livia). It is set to
-`distendidos` and **must not be changed** without explicit owner sign-off.
-
-This applies to:
-
-- `.env` and `.env.example` — keep `ADMIN_PASSWORD=distendidos`.
-- `README.md` Quick start and any onboarding doc — must not instruct
-  new operators to rotate this password.
-- Generated `.env` from the Quick start — do not offer a "set your own
-  password" step for this value.
-- Test fixtures — use a separate `TEST_ADMIN_PASSWORD` constant
-  (already wired in `tests/conftest.py`, `tests/e2e/conftest.py`,
-  `tests/bdd/conftest.py`), never reuse the family value.
-
-If a future change requires rotating, edit this section, the comment in
-`.env.example`, the README Quick start, and `.env` in one commit, and
-flag the owner before merging.
-
-## Network access — non-negotiable
-
-The dev app is **always** accessed from another machine on the LAN. The
-local dev host is a server, not a client. The default `uvicorn` bind
-(`127.0.0.1`) is **wrong** — it makes the app unreachable from the
-client.
-
-### Rules
-
-1. **Bind `--host 0.0.0.0` always.** Never `127.0.0.1`, never
-   `--host localhost`. The dev uvicorn command is:
-   `uv run uvicorn omaha.main:app --host 0.0.0.0 --port 8000`.
-2. **Report the LAN IP, never `localhost`.** The current canonical
-   address is `http://192.168.1.6:8000` (was historically
-   `http://192.168.1.7:8000`). Discover the current URL with
-   `bash scripts/print_lan_url.sh`. If the host IP changes, re-detect with
-   `ip -4 addr | grep inet` and use the LAN/Tailscale address. Never
-   write `http://localhost:8000` or `http://127.0.0.1:8000` in
-   chat output, in documentation, or in test instructions meant for a
-   human.
-3. **README "Network access" section is the source of truth** for
-   bind + address. Read it before any "start the app" instruction.
-
-### When this applies
-
-- Starting the dev server for a manual UI test.
-- Telling the user how to reach the app.
-- Writing or updating any doc / runbook / README that says how to
-  open the app.
-- Running smoke checks (`curl http://...`) — use the LAN IP, not
-  `localhost`.
-
-### Why
-
-`uvicorn`'s `127.0.0.1` default is silent: the server starts, the
-process logs look healthy, the user opens the URL on their client
-machine, gets `connection refused`, and wastes a round trip. The
-README's "Network access" section (lines 143-161) already documents
-this; this file is the agent's standing reminder.
-
-## Seed data — CSV path is the only asset/position seed
-
-**Rule:** automated / agent-driven creation of **`AssetClass`** rows,
-**`Asset`** rows, AND **`Position`** rows is permitted **only via the
-CSV path** under `data/seed/` consumed by `scripts/seed_from_csv.py`
-(taskipy: `db-seed-from-csv` / `db-seed-diff` / `db-seed-upsert` /
-`db-reset`). Inline literal / hardcoded asset or position seeds,
-ad-hoc scripts, demo wiring, and changes under `openspec/changes/`
-that bypass the CSV path are forbidden.
-
-The canonical user/profile seed (`src/omaha/seed.py`) creates users +
-profiles only. It is correct as-is. Do not extend it to seed assets
-or positions, and do not introduce parallel seeding paths that create
-assets or positions outside the CSV path.
-
-The CSV triplet lives at `data/seed/{profile}_classes.csv`,
-`data/seed/{profile}_assets.csv`, `data/seed/{profile}_positions.csv`
-(see `data/seed/README.md` for the schema, sum invariant, and the
-non-tradeable `qty=1` sentinel convention). It is the source of
-truth — the xlsx workbooks and broker CSVs in
-`~/github/investing/input/` are bootstrap input, not runtime
-dependencies.
-
-### Why
-
-Real assets and positions reflect real portfolio holdings. Hardcoded
-or auto-populated fictional rows pollute the user's view and break
-the dashboard's signal. The CSV path is the controlled boundary:
-edits go through a single, validated, diff-able file. Inline seeds
-bypass validation, break the "sum to 100" invariants, and make the
-broker CSV's totals the source of truth (instead of the omaha DB).
-
-### When this applies
-
-- Editing `src/omaha/seed.py` — leave it user+profile only.
-- Adding or modifying assets or positions in code — use the CSV
-  path. New profile or new column on Asset / Position requires a
-  change proposal.
-- Writing demo / smoke / pre-population scripts that create assets
-  or positions — off-limits unless they go through `seed_from_csv.py`.
-- Drafting OpenSpec changes that promise "fresh state" — describe
-  the CSV-driven seed; do not propose hardcoded asset or position
-  lists.
-- Reviewing a PR that introduces asset or position creation outside
-  the CSV path — flag it.
-- Loading fixtures in tests is fine (tests have their own scope).
-  For the dev DB the user inspects (URL via `bash scripts/print_lan_url.sh`),
-  the default test-readiness state is **populated for both profiles** —
-  Italo + Ana, each seeded from their own CSV triplet. Italo: 6 asset
-  classes (RF Dinâmica@25 / RF Pós@20 / Internacional@18 / FII@15 /
-  Cripto@8 / Ações@14), 48 assets, 47 positions. Ana: 6 classes, ~40
-  assets, ~43 positions. Both produced by `uv run task db-reset`
-  (which now calls `scripts.reset_both_profiles.py` to seed both
-  profiles in one invocation). Run it before any delivery that the
-  user is expected to inspect in the browser. If the user explicitly
-  asks for an asset-free surface (e.g. "I want to test the import
-  flow from scratch"), run `uv run task db-clear-assets` instead.
-
-## Alpine `<select>` + dynamic `<template x-for>` options — binding gotcha
-
-**Rule:** for a `<select>` whose options are rendered by an inner
-`<template x-for>`, the two-way bind MUST be:
-
-```html
-<select x-init="$nextTick(() => { const a = <bound-expr>; if (a) $el.value = a.<id-field> ?? ''; })"
-        x-effect="(() => { const a = <bound-expr>; if (a) $el.value = a.<id-field> ?? ''; })()"
-        @change="<bound-expr>.<id-field> = $event.target.value">
-  <option value="">Selecione...</option>
-  <template x-for="ac in <options-array>" :key="ac.id">
-    <option :value="ac.id" x-text="ac.name"></option>
-  </template>
-</select>
-```
-
-### Why
-
-- `x-model` on `<select>` does NOT re-sync `select.value` when the
-  options change. It only re-syncs when the bound expression changes.
-  When the inner `<template x-for>` adds the matching `<option>` after
-  the `x-model` directive has already run, the select stays on the
-  placeholder (`value=""`) because no option matched at the time of
-  the bind.
-- `x-effect` alone is insufficient for the *initial* render: there is
-  no reactive state change between the `<select>` mount and the inner
-  template's option render — both happen in the same tick. The effect
-  fires once, before the options exist, and never fires again because
-  the bound value did not change.
-- `$nextTick` in `x-init` defers the `select.value = X` assignment to
-  the next microtask, which runs *after* Alpine has finished
-  processing the inner `<template x-for>`. By then the matching
-  `<option>` exists, and the assignment sticks.
-- The `x-effect` covers the case where the bound value changes later
-  (e.g. user override via `@change` triggers a re-render).
-- The `@change` keeps the source-of-truth property in sync after
-  manual user picks.
-
-### Anti-pattern (DO NOT use)
-
-```html
-<!-- BROKEN: select.value set before options exist; never re-syncs -->
-<select x-model="assignments[ticker].class_id" ...>
-  <option value="">Selecione...</option>
-  <template x-for="ac in assetClasses" :key="ac.id">
-    <option :value="ac.id" x-text="ac.name"></option>
-  </template>
-</select>
-```
-
-```html
-<!-- ALSO BROKEN: x-effect reads only the bound value, not the
-     options array; the initial render races the inner template. -->
-<select x-effect="$el.value = assignments[ticker].class_id" ...>
-```
-
-### When this applies
-
-- Any modal/table/form in `src/omaha/templates/*.html` with a
-  `<select>` whose options come from a server-driven list
-  (classes, profiles, broker tickers, etc.).
-- Adding a new asset-class picker, target-percentage selector, or
-  profile switcher.
-- Code review on Alpine templates: if a `<select>` uses `:value` or
-  `x-model` with a `<template x-for>` child, flag it.
-
-### Reference implementation
-
-- `src/omaha/templates/dashboard.html:510` (auto-matched) and `:553`
-  (unmatched) — the import modal's class picker.
-- Change: `openspec/changes/fix-import-modal-select-binding/`. Tasks
-  list and design.md are stale (still describe the failed `x-model`
-  attempt); the live code uses the `x-init $nextTick` + `x-effect`
-  pattern. Do not "fix" the code to match the change artifacts — fix
-  the change artifacts.
-
-## Import preview response ↔ Alpine template sync
-
-**Rule:** `_build_preview_response` em `src/omaha/routes/imports.py` monta
-os dicionários `auto_matched` e `unmatched` que o Alpine store
-(`$store.importModal`) consome no template `dashboard.html`. Qualquer
-campo acrescentado a esses dicionários PRECISA ser incluído no JSON que
-o endpoint `/api/import/preview` retorna (linhas `"invested": ...` /
-`"current_value": ...`).
-
-O template renderiza esses campos via `row.current_value` / `row.invested`
-no laço `<template x-for="(row, i) in $store.importModal.autoMatched">`.
-Se o servidor não incluir o campo no JSON (código velho ou resposta
-incompleta), `row.current_value` vira `undefined` → `Number(undefined)`
-= `NaN` → `formatBRL` exibe `R$ 0,00`.
-
-### Gatilhos
-
-- Adicionar coluna nova no model `Position` — atualizar `_raw_to_dict`
-  + `_dict_to_raw` + UPSERT SQL + `_build_preview_response`.
-- Adicionar campo exibido no modal de revisão do import — incluir nos
-  dicionários `auto_matched`/`unmatched` em `_build_preview_response`.
-- Alterar o template `dashboard.html` para ler `row.X` — garantir que
-  `_build_preview_response` emite `X` no JSON.
-
-### Referência
-
-- `src/omaha/routes/imports.py:_build_preview_response` (linhas 373+)
-- `src/omaha/templates/dashboard.html` — Alpine store `importModal`,
-  método `uploadFile` (linha 1594) seta `autoMatched`/`unmatched` do
-  `data` recebido.
-- `src/omaha/routes/imports.py:_raw_to_dict` / `_dict_to_raw` —
-  round-trip de todos os campos do `RawPosition` via JSON.
-
-## Test marker rule — explicit allow-list, not pattern matching
-
-**Rule:** `tests/conftest.py::pytest_collection_modifyitems` partitions
-the suite via two lists:
-
-- `_INTEGRATION_PREFIXES` — full path prefixes for files that hit DB,
-  TestClient, or the audit pipeline. Currently S02/S03/S04 + T01 model
-  tests + T02 routes/seed + T03 routes/auth/e2e + T04 e2e + T06
-  backup/healthz + T99.
-- `_UNIT_FILES` — full file basenames for the small set of pure-function
-  tests (audit, parsers, validators, dockerfile smoke, logging). These
-  predate the integration list and would otherwise trip
-  `UnknownTestPath`.
-- `tests/e2e/*.py` — no marker, run by `task test-e2e`.
-- `tests/audit_integration/*.py` — `@pytest.mark.integration`.
-- A module-level `pytestmark` wins over the path rule (already
-  supported; `test_audit_inventory.py` uses this).
-- `tests/bdd/` — BDD scenarios collected by `pytest-bdd` from
-  `.feature` files (not from `test_*.py`). Tagged with the
-  `bdd` marker; run via `task test-bdd`. The
-  `pytest_collection_modifyitems` allow-list rule does NOT apply
-  to `.feature` files — they live under `tests/bdd/`, not
-  under `tests/`. The single `test_scenarios.py` glue file IS
-  under `tests/bdd/` and is tagged `bdd` (not `unit`) via the
-  path carve-out so it does not trip `UnknownTestPath`.
-
-Any `tests/test_*.py` file that hits DB/TestClient but is NOT in
-`_INTEGRATION_PREFIXES` emits a `UnknownTestPath` warning. The warning
-is the loud-future-drift signal: if you add `tests/test_t07_*.py` that
-hits DB, you MUST also add its prefix to `_INTEGRATION_PREFIXES`,
-otherwise the file silently becomes `unit` and pollutes the unit subset.
-
-### Why
-
-The previous rule used a coarse "default everything to `unit`" branch
-with carve-outs for `tests/e2e/` and `tests/audit_integration/`. Net
-effect: ~25 files that hit DB + TestClient (S02/S03/S04 + T0* families)
-were silently tagged `unit`, defeating the purpose of
-`task test-integration`. `task test-unit` ran 277 tests in 44s; with
-the explicit allow-list it runs 121 tests in 1.3s.
-
-### When this applies
-
-- Adding a new `tests/test_*.py` file that hits DB / TestClient — add
-  the prefix to `_INTEGRATION_PREFIXES` in `tests/conftest.py`.
-- Adding a new pure-function test under `tests/` — add the file basename
-  to `_UNIT_FILES` to silence the `UnknownTestPath` warning.
-- Reviewing a PR that introduces a new test file in `tests/` — verify
-  the marker assignment matches what the test does.
-
-## BDD workflows
-
-BDD workflows vivem em `tests/bdd/step_defs/_workflows.py`.
-Regra de extração: ≥2 cenários com tendência de crescimento.
-Carve-out per-workflow em
-`openspec/changes/bdd-workflow-reuse-helpers/design.md`
-Decisão 2 — `login.feature` e `profile_isolation.feature`
-ficam intactos para o wrapper de login. Contract tests em
-`tests/bdd/test_workflow_contracts.py` enforçam o contrato
-(ceiling de 10 workflows, wrappers delegam, carve-out). Spec
-operacional em `tests/bdd/README.md`. BDD roda serial — não
-adicionar pytest-xdist (race no autouse
-`clean_seeded_profiles` que compartilha SQLite
-session-scoped).
-
-## Delivery finalization — restart + ready-to-test
-
-Run the full checklist before reporting **ANY** browser-visible change
-as done — including follow-up patches and layout fixes, not just the
-initial delivery. **Use the `refresh-for-test` skill** — it owns the
-recipe (restart uvicorn → smoke-check `/healthz` → pick DB task →
-verify row counts → visual dashboard check → report LAN URL + DB state)
-and uses `taskipy` tasks (`db-migrate` / `db-reset` / `db-clear-assets`
-/ `db-seed`) per the table below.
-
-**Rule:** the recipe runs in full after every browser-visible change.
-A follow-up patch that "just fixes CSS" still needs:
-1. `uv run task db-reset` (the DB might have been wiped during
-   empty-state testing — and usually was).
-2. Restart uvicorn (Jinja may serve stale template bytes without
-   reload; CSS definitely needs a fresh request).
-3. Smoke `curl $URL/healthz`.
-4. Verify the rendered page contains seeded class names
-   (`curl -b cookie "$URL/" | grep -c "RF Din"`).
-5. Report LAN URL + DB row counts in the final message.
-
-**Skipping any step is a delivery failure.** The user opens the URL,
-sees an empty dashboard (because the DB was wiped during the agent's
-own testing), and concludes the feature is broken. The user has had
-to ask "run db-reset" repeatedly across sessions — this rule is the
-hard barrier. If the recipe feels redundant, run it anyway.
-
-**Rule of thumb:** default for delivery = **populated** (`db-reset` →
-Italo: 6 classes + 48 assets + 47 positions) unless the user explicitly
-asked for an asset-free surface. Leaving the DB asset-free is a
-delivery failure — user opens an empty dashboard and concludes the
-feature is broken.
-
-| Change type                              | Task                            |
-|------------------------------------------|---------------------------------|
-| New migration / model edit               | `uv run task db-migrate`        |
-| Default — populated, ready to test       | `uv run task db-reset`          |
-| User explicitly asked for empty import   | `uv run task db-clear-assets`   |
-| Only seed / config layer changed         | `uv run task db-seed`           |
-
-## Taskipy — use `task <name>`, not raw commands
-
-**Rule:** prefer `uv run task <name>` (or `task <name>` with venv
-active) over typing the underlying command. Tasks live in
-`pyproject.toml` under `[tool.taskipy.tasks]`. `use_vars = true` means
-`{app_target}` and friends get expanded — literal braces in commands
-must be written as `{{}}`.
-
-Canonical tasks (full list: `uv run task --list`):
-
-| Task              | Purpose                                                  |
-|-------------------|----------------------------------------------------------|
-| `serve`           | uvicorn `--host 0.0.0.0 --port 8000 --reload`            |
-| `serve-prod`      | uvicorn `--host 0.0.0.0 --port 8000` (no reload)         |
-| `test`            | full suite (unit + integration + e2e)                    |
-| `test-unit`       | `pytest -m unit` — pure-function, no DB / no HTTP         |
-| `test-integration`| `pytest -m integration` — DB + TestClient + audit        |
-| `test-e2e`        | `pytest tests/e2e -v` — Playwright                       |
-| `test-file`       | `task test-file tests/test_X.py`                         |
-| `test-pattern`    | `task test-pattern "smoke"` — `-k` substring match        |
-| `test-one`        | `task test-one tests/test_X.py::test_y` — single node    |
-| `lint`            | `prek run --all-files` (ruff format check + ruff --fix)  |
-| `format`          | `ruff format .`                                          |
-| `check`           | `lint && test-unit` — CI gate                            |
-| `db-migrate`      | `alembic upgrade head`                                   |
-| `db-revision`     | `alembic revision --autogenerate` (pass `-m "msg"`)       |
-| `db-seed`         | idempotent family + profiles seed                        |
-| `db-reset`        | wipe + reseed BOTH profiles (Italo + Ana) for delivery   |
-| `db-clear-assets` | delete ALL asset rows (keeps classes)                    |
-| `db-current`      | show Alembic head                                        |
-| `db-history`      | show full migration timeline                             |
-| `db-downgrade`    | revert last migration                                    |
-| `install`         | `uv sync`                                                |
-| `install-e2e`     | Playwright Chromium download (one-time)                  |
-| `prek-install`    | install prek git hooks                                   |
-| `docker-up`       | `docker compose up -d` (dev stack)                       |
-| `docker-down`     | `docker compose down`                                    |
-| `prod-up`         | `docker compose -f prod.yml up -d`                       |
-| `prod-down`       | `docker compose -f prod.yml down` — `down -v` wipes DB   |
-| `prod-logs`       | stream prod logs                                         |
-| `prod-rebuild`    | rebuild prod image + restart stack                       |
-| `backup`          | one-off snapshot to `./backups/` (`prod.yml` profile)    |
-| `clean`           | wipe `__pycache__`, `.pytest_cache`, `.ruff_cache`        |
-| `coverage`        | pytest + coverage report                                 |
-| `secret-key`      | generate cryptographically random `SECRET_KEY`           |
-
-### Why
-
-Typing `uv run uvicorn omaha.main:app --host 0.0.0.0 --port 8000`
-inline burns cycles re-deriving the bind flags every session, and
-risks dropping `--host 0.0.0.0` (see "Network access" above).
-`task serve` is the canonical entrypoint; it always binds correctly
-and picks up new tasks automatically as they're added.
-
-### When this applies
-
-- Starting/stopping the dev server for any manual test.
-- Running tests, lint, format, or coverage during dev.
-- Any DB operation (migrate, seed, reset, clear, downgrade).
-- Docker / prod stack control.
-- First-time setup (`install`, `install-e2e`, `prek-install`).
-
-### Gotchas
-
-- `task serve` blocks the foreground — for parallel work, background it
-  with `nohup ... &` or run `serve-prod` in a detached terminal.
-- `docker compose -f prod.yml down` preserves the `omaha-data` named
-  volume; only `down -v` wipes the DB.
-- `db-clear-assets` is the asset wipe, NOT `db-reset` (which reseeds
-  the full family + both profiles via `scripts.reset_both_profiles.py`).
+Agent routing doc for the omaha repository. This file is **navigation only** —
+it points at the canonical sources. **It does not redefine rules.**
+
+> Golden rule: before touching anything, read
+> **[openspec/PRD.md](openspec/PRD.md) §4 (Regras de Ouro)**. The 10 standing
+> rules below are transcrito there. PRD is the single source of truth; this
+> file is the table of contents.
+
+---
+
+## 1. How to read this repo
+
+| If you want to…                                                       | Go to                                                  |
+|------------------------------------------------------------------------|--------------------------------------------------------|
+| Know what omaha is, who uses it, why it exists                         | [PRODUCT.md](PRODUCT.md)                               |
+| Understand the visual system (tokens, type, elevation, motion)         | [DESIGN.md](DESIGN.md)                                 |
+| Read a capability's contract (`SHALL` behavior)                        | `openspec/specs/<slug>/spec.md`                        |
+| Pick up the **next unit of work**                                      | `openspec/roadmap.md` (bootstrap pending)              |
+| Create / apply / archive a change                                      | `openspec-roadmap` (orchestrates the OpenSpec CLI skills) |
+| Ship a browser-visible change end-to-end                               | `refresh-for-test` skill                               |
+| Look at the source-of-truth seed                                      | `data/seed/` + [data/seed/README.md](data/seed/README.md) |
+| See the running app                                                    | `bash scripts/print_lan_url.sh` → open the LAN URL     |
+| Run a test subset                                                      | `task test-unit` / `test-integration` / `test-e2e` / `test-bdd` |
+
+---
+
+## 2. Canonical sources (no duplication)
+
+These documents own their domains. **Do not rewrite their content into
+AGENTS.md** — link to them.
+
+### 2.1 Product identity
+- **[PRODUCT.md](PRODUCT.md)** — users, purpose, anti-references, design
+  principles. PR-shaped edits to identity go here.
+- **[DESIGN.md](DESIGN.md)** — tokens, typography, spacing, radius,
+  elevation, motion, anti-patterns, migration path. The polish pass edits
+  this in lockstep with `src/omaha/static/app.css`.
+
+### 2.2 Product contract
+- **[openspec/PRD.md](openspec/PRD.md)** — capabilities inventory, model,
+  ops, and the **10 standing rules** (operational invariants). Read §4
+  before proposing any change.
+- **[openspec/config.yaml](openspec/config.yaml)** — `schema: spec-driven`,
+  project context, and roadmap token ceilings (`openspec_roadmap`).
+- **[openspec/specs/](openspec/specs/)** — 34 stable capability contracts.
+  Source of truth for "what `SHALL` happen". Each spec is owned by an
+  archived or active OpenSpec change.
+
+### 2.3 Execution layer
+- **[openspec/roadmap.md](openspec/roadmap.md)** — does **not** exist yet
+  (bootstrap pending). When it lands, this is where slices (`F`/`R`/`T`/`D`/`I`)
+  are tracked, with lifecycle `Ready → Spec Proposed → Applying → Applied →
+  Archived` + `Blocked`.
+- **[openspec/changes/](openspec/changes/)** — per-slice OpenSpec change
+  folders. `archive/` is historical.
+- Skills that orchestrate the above: `openspec-propose`,
+  `openspec-apply-change`, `openspec-archive-change`, `openspec-verify-change`,
+  `openspec-sync-specs`, `openspec-roadmap`.
+
+### 2.4 Operational scripts
+- **`scripts/print_lan_url.sh`** — discover the canonical dev URL.
+- **`scripts/seed_from_csv.py`** — only path that creates `AssetClass`,
+  `Asset`, `Position` (PRD §4.3 forbids inline seeds).
+- **`scripts/reset_both_profiles.py`** — backstop for `task db-reset`.
+- **`scripts/backup.py`** — hot SQLite snapshot for `./backups/`.
+- **`scripts/snapshot_to_csv.py`** — DB → CSV (lossless round-trip).
+- **`scripts/generate_contrast_audit.py`** — thin wrapper over
+  `omaha.audit.cli.main`.
+
+---
+
+## 3. Agent workflow (high level)
+
+1. **Orient.** PRD §1 (identidade) + relevant spec(s). If the task is
+   browser-visible, run **refresh-for-test** before declaring done (PRD §4.9).
+2. **Pick next slice.** Resolve from `openspec/roadmap.md` (when it
+   exists); otherwise pull from PRD §5.3 (horizonte) and convert to a
+   slice in the roadmap first. *Do not invent slice IDs ad-hoc.*
+3. **Propose.** Delegate to `openspec-propose` with the slice's
+   `Candidate OpenSpec change id` exactly — no goal-derived slugs.
+4. **Verify spec health** after `propose`, fix, then proceed.
+5. **Apply.** Delegate to `openspec-apply-change`. Code goes under the
+   change's `tasks.md`.
+6. **Verify spec health** after `apply`.
+7. **Archive.** Delegate to `openspec-archive-change`. Update roadmap
+   status to `Archived`.
+8. **Verify spec health** after `archive`. Pick next.
+
+For **bugfixes < 30 min** or isolated tweaks, skip the OpenSpec loop —
+just fix and ship. The OpenSpec gate exists for changes that touch tests
+or production behavior; a one-line CSS patch does not.
+
+---
+
+## 4. Standing rules — READ [PRD §4](openspec/PRD.md#4-regras-de-ouro-operational-invariants)
+
+The 10 invariants below live in PRD §4. Linking here so this doc stays
+useful as a quick pointer. **Edit them only in the PRD.**
+
+1. **Family password — locked** (`distendidos`) — PRD §4.1
+2. **Network access — bind `0.0.0.0` always** — PRD §4.2
+3. **Seed via CSV — single path for asset/position creation** — PRD §4.3
+4. **Alpine `<select>` + dynamic `<template x-for>` — binding gotcha** — PRD §4.4
+5. **Import preview response ↔ Alpine template sync** — PRD §4.5
+6. **Test marker — explicit allow-list** — PRD §4.6
+7. **BDD workflows — extraction by growth trend** — PRD §4.7
+8. **Taskipy — `task <name>` not raw commands** — PRD §4.8
+9. **Delivery finalization — `refresh-for-test` skill** — PRD §4.9
+10. **Brand register — domestic, no ornament** — PRD §4.10
+
+---
+
+## 5. Companion files at the workspace root
+
+- `README.md` — onboarding doc + Network access section (canonical for
+  bind + URL).
+- `pyproject.toml` — taskipy tasks (`[tool.taskipy.tasks]`).
+- `.env.example` — never offers "rotate admin password" step (PRD §4.1).
+- `.python-version` — pinned Python 3.12.
+- `Dockerfile`, `prod.yml`, `nginx/` — production stack.
+
+---
+
+*AGENTS.md is a pointer, not a source. If you find yourself wanting to
+add a rule here, put it in PRD §4 instead and link from §4 of this file.*
