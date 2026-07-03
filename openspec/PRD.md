@@ -17,12 +17,18 @@
 
 **Abrir o app, ver onde o portfólio está, confiar nos números, fechar a aba.**
 
+Operacional. Prosa canônica (incluindo anti-referências e princípios de
+design) vive em `PRODUCT.md`.
+
 Omaha é um ledger privado de portfólio familiar, self-hosted. O sistema existe
 para que a família enxergue a distribuição atual dos investimentos por classe,
 o desvio em relação ao alvo e o ganho consolidado, sem terceirizar o número
 para nenhuma corretora ou serviço externo.
 
 ### 1.2 Usuários
+
+Tabela compacta para leitura rápida. Contexto humano completo em
+`PRODUCT.md` §Users.
 
 | Perfil       | Papel          | Uso                                                                             |
 |--------------|----------------|---------------------------------------------------------------------------------|
@@ -476,8 +482,9 @@ pedido explicitamente uma superfície sem ativos.
 
 ### 4.10 Register de produto — domestic, sem ornamento
 
-Da `PRODUCT.md` §Brand Personality, **transcrito** porque é regra vinculante
-(qualquer mudança aqui precisa de aprovação do owner):
+Regras vinculantes, destiladas de `PRODUCT.md` §Brand Personality +
+§Anti-references (que é a fonte canônica de voz). Mudanças precisam de
+aprovação do owner.
 
 - **Domestic, personal, lived-in.** Não premium (sem oxblood, sem dourado).
   Não playful (sem ilustrações, sem mascot). Mais perto de um Moleskine
