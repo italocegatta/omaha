@@ -37,6 +37,12 @@
       "skillPath": "plugins/developer-essentials/skills/git-advanced-workflows/SKILL.md",
       "computedHash": "f4d0569096237c09b1c07896770fe487d7224c549f7aab0c6551a4f330fcf160"
     },
+    "openspec-roadmap": {
+      "source": "bardaxx/skillbook",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/openspec-roadmap/SKILL.md",
+      "computedHash": "a7749bf5083b98544de42741e89007350d6eb3384f458be357085912e9335381"
+    },
     "pdf": {
       "source": "anthropics/skills",
       "sourceType": "github",
