@@ -1,15 +1,15 @@
 {# Empty-state card for /rebalanceamento — rendered when the active profile
    has zero AssetClass rows. The in-body form is present but inert
    (``form_inert=True`` in the route context, F02 D9). The CTA links back
-   to the patrimonio page where the operator can use the "+ Nova classe"
-   modal to create the first class (the "+ Nova classe" trigger lives at
+   to the patrimonio page where the operator can use the "Nova classe"
+   modal to create the first class (the "Nova classe" trigger lives at
    the top of /patrimonio in F02, not in a sidebar any more). #}
 <div class="rebalance-empty-state"
      data-testid="rebalance-empty-state">
   <h2 class="rebalance-empty-state-title">Nenhuma classe cadastrada</h2>
   <p class="rebalance-empty-state-body">
     Crie ao menos uma classe antes de rebalancear. Volte ao
-    <strong>Patrimônio</strong> e use o botão <strong>+ Nova classe</strong>
+    <strong>Patrimônio</strong> e use o botão <strong>Nova Classe</strong>
     na barra superior.
   </p>
   <a href="/patrimonio" class="rebalance-empty-state-link"

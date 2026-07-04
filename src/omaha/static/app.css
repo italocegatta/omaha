@@ -20,6 +20,7 @@
 
   /* Accent — single committed color (deep fern, hue 150). */
   --accent: oklch(0.42 0.09 150);
+  --accent-hover: oklch(0.34 0.10 150);
   --accent-ink: oklch(0.98 0.005 150);
 
   /* Status colors — gain/positive and loss/negative. */
@@ -394,7 +395,9 @@ p.error, .error {
   border-color: var(--accent);
 }
 .btn-primary:hover:not(:disabled) {
-  filter: brightness(1.1);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--accent-ink);
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -422,7 +425,9 @@ p.error, .error {
   border-color: var(--accent);
 }
 .btn-primary:hover:not(:disabled) {
-  filter: brightness(1.1);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--accent-ink);
 }
 
 .muted { color: var(--muted); font-size: 0.875rem; }
@@ -606,7 +611,8 @@ p.error, .error {
 }
 
 .auth-card button[type="submit"]:hover {
-  filter: brightness(1.1);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 /* Tab nav — persistent top nav with 4 tabs (F02, D2).
@@ -650,9 +656,9 @@ p.error, .error {
 
 /* Patrimonio page wrapper — single-column, no sidebar (F02). */
 .patrimonio-page {
-  max-width: 1600px;
-  width: 100%;
-  margin: 2rem 1rem;
+  max-width: 1800px;
+  width: calc(100% - 2rem);
+  margin: 2rem auto;
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: 8px;
@@ -714,9 +720,9 @@ p.error, .error {
    flex line so the aporte input is wider and the button is
    compact. */
 .rebalance-page {
-  max-width: 1600px;
-  width: 100%;
-  margin: 2rem 1rem;
+  max-width: 1800px;
+  width: calc(100% - 2rem);
+  margin: 2rem auto;
 }
 .rebalance-card {
   background: var(--surface);
@@ -2172,7 +2178,8 @@ td.editing {
 }
 
 .import-btn-primary:hover:not(:disabled) {
-  filter: brightness(1.1);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 /* =============================================================
@@ -2643,7 +2650,9 @@ td.editing {
 }
 
 .rebalance-form-submit:hover:not(:disabled) {
-  filter: brightness(1.1);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--accent-ink);
 }
 
 .rebalance-form-submit:disabled {
