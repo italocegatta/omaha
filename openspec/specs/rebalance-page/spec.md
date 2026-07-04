@@ -2,68 +2,80 @@
 
 ## Purpose
 
-Render the v1 rebalance plan on a dedicated URL (`/rebalance`),
-fed by a form in the sidebar that's present on every
-authenticated page. Consumes the wire contract defined in
-`openspec/specs/rebalance-route/spec.md` (no new server endpoints
-are added — the page calls `run_rebalance()` server-side via the
-existing glue module).
+Render the v1 rebalance plan on a dedicated URL
+(`/rebalanceamento`), fed by a form that lives in the body of the
+page only (no sidebar, no global slot). Consumes the wire contract
+defined in `openspec/specs/rebalance-route/spec.md` (no new server
+endpoints are added — the page calls `run_rebalance()` server-side
+via the existing glue module).
 
 This spec is the page's contract — Phase 4 (`rebalance-engine`)
 swaps the solver stub for the real CVXPY solver, and the page
 renders the result automatically because it consumes the wire
 format the route already defines.
 
+The legacy URL `/rebalance` is no longer served (404, no alias).
+
 ## Requirements
 
-### Requirement: GET /rebalance renders the rebalance plan page
+### Requirement: GET /rebalanceamento renders the rebalance plan page
 
-The system SHALL expose `GET /rebalance` that returns HTTP 200
-with the rendered `rebalance.html` template. Auth follows the
-project standard (`require_user` + `require_active_profile`).
+The system SHALL expose `GET /rebalanceamento` (PT-BR slug, `D1`)
+that returns HTTP 200 with the rendered `rebalance.html` template.
+Auth follows the project standard (`require_user` +
+`require_active_profile`).
 
 When the active profile has zero `AssetClass` rows, the main
-content area renders an empty-state card; the sidebar form is
+content area renders an empty-state card; the in-body form is
 present but inert (the input + button carry `disabled`).
 When the profile has classes, the main area renders either a
 placeholder ("defina um aporte e clique em Rebalancear") or the
 last computed plan if the request carried a previously-submitted
 aporte in the form (default: placeholder).
 
+The previous URL `/rebalance` is no longer served — requests to
+`/rebalance` return HTTP 404. No alias, no redirect.
+
 #### Scenario: Authenticated user with empty profile sees empty state
 
 - **WHEN** the authenticated user has no active profile OR the
   active profile has zero `AssetClass` rows
-- **AND** `GET /rebalance` is called
+- **AND** `GET /rebalanceamento` is called
 - **THEN** the response is HTTP 200
 - **AND** the main area contains an element with
   `data-testid="rebalance-empty-state"`
-- **AND** the sidebar form's input has the `disabled` attribute
-- **AND** the sidebar form's submit button has the `disabled`
+- **AND** the in-body form's input has the `disabled` attribute
+- **AND** the in-body form's submit button has the `disabled`
   attribute
 
 #### Scenario: Authenticated user with populated profile sees placeholder
 
 - **WHEN** the active profile has at least one `AssetClass` row
-- **AND** `GET /rebalance` is called without a prior form
+- **AND** `GET /rebalanceamento` is called without a prior form
   submission
 - **THEN** the response is HTTP 200
 - **AND** the main area contains an element with
   `data-testid="rebalance-placeholder"`
-- **AND** the sidebar form's input does NOT have the `disabled`
+- **AND** the in-body form's input does NOT have the `disabled`
   attribute
 
 #### Scenario: Unauthenticated request bounces to /login
 
-- **WHEN** `GET /rebalance` is called without a valid session
+- **WHEN** `GET /rebalanceamento` is called without a valid session
 - **THEN** the response is HTTP 303 to `/login` (FastAPI default
   for `require_user` failure)
 
-### Requirement: POST /rebalance renders the plan
+#### Scenario: Legacy /rebalance URL returns 404
 
-The system SHALL expose `POST /rebalance` that reads
-`contribution` from the form body, calls `run_rebalance()`, and
-re-renders the `rebalance.html` template with the resulting
+- **WHEN** `GET /rebalance` is called
+- **THEN** the response is HTTP 404
+- **AND** no automatic redirect to `/rebalanceamento` is performed
+
+### Requirement: POST /rebalanceamento renders the plan
+
+The system SHALL expose `POST /rebalanceamento` that reads
+`contribution` from the in-body form, calls `run_rebalance()`,
+and re-renders the `rebalance.html` template with the resulting
 `RebalancePlanResponse` in the Jinja context. Same URL — no
 redirect, no JSON wire trip on the page flow.
 
@@ -74,7 +86,7 @@ handler re-renders the page with an inline `form_error`.
 
 #### Scenario: Valid finite contribution renders the plan
 
-- **WHEN** `POST /rebalance` is called with
+- **WHEN** `POST /rebalanceamento` is called with
   `contribution = 5000.00`
 - **THEN** the response is HTTP 200 with the page rendered
 - **AND** the main area contains an element with
@@ -89,14 +101,15 @@ handler re-renders the page with an inline `form_error`.
 
 #### Scenario: Zero contribution is a valid rebalance plan
 
-- **WHEN** `POST /rebalance` is called with `contribution = 0`
+- **WHEN** `POST /rebalanceamento` is called with
+  `contribution = 0`
 - **THEN** the response is HTTP 200 with the plan rendered
   (zero is the rebalance-only case — no new money, just
   reallocation)
 
 #### Scenario: Negative contribution is accepted server-side
 
-- **WHEN** `POST /rebalance` is called with
+- **WHEN** `POST /rebalanceamento` is called with
   `contribution = -1000.00`
 - **THEN** the response is HTTP 200 with the plan rendered
   (server is permissive per the contract extension; the page
@@ -104,7 +117,7 @@ handler re-renders the page with an inline `form_error`.
 
 #### Scenario: NaN contribution re-renders with form error
 
-- **WHEN** `POST /rebalance` is called with `contribution = NaN`
+- **WHEN** `POST /rebalanceamento` is called with `contribution = NaN`
 - **THEN** the response is HTTP 200 with the page rendered
 - **AND** the main area shows an element with
   `data-testid="rebalance-form-error"` containing
@@ -113,7 +126,7 @@ handler re-renders the page with an inline `form_error`.
 
 #### Scenario: Missing contribution re-renders with form error
 
-- **WHEN** `POST /rebalance` is called without a
+- **WHEN** `POST /rebalanceamento` is called without a
   `contribution` field
 - **THEN** the response is HTTP 200 with the page rendered
 - **AND** the form error element contains "Informe um valor
@@ -127,29 +140,6 @@ handler re-renders the page with an inline `form_error`.
 - **AND** the form error element contains the validation
   message
 
-### Requirement: Sidebar carries the rebalance form on every authenticated page
-
-The system SHALL include the rebalance form (input + button)
-in the sidebar on every authenticated page (dashboard `/`,
-`/rebalance`, future authenticated pages). The form SHALL
-submit to `POST /rebalance`. The sidebar is extracted to a
-Jinja include at `templates/_sidebar.html` and imported by
-each template that needs it.
-
-#### Scenario: Dashboard sidebar carries the rebalance form
-
-- **WHEN** an authenticated user visits `GET /`
-- **THEN** the rendered HTML contains an element with
-  `data-testid="rebalance-form"`
-- **AND** the form's `action` attribute is `/rebalance`
-- **AND** the form's `method` attribute is `post`
-
-#### Scenario: Rebalance page sidebar carries the rebalance form
-
-- **WHEN** an authenticated user visits `GET /rebalance`
-- **THEN** the rendered HTML contains the rebalance form
-- **AND** the "Rebalancear" element carries `aria-current="true"`
-
 ### Requirement: Client-side validation rejects negative aporte
 
 The system SHALL block form submission when `contribution < 0`
@@ -158,14 +148,18 @@ POST round-trip. Server-side accepts negative (per the
 `rebalance-route` contract extension), but the page UI is
 more restrictive for v1.
 
+The error renders inside the in-body form (no sidebar element
+exists any more; see `dashboard-sidebar` REMOVED delta).
+
 #### Scenario: Negative aporte shows client error before submit
 
 - **WHEN** the user types `-1000` in the aporte input
 - **AND** clicks the "Rebalancear" button
 - **THEN** the form does NOT submit (no POST round-trip)
-- **AND** an element with `data-testid="sidebar-form-error"`
-  shows the message "Saques serão suportados em versão futura.
-  Por enquanto, deixe o aporte em zero ou positivo."
+- **AND** an element with `data-testid="rebalance-form-error"`
+  (in-body, not `sidebar-form-error`) shows the message
+  "Saques serão suportados em versão futura. Por enquanto,
+  deixe o aporte em zero ou positivo."
 
 ### Requirement: Asset plan table renders eight visible columns plus a data attribute
 
@@ -265,21 +259,6 @@ PT-BR operator-facing message.
   `EMPTY_CLASS_NONZERO_TARGET` and `STALE_QUOTES`)
 - **THEN** the panel renders two `<li>` elements, each with
   the code in `<code>` and the message as body text
-
-### Requirement: Header navigation row on the rebalance page
-
-The system SHALL render a nav row at the top of the rebalance
-card with two links: `← Dashboard` (href `/`) and `Plano de
-aporte` (active state indicator on the current page).
-
-#### Scenario: Both nav links render
-
-- **WHEN** the plan renders
-- **THEN** an element with `data-testid="rebalance-nav"` exists
-- **AND** contains a link to `/` with the label `← Dashboard`
-- **AND** contains a span with the label `Plano de aporte`
-  carrying `data-testid="rebalance-nav-plan"` and the active
-  state class
 
 ### Requirement: Six metric cards in a 3×2 grid
 
