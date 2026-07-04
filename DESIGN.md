@@ -203,17 +203,22 @@ means the body surface; "surface" means the lifted card surface;
 
 | Component           | Where                  | Tokens (fg / bg)                                    | Notes                                  |
 |---------------------|------------------------|-----------------------------------------------------|----------------------------------------|
-| App header          | `base.html`            | `--ink` on `--surface`; nav `--fg`; hover `--accent` | Logo, nav, profile, signout. Flat.     |
-| Profile picker      | `profiles.html`        | `--ink` on `--surface`; hover border `--accent`     | Two large buttons. Quiet, no marketing.|
+| App header          | `base.html`            | `--ink` on `--surface`; tab ink `--ink-muted`; tab hover / active `--ink`; tab active underline `--accent` | Logo on the left, top tab nav center, profile chip + signout on the right. Flat. |
+| Profile picker      | `profile-switcher` select (`base.html`) | `--ink` on `--surface`; hover border `--accent`     | Native `<select>` chip in the header. Wraps every profile in the DB. |
+| Tab nav             | `base.html`            | inactive tab `--ink-muted` on `--surface`; active tab `--ink` on `--surface` with `--accent` 2px underline | 4 tabs (Patrimônio / Rebalanceamento / Rentabilidade / Proventos). Active state via server-rendered `tab-nav__btn--active` modifier + `aria-current="true"`. Reuses the existing `--accent` token (no new color). |
 | Login               | `login.html`           | `--ink` on `--surface`; error `--error-fg` on `--error-bg` | Single field, single button, error inline. |
-| Portfolio header    | `dashboard.html`       | `--ink` on `--surface`; gain `--positive` / `--negative` | Invested / current / gain. The hero.   |
-| Class section       | `dashboard.html`       | `--ink` on `--surface`; swatch `--class-{1..6}`     | Swatch + name + compare bar + asset list. |
-| Compare bar         | `dashboard.html`       | target `--border-strong`; current `--accent`       | Two stacked fills: target (gray) and current (accent). |
-| Asset row           | `dashboard.html`       | `--ink` on `--surface`; pct `--muted`; progress `--accent` | Name + value + pct + progress bar.     |
+| Portfolio header    | `patrimonio.html`      | `--ink` on `--surface`; gain `--positive` / `--negative` | Invested / current / gain. The hero. Wrapped by `data-testid="patrimonio-portfolio-header"` (F02 D3). |
+| Patrimonio actions  | `patrimonio.html`      | `--ink` on `--surface`; primary hover `--accent`    | Right-aligned top-of-body button row carrying the legacy sidebar triggers (``Importar CSV`` / ``+ Novo ativo`` / ``+ Nova classe``). Testids preserved verbatim. |
+| Class section       | `patrimonio.html`      | `--ink` on `--surface`; swatch `--class-{1..6}`     | Swatch + name + compare bar + asset list. |
+| Compare bar         | `patrimonio.html`      | target `--border-strong`; current `--accent`       | Two stacked fills: target (gray) and current (accent). |
+| Asset row           | `patrimonio.html`      | `--ink` on `--surface`; pct `--muted`; progress `--accent` | Name + value + pct + progress bar.     |
 | Class table         | `classes.html`         | `--ink` on `--surface`; total `--positive` / `--negative` | Editable rows, percent total at bottom. |
 | Asset editor        | `assets.html`          | `--ink` on `--surface`; remove hover `--error-fg` on `--error-bg` | Per-class sections, inline add/remove. |
-| Class delete confirm | `dashboard.html`      | `--negative-ink` on `--negative`                    | Inline confirm; cancel `--ink` on `--surface`. |
-| Asset delete confirm | `dashboard.html`      | `--negative-ink` on `--negative`                    | Inline confirm; cancel `--ink` on `--surface`. |
+| Class delete confirm | `patrimonio.html`     | `--negative-ink` on `--negative`                    | Inline confirm; cancel `--ink` on `--surface`. |
+| Asset delete confirm | `patrimonio.html`     | `--negative-ink` on `--negative`                    | Inline confirm; cancel `--ink` on `--surface`. |
+| Rebalance form      | `rebalance.html`       | `--ink` on `--surface`; submit `--accent-ink` on `--accent`; inline error `--error-fg` on `--error-bg` | In-body form (F02 D9 — no sidebar slot). Input + submit on a single row. |
+| Rebalance plan      | `_rebalance_plan.html` | `--ink` on `--surface`; per-metric typography `--muted` | Card grid + sortable asset table + category summary + warnings list (F02 D5: no chip — `<code>` + body). |
+| Stub page           | `rentabilidade.html` / `proventos.html` | `--ink` on `--surface`; secondary `--muted`; border `--border-strong` dashed | F02 stub card. Single heading + one body line. F03 / F04 replace. |
 | Import form         | `import.html`          | `--ink` on `--surface`; submit `--accent-ink` on `--accent` | File picker, single submit.            |
 | Review table        | `import_review.html`   | `--ink` on `--surface`; matched summary `--positive-ink` on `--positive` (tinted via color-mix) | Auto-matched summary + unmatched select. |
 | Import error        | `import.html`          | `--error-fg` on `--error-bg`                        | Inline error block (reuses `.error`).  |

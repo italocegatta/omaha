@@ -553,13 +553,16 @@ indica o kind sugerido:
 - **F — consolidação cross-profile.** Vista household agregada (soma dos
   dois perfis) sem quebrar isolamento per-profile. Spec base já vive em
   `cross-profile-sharing`.
-- **F — páginas do sistema.** Top-level após a fatia: **Login**,
-  **Patrimônio**, **Rentabilidade**, **Proventos**. Patrimônio absorve o
-  atual `/dashboard` (rename de rota) e embutirá a view de
-  Rebalanceamento — `GET /rebalance` deixa de ser rota top-level, spec
-  `rebalance-page` será reescrita/deprecada. Rentabilidade e Proventos
-  são páginas novas que ainda precisam de especificação e definição de
-  escopo.
+- **F — páginas do sistema (top-level nav).** Implementado em F02. Quatro
+  tabs top-level persistentes em `base.html`: **Patrimônio** (canônica
+  em `/patrimonio`, espelha o root URL `/` para compat), **Rebalanceamento**
+  (rota dedicada `/rebalanceamento` — não embutido em Patrimônio), e os
+  stubs **Rentabilidade** (`/rentabilidade`) e **Proventos**
+  (`/proventos`). Side panel removido; rebind das ações de input
+  (`Importar CSV` / `+ Classe` / `+ Ativo`) no topo da página Patrimônio.
+  As URLs `/dashboard` e `/rebalance` legadas respondem 404 (sem alias).
+  F03 / F04 substituem os stubs pelo conteúdo real de Rentabilidade e
+  Proventos sem mexer na top nav.
 - **F — alterar paleta para dark mode.** Substitui o register off-white
   descrito em §4.10 e em `DESIGN.md`. Tokens invertidos (background
   escuro, foreground claro), mesma personalidade domestic. Implica
@@ -574,9 +577,11 @@ indica o kind sugerido:
 - **R — extrair `quote_provider` adapter para pacote.** Se
   `yfinance` for trocado, hoje há só um impl. Daria para injetar mais
   providers.
-- **R — split `templates/dashboard.html` em partials.** Hoje é monolith
-  de ~1600 linhas. Partials já existe (`_sidebar.html`,
-  `_rebalance_*`); estender.
+- **R — split `templates/patrimonio.html` em partials.** Hoje é monolith
+  de ~1700 linhas (após F02 rename `dashboard.html → patrimonio.html`).
+  Partials já existem (`_rebalance_*`); estender. Depende de F02
+  (template renomeado + side panel removido) para não parcializar
+  sobre mudança em voo.
 - **T — BDD e2e suite a 100% green.** Spec `e2e-rework` está estável mas
   ainda com selectors pendentes; o `bdd-workflow-reuse-helpers`
   documenta o caminho.

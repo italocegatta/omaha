@@ -82,12 +82,18 @@ def factory() -> AuditContextFactory:
     [
         # Each template gets a context with at least the base keys, plus
         # the template-specific ones the inventory loop consumes.
-        ("dashboard.html", {"user", "profile", "asset_classes", "portfolio", "class_aggregates"}),
+        # F02: dashboard.html → patrimonio.html (same render path,
+        # same context dict).
+        ("patrimonio.html", {"user", "profile", "asset_classes", "portfolio", "class_aggregates"}),
         ("classes.html", {"user", "profile"}),
         ("assets.html", {"user", "profile", "classes"}),
         ("import.html", {"user", "profile"}),
         ("import_review.html", {"user", "profile", "auto_count", "unmatched_count"}),
         ("login.html", {"user", "error"}),
+        # F02: stub pages — same render context as a generic
+        # authenticated page (user + profile).
+        ("rentabilidade.html", {"user", "profile"}),
+        ("proventos.html", {"user", "profile"}),
         # direct-landing-with-header-profile-switcher: profiles.html
         # was deleted (the picker page is gone); the dashboard picks up
         # the chip + viewer label via the new common context instead.
@@ -123,12 +129,18 @@ def test_context_for_unknown_template_returns_base(factory: AuditContextFactory)
         # product name; using it as the anchor lets the test catch a
         # misrender that drops the base layout entirely.
         ("base.html", "Omaha"),
-        ("dashboard.html", "dashboard"),
+        # F02: dashboard.html → patrimonio.html; the anchor is the
+        # ``data-testid="patrimonio-portfolio-header"`` marker which
+        # the patrimonio template renders when an asset class exists.
+        ("patrimonio.html", "patrimonio-portfolio-header"),
         ("classes.html", "classes"),
         ("assets.html", "assets"),
         ("import.html", "import"),
         ("import_review.html", "import"),
         ("login.html", "login"),
+        # F02 stubs.
+        ("rentabilidade.html", "rentabilidade-stub"),
+        ("proventos.html", "proventos-stub"),
         # direct-landing-with-header-profile-switcher: profiles.html
         # was deleted (the picker page is gone).
     ],
@@ -141,12 +153,10 @@ def test_render_page_produces_template_specific_anchor(
 ) -> None:
     """Each rendered template contains a unique structural anchor.
 
-    The anchors are the lowercase template stem (``dashboard``,
-    ``classes``, …) or the product name (``Omaha`` for base). A
-    successful render of the right template must contain at least one
-    of these — the assertion is a positive substring match, but it
-    is anchored on a *template-specific* string rather than the bare
-    ``len(html) > 0`` tautology the original tests used.
+    The anchors are the lowercase template stem or — for the
+    patrimonio page — the new ``patrimonio-portfolio-header`` testid
+    that wraps the legacy ``portfolio-header`` section. Successful
+    render of the right template must contain at least one of these.
     """
     html = render_page(jinja_env, template_name, factory.context_for(template_name))
     assert isinstance(html, str)
@@ -166,7 +176,7 @@ def test_render_page_produces_template_specific_anchor(
     [
         # Each page should have at least one of the documented interactive
         # tags in the rendered HTML.
-        ("dashboard.html", "button"),
+        ("patrimonio.html", "button"),
         ("classes.html", "button"),
         ("login.html", "input"),
     ],
@@ -213,10 +223,10 @@ def test_default_state_for_btn_primary_has_color_pair(
     factory: AuditContextFactory,
     stylesheet: Stylesheet,
 ) -> None:
-    """The default-state color pair is computed for ``.btn-primary`` on dashboard."""
-    html = render_page(jinja_env, "dashboard.html", factory.context_for("dashboard.html"))
+    """The default-state color pair is computed for ``.btn-primary`` on patrimonio."""
+    html = render_page(jinja_env, "patrimonio.html", factory.context_for("patrimonio.html"))
     btn = _find_btn_primary(html)
-    assert btn is not None, "Dashboard should render a .btn-primary button"
+    assert btn is not None, "Patrimonio should render a .btn-primary button"
 
     row = state_color_pairs(btn, stylesheet, "default")
     assert row is not None
@@ -258,13 +268,13 @@ def test_element_without_colors_returns_none(stylesheet: Stylesheet) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_inventory_for_dashboard_produces_rows(
+def test_inventory_for_patrimonio_produces_rows(
     jinja_env: Environment,
     stylesheet: Stylesheet,
 ) -> None:
-    """inventory_for_page produces at least one row for the dashboard."""
-    rows = inventory_for_page("dashboard.html", jinja_env, stylesheet)
-    assert len(rows) > 0, "Dashboard should produce inventory rows"
+    """inventory_for_page produces at least one row for the patrimonio."""
+    rows = inventory_for_page("patrimonio.html", jinja_env, stylesheet)
+    assert len(rows) > 0, "Patrimonio should produce inventory rows"
 
 
 def test_nonexistent_template_returns_empty(
@@ -280,10 +290,10 @@ def test_inventory_rows_carry_template_field(
     stylesheet: Stylesheet,
 ) -> None:
     """Every row produced by inventory_for_page carries the template name."""
-    rows = inventory_for_page("dashboard.html", jinja_env, stylesheet)
+    rows = inventory_for_page("patrimonio.html", jinja_env, stylesheet)
     assert len(rows) > 0
     for row in rows:
-        assert row.template == "dashboard.html"
+        assert row.template == "patrimonio.html"
 
 
 # ---------------------------------------------------------------------------

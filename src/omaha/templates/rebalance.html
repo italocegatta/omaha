@@ -1,29 +1,25 @@
 {% extends "base.html" %}
-{% block title %}Rebalancear — Omaha{% endblock %}
+{% block title %}Rebalanceamento — Omaha{% endblock %}
 {% block content %}
-{# rebalance-page — server-side rendered plan on /rebalance. The
-   sidebar (with the "Aporte" form) is shared with the dashboard via
-   the _sidebar.html include. The backdrop is ``position: fixed`` so
-   it does not participate in the .dashboard grid; the <aside>
-   occupies the first column, the card takes the second. #}
-<div class="dashboard">
-  {% include "_sidebar.html" %}
-  <div class="dashboard-card rebalance-card"
+{# rebalance-page — server-side rendered plan on /rebalanceamento
+   (F02, D9). Before F02 the page shared its "Rebalancear" form with
+   the dashboard via the ``_sidebar.html`` include. After F02 the
+   sidebar is gone (D7) and the form lives in the page body, above
+   the plan / placeholder / empty-state area. The previous per-card
+   nav row (``← Dashboard`` / "Plano de aporte") is removed in the
+   same pass — the global top nav in ``base.html`` replaced it.
+
+   The Alpine ``rebalancePage`` component below owns the asset-plan
+   table sort state (and the category-summary table). #}
+<div class="rebalance-page">
+  <div class="rebalance-card"
        data-testid="rebalance-card">
 
-    <nav class="rebalance-nav"
-         data-testid="rebalance-nav"
-         aria-label="Navegação do plano de aporte">
-      <a href="/"
-         class="rebalance-nav-link"
-         data-testid="rebalance-nav-dashboard">← Dashboard</a>
-      <span class="rebalance-nav-link rebalance-nav-link--active"
-            data-testid="rebalance-nav-plan">Plano de aporte</span>
-    </nav>
-
-    {# Inline form-error banner — rendered above the placeholder / plan
-       / empty-state card so the operator sees the validation message
-       no matter which state the page is in. #}
+    {# Inline form-error banner — rendered above the placeholder /
+       plan / empty-state card so the operator sees the validation
+       message no matter which state the page is in. The testid is
+       now ``rebalance-form-error`` (not ``sidebar-form-error`` —
+       there is no sidebar element any more; see F02 D9). #}
     {% if form_error %}
     <div class="rebalance-form-error-banner"
          data-testid="rebalance-form-error"
@@ -31,6 +27,49 @@
       {{ form_error }}
     </div>
     {% endif %}
+
+    {# In-body aporte form (F02 D9 — the form is no longer in any
+       sidebar). Server-side posts to /rebalanceamento; Alpine gates
+       ``contribution < 0`` client-side for v1 (see base.html
+       ``rebalanceForm``). The submit posts the form server-side via
+       a plain HTML form POST (no client fetch). The page re-renders
+       with the plan in context. #}
+    <form class="rebalance-form"
+          method="post"
+          action="/rebalanceamento"
+          data-testid="rebalance-form"
+          x-data="rebalanceForm({ inert: {{ 'true' if form_inert|default(false) else 'false' }}, contribution: {{ contribution|default('null')|tojson }} })"
+          @submit="validate($event)">
+      <label for="rebalance-contribution"
+             class="rebalance-form-label"
+             data-testid="rebalance-form-label">
+        Aporte (R$)
+      </label>
+      <div class="rebalance-form-row">
+        <input type="number"
+               step="any"
+               name="contribution"
+               id="rebalance-contribution"
+               x-model="contribution"
+               inputmode="decimal"
+               data-testid="rebalance-contribution-input"
+               :class="{'rebalance-form-input--error': error}"
+               :disabled="inert"
+               required />
+        <button type="submit"
+                class="btn btn-primary rebalance-form-submit"
+                data-testid="rebalance-submit-btn"
+                :disabled="inert || computing">
+          <span x-show="!computing">Rebalancear</span>
+          <span x-show="computing">Calculando...</span>
+        </button>
+      </div>
+      <p class="rebalance-form-error"
+         data-testid="rebalance-form-error-inline"
+         x-show="error"
+         x-cloak
+         x-text="error"></p>
+    </form>
 
     {% if zero_classes %}
       {% include "_rebalance_empty.html" %}
@@ -45,7 +84,7 @@
 
 <script>
   // rebalance-page Alpine scope. Local component (no global store) —
-  // the page is self-contained: the sidebar form submits via plain
+  // the page is self-contained: the in-body form submits via plain
   // HTML form POST and the plan arrives via server-side render.
   // Alpine only owns the asset-plan table sort state.
   //
@@ -73,7 +112,7 @@
   })();
 
   document.addEventListener('alpine:init', function () {
-    // Sort comparator factory mirroring ``dashboard.html``'s
+    // Sort comparator factory mirroring ``patrimonio.html``'s
     // ``sortFn`` pattern: numeric fields compare numerically,
     // strings case-insensitively, ties break by ``asset_key`` so the
     // order is stable across re-sorts. Action label is the

@@ -301,9 +301,19 @@ class AuditContextFactory:
         return ctx
 
     def context_for(self, template_name: str) -> dict[str, Any]:
-        """Return a renderable context dict for *template_name*."""
+        """Return a renderable context dict for *template_name*.
+
+        F02: ``dashboard.html`` was renamed to ``patrimonio.html``
+        (the F02 canonical URL is ``/patrimonio``; same render
+        path, same context). The legacy name is aliased here so the
+        audit pipeline doesn't break the gauge if a downstream
+        referrer still spells ``dashboard.html``. F02 stubs
+        (``rentabilidade.html`` / ``proventos.html``) fall through
+        to the base context — they don't carry dashboard data.
+        """
         handlers = {
             "dashboard.html": self._dashboard_context,
+            "patrimonio.html": self._dashboard_context,
             "login.html": self._login_context,
             "profiles.html": self._profiles_context,
             "classes.html": self._classes_context,
@@ -314,7 +324,7 @@ class AuditContextFactory:
         handler = handlers.get(template_name)
         if handler is not None:
             return handler()
-        # Unknown templates get a base context.
+        # Unknown templates (including the F02 stubs) get a base context.
         return self._base_context()
 
 

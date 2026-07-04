@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Rentabilidade — Omaha{% endblock %}
+{% block content %}
+{# rentabilidade — F02 stub (D6).
+
+   This page is shipped empty on purpose: F02 introduces the
+   ``/rentabilidade`` route so the F02 top nav appears complete and
+   clickable end-to-end (every tab has a destination). The real
+   content (time-series of returns per profile / household) lands in
+   F03, which replaces this stub with the actual data series. The
+   copy is intentionally short — one heading + one body line — to
+   keep the page visually identical to the "Em construção" state
+   until F03 ships. #}
+<section class="stub-page"
+         data-testid="rentabilidade-stub">
+  <h2 class="stub-page-title">Em construção</h2>
+  <p class="stub-page-body">
+    Esta página será preenchida em uma fatia futura.
+  </p>
+</section>
+{% endblock %}

@@ -1,33 +1,87 @@
 {% extends "base.html" %}
+{% block title %}Patrimônio — Omaha{% endblock %}
 {% block content %}
-{# dashboard-action-sidebar — sidebar lives in _sidebar.html so the
-   dashboard and /rebalance share the same markup (including the
-   "Rebalancear" form). The include renders both the mobile backdrop
-   and the <aside>; the backdrop is ``position: fixed`` so it does
-   NOT participate in the .dashboard grid flow, and the <aside>
-   occupies the first column of the grid (the card takes the second). #}
-<div class="dashboard">
-  {% include "_sidebar.html" %}
-  <div class="dashboard-card">
+{# patrimonio-page — body of ``/patrimonio`` (F02, D3 + D5).
+
+   The previous layout was "logo + side panel + conteúdo" with the
+   side panel carrying both the action triggers (``Importar CSV`` /
+   ``+ Novo ativo`` / ``+ Nova classe``) and the rebalance form.
+   After F02 the side panel is gone (see F02 design D7 — the
+   ``dashboard-sidebar`` spec deprecates). Action triggers migrate to
+   the top of the body (this section, right-aligned) and the
+   portfolio header — Investido / Valor atual / Ganho — becomes the
+   ``patrimonio-portfolio-header`` component (F02 design D3). The
+   rest of the dashboard (class sections, modals, Alpine state)
+   keeps its markup byte-for-byte so the per-class and per-asset
+   specs (dashboard-inline-editing, asset-table-view, etc.) remain
+   valid without re-architecture.
+
+   This file was ``templates/dashboard.html`` before F02; the
+   ``git mv`` preserves the rename history. The internal ``<section>``
+   ids / data-testids on the per-class + per-asset blocks stay the
+   same — the only testid changes are on the portfolio-header (now
+   ``patrimonio-portfolio-header`` per F02 D3) and the action button
+   row (same testids as the legacy sidebar triggers — kept stable so
+   BDD/e2e selectors don't churn). #}
+<div class="patrimonio-page">
+
+  {# patrimonio-page — action trigger row at the top of the body
+     (F02, D2 + D3). The legacy sidebar's ``Importar CSV`` /
+     ``+ Novo ativo`` / ``+ Nova classe`` buttons live here now,
+     right-aligned. Testids preserved verbatim
+     (``dashboard-import-btn``, ``dashboard-add-asset-open``,
+     ``empty-state-create-class``) so the BDD steps and e2e selectors
+     that targeted the sidebar survive the layout swap. Each button
+     opens the corresponding modal via the global Alpine store that
+     the modal markup (lower in the file) declares. #}
+  <section class="patrimonio-actions" data-testid="patrimonio-actions">
+    <button type="button"
+            class="btn patrimonio-action-btn"
+            data-testid="dashboard-import-btn"
+            @click="$store.importModal.openModal()">
+      Importar CSV
+    </button>
+    <button type="button"
+            class="btn patrimonio-action-btn"
+            data-testid="dashboard-add-asset-open"
+            @click="$store.addAssetModal.openModal()">
+      + Novo ativo
+    </button>
+    <button type="button"
+            class="btn patrimonio-action-btn"
+            data-testid="empty-state-create-class"
+            @click="$store.newClassModal.openModal()">
+      + Nova classe
+    </button>
+  </section>
 
   {% if asset_classes %}
   <section class="class-summary" data-testid="class-summary">
     {% if portfolio.current_value %}
-    <section class="portfolio-header" data-testid="portfolio-header">
-      <div class="portfolio-stat" data-testid="portfolio-invested">
-        <span class="portfolio-stat-label">Investido</span>
-        <span class="portfolio-stat-value">{{ portfolio.total_invested | brl }}</span>
-      </div>
-      <div class="portfolio-stat" data-testid="portfolio-total">
-        <span class="portfolio-stat-label">Valor atual</span>
-        <span class="portfolio-stat-value">{{ portfolio.current_value | brl }}</span>
-      </div>
-      <div class="portfolio-stat {% if portfolio.gain >= 0 %}portfolio-gain-positive{% else %}portfolio-gain-negative{% endif %}"
-           data-testid="portfolio-gain"
-           data-gain-sign="{% if portfolio.gain >= 0 %}positive{% else %}negative{% endif %}">
-        <span class="portfolio-stat-label">Ganho</span>
-        <span class="portfolio-stat-value">{{ portfolio.gain | brl }} ({{ portfolio.gain_pct | round(2) }}%)</span>
-      </div>
+    {# patrimonio-portfolio-header — Investido / Valor atual / Ganho
+       (F02 D3, new spec ``openspec/specs/patrimonio-portfolio-header/spec.md``).
+       The wrapping element owns the new spec testid; the legacy
+       ``portfolio-header`` testid stays on the inner <section> so the
+       existing ``class-section-totals`` + per-class aggregate
+       assertion suite (test_pages_routes + e2e) keeps working. #}
+    <section class="patrimonio-portfolio-header"
+             data-testid="patrimonio-portfolio-header">
+      <section class="portfolio-header" data-testid="portfolio-header">
+        <div class="portfolio-stat" data-testid="portfolio-invested">
+          <span class="portfolio-stat-label">Investido</span>
+          <span class="portfolio-stat-value">{{ portfolio.total_invested | brl }}</span>
+        </div>
+        <div class="portfolio-stat" data-testid="portfolio-total">
+          <span class="portfolio-stat-label">Valor atual</span>
+          <span class="portfolio-stat-value">{{ portfolio.current_value | brl }}</span>
+        </div>
+        <div class="portfolio-stat {% if portfolio.gain >= 0 %}portfolio-gain-positive{% else %}portfolio-gain-negative{% endif %}"
+             data-testid="portfolio-gain"
+             data-gain-sign="{% if portfolio.gain >= 0 %}positive{% else %}negative{% endif %}">
+          <span class="portfolio-stat-label">Ganho</span>
+          <span class="portfolio-stat-value">{{ portfolio.gain | brl }} ({{ portfolio.gain_pct | round(2) }}%)</span>
+        </div>
+      </section>
     </section>
     {% endif %}
 
@@ -374,12 +428,11 @@
       <span>Importe o extrato da corretora</span>
     </div>
     <p class="empty-state-onboarding-hint">
-      Use os botoes na barra lateral. As classes devem somar 100%.
+      Use os botoes acima desta pagina. As classes devem somar 100%.
     </p>
   </div>
   {% endif %}
-  </div><!-- /.dashboard-card -->
-</div><!-- /.dashboard -->
+</div><!-- /.patrimonio-page -->
 
 <!-- asset-table-view 10.2/10.3 — dashboard-level add-asset modal.
      Overlay + panel with class select, name, and target_pct inputs.

@@ -9,43 +9,27 @@
        the font handshake stalling the first paint; display=swap gives
        us a font fallback during the load window so text is readable
        from frame 1. Source Serif 4 is scoped in CSS to .portfolio-
-       header values and the dashboard profile name only (per DESIGN.md
+       header values and the patrimonio profile name only (per DESIGN.md
        typography section). Inter is the UI sans. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:wght@600&display=swap">
   <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script>
-    /* dashboard-action-sidebar — global Alpine store for the mobile
-       drawer. The hamburger in .app-header-left calls toggle();
-       the drawer in dashboard.html reads $store.sidebar.open.
-       onClose restores focus to the hamburger reference captured
-       via x-ref when the user activated the drawer. */
-    document.addEventListener('alpine:init', function () {
-      Alpine.store('sidebar', {
-        open: false,
-        toggle: function () { this.open = !this.open; },
-        close: function () {
-          this.open = false;
-          var btn = document.querySelector('[data-testid="app-header-hamburger"]');
-          if (btn && typeof btn.focus === 'function') btn.focus();
-        },
-      });
-    });
-  </script>
-  <script>
-    /* rebalance-page — the sidebar "Rebalancear" form component.
-       Defined on the base template (not on rebalance.html) because
-       the sidebar form is included in every authenticated page
-       (dashboard + /rebalance). The validate() handler gates
-       ``contribution < 0`` client-side for v1 (the server accepts
-       negative for Phase 4 withdrawal support, but the page UI is
-       more restrictive — see openspec/changes/rebalance-page
-       Decision 3 + Decision 9). */
+    /* rebalance-page — the "Rebalancear" form component. Defined on
+       the base template because the page flow owns the same
+       client-side gate for ``contribution < 0`` everywhere
+       (``rebalance-page` spec, REMOVED "Sidebar carries the rebalance
+       form" requirement). ``validate()`` blocks negative client-side
+       for v1 (the server accepts negative for Phase 4 withdrawal
+       support, but the page UI is more restrictive — see F02 design
+       D5). */
     document.addEventListener('alpine:init', function () {
       window.rebalanceForm = function (initial) {
         return {
-          contribution: '',
+          contribution: initial && initial.contribution !== undefined && initial.contribution !== null
+            ? String(initial.contribution)
+            : '',
           computing: false,
           error: '',
           inert: !!(initial && initial.inert),
@@ -77,20 +61,38 @@
     });
   </script>
 </head>
-<body @keydown.escape.window="$store.sidebar.close()">
+<body>
   <header class="app-header">
-    <div class="app-header-left">
-      {% if owner is defined and owner %}
-      <button type="button"
-              class="app-header-hamburger"
-              data-testid="app-header-hamburger"
-              aria-label="Abrir menu"
-              :aria-expanded="$store.sidebar.open ? 'true' : 'false'"
-              aria-controls="app-sidebar"
-              @click="$store.sidebar.toggle()">☰</button>
-      {% endif %}
-      <h1 class="app-header-wordmark" data-testid="app-header-wordmark">Omaha</h1>
-    </div>
+    <h1 class="app-header-wordmark" data-testid="app-header-wordmark">Omaha</h1>
+
+    {# Top nav with 4 tabs (Patrimônio | Rebalanceamento |
+       Rentabilidade | Proventos). Active tab is detected server-side
+       from ``request.url.path`` (Jinja conditional). The active state
+       uses ``--accent`` (fern token, D2) as an underline on the
+       bottom border. Tab nav renders for any authenticated page
+       (gated on ``viewer`` — same as the profile picker). #}
+    {% if viewer is defined and viewer %}
+    <nav class="tab-nav" data-testid="app-tab-nav" aria-label="Navegação principal">
+      {% set _active_tab = request.url.path if request is defined and request.url.path else '' %}
+      <a href="/patrimonio"
+         class="tab-nav__btn{% if _active_tab == '/patrimonio' or _active_tab == '/' %} tab-nav__btn--active{% endif %}"
+         data-testid="app-tab-btn-patrimonio"
+         {% if _active_tab == '/patrimonio' or _active_tab == '/' %}aria-current="true"{% endif %}>Patrimônio</a>
+      <a href="/rebalanceamento"
+         class="tab-nav__btn{% if _active_tab == '/rebalanceamento' %} tab-nav__btn--active{% endif %}"
+         data-testid="app-tab-btn-rebalanceamento"
+         {% if _active_tab == '/rebalanceamento' %}aria-current="true"{% endif %}>Rebalanceamento</a>
+      <a href="/rentabilidade"
+         class="tab-nav__btn{% if _active_tab == '/rentabilidade' %} tab-nav__btn--active{% endif %}"
+         data-testid="app-tab-btn-rentabilidade"
+         {% if _active_tab == '/rentabilidade' %}aria-current="true"{% endif %}>Rentabilidade</a>
+      <a href="/proventos"
+         class="tab-nav__btn{% if _active_tab == '/proventos' %} tab-nav__btn--active{% endif %}"
+         data-testid="app-tab-btn-proventos"
+         {% if _active_tab == '/proventos' %}aria-current="true"{% endif %}>Proventos</a>
+    </nav>
+    {% endif %}
+
     <div class="app-header-right">
       {% if viewer is defined and viewer and owner is defined and owner %}
         {# Profile chip — native <select> with server-rendered options.
@@ -121,7 +123,7 @@
         </form>
       {% endif %}
       {% if viewer is defined and viewer %}
-      {# Logout form: class renamed from profile-switcher (D5) so the
+      {# Logout form: class renamed from profile-switcher so the
          new chip can honestly claim that class name. #}
       <form class="logout-form" method="post" action="/logout">
         <button type="submit">Sair</button>

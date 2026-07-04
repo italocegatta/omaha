@@ -6,37 +6,55 @@ Routing contract
   (``active_profile_id`` missing, deleted, or pointing to another
   user's profile), clear the stale key and redirect to ``/login`` so
   the user can re-authenticate and land on their own dashboard.
-  Otherwise render the dashboard for the active profile.
+  Otherwise render the patrimonio page for the active profile.
+  Mirrors ``GET /patrimonio`` byte-for-byte (root is the historical
+  URL the app has shipped with since direct-landing; ``/patrimonio``
+  is the F02 canonical URL going forward — see PRD §5.3 rewritten
+  in F02).
+- ``GET /patrimonio`` — canonical dashboard URL (F02, D1). Same
+  render path as ``GET /``.
 - ``POST /profiles/{profile_id}/select`` — requires a logged-in user
   but accepts ANY profile id (any user can view any profile — the
   prior ``profile.user_id != user.id`` 404 check is gone). Sets
   ``active_profile_id`` in the session and redirects to ``/``.
-- ``GET /rebalance`` — requires a logged-in user with an active
+- ``GET /rebalanceamento`` — requires a logged-in user with an active
   profile. Renders the empty placeholder for the rebalance page
-  (``rebalance.html``). When the active profile has zero classes,
-  the main area renders the empty-state card instead; the sidebar
-  form is present but inert (form fields carry the ``disabled``
-  attribute). See ``rebalance.html`` for the layout.
-- ``POST /rebalance`` — same auth gate. Reads ``contribution`` from
-  the form body, runs ``rebalance.glue.run_rebalance``, and
+  (``rebalance.html``). When the active profile has zero classes, the
+  main area renders the empty-state card; the in-body form is
+  present but inert (form fields carry the ``disabled`` attribute).
+  See ``rebalance.html`` for the layout.
+- ``POST /rebalanceamento`` — same auth gate. Reads ``contribution``
+  from the in-body form, runs ``rebalance.glue.run_rebalance``, and
   re-renders ``rebalance.html`` with the resulting plan in context.
   No JSON wire trip — the page is server-side rendered, the same
   URL is reused (no PRG redirect). Solver validation failures
   (``RebalanceValidationError``) re-render the page with an inline
   ``form_error``; the route never returns 400 for that case.
+- ``GET /rentabilidade`` — stub page rendering "Em construção" body
+  text (F02, D6). F03 replaces the stub with the real content.
+- ``GET /proventos`` — stub page rendering "Em construção" body text
+  (F02, D6). F04 replaces the stub with the real content.
+
+Legacy routes (F02, breaking)
+------------------------------
+- ``GET /dashboard`` — returns HTTP 404. No alias, no redirect. Same
+  for ``GET /rebalance``. Owner decision (D1 / D9): keep the break
+  visible; e2e suite asserts the 404 explicitly.
 
 The header chip (base.html) drives the select endpoint via a native
 ``<select>``: when the operator picks a different profile, the form's
 ``action`` is rewritten client-side to ``/profiles/{value}/select``
-and the form submits.
+and the form submits. The top nav (F02, D2) drives the
+``/patrimonio`` / ``/rebalanceamento`` / ``/rentabilidade`` /
+``/proventos`` destinations server-side from ``request.url.path``.
 
-The dashboard template inherits a Jinja context that always carries
+The patrimonio template inherits a Jinja context that always carries
 ``profiles`` (every profile in the DB, in ``display_order`` order),
 ``viewer`` (the logged-in ``User``), and ``owner`` (the active
 ``Profile``) so the header chip + viewer label can render without
 any extra round-trip per route. The rebalance page extends that
 context with ``plan`` (the ``RebalancePlanResponse`` or ``None``),
-``zero_classes`` (bool), and ``sidebar_inert`` (bool — the form is
+``zero_classes`` (bool), and ``form_inert`` (bool — the form is
 disabled when the profile has zero classes).
 """
 
@@ -69,8 +87,9 @@ def _common_context(
 ) -> dict[str, Any]:
     """Build the shared Jinja context for authenticated renders.
 
-    Every authenticated template (the dashboard, and any future page
-    that extends ``base.html``) gets the same trio of variables:
+    Every authenticated template (the patrimonio page, the rebalance
+    page, the rentabilidade/proventos stubs, any future page that
+    extends ``base.html``) gets the same trio of variables:
 
     * ``profiles`` — every ``Profile`` row in the DB, in
       ``display_order`` ascending. Powers the header chip's
@@ -93,29 +112,19 @@ def _common_context(
     }
 
 
-@router.get("/", response_class=HTMLResponse, response_model=None)
-def index(
+def _render_patrimonio(
     request: Request,
     db: DbSession,
-    user: User = Depends(require_user),
+    user: User,
+    profile: Profile,
 ) -> Response:
-    """Render the dashboard for the active profile.
+    """Render the patrimonio page (the dashboard, post-F02).
 
-    Stale ``active_profile_id`` (missing / deleted / pointing to
-    another user's profile) is cleared and the user is bounced to
-    ``/login`` — the post-login route binds a fresh landing profile,
-    so re-logging-in is the recovery path. There is no
-    intermediate picker page; the change is direct landing.
+    Centralised so ``GET /`` and ``GET /patrimonio`` share the same
+    render path (the old ``/`` route continues to work because the
+    app has shipped with it since direct-landing; ``/patrimonio``
+    is the F02 canonical URL — see roadmap §F02, D1 + D8).
     """
-    profile = get_active_profile(request, db)
-    if profile is None:
-        # Either no profile was ever picked, the cookie is stale
-        # (profile deleted, profile belongs to a different user),
-        # or the user has yet to log in. Clear the stale key so the
-        # next /login → POST flow starts clean.
-        request.session.pop("active_profile_id", None)
-        return RedirectResponse("/login", status_code=303)
-
     asset_classes = (
         db.query(AssetClass)
         .options(
@@ -134,7 +143,79 @@ def index(
             "class_aggregates": aggregates["classes"],
         }
     )
-    return _templates(request).TemplateResponse(request, "dashboard.html", context)
+    return _templates(request).TemplateResponse(request, "patrimonio.html", context)
+
+
+def _resolve_patrimonio_target(
+    request: Request, db: DbSession
+) -> Profile | None:
+    """Resolve the active profile for the patrimonio / rebalance pages.
+
+    Returns the active :class:`Profile` or ``None`` when the session
+    has no resolvable active_profile_id (no user, no profile, or
+    pointing at a deleted profile). Callers use the ``None`` signal
+    to redirect to ``/login``.
+    """
+    return get_active_profile(request, db)
+
+
+@router.get("/", response_class=HTMLResponse, response_model=None)
+def index(
+    request: Request,
+    db: DbSession,
+    user: User = Depends(require_user),
+) -> Response:
+    """Render the patrimonio page for the active profile.
+
+    ``/`` is the historical dashboard URL the app has shipped with
+    since direct-landing. ``/patrimonio`` (F02, D1) is the new
+    canonical URL; both routes render the same template with the
+    same data. Stale ``active_profile_id`` (missing / deleted /
+    pointing at another user's profile) is cleared and the user is
+    bounced to ``/login`` — the post-login route binds a fresh
+    landing profile, so re-logging-in is the recovery path.
+    """
+    profile = _resolve_patrimonio_target(request, db)
+    if profile is None:
+        request.session.pop("active_profile_id", None)
+        return RedirectResponse("/login", status_code=303)
+    return _render_patrimonio(request, db, user, profile)
+
+
+@router.get("/patrimonio", response_class=HTMLResponse, response_model=None)
+def get_patrimonio(
+    request: Request,
+    db: DbSession,
+    user: User = Depends(require_user),
+) -> Response:
+    """Render the patrimonio page (F02 canonical URL).
+
+    Same render path as ``GET /`` (see :func:`index`). The two URLs
+    are aliased for backward compat (the app shipped with ``/`` as
+    the dashboard URL since direct-landing; F02 introduces
+    ``/patrimonio`` as the canonical URL — F02 D1 + D8 + D9). No
+    HTTP redirect: the active-tab detection in ``base.html`` reads
+    ``request.url.path`` and lights up the matching tab on either
+    URL (``/`` highlights "Patrimônio").
+    """
+    profile = _resolve_patrimonio_target(request, db)
+    if profile is None:
+        request.session.pop("active_profile_id", None)
+        return RedirectResponse("/login", status_code=303)
+    return _render_patrimonio(request, db, user, profile)
+
+
+@router.get("/dashboard")
+def get_legacy_dashboard() -> Response:
+    """Legacy dashboard URL — returns HTTP 404 (F02 breaking change).
+
+    The owner decided (D1) that ``/dashboard`` would not be aliased
+    to ``/patrimonio``: any redirect would hide the breakage from
+    e2e tests and surprise users with silent URL changes. Requests
+    to ``/dashboard`` return 404 so the break is explicit. See F02
+    decision D1 + D9.
+    """
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
 
 @router.post("/profiles/{profile_id}/select")
@@ -163,11 +244,11 @@ def select_profile(
 def _load_asset_classes(db: DbSession, profile: Profile) -> list[AssetClass]:
     """Load the active profile's ``AssetClass`` rows (ordered, no nested eager).
 
-    Used by both the dashboard index and the rebalance page to detect
-    the zero-classes state. The dashboard path still eager-loads
+    Used by both the patrimonio index and the rebalance page to detect
+    the zero-classes state. The patrimonio path still eager-loads
     assets + positions because it needs the per-asset data; the
     rebalance page only needs the row count, so we skip the eager
-    load to keep ``GET /rebalance`` cheap.
+    load to keep ``GET /rebalanceamento`` cheap.
     """
     return (
         db.query(AssetClass)
@@ -209,7 +290,7 @@ def _render_rebalance(
             "plan": plan,
             "plan_dict": plan.model_dump(mode="json") if plan is not None else None,
             "zero_classes": zero_classes,
-            "sidebar_inert": zero_classes,
+            "form_inert": zero_classes,
             "form_error": form_error,
             "contribution": plan.metrics.contribution if plan is not None else None,
         }
@@ -217,8 +298,8 @@ def _render_rebalance(
     return _templates(request).TemplateResponse(request, "rebalance.html", context)
 
 
-@router.get("/rebalance", response_class=HTMLResponse, response_model=None)
-def get_rebalance(
+@router.get("/rebalanceamento", response_class=HTMLResponse, response_model=None)
+def get_rebalanceamento(
     request: Request,
     db: DbSession,
     user: User = Depends(require_user),
@@ -227,10 +308,14 @@ def get_rebalance(
 
     When the active profile has zero classes, the main area renders
     the empty-state card. Otherwise it renders the "defina um aporte"
-    placeholder. The sidebar form is present in both cases; it is
+    placeholder. The in-body form is present in both cases; it is
     disabled only when the profile has zero classes (the operator
-    must create a class first via the dashboard's "+ Nova classe"
-    button).
+    must create a class first via the patrimonio "+ Nova classe"
+    button — see F02 design notes for the button migration).
+
+    The previous URL ``/rebalance`` is no longer served — see F02
+    D1 + D9. Requests to ``/rebalance`` return HTTP 404 from a sibling
+    handler so the breakage is visible.
     """
     profile = get_active_profile(request, db)
     if profile is None:
@@ -239,8 +324,8 @@ def get_rebalance(
     return _render_rebalance(request, db, user, profile)
 
 
-@router.post("/rebalance", response_class=HTMLResponse, response_model=None)
-def post_rebalance(
+@router.post("/rebalanceamento", response_class=HTMLResponse, response_model=None)
+def post_rebalanceamento(
     request: Request,
     db: DbSession,
     user: User = Depends(require_user),
@@ -313,6 +398,57 @@ def post_rebalance(
     return _render_rebalance(request, db, user, profile, plan=plan)
 
 
+@router.get("/rebalance")
+def get_legacy_rebalance() -> Response:
+    """Legacy rebalance URL — returns HTTP 404 (F02 breaking change).
+
+    Same rationale as :func:`get_legacy_dashboard`. The F02 owner
+    decision (D1 + D9) bans aliasing; e2e tests assert the 404
+    explicitly so a regression would surface immediately.
+    """
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+
+@router.get("/rentabilidade", response_class=HTMLResponse, response_model=None)
+def get_rentabilidade(
+    request: Request,
+    db: DbSession,
+    user: User = Depends(require_user),
+) -> Response:
+    """Render the ``/rentabilidade`` stub page (F02, D6).
+
+    The page body is a single "Em construção" card (see
+    ``rentabilidade.html``); F03 replaces this stub with the real
+    content (time series of returns). Stub exists so the F02 top nav
+    is complete + clickable end-to-end — see F02 decision D6.
+    """
+    profile = get_active_profile(request, db)
+    if profile is None:
+        request.session.pop("active_profile_id", None)
+        return RedirectResponse("/login", status_code=303)
+    context = _common_context(request, db, user, profile)
+    return _templates(request).TemplateResponse(request, "rentabilidade.html", context)
+
+
+@router.get("/proventos", response_class=HTMLResponse, response_model=None)
+def get_proventos(
+    request: Request,
+    db: DbSession,
+    user: User = Depends(require_user),
+) -> Response:
+    """Render the ``/proventos`` stub page (F02, D6).
+
+    Same shape as :func:`get_rentabilidade`. F04 replaces this stub
+    with the real content (dividends / JCP per asset, class, profile).
+    """
+    profile = get_active_profile(request, db)
+    if profile is None:
+        request.session.pop("active_profile_id", None)
+        return RedirectResponse("/login", status_code=303)
+    context = _common_context(request, db, user, profile)
+    return _templates(request).TemplateResponse(request, "proventos.html", context)
+
+
 __all__ = ["router", "portfolio_aggregates"]
 
 
@@ -320,7 +456,7 @@ __all__ = ["router", "portfolio_aggregates"]
 # insertion order (class index in the loop, not the DB id, so
 # reordering via display_order reshuffles colors predictably). More
 # than 8 classes wraps around. AssetClass has no ``color`` column;
-# this is the dashboard's deterministic-per-position palette.
+# this is the patrimonio's deterministic-per-position palette.
 _CLASS_COLORS: tuple[str, ...] = (
     "#0a66c2",  # blue
     "#2e7d32",  # green
@@ -334,11 +470,11 @@ _CLASS_COLORS: tuple[str, ...] = (
 
 
 def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
-    """Compute portfolio-level + per-class + per-asset aggregates for the dashboard.
+    """Compute portfolio-level + per-class + per-asset aggregates for the patrimonio.
 
     Pure function — operates on already-loaded ORM objects. The caller
     is responsible for eager-loading ``AssetClass.assets[*].positions``
-    (the dashboard route uses ``selectinload`` to avoid N+1).
+    (the patrimonio route uses ``selectinload`` to avoid N+1).
 
     Returns a dict with two top-level keys:
 
@@ -352,7 +488,7 @@ def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
       ``current_value``, the class's ``current_pct`` of the whole
       portfolio (0.0 when the portfolio is empty), and the list of
       ``assets`` with their ``qty``, ``current_value``, and the four
-      percentages the M002 dashboard renders: ``target_pct_class``
+      percentages the M002 patrimonio renders: ``target_pct_class``
       (the stored :attr:`Asset.target_pct`), ``current_pct_class``
       (the asset's share of its class's ``current_value`` — same
       as ``asset_pct``), ``target_pct_total``
@@ -376,7 +512,7 @@ def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
         # current summing loop (and the per-asset
         # ``target_pct_total`` calc, which only depends on the asset
         # + class target_pct — both constant for the request). The
-        # dashboard helper just glues the per-class result into the
+        # patrimonio helper just glues the per-class result into the
         # class-level row and computes the class's portfolio share
         # in the second pass.
         totals = _compute_class_totals(klass)
@@ -428,7 +564,7 @@ def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
                 # ``asset_pct`` (legacy S05 field) and
                 # ``current_pct_class`` (M002 S01/T03 field) carry
                 # the same value: the asset's share of its class's
-                # current_value. The M002 dashboard renders
+                # current_value. The M002 patrimonio renders
                 # ``current_pct_class`` in the 4-cell grid; the S05
                 # test ``test_aggregates_per_asset_pct_is_share_of_class``
                 # still asserts ``asset_pct`` so we keep both in
@@ -476,7 +612,7 @@ def _compute_class_totals(klass: AssetClass) -> dict[str, Any]:
     * ``portfolio_aggregates`` reads cleaner when the inner summing
       loop is named — the outer function only cares about
       class-level roll-ups + percentage calc.
-    * ``audit/inventory.py:155`` and the dashboard tests build
+    * ``audit/inventory.py:155`` and the patrimonio tests build
       hand-crafted per-asset dicts to mirror this shape. Keeping the
       single source of truth here means a future column addition
       (e.g. ``current_pct_class`` rename) only changes one place.
@@ -485,7 +621,7 @@ def _compute_class_totals(klass: AssetClass) -> dict[str, Any]:
     deliberately do NOT call this helper — they re-implement the
     same Decimal-summing loop against a different schema. See
     ``openspec/changes/rebalance-infra/design.md`` Decision 5:
-    ``portfolio_aggregates`` is consumed by the dashboard, the
+    ``portfolio_aggregates`` is consumed by the patrimonio, the
     audit pipeline, and three test files; sharing the helper risks
     breaking the audit pipeline silently when the rebalance schema
     evolves.
@@ -498,7 +634,7 @@ def _compute_class_totals(klass: AssetClass) -> dict[str, Any]:
       ``broker-csv-import-totals``).
     * ``assets`` — list of per-asset dicts in
       ``klass.assets`` order. Each dict carries the fields the
-      dashboard template and the Alpine inline editor consume
+      patrimonio template and the Alpine inline editor consume
       (``id``, ``name``, ``position_count``, ``qty``, ``invested``,
       ``current_value``, ``target_pct_class``, ``target_pct_total``,
       ``buy_enabled``, ``sell_enabled``, ``currency_code``).
@@ -531,7 +667,7 @@ def _compute_class_totals(klass: AssetClass) -> dict[str, Any]:
         # which are constant for the request — compute it now
         # alongside the per-row dict so the second pass doesn't
         # have to re-walk the loop. The Alpine inline editor in
-        # the dashboard template uses this field as the
+        # the patrimonio template uses this field as the
         # ``target % total`` column.
         target_pct_total = (asset.target_pct or ZERO) * (klass.target_pct or ZERO) / HUNDRED
         asset_rows.append(
@@ -545,7 +681,7 @@ def _compute_class_totals(klass: AssetClass) -> dict[str, Any]:
                 "target_pct_class": asset.target_pct or ZERO,
                 "target_pct_total": target_pct_total,
                 # asset-trade-flags: propagate the three per-asset
-                # trade-control attributes so the dashboard's
+                # trade-control attributes so the patrimonio's
                 # inline toggle UI can render the current state
                 # without an extra round-trip per asset row. The
                 # template's ``x-data`` initializer copies these

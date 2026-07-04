@@ -376,36 +376,37 @@ def on_page(page: Page, path: str):
 
 @then(parsers.parse('o dashboard mostra o nome do perfil "{name}"'))
 def dashboard_shows_profile_name(page: Page, name: str):
-    """Assert the dashboard renders the named profile in the sidebar wordmark.
+    """Assert the patrimonio page renders the named profile in the header chip.
 
-    direct-landing-with-header-profile-switcher: the h1 ``profile-name``
-    element was removed (D6); the profile identity now lives in the
-    sidebar wordmark (``[data-testid="sidebar-wordmark"]``) and the
-    header chip's selected option (``[data-testid="profile-switcher"]``).
-    The sidebar wordmark is the stable hook — it's the first element
-    rendered after the layout flips and it carries the profile name
-    verbatim.
+    F02: the sidebar wordmark was removed along with the sidebar
+    itself (F02 D7 — ``dashboard-sidebar`` spec deprecated). The
+    profile identity now lives in the header chip
+    (``[data-testid="profile-switcher"]``) which renders the
+    active profile name as the selected option. The chip is the
+    stable hook — it carries the profile name verbatim.
     """
-    wordmark = page.locator('[data-testid="sidebar-wordmark"]')
-    wordmark.wait_for(state="visible", timeout=5000)
-    assert name in wordmark.inner_text(), (
-        f"esperava perfil {name!r} em [data-testid=sidebar-wordmark], vi {wordmark.inner_text()!r}"
+    chip = page.locator('[data-testid="profile-switcher"]')
+    chip.wait_for(state="visible", timeout=5000)
+    chip_text = chip.inner_text()
+    assert name in chip_text, (
+        f"esperava perfil {name!r} em [data-testid=profile-switcher], vi {chip_text!r}"
     )
 
 
 @then(parsers.parse('o dashboard mostra as classes de "{name}"'))
 def dashboard_shows_other_profile_classes(page: Page, name: str):
-    """Assert the dashboard shows the named profile's classes (cross-profile).
+    """Assert the patrimonio shows the named profile's classes (cross-profile).
 
-    direct-landing-with-header-profile-switcher + profile_sharing: after
-    switching to another user's profile via the chip, the dashboard
-    renders that profile's classes. The sidebar wordmark carries the
-    profile name so the assertion matches.
+    F02: same hook as ``dashboard_shows_profile_name`` — the
+    header chip renders the active profile name as the selected
+    option, so switching profiles via the chip lands on a
+    patrimonio that shows the matching profile's classes.
     """
-    wordmark = page.locator('[data-testid="sidebar-wordmark"]')
-    wordmark.wait_for(state="visible", timeout=5000)
-    assert name in wordmark.inner_text(), (
-        f"esperava wordmark {name!r}, vi {wordmark.inner_text()!r}"
+    chip = page.locator('[data-testid="profile-switcher"]')
+    chip.wait_for(state="visible", timeout=5000)
+    chip_text = chip.inner_text()
+    assert name in chip_text, (
+        f"esperava perfil {name!r} em [data-testid=profile-switcher], vi {chip_text!r}"
     )
 
 

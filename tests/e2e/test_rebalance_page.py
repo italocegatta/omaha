@@ -34,20 +34,19 @@ if TYPE_CHECKING:
 
 from .test_import_user_journey import _create_three_classes, _login_and_select_italo
 
-# Selectors used by the rebalance page and the sidebar form. Mirrors
-# the data-testid markers in ``_sidebar.html`` and
+# Selectors used by the rebalance page and the in-body form. Mirrors
+# the data-testid markers in ``rebalance.html`` and
 # ``_rebalance_plan.html``.
 SELECTORS = {
-    # Sidebar form (dashboard + /rebalance).
-    "sidebar_form": '[data-testid="rebalance-form"]',
-    "sidebar_contribution_input": '[data-testid="sidebar-contribution-input"]',
-    "sidebar_rebalance_btn": '[data-testid="sidebar-rebalance-btn"]',
-    "sidebar_nav_link": '[data-testid="rebalance-nav-link"]',
-    # Page nav.
+    # In-body form (F02 D9 — the form is no longer in a sidebar slot).
+    "rebalance_form": '[data-testid="rebalance-form"]',
+    "rebalance_contribution_input": '[data-testid="rebalance-contribution-input"]',
+    "rebalance_submit_btn": '[data-testid="rebalance-submit-btn"]',
+    # Tab nav (F02 D2).
+    "app_tab_btn_rebalanceamento": '[data-testid="app-tab-btn-rebalanceamento"]',
+    "app_tab_btn_patrimonio": '[data-testid="app-tab-btn-patrimonio"]',
+    # Page wrapper.
     "rebalance_card": '[data-testid="rebalance-card"]',
-    "rebalance_nav": '[data-testid="rebalance-nav"]',
-    "rebalance_nav_dashboard": '[data-testid="rebalance-nav-dashboard"]',
-    "rebalance_nav_plan": '[data-testid="rebalance-nav-plan"]',
     # Empty state.
     "rebalance_empty_state": '[data-testid="rebalance-empty-state"]',
     # Placeholder.
@@ -86,37 +85,48 @@ def _debug_dump(page: Page, tag: str) -> None:
 
 
 class TestRebalancePage:
-    """User-visible smoke for the /rebalance surface."""
+    """User-visible smoke for the /rebalanceamento surface (F02)."""
 
-    def test_dashboard_sidebar_shows_rebalance_form(self, page: Page, live_url: str) -> None:
-        """The 4th sidebar entry (form) is visible on the dashboard."""
+    def test_patrimonio_shows_in_body_action_buttons(self, page: Page, live_url: str) -> None:
+        """The action buttons live at the top of /patrimonio (F02 D5)."""
         _login_and_select_italo(page, live_url)
         _create_three_classes(page, live_url)
 
-        # The form is rendered server-side; no Alpine needed for the
-        # initial visibility check.
-        assert page.locator(SELECTORS["sidebar_form"]).count() == 1
-        assert page.locator(SELECTORS["sidebar_contribution_input"]).count() == 1
-        assert page.locator(SELECTORS["sidebar_rebalance_btn"]).count() == 1
-        # The Rebalancear nav link is also visible (acts as a link
-        # in addition to the form button).
-        assert page.locator(SELECTORS["sidebar_nav_link"]).count() == 1
+        # The patrimonio action row is rendered server-side.
+        assert page.locator('[data-testid="patrimonio-actions"]').count() == 1
+        assert page.locator('[data-testid="dashboard-import-btn"]').count() == 1
+        assert page.locator('[data-testid="dashboard-add-asset-open"]').count() == 1
+        assert page.locator('[data-testid="empty-state-create-class"]').count() == 1
+
+    def test_top_nav_highlights_patrimonio(self, page: Page, live_url: str) -> None:
+        """``/patrimonio`` highlights the Patrimônio tab."""
+        _login_and_select_italo(page, live_url)
+        _create_three_classes(page, live_url)
+
+        # Tab nav is visible on /patrimonio
+        assert page.locator('[data-testid="app-tab-nav"]').count() == 1
+        # The patrimonio tab is active (aria-current="true")
+        active = page.locator(
+            '[data-testid="app-tab-btn-patrimonio"][aria-current="true"]'
+        )
+        assert active.count() == 1
 
     def test_submit_rebalance_navigates_to_plan(self, page: Page, live_url: str) -> None:
-        """Typing an aporte and clicking Rebalancear navigates to /rebalance."""
+        """Typing an aporte and clicking Rebalancear navigates to /rebalanceamento."""
         _login_and_select_italo(page, live_url)
         _create_three_classes(page, live_url)
 
-        # Fill the sidebar form and submit. The form is a plain
-        # HTML form POST so the page navigates server-side. Use the
-        # form's native submit() instead of clicking the button —
-        # the active sidebar nav-link sits visually above the form
-        # and intercepts Playwright clicks; submitting directly
-        # bypasses the actionability check.
-        page.fill(SELECTORS["sidebar_contribution_input"], "5000")
-        page.evaluate("() => document.querySelector('[data-testid=\"rebalance-form\"]').submit()")
+        # The user navigates to /rebalanceamento via the top nav.
+        page.click(SELECTORS["app_tab_btn_rebalanceamento"])
+        page.wait_for_url(re.compile(r"/rebalanceamento$"))
+        page.wait_for_selector(SELECTORS["rebalance_form"], timeout=5000)
 
-        page.wait_for_url(re.compile(r"/rebalance$"))
+        # Fill the in-body form and submit.
+        page.fill(SELECTORS["rebalance_contribution_input"], "5000")
+        page.evaluate(
+            "() => document.querySelector('[data-testid=\"rebalance-form\"]').submit()"
+        )
+
         page.wait_for_selector(SELECTORS["rebalance_plan"], timeout=10000)
 
         # Plan layout: 6 metric cards visible.
@@ -148,21 +158,20 @@ class TestRebalancePage:
         # Category summary table renders.
         assert page.locator(SELECTORS["rebalance_category_table"]).count() == 1
 
-        # Header nav has Dashboard link + Plano de aporte active span.
-        assert page.locator(SELECTORS["rebalance_nav_dashboard"]).count() == 1
-        assert page.locator(SELECTORS["rebalance_nav_plan"]).count() == 1
-
-        # The Rebalancear sidebar entry carries aria-current="true".
-        active_link = page.locator(SELECTORS["sidebar_nav_link"])
-        assert active_link.get_attribute("aria-current") == "true"
-
     def test_asset_table_sort_by_current_value(self, page: Page, live_url: str) -> None:
         """Clicking the "Valor atual" <th> sorts ascending then descending."""
         _login_and_select_italo(page, live_url)
         _create_three_classes(page, live_url)
 
-        page.fill(SELECTORS["sidebar_contribution_input"], "5000")
-        page.evaluate("() => document.querySelector('[data-testid=\"rebalance-form\"]').submit()")
+        # Navigate via the top nav, fill, submit.
+        page.click(SELECTORS["app_tab_btn_rebalanceamento"])
+        page.wait_for_url(re.compile(r"/rebalanceamento$"))
+        page.wait_for_selector(SELECTORS["rebalance_form"], timeout=5000)
+
+        page.fill(SELECTORS["rebalance_contribution_input"], "5000")
+        page.evaluate(
+            "() => document.querySelector('[data-testid=\"rebalance-form\"]').submit()"
+        )
         page.wait_for_selector(SELECTORS["rebalance_plan"], timeout=10000)
         # Wait for Alpine hydration so the click handler is bound
         # and the rows are rendered.
@@ -175,11 +184,6 @@ class TestRebalancePage:
         # the <th> elements before we issue a real click.
         page.wait_for_timeout(200)
 
-        # Click via JS rather than Playwright click — the sticky
-        # sidebar visually overlaps the table header on smaller
-        # viewports and Playwright's actionability check refuses the
-        # click. Alpine's @click handler is bound and fires the same
-        # way on a programmatic click.
         click_js = (
             "() => document.querySelector("
             "'[data-testid=\"rebalance-asset-th-current-value\"]'"
@@ -204,27 +208,29 @@ class TestRebalancePage:
             timeout=5000,
         )
 
-    def test_nav_dashboard_link_returns_to_dashboard(self, page: Page, live_url: str) -> None:
-        """Clicking the Dashboard nav link returns to /."""
+    def test_top_nav_patrimonio_link_returns_to_dashboard(self, page: Page, live_url: str) -> None:
+        """Clicking the Patrimonio top-nav tab returns to /."""
         _login_and_select_italo(page, live_url)
         _create_three_classes(page, live_url)
 
-        page.goto(f"{live_url}/rebalance")
-        page.wait_for_selector(SELECTORS["rebalance_nav"], timeout=5000)
+        page.goto(f"{live_url}/rebalanceamento")
+        page.wait_for_selector(SELECTORS["rebalance_form"], timeout=5000)
 
-        # Use direct navigation rather than click — the link is a
-        # plain <a href="/"> so goto('/') is equivalent and avoids
-        # the overlay / focus / pointer-events complications.
-        page.goto(f"{live_url}/")
+        # Click the Patrimonio tab via JS to bypass any layout overlap.
+        page.evaluate(
+            "() => document.querySelector('[data-testid=\"app-tab-btn-patrimonio\"]').click()"
+        )
+        page.wait_for_url(re.compile(r"/$"))
         page.wait_for_selector('[data-testid="class-summary"]', timeout=5000)
 
     def test_empty_profile_renders_empty_state(self, page: Page, live_url: str) -> None:
         """A profile with zero classes renders the empty-state card.
 
-        The fixture seeds Italo + Ana with classes; this test wipes
-        Italo's classes via the API and verifies the empty state +
-        inert sidebar form render correctly. The /api/classes/{id}
-        DELETE endpoint accepts the path and removes the row.
+        F02: the in-body form (no longer in a sidebar slot) carries
+        the ``disabled`` attribute when the profile has zero
+        classes. The delete classes via API to land in the empty
+        state and verify the form is inert + the empty-state card
+        is visible.
         """
         _login_and_select_italo(page, live_url)
         _create_three_classes(page, live_url)
@@ -247,39 +253,67 @@ class TestRebalancePage:
         )
         assert deleted == 3, f"expected to delete 3 classes, got {deleted}"
 
-        # Navigate to /rebalance — empty state should render and the
-        # sidebar form fields should be disabled.
-        page.goto(f"{live_url}/rebalance")
+        # Navigate to /rebalanceamento — empty state should render and the
+        # in-body form fields should be disabled.
+        page.goto(f"{live_url}/rebalanceamento")
         page.wait_for_selector(SELECTORS["rebalance_empty_state"], timeout=5000)
 
         empty = page.locator(SELECTORS["rebalance_empty_state"])
         assert empty.is_visible()
         assert "Nenhuma classe cadastrada" in empty.inner_text()
 
-        # Sidebar form input + button carry the disabled attribute.
-        input_disabled = page.locator(SELECTORS["sidebar_contribution_input"]).get_attribute(
+        # In-body form input + button carry the disabled attribute.
+        input_disabled = page.locator(SELECTORS["rebalance_contribution_input"]).get_attribute(
             "disabled"
         )
-        assert input_disabled is not None, "expected sidebar input to be disabled"
-        btn_disabled = page.locator(SELECTORS["sidebar_rebalance_btn"]).get_attribute("disabled")
-        assert btn_disabled is not None, "expected sidebar button to be disabled"
+        assert input_disabled is not None, "expected aporte input to be disabled"
+        btn_disabled = page.locator(SELECTORS["rebalance_submit_btn"]).get_attribute("disabled")
+        assert btn_disabled is not None, "expected Rebalancear button to be disabled"
 
     def test_negative_aporte_shows_client_side_error(self, page: Page, live_url: str) -> None:
-        """Typing -500 + clicking Rebalancear shows inline error and stays on /."""
+        """Typing -500 + clicking Rebalancear shows inline error and stays put."""
         _login_and_select_italo(page, live_url)
         _create_three_classes(page, live_url)
+
+        # Navigate to /rebalanceamento via the top nav.
+        page.click(SELECTORS["app_tab_btn_rebalanceamento"])
+        page.wait_for_url(re.compile(r"/rebalanceamento$"))
 
         # Wait for Alpine hydration so the validate() handler is bound.
         page.wait_for_function(
             "() => window.Alpine && document.querySelector('[data-testid=\"rebalance-form\"]')"
         )
 
-        page.fill(SELECTORS["sidebar_contribution_input"], "-500")
-        page.click(SELECTORS["sidebar_rebalance_btn"], force=True)
+        page.fill(SELECTORS["rebalance_contribution_input"], "-500")
+        page.click(SELECTORS["rebalance_submit_btn"], force=True)
 
         # Inline error appears, page does NOT navigate.
-        page.wait_for_selector('[data-testid="sidebar-form-error"]', state="visible", timeout=3000)
-        error_text = page.locator('[data-testid="sidebar-form-error"]').inner_text()
+        page.wait_for_selector(
+            '[data-testid="rebalance-form-error-inline"]', state="visible", timeout=3000
+        )
+        error_text = page.locator(
+            '[data-testid="rebalance-form-error-inline"]'
+        ).inner_text()
         assert "Saques serão suportados" in error_text
         # URL did not change.
-        assert page.url.rstrip("/").endswith(live_url.rstrip("/"))
+        assert page.url.rstrip("/").endswith(
+            (live_url + "/rebalanceamento").rstrip("/")
+        )
+
+    def test_legacy_rebalance_url_returns_404(self, page: Page, live_url: str) -> None:
+        """``GET /rebalance`` returns HTTP 404 after F02 (D1)."""
+        response = page.goto(f"{live_url}/rebalance")
+        assert response is not None
+        assert response.status == 404
+
+    def test_stub_pages_render_placeholder(self, page: Page, live_url: str) -> None:
+        """``/rentabilidade`` and ``/proventos`` render the F02 stub."""
+        _login_and_select_italo(page, live_url)
+
+        page.goto(f"{live_url}/rentabilidade")
+        page.wait_for_selector('[data-testid="rentabilidade-stub"]', timeout=5000)
+        assert "Em construção" in page.locator("main").inner_text()
+
+        page.goto(f"{live_url}/proventos")
+        page.wait_for_selector('[data-testid="proventos-stub"]', timeout=5000)
+        assert "Em construção" in page.locator("main").inner_text()

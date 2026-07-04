@@ -187,8 +187,9 @@ main h2 {
 header.app-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 0.75rem 1.5rem; border-bottom: 1px solid var(--border); background: var(--surface);
+  gap: 1.5rem;
+  flex-wrap: wrap;
 }
-header.app-header .app-header-left,
 header.app-header .app-header-right {
   display: flex; align-items: center; gap: 1.5rem;
 }
@@ -200,8 +201,7 @@ header.app-header .main-nav a {
 header.app-header .main-nav a:hover { color: var(--accent); }
 /* App-header wordmark — Source Serif 4 display face, sized larger
    than the legacy 1.1rem and tracked tight for the editorial
-   register the rest of the brand surface uses (see
-   .sidebar-wordmark + .profile-name). */
+   register the rest of the brand surface uses. */
 header.app-header .app-header-wordmark {
   font-family: "Source Serif 4", "IBM Plex Serif", Georgia, serif;
   font-size: 1.5rem;
@@ -536,27 +536,18 @@ p.error, .error {
 }
 
 /* =============================================================
-   dashboard-action-sidebar — bounded card layout.
-   The dashboard container (.dashboard) is a 2-column grid on
-   desktop: 280px sidebar + 1fr content column. The body and
-   header stay normal block flow so the header can keep its
-   own internal flex layout. Below 480px the sidebar collapses
-   to an off-canvas drawer (see the mobile breakpoint at the
-   end of this block). The dashboard content lives inside
-   .dashboard-card (--surface card with 1px border + 8px
-   radius); the old centred 640px main is gone. ============================================================= */
-.dashboard {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  align-items: start;
-  gap: 0;
-}
+   patrimonio-page + top nav — bounded card layout (F02).
+   The layout after F02 is single-column: the top nav lives in
+   ``base.html`` (``<header class="app-header">``) and the main
+   content flows below it. Each page wraps its body in a
+   ``--surface`` card (``.patrimonio-page`` / ``.rebalance-card``)
+   inside ``main``. There is no sidebar / drawer / off-canvas —
+   see the F02 spec ``dashboard-sidebar`` (REMOVED).
+   ============================================================= */
 
 /* Auth pages (/login, /profiles): centred card matching the
-   dashboard-action-sidebar bounded-card aesthetic. Without
-   dashboard-action-sidebar, main was max-width: 640px centred;
-   the dashboard's own .dashboard grid replaced that rule. The
-   auth pages opt back into a centred layout via .auth-card. */
+   bounded-card aesthetic. Pages opt back into a centred layout via
+   .auth-card. */
 .auth-card {
   max-width: 480px;
   margin: 4rem auto;
@@ -618,7 +609,47 @@ p.error, .error {
   filter: brightness(1.1);
 }
 
-.dashboard-card {
+/* Tab nav — persistent top nav with 4 tabs (F02, D2).
+   The container is a horizontal flex row inside ``header.app-header``.
+   Each tab is a link; the active tab carries the BEM modifier
+   ``tab-nav__btn--active`` and an inline underline in ``--accent``
+   (the fern token — token reuse, no new color). The
+   ``aria-current="true"`` attribute lives alongside the modifier on
+   the active tab for screen-reader + BDD selection. */
+.tab-nav {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex: 1;
+  margin: 0 1rem;
+}
+.tab-nav__btn {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--ink-muted);
+  text-decoration: none;
+  padding: 0.4rem 0.1rem;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tab-nav__btn:hover {
+  color: var(--ink);
+}
+.tab-nav__btn--active {
+  color: var(--ink);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+.tab-nav__btn[aria-current="true"] {
+  color: var(--ink);
+}
+
+/* Patrimonio page wrapper — single-column, no sidebar (F02). */
+.patrimonio-page {
   max-width: 1600px;
   width: 100%;
   margin: 2rem 1rem;
@@ -628,97 +659,82 @@ p.error, .error {
   padding: 2rem 2.5rem;
 }
 
-/* =============================================================
-   dashboard-action-sidebar — sidebar shell
-   ============================================================= */
+/* Patrimonio portfolio header — the F02 spec
+   ``patrimonio-portfolio-header`` has its own component wrapper
+   that nests the legacy ``portfolio-header`` section for the
+   per-stat labels (Investido / Valor atual / Ganho). No visual
+   surface changes — the inner grid is unchanged; the wrapper just
+   gives F02 a stable testid to assert against. */
+.patrimonio-portfolio-header {
+  margin-bottom: 1rem;
+}
 
-.app-sidebar {
-  position: sticky;
-  top: 1rem;
-  align-self: start;
-  height: calc(100vh - 2rem);
-  padding: 1.5rem 1rem;
-  background: var(--bg);
-  border-right: 1px solid var(--border);
+/* Patrimonio action row — top-of-body buttons that used to live in
+   the sidebar. Right-aligned so the operator scans: "page title on
+   the left, actions on the right". */
+.patrimonio-actions {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  overflow-y: auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
 }
-
-.sidebar-wordmark {
-  font-family: "Source Serif 4", "IBM Plex Serif", Georgia, serif;
-  font-size: 1.75rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  color: var(--ink);
-  margin: 0 0 0.5rem 0;
-  padding: 0 0.25rem;
-}
-
-.sidebar-action {
-  position: relative;
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 0.6rem 0.75rem;
-  font: inherit;
+.patrimonio-action-btn {
   font-size: 0.85rem;
-  font-weight: 500;
+}
+
+/* Stub pages — rentabilidade / proventos (F02 D6). Centre the
+   empty-state card on the page. Visual identity: same surface
+   card as the bounded pages (no nested card); just a heading +
+   one body line. F03 / F04 replace this with real content. */
+.stub-page {
+  max-width: 640px;
+  margin: 4rem auto;
+  padding: 2.25rem 2rem;
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  text-align: center;
+}
+.stub-page-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
   color: var(--ink);
+}
+.stub-page-body {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+/* Rebalance page wrapper + in-body aporte form.
+   The form now lives in the body (F02 D9) — no longer in a sidebar
+   slot. The form's row class puts the input + submit on the same
+   flex line so the aporte input is wider and the button is
+   compact. */
+.rebalance-page {
+  max-width: 1600px;
+  width: 100%;
+  margin: 2rem 1rem;
+}
+.rebalance-card {
   background: var(--surface);
   border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  border-radius: 8px;
+  padding: 2rem 2.5rem;
 }
-
-.sidebar-action:hover:not(:disabled) {
-  background: var(--bg-hover);
-  border-color: var(--ink-muted);
+.rebalance-form-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+  margin-bottom: 1rem;
 }
-
-.sidebar-action[aria-current="true"]::before {
-  content: "";
-  position: absolute;
-  left: -1px;
-  top: 6px;
-  bottom: 6px;
-  width: 3px;
-  background: var(--accent);
-  border-radius: 0 2px 2px 0;
-}
-
-/* =============================================================
-   dashboard-action-sidebar — mobile drawer (<480px)
-   ============================================================= */
-
-.app-sidebar-backdrop {
-  position: fixed;
-  inset: 0;
-  background: color-mix(in srgb, var(--ink) 35%, transparent);
-  z-index: 40;
-}
-
-.app-header-hamburger {
-  display: none;
-  width: 32px;
-  height: 32px;
-  align-items: center;
-  justify-content: center;
-  font: inherit;
-  font-size: 1.1rem;
-  line-height: 1;
-  color: var(--ink);
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  cursor: pointer;
-  padding: 0;
-}
-
-.app-header-hamburger:hover {
-  background: var(--bg-hover);
+.rebalance-form-row .rebalance-form-input,
+.rebalance-form-row input[name="contribution"] {
+  flex: 1;
+  min-width: 0;
 }
 
 /* =============================================================
@@ -1475,38 +1491,12 @@ td.editing {
 [x-cloak] { display: none !important; }
 
 @media (max-width: 480px) {
-  /* dashboard-action-sidebar — collapse the dashboard grid; the
-     sidebar becomes a fixed off-canvas drawer
-     (transform: translateX(-100%) by default, translateX(0) when
-     $store.sidebar.open). The dashboard-card drops its outer
-     padding for a tight edge-to-edge layout on phones. */
-  .dashboard {
-    display: block;
-  }
+  /* F02: no sidebar / drawer / hamburger. The single-column
+     patrimonio / rebalance / stub pages shrink the bounded card
+     for narrow screens instead of swapping to an off-canvas. */
 
-  .app-sidebar {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 280px;
-    height: 100vh;
-    z-index: 50;
-    background: var(--bg);
-    border-right: 1px solid var(--border);
-    transform: translateX(-100%);
-    transition: transform 0.2s ease-out;
-  }
-
-  .app-sidebar--open {
-    transform: translateX(0);
-  }
-
-  .app-header-hamburger {
-    display: inline-flex;
-  }
-
-  .dashboard-card {
+  .patrimonio-page,
+  .rebalance-page {
     margin: 1rem 0.75rem;
     padding: 1.25rem 1rem;
   }
@@ -1522,6 +1512,21 @@ td.editing {
     grid-template-columns: 1fr;
     gap: 0.75rem;
     padding: 1rem;
+  }
+
+  /* Top nav — let the tabs wrap onto a second row on phones so
+     they stay tappable. The chip + sair row keeps its own line
+     via the existing right-cluster flex-wrap rule below. */
+  .tab-nav {
+    width: 100%;
+    margin: 0;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    order: 3;
+  }
+  .tab-nav__btn {
+    font-size: 0.85rem;
+    padding: 0.3rem 0.1rem;
   }
 
   /* Class section — compact padding */
@@ -1589,6 +1594,20 @@ td.editing {
   }
   header.app-header .main-nav {
     margin-left: auto;
+  }
+
+  /* Patrimonio action row — buttons wrap to fill on narrow screens
+     rather than stretching to the full width. */
+  .patrimonio-actions {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  /* Rebalance form row — stack input above the button on mobile so
+     the aporte input stays wide enough to type into. */
+  .rebalance-form-row {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   /* New class/asset forms — full width on mobile */
@@ -2226,35 +2245,9 @@ td.editing {
    ============================================================= */
 
 .rebalance-card {
-  /* Reuses .dashboard-card shape — same surface + border + radius.
-     The inner layout adds the nav row, the metric grid, and the
-     sortable table. */
-}
-
-.rebalance-nav {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding-bottom: 0.5rem;
-  margin-bottom: 1rem;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.85rem;
-}
-
-.rebalance-nav-link {
-  color: var(--ink-muted);
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.rebalance-nav-link:hover {
-  color: var(--accent);
-}
-
-.rebalance-nav-link--active {
-  color: var(--ink);
-  font-weight: 600;
-  cursor: default;
+  /* F02: shape lives at the top-level ``.rebalance-page .rebalance-card``
+     block. Inner layout adds the in-body aporte form, the plan,
+     and the sortable tables. */
 }
 
 /* Inline form-error banner (shown when the POST handler hit a
@@ -2658,17 +2651,8 @@ td.editing {
   cursor: not-allowed;
 }
 
-/* Active sidebar entry (when on /rebalance). */
-.sidebar-action--nav {
-  text-decoration: none;
-  display: block;
-  position: relative;
-  z-index: 1;
-}
+/* F02: the sidebar action variants (``.sidebar-action--nav``,
+   ``.sidebar-action--active``) are removed along with the sidebar
+   itself. Active tab styling lives under ``.tab-nav__btn--active``
+   in the top-nav block near the top of this file. */
 
-.sidebar-action--active {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
-  color: var(--accent);
-  font-weight: 600;
-}

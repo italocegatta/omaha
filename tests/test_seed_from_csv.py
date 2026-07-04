@@ -640,26 +640,23 @@ def test_non_ascii_asset_name_round_trips(omaha_db) -> None:
 
 
 def test_auto_class_fixture_loads_with_quote_kind(omaha_db) -> None:
-    """``data/seed/fixtures/auto_class.csv`` parses cleanly via the loader.
+    """Loader parses a class with ``quote_kind = auto``.
 
-    The fixture ships one class with ``quote_kind = auto``. The
-    loader's only requirement beyond the original schema is that
+    The loader's only requirement beyond the original schema is that
     ``quote_kind`` be one of ``{auto, manual, none}`` — this test
-    pins that contract against the fixture file so a future change
-    cannot silently tighten the enum without breaking the fixture.
+    pins that contract against an inline CSV so a future change
+    cannot silently tighten the enum without breaking the test.
     """
     import tempfile
     from pathlib import Path
 
     import scripts.seed_from_csv as seed_mod
 
-    fixture_path = REPO_ROOT / "data" / "seed" / "fixtures" / "auto_class.csv"
-    assert fixture_path.exists(), f"missing fixture: {fixture_path}"
-
+    csv_content = "name,target_pct,display_order,quote_kind\nAções Auto,100.00,0,auto\n"
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         target = tmp_path / "fixtureprofile_classes.csv"
-        target.write_text(fixture_path.read_text(encoding="utf-8"), encoding="utf-8")
+        target.write_text(csv_content, encoding="utf-8")
         original_seed_dir = seed_mod.SEED_DIR
         seed_mod.SEED_DIR = tmp_path
         try:

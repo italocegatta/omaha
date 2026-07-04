@@ -112,46 +112,109 @@ def _seed_class(
 
 
 def test_unauthenticated_get_rebalance_bounces_to_login(client: TestClient) -> None:
-    """``GET /rebalance`` without a session returns 303 to /login."""
-    response = client.get("/rebalance", follow_redirects=False)
+    """``GET /rebalanceamento`` without a session returns 303 to /login."""
+    response = client.get("/rebalanceamento", follow_redirects=False)
     assert response.status_code == 303
     assert response.headers["location"] == "/login"
 
 
-def test_get_rebalance_empty_profile_renders_empty_state(client: TestClient) -> None:
+def test_get_legacy_rebalance_returns_404(client: TestClient) -> None:
+    """``GET /rebalance`` returns HTTP 404 after F02 (no alias, D1).
+
+    The owner decided that the legacy ``/rebalance`` URL would not
+    be aliased to ``/rebalanceamento`` — the breakage is exposed
+    on purpose so a regression would surface immediately.
+    """
+    response = client.get("/rebalance", follow_redirects=False)
+    assert response.status_code == 404
+
+
+def test_get_legacy_dashboard_returns_404(client: TestClient) -> None:
+    """``GET /dashboard`` returns HTTP 404 after F02 (no alias, D1)."""
+    response = client.get("/dashboard", follow_redirects=False)
+    assert response.status_code == 404
+
+
+def test_get_rebalanceamento_empty_profile_renders_empty_state(client: TestClient) -> None:
     """An authenticated user with zero classes sees the empty-state card."""
     _login_and_select(client, profile_id=1)
 
-    response = client.get("/rebalance")
+    response = client.get("/rebalanceamento")
 
     assert response.status_code == 200
     body = response.text
     assert 'data-testid="rebalance-empty-state"' in body
     assert "Nenhuma classe cadastrada" in body
-    # Sidebar form is present but inert — input + button carry disabled.
+    # In-body form is present but inert — input + button carry disabled.
     assert 'data-testid="rebalance-form"' in body
-    assert 'data-testid="sidebar-contribution-input"' in body
+    assert 'data-testid="rebalance-contribution-input"' in body
     assert "disabled" in body  # at least one disabled element
 
 
-def test_get_rebalance_populated_profile_renders_placeholder(
+def test_get_rebalanceamento_populated_profile_renders_placeholder(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
     """A profile with classes and no POST shows the placeholder card."""
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
-    response = client.get("/rebalance")
+    response = client.get("/rebalanceamento")
 
     assert response.status_code == 200
     body = response.text
     assert 'data-testid="rebalance-placeholder"' in body
     assert 'data-testid="rebalance-empty-state"' not in body
-    # Nav row + sidebar form.
-    assert 'data-testid="rebalance-nav"' in body
+    # In-body form is present and not inert (profile has classes).
     assert 'data-testid="rebalance-form"' in body
-    # Sidebar form is NOT inert (profile has classes).
-    assert 'data-testid="rebalance-form"' in body
+
+
+def test_get_rentabilidade_renders_stub(client: TestClient) -> None:
+    """``GET /rentabilidade`` renders the F02 stub (D6)."""
+    _login_and_select(client, profile_id=1)
+
+    response = client.get("/rentabilidade")
+
+    assert response.status_code == 200
+    body = response.text
+    assert 'data-testid="rentabilidade-stub"' in body
+    assert "Em construção" in body
+
+
+def test_get_proventos_renders_stub(client: TestClient) -> None:
+    """``GET /proventos`` renders the F02 stub (D6)."""
+    _login_and_select(client, profile_id=1)
+
+    response = client.get("/proventos")
+
+    assert response.status_code == 200
+    body = response.text
+    assert 'data-testid="proventos-stub"' in body
+    assert "Em construção" in body
+
+
+def test_get_patrimonio_renders_dashboard(
+    client: TestClient, _omaha_test_env: dict[str, str]
+) -> None:
+    """``GET /patrimonio`` is the F02 canonical dashboard URL (D1)."""
+    _seed_two_classes(_omaha_test_env)
+    _login_and_select(client, profile_id=1)
+
+    response = client.get("/patrimonio")
+
+    assert response.status_code == 200
+    body = response.text
+    # Patrimonio portfolio header (F02 D3 spec). The wrapper renders
+    # when portfolio.current_value > 0; the fixture seeds positions so
+    # this is non-zero.
+    assert 'data-testid="patrimonio-portfolio-header"' in body
+    # Action buttons row at the top of the body.
+    assert 'data-testid="patrimonio-actions"' in body
+    assert 'data-testid="dashboard-import-btn"' in body
+    assert 'data-testid="dashboard-add-asset-open"' in body
+    assert 'data-testid="empty-state-create-class"' in body
+    # Top nav (F02 D2).
+    assert 'data-testid="app-tab-nav"' in body
+    assert 'data-testid="app-tab-btn-patrimonio"' in body
 
 
 # ---------------------------------------------------------------------------
@@ -197,14 +260,14 @@ def _seed_positions(_omaha_test_env: dict[str, str], by_asset: dict[str, float])
         db.commit()
 
 
-def test_post_rebalance_valid_contribution_renders_plan(
+def test_post_rebalanceamento_valid_contribution_renders_plan(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
-    """``POST /rebalance`` with a valid finite aporte renders the plan."""
+    """``POST /rebalanceamento`` with a valid finite aporte renders the plan."""
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
-    response = client.post("/rebalance", data={"contribution": "5000.00"})
+    response = client.post("/rebalanceamento", data={"contribution": "5000.00"})
 
     assert response.status_code == 200
     body = response.text
@@ -226,21 +289,21 @@ def test_post_rebalance_valid_contribution_renders_plan(
     assert 'data-testid="rebalance-category-table"' in body
 
 
-def test_post_rebalance_zero_contribution_renders_plan(
+def test_post_rebalanceamento_zero_contribution_renders_plan(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
     """``contribution = 0`` renders the plan (zero is valid)."""
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
-    response = client.post("/rebalance", data={"contribution": "0"})
+    response = client.post("/rebalanceamento", data={"contribution": "0"})
 
     assert response.status_code == 200
     assert 'data-testid="rebalance-plan"' in response.text
     assert 'data-testid="rebalance-stat-contribution"' in response.text
 
 
-def test_post_rebalance_negative_contribution_renders_form_error(
+def test_post_rebalanceamento_negative_contribution_renders_form_error(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
     """``contribution = -1000`` re-renders with the engine's rejection message.
@@ -256,7 +319,7 @@ def test_post_rebalance_negative_contribution_renders_form_error(
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
-    response = client.post("/rebalance", data={"contribution": "-1000"})
+    response = client.post("/rebalanceamento", data={"contribution": "-1000"})
 
     assert response.status_code == 200
     body = response.text
@@ -265,14 +328,14 @@ def test_post_rebalance_negative_contribution_renders_form_error(
     assert 'data-testid="rebalance-plan"' not in body
 
 
-def test_post_rebalance_missing_contribution_renders_form_error(
+def test_post_rebalanceamento_missing_contribution_renders_form_error(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
     """Missing ``contribution`` field re-renders with an inline error."""
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
-    response = client.post("/rebalance", data={})
+    response = client.post("/rebalanceamento", data={})
 
     assert response.status_code == 200
     body = response.text
@@ -280,14 +343,14 @@ def test_post_rebalance_missing_contribution_renders_form_error(
     assert "Informe um valor de aporte" in body
 
 
-def test_post_rebalance_invalid_contribution_renders_form_error(
+def test_post_rebalanceamento_invalid_contribution_renders_form_error(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
     """Non-numeric contribution re-renders with the finite-float message."""
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
-    response = client.post("/rebalance", data={"contribution": "abc"})
+    response = client.post("/rebalanceamento", data={"contribution": "abc"})
 
     assert response.status_code == 200
     body = response.text
@@ -295,7 +358,7 @@ def test_post_rebalance_invalid_contribution_renders_form_error(
     assert "Valor inválido" in body
 
 
-def test_post_rebalance_solver_validation_error_renders_inline(
+def test_post_rebalanceamento_solver_validation_error_renders_inline(
     client: TestClient, _omaha_test_env: dict[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A solver ``RebalanceValidationError`` is mapped to ``form_error``."""
@@ -314,7 +377,7 @@ def test_post_rebalance_solver_validation_error_renders_inline(
     # the pages module captured a stale reference at import time.
     monkeypatch.setattr(glue, "run_rebalance", raising_run_rebalance)
 
-    response = client.post("/rebalance", data={"contribution": "1000"})
+    response = client.post("/rebalanceamento", data={"contribution": "1000"})
 
     assert response.status_code == 200
     body = response.text
@@ -334,7 +397,7 @@ def test_asset_plan_table_has_eight_visible_columns(
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
-    response = client.post("/rebalance", data={"contribution": "5000"})
+    response = client.post("/rebalanceamento", data={"contribution": "5000"})
     assert response.status_code == 200
     body = response.text
 
@@ -361,7 +424,7 @@ def test_category_summary_has_four_columns(
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
-    response = client.post("/rebalance", data={"contribution": "5000"})
+    response = client.post("/rebalanceamento", data={"contribution": "5000"})
     assert response.status_code == 200
     body = response.text
 
@@ -400,7 +463,7 @@ def test_stub_banner_visible_under_fixture_stub(
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
-    response = client.post("/rebalance", data={"contribution": "5000"})
+    response = client.post("/rebalanceamento", data={"contribution": "5000"})
     assert response.status_code == 200
     body = response.text
 
@@ -416,7 +479,7 @@ def test_warnings_panel_present_when_stub_emits_warning(
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
-    response = client.post("/rebalance", data={"contribution": "5000"})
+    response = client.post("/rebalanceamento", data={"contribution": "5000"})
     assert response.status_code == 200
     body = response.text
 
@@ -424,35 +487,48 @@ def test_warnings_panel_present_when_stub_emits_warning(
 
 
 # ---------------------------------------------------------------------------
-# §"Sidebar carries the rebalance form on every authenticated page"
+# Top nav (F02, D2) — the rebalance tab carries aria-current on /rebalanceamento
 # ---------------------------------------------------------------------------
 
 
-def test_dashboard_sidebar_carries_rebalance_form(client: TestClient) -> None:
-    """``GET /`` renders the rebalance form in the sidebar."""
+def test_rebalanceamento_tab_is_active_on_page(client: TestClient) -> None:
+    """``GET /rebalanceamento`` highlights the Rebalanceamento tab."""
     _login_and_select(client, profile_id=1)
 
-    response = client.get("/")
+    response = client.get("/rebalanceamento")
     assert response.status_code == 200
     body = response.text
 
-    assert 'data-testid="rebalance-form"' in body
-    # Form's action attribute is /rebalance, method is post.
-    assert 'action="/rebalance"' in body
-    assert 'method="post"' in body
-    # The 4th nav link exists.
-    assert 'data-testid="rebalance-nav-link"' in body
-
-
-def test_rebalance_page_sidebar_active_state(client: TestClient) -> None:
-    """``GET /rebalance`` carries ``aria-current="true"`` on the Rebalancear link."""
-    _login_and_select(client, profile_id=1)
-
-    response = client.get("/rebalance")
-    assert response.status_code == 200
-    body = response.text
-
-    # The nav link is rendered with the active-state class and aria-current.
-    assert 'data-testid="rebalance-nav-link"' in body
-    assert "sidebar-action--active" in body
+    # Top nav is present.
+    assert 'data-testid="app-tab-nav"' in body
+    # The Rebalanceamento tab carries aria-current + the active modifier.
+    assert 'data-testid="app-tab-btn-rebalanceamento"' in body
+    assert 'class="tab-nav__btn tab-nav__btn--active"' in body
     assert 'aria-current="true"' in body
+
+
+def test_patrimonio_tab_is_active_on_patrimonio(client: TestClient) -> None:
+    """``GET /`` and ``GET /patrimonio`` highlight the Patrimônio tab."""
+    import re
+
+    _login_and_select(client, profile_id=1)
+
+    for path in ("/", "/patrimonio"):
+        response = client.get(path)
+        assert response.status_code == 200, response.text
+        body = response.text
+        assert 'data-testid="app-tab-btn-patrimonio"' in body
+        # The activo tab carries both the active modifier class AND
+        # aria-current="true" on the matching tag. Verify both on
+        # the patrimonio tab specifically (not just that the active
+        # class is present somewhere in the body).
+        match = re.search(
+            r'<a[^>]*data-testid="app-tab-btn-patrimonio"[^>]*>',
+            body,
+        )
+        assert match is not None, (
+            f"patrimonio tab <a> not found in body for path {path}"
+        )
+        tag = match.group(0)
+        assert "tab-nav__btn--active" in tag, f"patrimonio tab not active on {path}: {tag!r}"
+        assert 'aria-current="true"' in tag, f"patrimonio tab missing aria-current on {path}: {tag!r}"
