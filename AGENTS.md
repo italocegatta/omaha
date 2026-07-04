@@ -17,7 +17,7 @@ it points at the canonical sources. **It does not redefine rules.**
 | Know what omaha is, who uses it, why it exists                         | [PRODUCT.md](PRODUCT.md)                               |
 | Understand the visual system (tokens, type, elevation, motion)         | [DESIGN.md](DESIGN.md)                                 |
 | Read a capability's contract (`SHALL` behavior)                        | `openspec/specs/<slug>/spec.md`                        |
-| Pick up the **next unit of work**                                      | `openspec/roadmap.md` (bootstrap pending)              |
+| Pick up the **next unit of work**                                      | `openspec/roadmap.md`                                  |
 | Create / apply / archive a change                                      | `openspec-roadmap` (orchestrates the OpenSpec CLI skills) |
 | Ship a browser-visible change end-to-end                               | `refresh-for-test` skill                               |
 | Look at the source-of-truth seed                                      | `data/seed/` + [data/seed/README.md](data/seed/README.md) |
@@ -49,10 +49,11 @@ AGENTS.md** — link to them.
   archived or active OpenSpec change.
 
 ### 2.3 Execution layer
-- **[openspec/roadmap.md](openspec/roadmap.md)** — does **not** exist yet
-  (bootstrap pending). When it lands, this is where slices (`F`/`R`/`T`/`D`/`I`)
-  are tracked, with lifecycle `Ready → Spec Proposed → Applying → Applied →
-  Archived` + `Blocked`.
+- **[openspec/roadmap.md](openspec/roadmap.md)** — single planning file.
+  Tracks slices (`F`/`R`/`T`/`D`/`I`) with lifecycle
+  `Ready → Spec Proposed → Applying → Applied → Archived` + `Blocked`.
+  1:1 slice → OpenSpec change folder via the slice's
+  `Candidate OpenSpec change id`.
 - **[openspec/changes/](openspec/changes/)** — per-slice OpenSpec change
   folders. `archive/` is historical.
 - Skills that orchestrate the above: `openspec-propose`,
@@ -112,7 +113,53 @@ useful as a quick pointer. **Edit them only in the PRD.**
 
 ---
 
-## 5. Companion files at the workspace root
+## 5. OpenSpec Roadmap layer
+
+Work that would otherwise bloat into one giant OpenSpec change gets
+decomposed first via this layer.
+
+| Step | What                                                            | Where                                                                       |
+|------|-----------------------------------------------------------------|-----------------------------------------------------------------------------|
+| 1    | PRD or issue                                                    | `openspec/PRD.md` (this repo) or issue tracker                              |
+| 2    | Decompose into prioritized slices                               | `openspec/roadmap.md`                                                       |
+| 3    | Slice status `Ready` → create OpenSpec change                   | `openspec-propose` → `openspec/changes/<Candidate OpenSpec change id>/`      |
+| 4    | Implement                                                       | `openspec-apply-change` (slice → `Applying` → `Applied`)                    |
+| 5    | Complete                                                        | `openspec-archive-change` (slice → `Archived`)                              |
+
+**Rules (must follow):**
+
+- `openspec/roadmap.md` is a planning register only — do **not** copy
+  `proposal.md` / `design.md` / `tasks.md` into it.
+- Implementable slices are 1:1 with OpenSpec changes. The slice's
+  `Candidate OpenSpec change id` (format `<slice-id-lower>-<slice-title-kebab>`)
+  is the change folder name — pass it verbatim to `openspec-propose`.
+  Never invent a folder name from goal/PRD text.
+- Slice lifecycle: `Ready` → `Spec Proposed` → `Applying` → `Applied`
+  → `Archived` (`Blocked` when decisions are pending).
+- Keep `next` atomic (one gate per command) and respect `Applying` WIP
+  limits from the roadmap (max 2 globally, max 1 in critical domains).
+- Run repo OpenSpec spec verification (`openspec/config.yaml` →
+  `openspec_roadmap.quality_gate`) after each lifecycle gate and resolve
+  issues before the next gate.
+- Update the roadmap after every `propose`, `apply`, and `archive`.
+- Token/context limits come from `openspec_roadmap` in
+  `openspec/config.yaml`. Do not load the full PRD unless the slice is
+  ambiguous.
+
+Anti-overengineering gate: do **not** route through this skill for
+bugfixes under 30 min, isolated copy/UI tweaks, one-file refactors, or
+exploratory spikes. Fix and ship.
+
+**Skill location**
+
+| Task                                              | Skill file                                                       |
+|---------------------------------------------------|------------------------------------------------------------------|
+| Bootstrap / lifecycle / decompose PRD into slices | `.agents/skills/openspec-roadmap/SKILL.md`                       |
+| Templates, checklists, agent-docs snippet          | `.agents/skills/openspec-roadmap/REFERENCE.md`                   |
+
+---
+
+## 6. Companion files at the workspace root
 
 - `README.md` — onboarding doc + Network access section (canonical for
   bind + URL).

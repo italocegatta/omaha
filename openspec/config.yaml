@@ -53,3 +53,29 @@ context: |
 #       - Always include a "Non-goals" section
 #     tasks:
 #       - Break tasks into chunks of max 2 hours
+
+# OpenSpec roadmap: token budget + context loading for
+# `openspec/roadmap.md` orchestration. Reference-only guidance;
+# must never be used to regenerate, rewrite, or recreate
+# OpenSpec specs.
+openspec_roadmap:
+  mode: default
+  register: openspec/roadmap.md
+  token_budget:
+    max_input_tokens: 18000
+    reserved_output_tokens: 4000
+  context_loading:
+    include_only:
+      - roadmap_register
+      - selected_slice
+      - linked_openspec_change
+      - directly_referenced_files
+    load_full_prd_when: "slice_is_ambiguous"
+  pruning:
+    compact_history_after_archived_slices: 8
+  quality_gate:
+    applied_requires:
+      - tests_pass
+      - affected_specs_updated
+      - no_unrelated_files_changed
+      - acceptance_verified

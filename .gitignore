@@ -53,6 +53,12 @@ data/
 !data/seed/*.md
 data/*
 
+# OpenSpec roadmap ephemeral working artifacts (audit notes, scratch
+# checklists). The canonical register lives at openspec/roadmap.md;
+# anything under `.temp_assets/` is throwaway support state and must
+# not be committed.
+openspec/.temp_assets/
+
 # S06 production deploy artifacts.
 # - backups/ holds SQLite snapshots produced by the 'backup' service in
 #   prod.yml; the directory is bind-mounted in, the .db files are

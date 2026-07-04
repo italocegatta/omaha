@@ -32,12 +32,15 @@ Tabela compacta para leitura rápida. Contexto humano completo em
 
 | Perfil       | Papel          | Uso                                                                             |
 |--------------|----------------|---------------------------------------------------------------------------------|
-| **Italo**    | Operador       | Importa CSV da corretora, edita classes e ativos, gerencia backup, mantém nginx/certificados. |
-| **Ana Livia**| Visualizadora  | Acessa para conferir distribuição e ganho. Não muta estado.                     |
+| **Italo**    | Operador       | Importa CSV da corretora, edita classes e ativos, roda backup do banco.         |
+| **Ana Livia**| Operadora      | Mesmos privilégios de Italo: importa CSV, edita classes e ativos, roda backup.  |
 
-Os dois compartilham uma senha familiar única. Cada perfil tem dados isolados
-em todas as rotas e todas as tabelas — `cross-profile-sharing` é um
-comportamento do sistema, não um vazamento.
+Os dois compartilham uma senha familiar única e são Operadores com
+privilégios equivalentes em toda a app (CSV, classes, ativos, rebalance,
+páginas, backup). Tarefas de infra do host (nginx, certificados, deploy)
+ficam fora do app e não são responsabilidade de perfil. Cada perfil
+continua com dados isolados em todas as rotas e tabelas —
+`cross-profile-sharing` é um comportamento do sistema, não um vazamento.
 
 ### 1.3 Contexto de uso
 
@@ -64,7 +67,6 @@ comportamento do sistema, não um vazamento.
 
 Explicitamente fora do escopo atual. Não construir, não propor:
 
-- Modo escuro (registro de produto é off-white).
 - Cor de destaque configurável.
 - Multi-tenant, signup público, OAuth, MFA.
 - Painel administrativo além dos dois perfis familiares.
@@ -72,6 +74,9 @@ Explicitamente fora do escopo atual. Não construir, não propor:
   cotação, com TTL e cache).
 - Mobile app nativo (web responsiva basta).
 - Integração bancária / open finance.
+
+Modo escuro é **direção ativa**, listada como fatia em §5.3 (paleta
+dark substitui o register off-white descrito em §4.10).
 
 ---
 
@@ -545,22 +550,27 @@ Sem compromisso. Cada item é semente para uma fatia em
 `openspec/roadmap.md` quando for escolhida. Prefixo (`F`/`R`/`T`/`D`/`I`)
 indica o kind sugerido:
 
-- **F — multi-broker CSV adapter.** Suportar outra corretora além da já
-  parseada (provavelmente BTG/Modal) com `quote_kind=manual` e mapeamento
-  explícito no `seed_from_csv.py`.
 - **F — consolidação cross-profile.** Vista household agregada (soma dos
   dois perfis) sem quebrar isolamento per-profile. Spec base já vive em
   `cross-profile-sharing`.
-- **F — histórico de movimentações.** Ledger de eventos (compra, venda,
-  aporte, rendimento) por ativo. Sem spec ainda.
-- **F — snapshot visual do dashboard.** Exportar dashboard para
-  imagem/PDF shareable. Doméstico, sem ornamento.
-- **F — dashboard mobile layout refinement.** Tabelas de ativos
-  responsivas para celular (hoje o layout é desktop-first).
-- **F — dark mode.** Explicitamente fora de escopo em §1.5. Listado
-  apenas porque aparece em `REQUIREMENTS.md` legacy; descartar.
-- **F — rebalance "what-if" incremental.** Validar cenários before/after
-  sem mover dinheiro. Base: `rebalance-engine` + `rebalance-page`.
+- **F — páginas do sistema.** Top-level após a fatia: **Login**,
+  **Patrimônio**, **Rentabilidade**, **Proventos**. Patrimônio absorve o
+  atual `/dashboard` (rename de rota) e embutirá a view de
+  Rebalanceamento — `GET /rebalance` deixa de ser rota top-level, spec
+  `rebalance-page` será reescrita/deprecada. Rentabilidade e Proventos
+  são páginas novas que ainda precisam de especificação e definição de
+  escopo.
+- **F — alterar paleta para dark mode.** Substitui o register off-white
+  descrito em §4.10 e em `DESIGN.md`. Tokens invertidos (background
+  escuro, foreground claro), mesma personalidade domestic. Implica
+  reescrita de §4.10 + `DESIGN.md` + `src/omaha/static/app.css` quando
+  a fatia for executada.
+- **R — revisão de arquivos não utilizados/temporários/backup.** Limpar
+  o repo de fixtures órfãs, dumps temporários e snapshots antigos. Sem
+  mudança de comportamento observável.
+- **R — revisar sistema de seed.** Tornar o caminho CSV (hoje
+  `scripts/seed_from_csv.py` + triplet em `data/seed/`) mais simples e
+  direto para manutenção dos valores de seed na plataforma.
 - **R — extrair `quote_provider` adapter para pacote.** Se
   `yfinance` for trocado, hoje há só um impl. Daria para injetar mais
   providers.
