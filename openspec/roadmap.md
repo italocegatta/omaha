@@ -171,12 +171,12 @@ Progress:
 - Archived: pending
 
 ### R01 - Limpar arquivos órfãos / dumps / snapshots antigos
-Status: `Ready`
+Status: `Archived`
 Goal: Limpar o repo de fixtures órfãs, dumps temporários e snapshots
 antigos em `backups/` e `data/` que vazaram do `.gitignore`.
 Sem mudança de comportamento observável.
 Candidate OpenSpec change id: `r01-clean-orphaned-files-and-snapshots`
-Spec link: `openspec/changes/r01-clean-orphaned-files-and-snapshots/`
+Spec link: `openspec/changes/archive/2026-07-03-r01-clean-orphaned-files-and-snapshots/`
 Files:
 - `backups/` (purge)
 - `data/portfolio.db` (preservar — está no .gitignore correto)
@@ -184,10 +184,10 @@ Files:
 Notes: Pré-auditoria rápida: `task backup` lista tudo em `backups/` para
 conferir antes do wipe. Zero risk — não toca código/runtime.
 Progress:
-- Proposed: pending
-- Applying: pending
-- Applied: pending
-- Archived: pending
+- Proposed: done
+- Applying: done
+- Applied: done
+- Archived: done
 
 ### R02 - Revisar sistema de seed (caminho CSV)
 Status: `Ready`
