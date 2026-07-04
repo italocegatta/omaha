@@ -32,41 +32,13 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
+from .test_asset_crud import _create_seed_assets
 from .test_import_user_journey import _create_three_classes, _login_and_select_italo
-
-# Selectors used by the rebalance page and the in-body form. Mirrors
-# the data-testid markers in ``rebalance.html`` and
-# ``_rebalance_plan.html``.
-SELECTORS = {
-    # In-body form (F02 D9 — the form is no longer in a sidebar slot).
-    "rebalance_form": '[data-testid="rebalance-form"]',
-    "rebalance_contribution_input": '[data-testid="rebalance-contribution-input"]',
-    "rebalance_submit_btn": '[data-testid="rebalance-submit-btn"]',
-    # Tab nav (F02 D2).
-    "app_tab_btn_rebalanceamento": '[data-testid="app-tab-btn-rebalanceamento"]',
-    "app_tab_btn_patrimonio": '[data-testid="app-tab-btn-patrimonio"]',
-    # Page wrapper.
-    "rebalance_card": '[data-testid="rebalance-card"]',
-    # Empty state.
-    "rebalance_empty_state": '[data-testid="rebalance-empty-state"]',
-    # Placeholder.
-    "rebalance_placeholder": '[data-testid="rebalance-placeholder"]',
-    # Plan layout.
-    "rebalance_plan": '[data-testid="rebalance-plan"]',
-    "rebalance_applied_policy": '[data-testid="rebalance-applied-policy"]',
-    "rebalance_stub_banner": '[data-testid="rebalance-stub-banner"]',
-    "rebalance_warnings": '[data-testid="rebalance-warnings"]',
-    "rebalance_stat_grid": '[data-testid="rebalance-stat-grid"]',
-    "rebalance_stat_contribution": '[data-testid="rebalance-stat-contribution"]',
-    "rebalance_stat_total_buy": '[data-testid="rebalance-stat-total-buy"]',
-    "rebalance_stat_total_sell": '[data-testid="rebalance-stat-total-sell"]',
-    "rebalance_stat_residual_cash": '[data-testid="rebalance-stat-residual-cash"]',
-    "rebalance_stat_current_deviation": '[data-testid="rebalance-stat-current-deviation"]',
-    "rebalance_stat_projected_deviation": '[data-testid="rebalance-stat-projected-deviation"]',
-    "rebalance_asset_table": '[data-testid="rebalance-asset-table"]',
-    "rebalance_asset_th_current_value": '[data-testid="rebalance-asset-th-current-value"]',
-    "rebalance_category_table": '[data-testid="rebalance-category-table"]',
-}
+from .selectors import SELECTORS
+from tests.e2e.conftest import (
+    _seed_assets_with_positions_via_import,
+    _set_asset_target_pcts_via_db,
+)
 
 
 def _debug_dump(page: Page, tag: str) -> None:
@@ -98,6 +70,69 @@ class TestRebalancePage:
         assert page.locator('[data-testid="dashboard-add-asset-open"]').count() == 1
         assert page.locator('[data-testid="empty-state-create-class"]').count() == 1
 
+    def test_patrimonio_actions_has_alpine_scope(self, page: Page, live_url: str) -> None:
+        """Regression: ``patrimonio-actions`` carries ``x-data`` and
+        each button toggles its modal store.
+
+        The F02 commit ``1755dd0`` restored the missing ``x-data``
+        on this section; this test guards against silent
+        re-regression by locking in (a) the attribute presence and
+        (b) the click-to-store wiring for each of the three action
+        buttons.
+        """
+        _login_and_select_italo(page, live_url)
+        _create_three_classes(page, live_url)
+        page.goto(f"{live_url}/patrimonio")
+        page.wait_for_selector(SELECTORS["patrimonio_actions"], timeout=5000)
+
+        actions = page.locator(SELECTORS["patrimonio_actions"])
+        x_data = actions.first.get_attribute("x-data")
+        # Alpine allows `x-data` with an empty value (it just
+        # initialises an empty component scope). The contract is
+        # attribute presence, not expression body.
+        assert x_data is not None, (
+            "patrimonio-actions is missing its x-data attribute; "
+            "Alpine click handlers will be inert (F02 regression)."
+        )
+
+        # Drive each of the three buttons via direct DOM dispatch on
+        # the matching testid. This bypasses any modal overlay that
+        # is currently open from a previous iteration (the F02
+        # regression was specifically about handler binding, not
+        # about the open-overlay gesture).
+        for selector, store_name in (
+            (SELECTORS["dashboard_import_btn"], "importModal"),
+            (SELECTORS["dashboard_add_asset_open"], "addAssetModal"),
+            (SELECTORS["empty_state_create_class"], "newClassModal"),
+        ):
+            # Reset every store to closed before each click.
+            for store in ("importModal", "addAssetModal", "newClassModal"):
+                page.evaluate(
+                    """(name) => {
+                        const s = Alpine.store(name);
+                        if (s && typeof s.closeModal === 'function') s.closeModal();
+                        else if (s) s.open = false;
+                    }""",
+                    store,
+                )
+            # Direct dispatch — equivalent to a real user click but
+            # bypasses overlay intercepts from other open modals.
+            page.evaluate(
+                """(selector) => {
+                    const el = document.querySelector(selector);
+                    if (!el) throw new Error('selector not found: ' + selector);
+                    el.click();
+                }""",
+                selector,
+            )
+            opened = page.evaluate(
+                "(name) => Alpine.store(name).open === true", store_name
+            )
+            assert opened, (
+                f"{selector} click did not flip {store_name}.open to True; "
+                "Alpine scope likely broken on patrimonio-actions."
+            )
+
     def test_top_nav_highlights_patrimonio(self, page: Page, live_url: str) -> None:
         """``/patrimonio`` highlights the Patrimônio tab."""
         _login_and_select_italo(page, live_url)
@@ -115,6 +150,26 @@ class TestRebalancePage:
         """Typing an aporte and clicking Rebalancear navigates to /rebalanceamento."""
         _login_and_select_italo(page, live_url)
         _create_three_classes(page, live_url)
+        # Rebalance needs positions (not just assets). Seed via the
+        # import-modal helper so each asset has at least one position
+        # and the plan can compute buy/sell rows.
+        _seed_assets_with_positions_via_import(
+            page,
+            live_url,
+            [
+                ("RF Pós", "REBAL_A"),
+                ("Acoes", "REBAL_B"),
+                ("Reserva", "REBAL_C"),
+            ],
+            positions={"REBAL_A": (100.0, 100.0), "REBAL_B": (100.0, 100.0), "REBAL_C": (100.0, 100.0)},
+        )
+        # CSV import leaves target_pct=0 on every asset. The CVXPY
+        # engine rejects that state ("Os pesos-alvo dos ativos devem
+        # somar 100%"); patch each asset's target_pct directly so the
+        # per-class sum equals 100 and the plan renders.
+        _set_asset_target_pcts_via_db(
+            {"REBAL_A": 100.0, "REBAL_B": 100.0, "REBAL_C": 100.0},
+        )
 
         # The user navigates to /rebalanceamento via the top nav.
         page.click(SELECTORS["app_tab_btn_rebalanceamento"])
@@ -150,10 +205,16 @@ class TestRebalancePage:
         asset_rows = page.locator('[data-testid^="rebalance-asset-row-"]')
         assert asset_rows.count() >= 1, "asset plan table is empty"
 
-        # Stub banner is visible (stub-fixture-v1 policy).
-        assert page.locator(SELECTORS["rebalance_stub_banner"]).count() == 1
+        # CVXPY engine reports one of four policies — assert the surface
+        # renders, not the legacy "stub-fixture-v1" string that
+        # predates the solver swap.
         applied_policy = page.locator(SELECTORS["rebalance_applied_policy"]).inner_text()
-        assert applied_policy == "stub-fixture-v1"
+        assert applied_policy in (
+            "contribution-only",
+            "contribution-with-overweight-sales",
+            "contribution-with-full-sales",
+            "current-portfolio-rebalance",
+        ), f"unexpected applied_policy: {applied_policy!r}"
 
         # Category summary table renders.
         assert page.locator(SELECTORS["rebalance_category_table"]).count() == 1
@@ -162,6 +223,21 @@ class TestRebalancePage:
         """Clicking the "Valor atual" <th> sorts ascending then descending."""
         _login_and_select_italo(page, live_url)
         _create_three_classes(page, live_url)
+        _seed_assets_with_positions_via_import(
+            page,
+            live_url,
+            [
+                ("RF Pós", "SORT_A"),
+                ("Acoes", "SORT_B"),
+                ("Reserva", "SORT_C"),
+            ],
+            positions={"SORT_A": (100.0, 100.0), "SORT_B": (100.0, 100.0), "SORT_C": (100.0, 100.0)},
+        )
+        # CSV import leaves target_pct=0; CVXPY rejects that. Patch
+        # each asset's target_pct so the per-class sum equals 100.
+        _set_asset_target_pcts_via_db(
+            {"SORT_A": 100.0, "SORT_B": 100.0, "SORT_C": 100.0},
+        )
 
         # Navigate via the top nav, fill, submit.
         page.click(SELECTORS["app_tab_btn_rebalanceamento"])
@@ -220,7 +296,7 @@ class TestRebalancePage:
         page.evaluate(
             "() => document.querySelector('[data-testid=\"app-tab-btn-patrimonio\"]').click()"
         )
-        page.wait_for_url(re.compile(r"/$"))
+        page.wait_for_url(re.compile(r"/patrimonio$"))
         page.wait_for_selector('[data-testid="class-summary"]', timeout=5000)
 
     def test_empty_profile_renders_empty_state(self, page: Page, live_url: str) -> None:

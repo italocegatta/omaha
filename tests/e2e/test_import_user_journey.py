@@ -31,6 +31,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
+from .selectors import SELECTORS
+
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 FIXTURE_PATH = REPO_ROOT / "tests" / "fixtures" / "sample_broker.csv"
 
@@ -157,28 +159,6 @@ RESERVA_NAMES = {
     "VT",
 }
 assert len(RF_POS_NAMES) + len(ACOES_NAMES) + len(RESERVA_NAMES) == 43
-
-
-# Dashboard modal import selectors. The import is triggered via a
-# button on the dashboard (S04/T03/T10) that opens an Alpine modal.
-SELECTORS = {
-    "login_user": 'input[name="username"]',
-    "login_pass": 'input[name="password"]',
-    "login_submit": 'button[type="submit"]',
-    "profile_picker": "form.profile-picker button",
-    "class_summary_row": '[data-testid="class-summary-row"]',
-    "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
-    # Dashboard import modal
-    "dashboard_import_btn": '[data-testid="dashboard-import-btn"]',
-    "import_file_input": '[data-testid="import-file-input"]',
-    "import_upload_btn": '[data-testid="import-upload-btn"]',
-    "import_modal_error": '[data-testid="import-upload-error"]',
-    "import_commit_btn": '[data-testid="import-commit-btn"]',
-    "import_unmatched_table": '[data-testid="import-unmatched-table"]',
-    "import_assignment_class": '[data-testid="import-assignment-class"]',
-    "import_assignment_name": '[data-testid="import-assignment-name"]',
-    "import_commit_error": '[data-testid="import-commit-error"]',
-}
 
 
 def _login_and_select_italo(page: Page, base_url: str) -> None:

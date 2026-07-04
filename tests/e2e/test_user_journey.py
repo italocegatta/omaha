@@ -25,26 +25,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
-
-SELECTORS = {
-    "login_user": 'input[name="username"]',
-    "login_pass": 'input[name="password"]',
-    "login_submit": 'button[type="submit"]',
-    "app_header_wordmark": '[data-testid="app-header-wordmark"]',
-    "class_summary_row": '[data-testid="class-summary-row"]',
-    "dashboard_class_section": '[data-testid="class-section-header"]',
-    "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
-    "dashboard_add_asset_open": '[data-testid="dashboard-add-asset-open"]',
-    "dashboard_add_asset_modal": '[data-testid="add-asset-modal-overlay"]',
-    "dashboard_add_asset_class": '[data-testid="dashboard-add-asset-modal-class"]',
-    "dashboard_add_asset_name": '[data-testid="dashboard-add-asset-name"]',
-    "dashboard_add_asset_pct": '[data-testid="dashboard-add-asset-target-pct"]',
-    "dashboard_add_asset_submit": '[data-testid="dashboard-add-asset-submit"]',
-    "dashboard_asset_delete_btn": '[data-testid="dashboard-asset-delete-btn"]',
-    "dashboard_asset_delete_confirm_yes": '[data-testid="dashboard-asset-delete-confirm-yes"]',
-    "asset_row_name": '[data-testid="asset-row-name"]',
-    "profile_switcher": '[data-testid="profile-switcher"]',
-}
+from .selectors import SELECTORS
 
 
 def _login_and_select_italo(page: Page, base_url: str) -> None:

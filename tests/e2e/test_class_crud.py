@@ -50,35 +50,7 @@ if TYPE_CHECKING:
     from playwright.sync_api import Page
 
 from .test_import_user_journey import _login_and_select_italo
-
-# S02-specific selectors (dashboard-based class CRUD, not the
-# retired /classes page). The dashboard template uses the same
-# data-testid markers that S04/S05 expose for shared elements.
-S02_SELECTORS = {
-    "class_summary_row": '[data-testid="class-summary-row"]',
-    "class_section_name": '[data-testid="class-section-name"]',
-    "class_delete_btn": '[data-testid="class-delete-btn"]',
-    "class_delete_confirm": '[data-testid="class-delete-confirm"]',
-    "class_delete_confirm_yes": '[data-testid="class-delete-confirm-yes"]',
-    "class_delete_confirm_no": '[data-testid="class-delete-confirm-no"]',
-    "class_delete_confirm_error": '[data-testid="class-delete-confirm-error"]',
-    "new_class_modal_overlay": '[data-testid="new-class-modal-overlay"]',
-    "new_class_modal_name_input": '[data-testid="new-class-modal-name-input"]',
-    "new_class_modal_pct_input": '[data-testid="new-class-modal-pct-input"]',
-    "new_class_modal_submit": '[data-testid="new-class-modal-submit"]',
-    "new_class_modal_cancel": '[data-testid="new-class-modal-cancel"]',
-    "new_class_modal_error": '[data-testid="new-class-modal-error"]',
-    "empty_state": '[data-testid="empty-state-onboarding"]',
-    "empty_state_create_class_btn": '[data-testid="empty-state-create-class"]',
-    "class_target_pct": '[data-testid="class-target-pct"]',
-    "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
-    "dashboard_add_asset_open": '[data-testid="dashboard-add-asset-open"]',
-    "add_asset_modal_overlay": '[data-testid="add-asset-modal-overlay"]',
-    "dashboard_add_asset_class": '[data-testid="dashboard-add-asset-modal-class"]',
-    "dashboard_add_asset_name": '[data-testid="dashboard-add-asset-name"]',
-    "dashboard_add_asset_pct": '[data-testid="dashboard-add-asset-target-pct"]',
-    "dashboard_add_asset_submit": '[data-testid="dashboard-add-asset-submit"]',
-}
+from .selectors import SELECTORS
 
 
 def _debug_dump(page: Page, tag: str) -> None:
@@ -127,7 +99,7 @@ def _create_seed_classes(page: Page, classes: list[tuple[str, int]]) -> None:
     )
     # Reload the dashboard so the new class sections render.
     page.goto(page.url)
-    page.wait_for_selector(S02_SELECTORS["class_summary_row"], timeout=8000)
+    page.wait_for_selector(SELECTORS["class_summary_row"], timeout=8000)
 
 
 class TestS02ClassCRUD:
@@ -159,10 +131,16 @@ class TestS02ClassCRUD:
             f"{live_url.rstrip('/')}/"
         ), f"expected dashboard URL, got: {page.url}"
 
-        # The dashboard header is rendered.
-        profile_header = page.locator('[data-testid="profile-name"]')
+        # The dashboard header is rendered. F02 replaced the h1
+        # "Bem-vindo, <profile>" chip with a <select data-testid=
+        # "profile-switcher">. The switcher's selected option is the
+        # active profile name.
+        profile_header = page.locator('[data-testid="profile-switcher"]')
         profile_header.wait_for(state="visible", timeout=5000)
-        assert "Bem-vindo" in profile_header.inner_text()
+        selected_value = profile_header.evaluate("el => el.value")
+        assert selected_value, (
+            f"profile-switcher has no selected value; got: {selected_value!r}"
+        )
 
     # ── Test 2: Create first class from empty state ────────────
 
@@ -204,39 +182,39 @@ class TestS02ClassCRUD:
         _login_and_select_italo(page, live_url)
 
         # Verify the onboarding empty state is shown (0 classes).
-        empty_state = page.locator(S02_SELECTORS["empty_state"])
+        empty_state = page.locator(SELECTORS["empty_state"])
         empty_state.wait_for(state="visible", timeout=5000)
         assert "Vamos comecar" in empty_state.inner_text()
 
         # Verify the sidebar "+ Nova classe" button is visible.
-        plus_btn = page.locator(S02_SELECTORS["empty_state_create_class_btn"])
+        plus_btn = page.locator(SELECTORS["empty_state_create_class_btn"])
         plus_btn.wait_for(state="visible", timeout=2000)
         assert plus_btn.is_visible(), "'+ Nova classe' sidebar button must be visible"
 
         # Click the sidebar button to open the new-class modal.
         plus_btn.click()
-        modal = page.locator(S02_SELECTORS["new_class_modal_overlay"])
+        modal = page.locator(SELECTORS["new_class_modal_overlay"])
         modal.wait_for(state="visible", timeout=2000)
-        modal.locator(S02_SELECTORS["new_class_modal_name_input"]).wait_for(
+        modal.locator(SELECTORS["new_class_modal_name_input"]).wait_for(
             state="visible", timeout=2000
         )
-        modal.locator(S02_SELECTORS["new_class_modal_pct_input"]).wait_for(
+        modal.locator(SELECTORS["new_class_modal_pct_input"]).wait_for(
             state="visible", timeout=2000
         )
 
         # Fill and save the first class at 60% (allocation is NOT
         # blocked by sum-to-100 -- the user creates classes at any
         # percentage and builds the portfolio incrementally).
-        modal.locator(S02_SELECTORS["new_class_modal_name_input"]).fill("Renda Fixa")
-        modal.locator(S02_SELECTORS["new_class_modal_pct_input"]).fill("60")
-        modal.locator(S02_SELECTORS["new_class_modal_submit"]).click()
+        modal.locator(SELECTORS["new_class_modal_name_input"]).fill("Renda Fixa")
+        modal.locator(SELECTORS["new_class_modal_pct_input"]).fill("60")
+        modal.locator(SELECTORS["new_class_modal_submit"]).click()
 
         # On 201, the page reloads. Wait for the class section to appear.
         try:
-            class_row = page.locator(S02_SELECTORS["class_summary_row"])
+            class_row = page.locator(SELECTORS["class_summary_row"])
             class_row.wait_for(state="visible", timeout=8000)
             assert class_row.count() == 1, f"expected 1 class, got {class_row.count()}"
-            name_elem = class_row.locator(S02_SELECTORS["class_section_name"])
+            name_elem = class_row.locator(SELECTORS["class_section_name"])
             assert "Renda Fixa" in name_elem.inner_text()
         except Exception:
             _debug_dump(page, "post_create_first_class")
@@ -277,31 +255,31 @@ class TestS02ClassCRUD:
         _create_seed_classes(page, [["Outros", 40], ["Renda Fixa", 60]])
 
         # Verify 2 classes rendered.
-        class_rows = page.locator(S02_SELECTORS["class_summary_row"])
+        class_rows = page.locator(SELECTORS["class_summary_row"])
         assert class_rows.count() == 2
 
         # --- Verify the new-class modal toggle UI ---
-        page.locator(S02_SELECTORS["empty_state_create_class_btn"]).wait_for(
+        page.locator(SELECTORS["empty_state_create_class_btn"]).wait_for(
             state="visible", timeout=5000
         )
-        page.locator(S02_SELECTORS["empty_state_create_class_btn"]).click()
-        modal = page.locator(S02_SELECTORS["new_class_modal_overlay"])
+        page.locator(SELECTORS["empty_state_create_class_btn"]).click()
+        modal = page.locator(SELECTORS["new_class_modal_overlay"])
         modal.wait_for(state="visible", timeout=2000)
-        modal.locator(S02_SELECTORS["new_class_modal_name_input"]).wait_for(
+        modal.locator(SELECTORS["new_class_modal_name_input"]).wait_for(
             state="visible", timeout=2000
         )
-        modal.locator(S02_SELECTORS["new_class_modal_pct_input"]).wait_for(
+        modal.locator(SELECTORS["new_class_modal_pct_input"]).wait_for(
             state="visible", timeout=2000
         )
-        modal.locator(S02_SELECTORS["new_class_modal_submit"]).wait_for(
+        modal.locator(SELECTORS["new_class_modal_submit"]).wait_for(
             state="visible", timeout=2000
         )
-        modal.locator(S02_SELECTORS["new_class_modal_cancel"]).wait_for(
+        modal.locator(SELECTORS["new_class_modal_cancel"]).wait_for(
             state="visible", timeout=2000
         )
 
         # Cancel closes the modal.
-        modal.locator(S02_SELECTORS["new_class_modal_cancel"]).click()
+        modal.locator(SELECTORS["new_class_modal_cancel"]).click()
         modal.wait_for(state="hidden", timeout=2000)
 
     # ── Test 4: Class delete via x + confirm dialog ────────────
@@ -328,7 +306,7 @@ class TestS02ClassCRUD:
         _create_seed_classes(page, [["Reserva", 60], ["Acoes", 40]])
 
         # Verify 2 classes exist.
-        class_rows = page.locator(S02_SELECTORS["class_summary_row"])
+        class_rows = page.locator(SELECTORS["class_summary_row"])
         assert class_rows.count() == 2
 
         # --- Test cancel behavior first ---
@@ -336,39 +314,39 @@ class TestS02ClassCRUD:
         assert acoes_row.count() == 1, "Acoes class section must exist"
 
         # Click the x delete button to show the confirm dialog.
-        acoes_row.locator(S02_SELECTORS["class_delete_btn"]).click()
-        confirm = acoes_row.locator(S02_SELECTORS["class_delete_confirm"])
+        acoes_row.locator(SELECTORS["class_delete_btn"]).click()
+        confirm = acoes_row.locator(SELECTORS["class_delete_confirm"])
         confirm.wait_for(state="visible", timeout=2000)
 
         # Click "Cancelar" on the confirm dialog.
-        acoes_row.locator(S02_SELECTORS["class_delete_confirm_no"]).click()
+        acoes_row.locator(SELECTORS["class_delete_confirm_no"]).click()
 
         # The confirm dialog should hide again (x-show toggles off).
         confirm.wait_for(state="hidden", timeout=2000)
 
         # Now do the actual delete: click x again, then "Sim, remover".
-        acoes_row.locator(S02_SELECTORS["class_delete_btn"]).click()
-        acoes_row.locator(S02_SELECTORS["class_delete_confirm"]).wait_for(
+        acoes_row.locator(SELECTORS["class_delete_btn"]).click()
+        acoes_row.locator(SELECTORS["class_delete_confirm"]).wait_for(
             state="visible", timeout=2000
         )
-        acoes_row.locator(S02_SELECTORS["class_delete_confirm_yes"]).click()
+        acoes_row.locator(SELECTORS["class_delete_confirm_yes"]).click()
 
         # On success (204), the page reloads. Wait for only Reserva.
         try:
             page.wait_for_function(
                 "() => document.querySelectorAll("
-                f"'{S02_SELECTORS['class_summary_row']}').length === 1",
+                f"'{SELECTORS['class_summary_row']}').length === 1",
                 timeout=8000,
             )
         except Exception:
             _debug_dump(page, "post_delete_acoes")
             raise
 
-        remaining = page.locator(S02_SELECTORS["class_summary_row"])
+        remaining = page.locator(SELECTORS["class_summary_row"])
         assert remaining.count() == 1, (
             f"expected 1 class after deleting Acoes, got {remaining.count()}"
         )
-        remaining_name = remaining.locator(S02_SELECTORS["class_section_name"]).inner_text()
+        remaining_name = remaining.locator(SELECTORS["class_section_name"]).inner_text()
         assert "Reserva" in remaining_name, f"expected 'Reserva' to remain, got {remaining_name!r}"
 
         # "Acoes" should be gone from the page text.
@@ -400,33 +378,33 @@ class TestS02ClassCRUD:
 
         # Add an asset to the class via the dashboard add-asset modal
         # (the old /assets page redirects to /, so use the modal flow).
-        page.wait_for_selector(S02_SELECTORS["class_summary_row"], timeout=5000)
+        page.wait_for_selector(SELECTORS["class_summary_row"], timeout=5000)
 
-        page.locator(S02_SELECTORS["dashboard_add_asset_open"]).click()
-        modal = page.locator(S02_SELECTORS["add_asset_modal_overlay"])
+        page.locator(SELECTORS["dashboard_add_asset_open"]).click()
+        modal = page.locator(SELECTORS["add_asset_modal_overlay"])
         modal.wait_for(state="visible", timeout=5000)
-        modal.locator(S02_SELECTORS["dashboard_add_asset_class"]).select_option(label="Renda Fixa")
-        modal.locator(S02_SELECTORS["dashboard_add_asset_name"]).fill("Tesouro Selic")
-        modal.locator(S02_SELECTORS["dashboard_add_asset_pct"]).fill("100")
-        modal.locator(S02_SELECTORS["dashboard_add_asset_submit"]).click()
+        modal.locator(SELECTORS["dashboard_add_asset_class"]).select_option(label="Renda Fixa")
+        modal.locator(SELECTORS["dashboard_add_asset_name"]).fill("Tesouro Selic")
+        modal.locator(SELECTORS["dashboard_add_asset_pct"]).fill("100")
+        modal.locator(SELECTORS["dashboard_add_asset_submit"]).click()
         # Wait for the page reload (201 -> window.location.reload()).
         page.wait_for_load_state("networkidle", timeout=10000)
-        page.wait_for_selector(S02_SELECTORS["class_summary_row"], timeout=5000)
+        page.wait_for_selector(SELECTORS["class_summary_row"], timeout=5000)
 
         # Click x to trigger the delete confirm.
-        class_row = page.locator(S02_SELECTORS["class_summary_row"]).first
-        class_row.locator(S02_SELECTORS["class_delete_btn"]).click()
-        class_row.locator(S02_SELECTORS["class_delete_confirm"]).wait_for(
+        class_row = page.locator(SELECTORS["class_summary_row"]).first
+        class_row.locator(SELECTORS["class_delete_btn"]).click()
+        class_row.locator(SELECTORS["class_delete_confirm"]).wait_for(
             state="visible", timeout=2000
         )
 
         # Click "Sim, remover" -- the server should reject with 409.
-        class_row.locator(S02_SELECTORS["class_delete_confirm_yes"]).click()
+        class_row.locator(SELECTORS["class_delete_confirm_yes"]).click()
 
         # Wait for the 409 error message to appear in the confirm
         # dialog (the Alpine x-show toggle on deleteError).
         try:
-            error_elem = class_row.locator(S02_SELECTORS["class_delete_confirm_error"])
+            error_elem = class_row.locator(SELECTORS["class_delete_confirm_error"])
             error_elem.wait_for(state="visible", timeout=5000)
             error_text = error_elem.inner_text()
             assert "ativo" in error_text.lower(), (
@@ -437,18 +415,18 @@ class TestS02ClassCRUD:
             raise
 
         # The class section must still be in the DOM.
-        remaining = page.locator(S02_SELECTORS["class_summary_row"])
+        remaining = page.locator(SELECTORS["class_summary_row"])
         assert remaining.count() == 1, (
             f"class should still exist after 409, got {remaining.count()} rows"
         )
 
         # Verify the error can be dismissed by clicking "Cancelar".
-        class_row.locator(S02_SELECTORS["class_delete_confirm_no"]).click()
+        class_row.locator(SELECTORS["class_delete_confirm_no"]).click()
         page.wait_for_timeout(500)
 
         # After cancel, the confirm dialog hides and the error text
         # is cleared (the Alpine component resets on cancel).
-        error_elem_after = class_row.locator(S02_SELECTORS["class_delete_confirm_error"])
+        error_elem_after = class_row.locator(SELECTORS["class_delete_confirm_error"])
         # The element itself may still be in the DOM (hidden via x-cloak)
         # but should not be visible.
         assert not error_elem_after.is_visible()

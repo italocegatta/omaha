@@ -25,25 +25,7 @@ if TYPE_CHECKING:
     from playwright.sync_api import Page
 
 from .test_import_user_journey import _login_and_select_italo
-
-S03_SELECTORS = {
-    "dashboard_add_asset_open": '[data-testid="dashboard-add-asset-open"]',
-    "dashboard_add_asset_modal": '[data-testid="add-asset-modal-overlay"]',
-    "dashboard_add_asset_name": '[data-testid="dashboard-add-asset-name"]',
-    "dashboard_add_asset_target_pct": '[data-testid="dashboard-add-asset-target-pct"]',
-    "dashboard_add_asset_class": '[data-testid="dashboard-add-asset-modal-class"]',
-    "dashboard_add_asset_submit": '[data-testid="dashboard-add-asset-submit"]',
-    "dashboard_add_asset_cancel": '[data-testid="dashboard-add-asset-cancel"]',
-    "dashboard_add_asset_error": '[data-testid="dashboard-add-asset-error"]',
-    "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
-    "dashboard_asset_delete_btn": '[data-testid="dashboard-asset-delete-btn"]',
-    "dashboard_asset_delete_confirm": '[data-testid="dashboard-asset-delete-confirm"]',
-    "dashboard_asset_delete_confirm_yes": '[data-testid="dashboard-asset-delete-confirm-yes"]',
-    "dashboard_asset_delete_confirm_no": '[data-testid="dashboard-asset-delete-confirm-no"]',
-    "dashboard_asset_delete_confirm_error": '[data-testid="dashboard-asset-delete-confirm-error"]',
-    "class_summary_row": '[data-testid="class-summary-row"]',
-    "asset_row_name": '[data-testid="asset-row-name"]',
-}
+from .selectors import SELECTORS
 
 
 def _debug_dump(page: Page, tag: str) -> None:
@@ -76,7 +58,7 @@ def _create_seed_classes(page: Page, classes: list[tuple[str, int]]) -> None:
         classes,
     )
     page.goto(page.url)
-    page.wait_for_selector(S03_SELECTORS["class_summary_row"], timeout=8000)
+    page.wait_for_selector(SELECTORS["class_summary_row"], timeout=8000)
 
 
 def _create_seed_assets(page: Page, assets: list[tuple[str, str, float | int]]) -> None:
@@ -118,7 +100,7 @@ def _create_seed_assets(page: Page, assets: list[tuple[str, str, float | int]]) 
     page.goto(page.url)
     # fix-asset-table-ui-bugs: sections are expanded by default on load
     # (isOpen: true). The test asserts DOM presence, not visibility.
-    page.wait_for_selector(S03_SELECTORS["dashboard_asset_row"], state="attached", timeout=8000)
+    page.wait_for_selector(SELECTORS["dashboard_asset_row"], state="attached", timeout=8000)
 
 
 class TestS03AssetCRUD:
@@ -136,9 +118,13 @@ class TestS03AssetCRUD:
         assert "/assets" not in page.url, (
             f"expected redirect away from /assets, got URL: {page.url}"
         )
-        profile_header = page.locator('[data-testid="profile-name"]')
+        profile_header = page.locator('[data-testid="profile-switcher"]')
         profile_header.wait_for(state="visible", timeout=5000)
-        assert "Bem-vindo" in profile_header.inner_text()
+        # F02: the h1 "Bem-vindo, <profile>" chip was replaced by a
+        # <select data-testid="profile-switcher">. The switcher's
+        # selected option is the active profile name.
+        selected = profile_header.evaluate("el => el.value")
+        assert selected, f"profile-switcher has no selected value: {selected!r}"
 
     def test_add_asset_via_modal(self, page: Page, live_url: str) -> None:
         """Click + Ativo → fill modal → save → asset row appears.
@@ -152,22 +138,22 @@ class TestS03AssetCRUD:
         # default to expanded (isOpen: true on load); user can collapse
         # by clicking the header.
         # and the add-asset flow uses a dashboard-level modal.
-        page.locator(S03_SELECTORS["dashboard_add_asset_open"]).click()
-        modal = page.locator(S03_SELECTORS["dashboard_add_asset_modal"])
+        page.locator(SELECTORS["dashboard_add_asset_open"]).click()
+        modal = page.locator(SELECTORS["dashboard_add_asset_modal"])
         modal.wait_for(state="visible", timeout=5000)
 
-        modal.locator(S03_SELECTORS["dashboard_add_asset_class"]).select_option(label="Renda Fixa")
-        modal.locator(S03_SELECTORS["dashboard_add_asset_name"]).fill("PETR4")
-        modal.locator(S03_SELECTORS["dashboard_add_asset_target_pct"]).fill("0")
-        modal.locator(S03_SELECTORS["dashboard_add_asset_submit"]).click()
+        modal.locator(SELECTORS["dashboard_add_asset_class"]).select_option(label="Renda Fixa")
+        modal.locator(SELECTORS["dashboard_add_asset_name"]).fill("PETR4")
+        modal.locator(SELECTORS["dashboard_add_asset_target_pct"]).fill("0")
+        modal.locator(SELECTORS["dashboard_add_asset_submit"]).click()
 
         # Wait for page reload (201 -> window.location.reload()).
         page.wait_for_load_state("networkidle", timeout=10000)
-        page.wait_for_selector(S03_SELECTORS["dashboard_asset_row"], state="attached", timeout=8000)
+        page.wait_for_selector(SELECTORS["dashboard_asset_row"], state="attached", timeout=8000)
 
-        rows = page.locator(S03_SELECTORS["dashboard_asset_row"])
+        rows = page.locator(SELECTORS["dashboard_asset_row"])
         assert rows.count() == 1
-        assert "PETR4" in rows.first.locator(S03_SELECTORS["asset_row_name"]).inner_text()
+        assert "PETR4" in rows.first.locator(SELECTORS["asset_row_name"]).inner_text()
 
     def test_delete_asset_via_x_button(self, page: Page, live_url: str) -> None:
         """Click × on an asset row → confirm dialog → cancel hides it →
@@ -183,31 +169,31 @@ class TestS03AssetCRUD:
         # default to expanded (isOpen: true on load); user can collapse
         # by clicking the header.
 
-        asset_row = page.locator(S03_SELECTORS["dashboard_asset_row"]).first
+        asset_row = page.locator(SELECTORS["dashboard_asset_row"]).first
         assert asset_row.count() == 1
         asset_id = asset_row.get_attribute("data-asset-id")
 
         # First × click → confirm visible → cancel → confirm hidden.
-        asset_row.locator(S03_SELECTORS["dashboard_asset_delete_btn"]).click(force=True)
+        asset_row.locator(SELECTORS["dashboard_asset_delete_btn"]).click(force=True)
         confirm = page.locator(
             f'[data-testid="dashboard-asset-delete-confirm"][data-asset-id="{asset_id}"]'
         )
         confirm.wait_for(state="visible", timeout=2000)
-        confirm.locator(S03_SELECTORS["dashboard_asset_delete_confirm_no"]).click(force=True)
+        confirm.locator(SELECTORS["dashboard_asset_delete_confirm_no"]).click(force=True)
         confirm.wait_for(state="hidden", timeout=2000)
 
         # Row still present after cancel.
-        assert page.locator(S03_SELECTORS["dashboard_asset_row"]).count() == 1
+        assert page.locator(SELECTORS["dashboard_asset_row"]).count() == 1
 
         # Second × click → confirm visible → yes → row removed.
-        asset_row.locator(S03_SELECTORS["dashboard_asset_delete_btn"]).click(force=True)
+        asset_row.locator(SELECTORS["dashboard_asset_delete_btn"]).click(force=True)
         confirm.wait_for(state="visible", timeout=2000)
-        confirm.locator(S03_SELECTORS["dashboard_asset_delete_confirm_yes"]).click(force=True)
+        confirm.locator(SELECTORS["dashboard_asset_delete_confirm_yes"]).click(force=True)
 
         # Wait for page reload (204 -> window.location.reload()).
         page.wait_for_load_state("networkidle", timeout=10000)
         page.wait_for_timeout(300)
-        assert page.locator(S03_SELECTORS["dashboard_asset_row"]).count() == 0
+        assert page.locator(SELECTORS["dashboard_asset_row"]).count() == 0
 
     def test_full_asset_crud_journey(self, page: Page, live_url: str) -> None:
         """Add 2 assets via the modal, delete the first, keep the second.
@@ -220,13 +206,13 @@ class TestS03AssetCRUD:
         _create_seed_classes(page, [["Renda Fixa", 100]])
 
         # First modal add.
-        page.locator(S03_SELECTORS["dashboard_add_asset_open"]).click()
-        modal = page.locator(S03_SELECTORS["dashboard_add_asset_modal"])
+        page.locator(SELECTORS["dashboard_add_asset_open"]).click()
+        modal = page.locator(SELECTORS["dashboard_add_asset_modal"])
         modal.wait_for(state="visible", timeout=5000)
-        modal.locator(S03_SELECTORS["dashboard_add_asset_class"]).select_option(label="Renda Fixa")
-        modal.locator(S03_SELECTORS["dashboard_add_asset_name"]).fill("PETR4")
-        modal.locator(S03_SELECTORS["dashboard_add_asset_target_pct"]).fill("0")
-        modal.locator(S03_SELECTORS["dashboard_add_asset_submit"]).click()
+        modal.locator(SELECTORS["dashboard_add_asset_class"]).select_option(label="Renda Fixa")
+        modal.locator(SELECTORS["dashboard_add_asset_name"]).fill("PETR4")
+        modal.locator(SELECTORS["dashboard_add_asset_target_pct"]).fill("0")
+        modal.locator(SELECTORS["dashboard_add_asset_submit"]).click()
 
         page.wait_for_load_state("networkidle", timeout=10000)
         page.wait_for_timeout(500)
@@ -236,27 +222,27 @@ class TestS03AssetCRUD:
 
         page.wait_for_load_state("networkidle", timeout=10000)
 
-        rows = page.locator(S03_SELECTORS["dashboard_asset_row"])
+        rows = page.locator(SELECTORS["dashboard_asset_row"])
         assert rows.count() == 2
 
         # Delete the first row (PETR4 — display_order 0).
-        first_row = page.locator(S03_SELECTORS["dashboard_asset_row"]).first
+        first_row = page.locator(SELECTORS["dashboard_asset_row"]).first
         first_asset_id = first_row.get_attribute("data-asset-id")
-        first_row.locator(S03_SELECTORS["dashboard_asset_delete_btn"]).click(force=True)
+        first_row.locator(SELECTORS["dashboard_asset_delete_btn"]).click(force=True)
         confirm = page.locator(
             f'[data-testid="dashboard-asset-delete-confirm"][data-asset-id="{first_asset_id}"]'
         )
         confirm.wait_for(state="visible", timeout=2000)
-        confirm.locator(S03_SELECTORS["dashboard_asset_delete_confirm_yes"]).click(force=True)
+        confirm.locator(SELECTORS["dashboard_asset_delete_confirm_yes"]).click(force=True)
 
         # Wait for page reload (204 -> window.location.reload()).
         page.wait_for_load_state("networkidle", timeout=10000)
         page.wait_for_timeout(300)
 
         # Only VALE3 remains.
-        remaining = page.locator(S03_SELECTORS["dashboard_asset_row"])
+        remaining = page.locator(SELECTORS["dashboard_asset_row"])
         assert remaining.count() == 1
-        remaining_name = remaining.first.locator(S03_SELECTORS["asset_row_name"]).inner_text()
+        remaining_name = remaining.first.locator(SELECTORS["asset_row_name"]).inner_text()
         assert "VALE3" in remaining_name, f"expected VALE3 to remain, got {remaining_name!r}"
         page_text = page.locator("main").inner_text()
         assert "PETR4" not in page_text, f"PETR4 should be gone, page text: {page_text!r}"

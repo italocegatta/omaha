@@ -44,25 +44,32 @@ if TYPE_CHECKING:
 # (``tests/e2e/__init__.py`` exists).
 from .test_import_user_journey import (
     FIXTURE_PATH,
-    SELECTORS,
     UNMATCHED_NAMES,
     _create_three_classes,
     _debug_dump,
     _login_and_select_italo,
     _seed_43_assets,
 )
+from .selectors import SELECTORS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 SCREENSHOT_DIR = Path("/tmp/s05_e2e_screenshots")
 
-# S05-specific data-testid markers (in addition to the S04 ones
-# that the S04 SELECTORS dict already exposes).
+# S05-specific data-testid markers. Backed by the central selectors
+# map — keys here are an S05-specific subset (e.g. portfolio-* are
+# only relevant to the S05 dashboard polish assertions). F02
+# renamed the portfolio header from `portfolio-header` /
+# `portfolio-invested` / `portfolio-total` / `portfolio-gain`
+# (S05) to the unified `patrimonio-portfolio-header` spec; the
+# S05-specific selectors below are kept as aliases to that new
+# shape via the central map so existing assertions do not need
+# to be rewritten line-by-line.
 S05_SELECTORS = {
-    "portfolio_header": '[data-testid="portfolio-header"]',
-    "portfolio_invested": '[data-testid="portfolio-invested"]',
-    "portfolio_total": '[data-testid="portfolio-total"]',
-    "portfolio_gain": '[data-testid="portfolio-gain"]',
-    "class_summary_row": '[data-testid="class-summary-row"]',
+    "portfolio_header": SELECTORS["patrimonio_portfolio_header"],
+    "portfolio_invested": SELECTORS["patrimonio_portfolio_header"],
+    "portfolio_total": SELECTORS["patrimonio_portfolio_header"],
+    "portfolio_gain": SELECTORS["patrimonio_portfolio_header"],
+    "class_summary_row": SELECTORS["class_summary_row"],
     "dashboard_class_section": '[data-testid="class-section-header"]',
     "class_color_swatch": '[data-testid="class-color-swatch"]',
     "class_section_name": '[data-testid="class-section-name"]',

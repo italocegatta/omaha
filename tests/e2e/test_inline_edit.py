@@ -60,27 +60,11 @@ if TYPE_CHECKING:
 from tests.e2e.conftest import _seed_assets_with_positions_via_import
 
 from .test_import_user_journey import _login_and_select_italo
+from .selectors import SELECTORS
 from .test_user_journey_rebalance import S05_SELECTORS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 TEST_DB_PATH = REPO_ROOT / "data" / "test_e2e.db"
-
-# S01 inline-editor data-testid markers. The dashboard template
-# (``src/omaha/templates/dashboard.html``) renders these per asset
-# row: 4 cells in the pct grid + the input + the class-delta badge
-# in the section header. (The save/cancel buttons were removed in
-# the dashboard-width-and-inline-edit change — Enter and Escape
-# are the only triggers now.)
-S01_SELECTORS = {
-    "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
-    "asset_target_pct_class": '[data-testid="asset-target-pct-class"]',
-    "asset_current_pct_class": '[data-testid="asset-current-pct-class"]',
-    "asset_target_pct_total": '[data-testid="asset-target-pct-total"]',
-    "asset_current_pct_total": '[data-testid="asset-current-pct-total"]',
-    "asset_inline_edit_input": '[data-testid="asset-inline-edit-input"]',
-    "class_delta_badge": '[data-testid="class-delta-badge"]',
-    "class_summary_row": '[data-testid="class-summary-row"]',
-}
 
 
 def _debug_dump(page: Page, tag: str) -> None:
@@ -188,8 +172,8 @@ def _create_n_assets(page: Page, names: list[str], target_pct: str = "0") -> Non
                 f"POST /api/assets failed for {name!r}: {resp['status']} {resp['body']}"
             )
     page.goto(page.url)
-    page.wait_for_selector(S01_SELECTORS["dashboard_asset_row"], state="attached", timeout=8000)
-    rows = page.locator(S01_SELECTORS["dashboard_asset_row"])
+    page.wait_for_selector(SELECTORS["dashboard_asset_row"], state="attached", timeout=8000)
+    rows = page.locator(SELECTORS["dashboard_asset_row"])
     assert rows.count() == len(names), f"expected {len(names)} asset rows, got {rows.count()}"
 
 
@@ -301,10 +285,10 @@ class TestS01InlineEdit:
 
         # Reload the dashboard so the new state is rendered.
         page.goto(f"{live_url}/")
-        page.wait_for_selector(S01_SELECTORS["dashboard_asset_row"], timeout=5000)
+        page.wait_for_selector(SELECTORS["dashboard_asset_row"], timeout=5000)
 
         # Locate Ativo A's row by its name cell.
-        rows = page.locator(S01_SELECTORS["dashboard_asset_row"])
+        rows = page.locator(SELECTORS["dashboard_asset_row"])
         target_row = None
         for i in range(rows.count()):
             row = rows.nth(i)
@@ -321,11 +305,11 @@ class TestS01InlineEdit:
         # Click the "alvo % classe" cell to enter edit mode. The
         # Alpine ``startEdit`` toggles ``editingAssetId`` to the
         # asset's id, which reveals the input.
-        cell = target_row.locator(S01_SELECTORS["asset_target_pct_class"]).first
+        cell = target_row.locator(SELECTORS["asset_target_pct_class"]).first
         cell.click()
 
         # Wait for the inline input to appear.
-        edit_input = target_row.locator(S01_SELECTORS["asset_inline_edit_input"]).first
+        edit_input = target_row.locator(SELECTORS["asset_inline_edit_input"]).first
         edit_input.wait_for(state="visible", timeout=2000)
         edit_input.fill("40")
 
@@ -340,7 +324,7 @@ class TestS01InlineEdit:
         # editingAssetId becomes null after a successful commit).
         _js_input_hidden = (
             "() => { const el = document.querySelector('"
-            f"{S01_SELECTORS['asset_inline_edit_input']}"
+            f"{SELECTORS['asset_inline_edit_input']}"
             "'); return !el || el.offsetParent === null; }"
         )
         page.wait_for_function(_js_input_hidden, timeout=3000)
@@ -353,8 +337,8 @@ class TestS01InlineEdit:
         # pre-commit value. A reload forces Jinja to re-render
         # with the new ``target_pct_class`` from the DB.
         page.goto(f"{live_url}/")
-        page.wait_for_selector(S01_SELECTORS["dashboard_asset_row"], timeout=5000)
-        rows = page.locator(S01_SELECTORS["dashboard_asset_row"])
+        page.wait_for_selector(SELECTORS["dashboard_asset_row"], timeout=5000)
+        rows = page.locator(SELECTORS["dashboard_asset_row"])
         updated_row = None
         for i in range(rows.count()):
             row = rows.nth(i)
@@ -365,13 +349,13 @@ class TestS01InlineEdit:
         assert updated_row is not None, "Ativo A row missing after commit"
 
         target_class_text = updated_row.locator(
-            S01_SELECTORS["asset_target_pct_class"]
+            SELECTORS["asset_target_pct_class"]
         ).first.inner_text()
         assert "40.00" in target_class_text, f"expected '40.00% classe', got {target_class_text!r}"
         assert "%" in target_class_text, f"target class cell missing %: {target_class_text!r}"
 
         target_total_text = updated_row.locator(
-            S01_SELECTORS["asset_target_pct_total"]
+            SELECTORS["asset_target_pct_total"]
         ).first.inner_text()
         assert "24.00" in target_total_text, (
             f"expected '24.00% total' (60%% × 40 / 100), got {target_total_text!r}"
@@ -408,10 +392,10 @@ class TestS01InlineEdit:
         _seed_assets_with_positions_via_import(page, live_url, [("Renda Fixa", "Ativo A")])
 
         page.goto(f"{live_url}/")
-        page.wait_for_selector(S01_SELECTORS["dashboard_asset_row"], timeout=5000)
+        page.wait_for_selector(SELECTORS["dashboard_asset_row"], timeout=5000)
 
         # The row exists.
-        rows = page.locator(S01_SELECTORS["dashboard_asset_row"])
+        rows = page.locator(SELECTORS["dashboard_asset_row"])
         assert rows.count() == 1, f"expected 1 asset row, got {rows.count()}"
         row = rows.first
 
@@ -422,7 +406,7 @@ class TestS01InlineEdit:
             "asset_target_pct_total",
             "asset_current_pct_total",
         ):
-            cell = row.locator(S01_SELECTORS[sel_key]).first
+            cell = row.locator(SELECTORS[sel_key]).first
             cell.wait_for(state="attached", timeout=2000)
             assert cell.count() == 1, f"{sel_key} not found exactly once"
             text = cell.inner_text().strip()

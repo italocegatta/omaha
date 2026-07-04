@@ -78,14 +78,17 @@
      length / percentage / auto, not fr; grid-template-columns
      also accepts percentages, so both consumers resolve to the
      same value. Sum = 100%. */
-  --col-ativo: 25.5%;
-  --col-classe: 15.3%;
-  --col-qtd: 6.2%;
-  --col-valor: 12.2%;
-  --col-alvo-classe: 10.2%;
-  --col-atual-classe: 10.2%;
-  --col-alvo-total: 10.2%;
-  --col-atual-total: 10.2%;
+--col-ativo: 21.5%;
+   --col-classe: 12.8%;
+   --col-qtd: 5.2%;
+   --col-valor: 10.2%;
+   --col-alvo-classe: 8.5%;
+   --col-atual-classe: 8.5%;
+   --col-alvo-total: 8.5%;
+   --col-atual-total: 8.5%;
+   --col-buy: 5.5%;
+   --col-sell: 5.5%;
+   --col-currency: 5.3%;
 }
 
 /* Cycle beyond 6 classes: nth-of-type selectors reuse tokens 1-6.
@@ -1149,6 +1152,9 @@ p.error, .error {
 .asset-table col:nth-child(6) { width: var(--col-atual-classe); }
 .asset-table col:nth-child(7) { width: var(--col-alvo-total); }
 .asset-table col:nth-child(8) { width: var(--col-atual-total); }
+.asset-table col:nth-child(9) { width: var(--col-buy); }
+.asset-table col:nth-child(10) { width: var(--col-sell); }
+.asset-table col:nth-child(11) { width: var(--col-currency); }
 
 .asset-table td {
   padding: 0.4rem;

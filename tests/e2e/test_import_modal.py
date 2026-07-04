@@ -31,27 +31,9 @@ from .test_import_user_journey import (
     UNMATCHED_NAMES,
     _login_and_select_italo,
 )
+from .selectors import SELECTORS
 
 FIXTURE_PATH = REPO_ROOT / "tests" / "fixtures" / "sample_broker.csv"
-
-SELECTORS = {
-    "profile_name": '[data-testid="profile-name"]',
-    "dashboard_import_btn": '[data-testid="dashboard-import-btn"]',
-    "import_modal_overlay": '[data-testid="import-modal-overlay"]',
-    "import_file_input": '[data-testid="import-file-input"]',
-    "import_upload_btn": '[data-testid="import-upload-btn"]',
-    "import_unmatched_table": '[data-testid="import-unmatched-table"]',
-    "import_unmatched_row": '[data-testid="import-unmatched-row"]',
-    "import_existing_table": '[data-testid="import-existing-table"]',
-    "import_existing_row": '[data-testid="import-existing-row"]',
-    "import_class_cell_assignment": '[data-testid="import-class-cell-assignment"]',
-    "import_class_swatch": ".import-class-swatch",
-    "import_commit_btn": '[data-testid="import-commit-btn"]',
-    "class_summary_row": '[data-testid="class-summary-row"]',
-    "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
-    "class_section_name": '[data-testid="class-section-name"]',
-    "import_assignment_class": '[data-testid="import-assignment-class"]',
-}
 
 
 def _debug_dump(page: Page, tag: str) -> None:
@@ -455,9 +437,11 @@ class TestS04ImportModal:
             f"expected redirect away from /import, got URL: {page.url}"
         )
 
-        profile_header = page.locator(SELECTORS["profile_name"])
+        profile_header = page.locator(SELECTORS["profile_switcher"])
         profile_header.wait_for(state="visible", timeout=5000)
-        assert "Bem-vindo" in profile_header.inner_text()
+        # F02: h1 "Bem-vindo" chip replaced by profile-switcher <select>.
+        selected = profile_header.evaluate("el => el.value")
+        assert selected, f"profile-switcher has no selected value: {selected!r}"
 
     def test_import_modal_pending_visual(self, page: Page, live_url: str) -> None:
         """With zero AssetClasses on the profile, every row in the modal

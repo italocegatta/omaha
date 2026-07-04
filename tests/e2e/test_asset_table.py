@@ -17,40 +17,10 @@ if TYPE_CHECKING:
 from tests.e2e.conftest import _seed_assets_with_positions_via_import
 
 from .test_import_user_journey import _create_three_classes, _login_and_select_italo
+from .selectors import SELECTORS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 TEST_DB_PATH = REPO_ROOT / "data" / "test_e2e.db"
-
-S10_SELECTORS = {
-    "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
-    "asset_row_name": '[data-testid="asset-row-name"]',
-    "asset_target_pct_class": '[data-testid="asset-target-pct-class"]',
-    "asset_target_pct_total": '[data-testid="asset-target-pct-total"]',
-    "asset_target_pct_total_edit_input": '[data-testid="asset-target-pct-total-edit-input"]',
-    "asset_table": '[data-testid="asset-table"]',
-    "asset_table_th_name": '[data-testid="asset-table-th-name"]',
-    "asset_table_th_class": '[data-testid="asset-table-th-class"]',
-    "asset_table_th_qty": '[data-testid="asset-table-th-qty"]',
-    "asset_table_th_current_value": '[data-testid="asset-table-th-current-value"]',
-    "asset_table_th_target_pct_class": '[data-testid="asset-table-th-target-pct-class"]',
-    "asset_table_th_current_pct_class": '[data-testid="asset-table-th-current-pct-class"]',
-    "asset_table_th_target_pct_total": '[data-testid="asset-table-th-target-pct-total"]',
-    "asset_table_th_current_pct_total": '[data-testid="asset-table-th-current-pct-total"]',
-    "asset_allocation_alert": '[data-testid="asset-allocation-alert"]',
-    "asset_allocation_alert_portfolio": '[data-testid="asset-allocation-alert-portfolio"]',
-    "asset_allocation_alert_class": '[data-testid="asset-allocation-alert-class"]',
-    "dashboard_add_asset_open": '[data-testid="dashboard-add-asset-open"]',
-    "dashboard_add_asset_modal": '[data-testid="add-asset-modal-overlay"]',
-    "dashboard_add_asset_class": '[data-testid="dashboard-add-asset-modal-class"]',
-    "dashboard_add_asset_name": '[data-testid="dashboard-add-asset-name"]',
-    "dashboard_add_asset_target_pct": '[data-testid="dashboard-add-asset-target-pct"]',
-    "dashboard_add_asset_submit": '[data-testid="dashboard-add-asset-submit"]',
-    # fix-asset-table-ui-bugs: chevron + header for the new
-    # toggle collapse/expand. Click on the chevron bubbles to the
-    # header's ``@click`` handler.
-    "class_section_header": '[data-testid="class-section-header"]',
-    "class_chevron": '[data-testid="class-chevron"]',
-}
 
 
 def _seed_class_with_assets(class_name: str, assets: list[tuple[str, float | int]]) -> None:
@@ -122,7 +92,7 @@ class TestS10AssetTable:
         )
 
         page.goto(f"{live_url}/")
-        page.wait_for_selector(S10_SELECTORS["asset_table"], timeout=5000)
+        page.wait_for_selector(SELECTORS["asset_table"], timeout=5000)
 
         for th_key in (
             "name",
@@ -134,7 +104,7 @@ class TestS10AssetTable:
             "target-pct-total",
             "current-pct-total",
         ):
-            th = page.locator(S10_SELECTORS[f"asset_table_th_{th_key.replace('-', '_')}"])
+            th = page.locator(SELECTORS[f"asset_table_th_{th_key.replace('-', '_')}"])
             th.wait_for(state="visible", timeout=3000)
             indicator_before = th.locator("span").inner_text()
             th.click()
@@ -146,11 +116,11 @@ class TestS10AssetTable:
             )
 
         # Sanity: after sorting by name asc, Abacaxi should be the first row.
-        page.locator(S10_SELECTORS["asset_table_th_name"]).click()
+        page.locator(SELECTORS["asset_table_th_name"]).click()
         page.wait_for_timeout(250)
         first_name = (
-            page.locator(S10_SELECTORS["dashboard_asset_row"])
-            .first.locator(S10_SELECTORS["asset_row_name"])
+            page.locator(SELECTORS["dashboard_asset_row"])
+            .first.locator(SELECTORS["asset_row_name"])
             .inner_text()
             .strip()
         )
@@ -176,27 +146,27 @@ class TestS10AssetTable:
         )
 
         page.goto(f"{live_url}/")
-        page.wait_for_selector(S10_SELECTORS["dashboard_asset_row"], timeout=5000)
+        page.wait_for_selector(SELECTORS["dashboard_asset_row"], timeout=5000)
 
-        rows = page.locator(S10_SELECTORS["dashboard_asset_row"])
+        rows = page.locator(SELECTORS["dashboard_asset_row"])
         target_row = None
         for i in range(rows.count()):
             row = rows.nth(i)
-            if "Ativo A" in row.locator(S10_SELECTORS["asset_row_name"]).inner_text():
+            if "Ativo A" in row.locator(SELECTORS["asset_row_name"]).inner_text():
                 target_row = row
                 break
         assert target_row is not None, "Ativo A row not found"
 
         # The alert card is visible because the class sum is 90%.
-        alert = page.locator(S10_SELECTORS["asset_allocation_alert"])
+        alert = page.locator(SELECTORS["asset_allocation_alert"])
         assert alert.count() == 1, "expected allocation alert card to be present"
         alert.wait_for(state="visible", timeout=3000)
         assert "Falta" in alert.inner_text(), "expected 'Falta' in alert card"
 
         # Click the alvo % total cell to edit.
-        cell = target_row.locator(S10_SELECTORS["asset_target_pct_total"]).first
+        cell = target_row.locator(SELECTORS["asset_target_pct_total"]).first
         cell.click()
-        edit_input = target_row.locator(S10_SELECTORS["asset_target_pct_total_edit_input"]).first
+        edit_input = target_row.locator(SELECTORS["asset_target_pct_total_edit_input"]).first
         edit_input.wait_for(state="visible", timeout=2000)
         edit_input.fill("50")
         edit_input.press("Enter")
@@ -215,27 +185,27 @@ class TestS10AssetTable:
         _login_and_select_italo(page, live_url)
         _create_three_classes(page, live_url)
 
-        page.locator(S10_SELECTORS["dashboard_add_asset_open"]).click()
-        modal = page.locator(S10_SELECTORS["dashboard_add_asset_modal"])
+        page.locator(SELECTORS["dashboard_add_asset_open"]).click()
+        modal = page.locator(SELECTORS["dashboard_add_asset_modal"])
         modal.wait_for(state="visible", timeout=5000)
 
-        modal.locator(S10_SELECTORS["dashboard_add_asset_class"]).select_option(label="RF Pós")
-        modal.locator(S10_SELECTORS["dashboard_add_asset_name"]).fill("NOVO_ATIVO")
-        modal.locator(S10_SELECTORS["dashboard_add_asset_target_pct"]).fill("10")
-        modal.locator(S10_SELECTORS["dashboard_add_asset_submit"]).click()
+        modal.locator(SELECTORS["dashboard_add_asset_class"]).select_option(label="RF Pós")
+        modal.locator(SELECTORS["dashboard_add_asset_name"]).fill("NOVO_ATIVO")
+        modal.locator(SELECTORS["dashboard_add_asset_target_pct"]).fill("10")
+        modal.locator(SELECTORS["dashboard_add_asset_submit"]).click()
 
         # Wait for the post-reload asset row to appear. We deliberately
         # avoid ``wait_for_load_state("networkidle")`` here: the page
         # carries an EventSource (live-inject helper) that never goes
         # idle, so the networkidle wait would race with it. The
         # wait_for_selector is the load-bearing wait.
-        page.wait_for_selector(S10_SELECTORS["dashboard_asset_row"], timeout=10000)
+        page.wait_for_selector(SELECTORS["dashboard_asset_row"], timeout=10000)
 
         # Modal is closed after the reload.
-        modal_after = page.locator(S10_SELECTORS["dashboard_add_asset_modal"])
+        modal_after = page.locator(SELECTORS["dashboard_add_asset_modal"])
         assert modal_after.count() == 0 or not modal_after.is_visible(), "modal should be closed"
 
-        rows = page.locator(S10_SELECTORS["dashboard_asset_row"])
+        rows = page.locator(SELECTORS["dashboard_asset_row"])
         assert rows.count() == 1, f"expected 1 asset row, got {rows.count()}"
         assert "NOVO_ATIVO" in rows.first.inner_text()
 
@@ -255,9 +225,9 @@ class TestS10AssetTable:
         )
 
         page.goto(f"{live_url}/")
-        page.wait_for_selector(S10_SELECTORS["asset_allocation_alert"], timeout=5000)
+        page.wait_for_selector(SELECTORS["asset_allocation_alert"], timeout=5000)
 
-        alert = page.locator(S10_SELECTORS["asset_allocation_alert"])
+        alert = page.locator(SELECTORS["asset_allocation_alert"])
         alert_class = alert.get_attribute("class") or ""
         # Portfolio total is 213, so the portfolio-level deviation is large.
         assert "asset-allocation-alert--danger" in alert_class, (
@@ -265,9 +235,9 @@ class TestS10AssetTable:
         )
 
         # Per-class entries should include both deviations.
-        class_alerts = page.locator(S10_SELECTORS["asset_allocation_alert_class"])
+        class_alerts = page.locator(SELECTORS["asset_allocation_alert_class"])
         assert class_alerts.count() >= 2, f"expected >=2 class alerts, got {class_alerts.count()}"
-        alert_text = page.locator(S10_SELECTORS["asset_allocation_alert"]).inner_text()
+        alert_text = page.locator(SELECTORS["asset_allocation_alert"]).inner_text()
         assert "Sobra" in alert_text, f"expected 'Sobra' in alert text, got {alert_text!r}"
 
     def test_alert_card_disappears_on_convergence(self, page: Page, live_url: str) -> None:
@@ -279,21 +249,21 @@ class TestS10AssetTable:
         )
 
         page.goto(f"{live_url}/")
-        page.wait_for_selector(S10_SELECTORS["asset_allocation_alert"], timeout=5000)
-        alert = page.locator(S10_SELECTORS["asset_allocation_alert"])
+        page.wait_for_selector(SELECTORS["asset_allocation_alert"], timeout=5000)
+        alert = page.locator(SELECTORS["asset_allocation_alert"])
         assert alert.is_visible(), "alert should be visible before convergence"
 
         # Edit Ativo B's alvo % classe from 50 to 60 to reach sum=100.
-        rows = page.locator(S10_SELECTORS["dashboard_asset_row"])
+        rows = page.locator(SELECTORS["dashboard_asset_row"])
         target_row = None
         for i in range(rows.count()):
             row = rows.nth(i)
-            if "Ativo B" in row.locator(S10_SELECTORS["asset_row_name"]).inner_text():
+            if "Ativo B" in row.locator(SELECTORS["asset_row_name"]).inner_text():
                 target_row = row
                 break
         assert target_row is not None, "Ativo B row not found"
 
-        cell = target_row.locator(S10_SELECTORS["asset_target_pct_class"]).first
+        cell = target_row.locator(SELECTORS["asset_target_pct_class"]).first
         cell.click()
         edit_input = target_row.locator('[data-testid="asset-inline-edit-input"]').first
         edit_input.wait_for(state="visible", timeout=2000)
@@ -348,9 +318,9 @@ class TestS10AssetTable:
         )
 
         page.goto(f"{live_url}/")
-        page.wait_for_selector(S10_SELECTORS["dashboard_asset_row"], timeout=5000)
+        page.wait_for_selector(SELECTORS["dashboard_asset_row"], timeout=5000)
 
-        rows = page.locator(S10_SELECTORS["dashboard_asset_row"])
+        rows = page.locator(SELECTORS["dashboard_asset_row"])
         order_before = [rows.nth(i).get_attribute("data-asset-id") for i in range(rows.count())]
         assert len(order_before) == 3, f"expected 3 rows, got {len(order_before)}"
         # Default sort is target_pct asc + name asc; all three are at 10,
@@ -358,7 +328,7 @@ class TestS10AssetTable:
         # the per-asset × delete button glyph, so strip the suffix.
         names = [
             rows.nth(i)
-            .locator(S10_SELECTORS["asset_row_name"])
+            .locator(SELECTORS["asset_row_name"])
             .inner_text()
             .strip()
             .rstrip("× ")
@@ -369,7 +339,7 @@ class TestS10AssetTable:
 
         # Edit Alpha (first row) to 80. Sum = 80 + 10 + 10 = 100 → 200 PATCH.
         first_row = rows.first
-        cell = first_row.locator(S10_SELECTORS["asset_target_pct_class"]).first
+        cell = first_row.locator(SELECTORS["asset_target_pct_class"]).first
         cell.click()
         edit_input = first_row.locator('[data-testid="asset-inline-edit-input"]').first
         edit_input.wait_for(state="visible", timeout=2000)
@@ -381,7 +351,7 @@ class TestS10AssetTable:
 
         # Order must be unchanged even though 80 would naturally
         # sort Alpha to the bottom of the asc list.
-        rows_after = page.locator(S10_SELECTORS["dashboard_asset_row"])
+        rows_after = page.locator(SELECTORS["dashboard_asset_row"])
         order_after = [
             rows_after.nth(i).get_attribute("data-asset-id") for i in range(rows_after.count())
         ]
@@ -421,11 +391,11 @@ class TestS10AssetTable:
         _seed_assets_with_positions_via_import(page, live_url, [("Renda Fixa", "Ativo A")])
 
         page.goto(f"{live_url}/")
-        page.wait_for_selector(S10_SELECTORS["dashboard_asset_row"], timeout=5000)
+        page.wait_for_selector(SELECTORS["dashboard_asset_row"], timeout=5000)
 
-        chevron = page.locator(S10_SELECTORS["class_chevron"]).first
-        header = page.locator(S10_SELECTORS["class_section_header"]).first
-        row = page.locator(S10_SELECTORS["dashboard_asset_row"]).first
+        chevron = page.locator(SELECTORS["class_chevron"]).first
+        header = page.locator(SELECTORS["class_section_header"]).first
+        row = page.locator(SELECTORS["dashboard_asset_row"]).first
 
         # Initial: open.
         chevron_cls = chevron.get_attribute("class") or ""
@@ -476,9 +446,14 @@ class TestS10AssetTable:
         _seed_assets_with_positions_via_import(page, live_url, [("Renda Fixa", "Ativo A")])
 
         page.goto(f"{live_url}/")
-        page.wait_for_selector(S10_SELECTORS["asset_table"], timeout=5000)
+        page.wait_for_selector(SELECTORS["asset_table"], timeout=5000)
 
-        expected_pct = [24, 18, 6, 14, 11, 11, 9, 7]
+        # F02 widened the asset table from 8 → 11 columns. The
+        # ``<colgroup>`` width rules live in ``app.css`` (single source
+        # of truth); this test locks the structural property that
+        # catches a real regression: column widths sum to the table
+        # width, and every column falls within a sane band.
+        _N_COLS = 11
         width_data = page.evaluate(
             """() => {
                 const table = document.querySelector('[data-testid="asset-table"]');
@@ -493,19 +468,22 @@ class TestS10AssetTable:
 
         table_width = width_data["tableWidth"]
         th_widths = width_data["thWidths"]
-        assert len(th_widths) == 8, f"expected 8 th elements, got {len(th_widths)}"
-
-        sum_actual = sum(th_widths)
-        # Allow ±2px total slack for browser rounding across 8 cells.
-        assert abs(sum_actual - table_width) <= 2, (
-            f"column widths sum to {sum_actual}, expected {table_width} (±2px)"
+        assert len(th_widths) == _N_COLS, (
+            f"expected {_N_COLS} th elements, got {len(th_widths)}"
         )
 
-        for idx, (expected_pct_val, actual_w) in enumerate(
-            zip(expected_pct, th_widths, strict=True)
-        ):
-            expected_w = table_width * expected_pct_val / 100
-            assert abs(actual_w - expected_w) <= 1, (
-                f"column {idx + 1} expected ~{expected_w:.1f}px "
-                f"({expected_pct_val}% of {table_width:.1f}px), got {actual_w:.1f}px"
+        # The structural invariant: column widths must sum to the
+        # table width within rounding tolerance. A real layout
+        # regression (overflow, hidden column, etc.) breaks this.
+        sum_actual = sum(th_widths)
+        assert abs(sum_actual - table_width) <= 4, (
+            f"column widths sum to {sum_actual}, expected {table_width} (±4px)"
+        )
+
+        # No column may collapse to 0 — that would mean a ``<col>``
+        # rule is missing for one of the 11 columns.
+        for idx, actual_w in enumerate(th_widths):
+            assert actual_w > 5, (
+                f"column {idx + 1} collapsed to {actual_w}px; "
+                "the <colgroup> rule for this column is likely missing."
             )

@@ -55,6 +55,7 @@ if TYPE_CHECKING:
 from omaha.csv_import import parse_positions
 
 from .test_import_user_journey import _login_and_select_italo
+from .selectors import SELECTORS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 FIXTURE_PATH = REPO_ROOT / "tests" / "fixtures" / "posicao_italo.csv"
@@ -116,24 +117,6 @@ CATEGORY_CLASS_MAP: dict[str, str | None] = {
 # direct-landing-with-header-profile-switcher: the ``profile_picker``
 # selector is gone — login lands on / directly; the header chip
 # (``profile_switcher``) drives cross-profile switching.
-SELECTORS = {
-    "login_user": 'input[name="username"]',
-    "login_pass": 'input[name="password"]',
-    "login_submit": 'button[type="submit"]',
-    "profile_switcher": '[data-testid="profile-switcher"]',
-    "class_summary_row": '[data-testid="class-summary-row"]',
-    "dashboard_asset_row": '[data-testid="dashboard-asset-row"]',
-    "dashboard_import_btn": '[data-testid="dashboard-import-btn"]',
-    "import_modal_overlay": '[data-testid="import-modal-overlay"]',
-    "import_file_input": '[data-testid="import-file-input"]',
-    "import_matched_summary": '[data-testid="import-matched-summary"]',
-    "import_unmatched_table": '[data-testid="import-unmatched-table"]',
-    "import_unmatched_row": '[data-testid="import-unmatched-row"]',
-    "import_commit_btn": '[data-testid="import-commit-btn"]',
-    "import_assignment_class": '[data-testid="import-assignment-class"]',
-    "profile_name": '[data-testid="profile-name"]',
-    "class_section_name": '[data-testid="class-section-name"]',
-}
 
 
 def _debug_dump(page: Page, tag: str) -> None:
