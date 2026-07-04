@@ -63,7 +63,7 @@ Progress:
 - Archived: pending
 
 ### F02 - Top-level layout: tab nav + Patrimônio + Rebalanceamento + stubs
-Status: `Ready`
+Status: `Spec Proposed`
 Goal: Substituir o layout atual (logo + side panel + conteúdo) por uma
 **top nav com 4 tabs** (Patrimônio | Rebalanceamento | Rentabilidade |
 Proventos) persistente em todas as páginas autenticadas, com profile
@@ -102,7 +102,7 @@ resolvem todos os pontos do grill. Tab nav reusa `--accent` (sem
 token novo). Spec `dashboard-sidebar` sai do active set via
 deprecate+archive.
 Progress:
-- Proposed: pending
+- Proposed: done
 - Applying: pending
 - Applied: pending
 - Archived: pending
