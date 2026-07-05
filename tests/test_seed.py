@@ -123,41 +123,108 @@ def test_seed_creates_user_and_profiles(seeded_db) -> None:
 
     SessionLocal = seeded_db["SessionLocal"]
     with SessionLocal() as session:
-        from omaha.models import Profile, User
+        from omaha.models import User
 
         users = session.query(User).all()
-        assert len(users) == 2
+        # 3 users: Italo + Ana + the password-less ``family`` owner
+        # of the F07 sentinel row (F07 — Família-as-profile).
+        assert len(users) == 3
         usernames = {u.username for u in users}
-        assert usernames == {"Italo", "Ana"}
+        assert usernames == {"Italo", "Ana", "family"}
         italo = next(u for u in users if u.username == "Italo")
         assert italo.password_hash  # bcrypt hash is non-empty
         assert italo.password_hash.startswith("$2"), "password_hash should be a bcrypt hash"
 
-        profiles = session.query(Profile).order_by(Profile.display_order).all()
-        assert [p.name for p in profiles] == ["Italo", "Ana"]
-        assert [p.display_order for p in profiles] == [0, 1]
-        # Each profile belongs to its namesake user — Italo's profile
-        # is owned by Italo, Ana's by Ana. Verify the (name, user)
-        # pairing is consistent.
+        # F07 — Ana and Italo each own exactly ONE profile (the
+        # F01 ``Italo RF2`` fixture profile is retired; the canonical
+        # post-F07 shape is 2 real profiles + 1 sentinel).
+        profiles_by_user = {
+            u.username: sorted(u.profiles, key=lambda p: p.display_order)
+            for u in users
+            if u.username != "family"
+        }
+        assert [p.name for p in profiles_by_user["Italo"]] == ["Italo"]
+        assert [p.display_order for p in profiles_by_user["Italo"]] == [0]
+        assert [p.name for p in profiles_by_user["Ana"]] == ["Ana"]
+        # Each profile belongs to its namesake user.
         italo_user = next(u for u in users if u.username == "Italo")
         ana_user = next(u for u in users if u.username == "Ana")
-        assert all(
-            p.user_id == (italo_user.id if p.name == "Italo" else ana_user.id) for p in profiles
-        ), "each profile must be owned by the user with the matching username"
+        for p in profiles_by_user["Italo"]:
+            assert p.user_id == italo_user.id, (
+                f"profile {p.name!r} must be owned by Italo, got user_id={p.user_id}"
+            )
+        for p in profiles_by_user["Ana"]:
+            assert p.user_id == ana_user.id, (
+                f"profile {p.name!r} must be owned by Ana, got user_id={p.user_id}"
+            )
+        # F07 — Família sentinel exists, owned by the no-password
+        # ``family`` user, with the canonical flag set.
+        family_user = next(u for u in users if u.username == "family")
+        assert family_user.password_hash == "", (
+            "the Família sentinel user must have an empty password_hash (cannot authenticate)"
+        )
+        sentinel_profiles = family_user.profiles
+        assert [p.name for p in sentinel_profiles] == ["Família"], (
+            f"family user must own exactly the Família sentinel, "
+            f"got {[p.name for p in sentinel_profiles]!r}"
+        )
+        assert sentinel_profiles[0].is_family_sentinel is True
+        assert sentinel_profiles[0].asset_classes == [], (
+            "Família sentinel must own zero AssetClass rows"
+        )
 
 
 def test_seed_is_idempotent(seeded_db) -> None:
     seeded_db["seed"]()
     # Second call should detect the existing users and skip inserts.
     prior = seeded_db["seed"]()
-    assert prior == 2, "second seed call should report 2 prior users"
+    assert prior == 3, "second seed call should report 3 prior users"
 
     SessionLocal = seeded_db["SessionLocal"]
     with SessionLocal() as session:
         from omaha.models import Profile, User
 
-        assert session.query(User).count() == 2
-        assert session.query(Profile).count() == 2
+        assert session.query(User).count() == 3
+        # 2 canonical real profiles (Italo + Ana) + 1 Família
+        # sentinel = 3 profiles (F07). No ``Italo RF2`` fixture.
+        assert session.query(Profile).count() == 3
+        names = sorted(p.name for p in session.query(Profile).all())
+        assert names == ["Ana", "Família", "Italo"], names
+
+
+def test_seed_creates_familia_sentinel(seeded_db) -> None:
+    """F07 — the Família sentinel Profile row is created on the
+    first seed pass (and any pre-existing ``Italo RF2`` fixture
+    row is removed so the canonical ``db-reset`` state is
+    exactly 2 real profiles + 1 sentinel). The sentinel is owned
+    by the password-less ``family`` user.
+    """
+    from omaha.db import SessionLocal
+    from omaha.models import User
+
+    prior = seeded_db["seed"]()
+    assert prior == 0, "fresh DB should have no users before seed"
+
+    db = SessionLocal()
+    try:
+        italo = db.query(User).filter(User.username == "Italo").one()
+        assert [p.name for p in italo.profiles] == ["Italo"], (
+            "Italo must own exactly one profile (the F01 fixture is retired)"
+        )
+        ana = db.query(User).filter(User.username == "Ana").one()
+        assert [p.name for p in ana.profiles] == ["Ana"], "Ana must own exactly one profile"
+        family = db.query(User).filter(User.username == "family").one()
+        assert family.password_hash == "", (
+            "the Família sentinel user must have an empty password_hash"
+        )
+        assert [p.name for p in family.profiles] == ["Família"], (
+            "family user must own exactly the Família sentinel profile"
+        )
+        sentinel = family.profiles[0]
+        assert sentinel.is_family_sentinel is True
+        assert sentinel.asset_classes == [], "Família sentinel must own zero AssetClass rows"
+    finally:
+        db.close()
 
 
 def test_alembic_upgrade_creates_tables(tmp_path: Path) -> None:
@@ -195,6 +262,8 @@ def test_alembic_upgrade_creates_tables(tmp_path: Path) -> None:
     # profiles columns
     profile_cols = {c["name"] for c in inspector.get_columns("profiles")}
     assert {"id", "user_id", "name", "display_order", "created_at"}.issubset(profile_cols)
+    # F07 — Família-as-profile sentinel column (migration 0017).
+    assert "is_family_sentinel" in profile_cols, profile_cols
 
     # unique constraint on (user_id, name)
     unique_constraints = inspector.get_unique_constraints("profiles")

@@ -457,8 +457,9 @@ verify row counts → visual dashboard check → report LAN URL + DB state)
 e usa as tarefas taskipy (`db-migrate` / `db-reset` / `db-clear-assets` /
 `db-seed`) pela tabela abaixo.
 
-**Regra:** a receita roda inteira após cada mudança browser-visível. Um
-patch de follow-up que "só arruma CSS" ainda precisa de:
+**Regra não-negociável:** a receita roda inteira após cada mudança
+browser-visível. Um patch de follow-up que "só arruma CSS" ainda precisa
+de:
 
 1. `task db-reset` (DB pode ter sido wipado durante teste empty-state — e
    geralmente foi).
@@ -474,16 +475,78 @@ dashboard vazio (porque o DB foi wipado durante o próprio teste do
 agente), e conclui que a feature está quebrada. Se a receita parece
 redundante, rode-a mesmo assim.
 
+**Compromisso (regra do usuário, 2026-07-04):** *toda* delivery browser-
+visível roda `task db-reset` **sempre** — sem exceção. O DB entregue
+deve mostrar os 2 perfis populados (Italo + Ana + F01 fixture), não
+um estado genérico / wipado. O agente que pular o reset está
+assinando uma delivery quebrada e o usuário vai abrir a URL e assumir
+que a feature está quebrada.
+
 **Rule of thumb:** default para delivery = **populado** (`db-reset` →
-Italo: 6 classes + 48 ativos + 47 posições) a menos que o usuário tenha
+Italo: 6 classes + 48 ativos + 47 posições + Italo RF2: 6/48/47;
+Ana: 6 classes + 52 ativos + 52 posições) a menos que o usuário tenha
 pedido explicitamente uma superfície sem ativos.
 
-| Tipo de mudança                             | Tarefa                           |
-|---------------------------------------------|----------------------------------|
-| Migração / model edit                       | `task db-migrate`                |
-| Default — populado, pronto para teste       | `task db-reset`                  |
-| Usuário pediu explicitamente import do zero | `task db-clear-assets`           |
-| Só mudou camada de seed / config            | `task db-seed`                   |
+#### Recibo de verificação obrigatório
+
+A mensagem final de **toda** delivery browser-visível deve conter o bloco
+de recibo abaixo, na ordem. Sem recibo = delivery não conta como done.
+
+```
+## Recibo — delivery F01 (f01-household-cross-profile-consolidation)
+URL:     http://192.168.1.6:8000        ← `bash scripts/print_lan_url.sh`
+Healthz: ok                            ← curl $URL/healthz
+DB:      18 classes / 148 ativos / 146 posições
+         Italo 6/48/47 + Italo RF2 6/48/47 + Ana 6/52/52
+         ← sqlite count(*)
+Dashboard seeded: "RF Dinâmica" x 12   ← curl -b cookie $URL/ | grep -c "RF Din"
+Server PID: 853621                    ← pgrep -af uvicorn omaha.main
+```
+
+A receita roda mesmo quando a mudança parece não tocar runtime (ex: copy
+PT-BR, ajuste de CSS, renomeação de classe). O teste do agente pode ter
+deixado o DB em estado parcial — sem `db-reset` o usuário abre um
+dashboard vazio e assume que a feature quebrou. **Skip da receita =
+skip de confiança do usuário.**
+
+#### Anti-skip — não existe delivery "trivial"
+
+Nenhuma delivery browser-visível é trivial o bastante para pular a
+receita. A regra se aplica a:
+
+- Patches de follow-up depois de um apply maior
+- Layout/CSS fixes que "só mudam visual"
+- Renomeação de classe / copy PT-BR / icon swap
+- Mudança de teste que não toca runtime (ainda assim o DB pode ter sido
+  wipado durante o teste)
+- Edits no roadmap / OpenSpec que resultam em código novo visível
+
+A única categoria que **pode** pular a receita é mudança puramente
+doc-only ou puramente OpenSpec (sem merge de código de runtime). Mesmo
+nesses casos, o agente deve declarar explicitamente o skip no report.
+
+#### Anti-recorrência — checksum no fim do report
+
+Toda mensagem final de delivery carrega o bloco de recibo
+(URL / Healthz / DB row counts / Dashboard seeded / Server PID)
+exatamente como no template acima. Sem o bloco = entrega não conta
+como done. A presença repetida do bloco nas deliveries passadas é
+o mecanismo anti-recorrência: se o usuário abrir a próxima delivery
+e o bloco faltar, a chain está quebrada — sinaliza que
+``openspec-apply-change`` rodou ``refresh-for-test`` em sequência ou
+não, sem precisar de estado persistente.
+
+O checksum que confirma o reset rodou:
+
+```
+sqlite> select count(*) from asset_classes;   -- esperado: ≥ 18 (3 perfis × 6 classes)
+sqlite> select count(*) from assets;           -- esperado: ≥ 100
+sqlite> select count(*) from positions;        -- esperado: ≥ 99
+```
+
+Se qualquer coluna estiver abaixo do esperado, o reset não rodou
+(ou rodou só para um perfil). O agente deve re-rodar
+``task db-reset`` antes de declarar done.
 
 ### 4.10 Register de produto — domestic, sem ornamento
 
@@ -550,9 +613,23 @@ Sem compromisso. Cada item é semente para uma fatia em
 `openspec/roadmap.md` quando for escolhida. Prefixo (`F`/`R`/`T`/`D`/`I`)
 indica o kind sugerido:
 
-- **F — consolidação cross-profile.** Vista household agregada (soma dos
-  dois perfis) sem quebrar isolamento per-profile. Spec base já vive em
-  `cross-profile-sharing`.
+- **F — consolidação cross-profile (agregado familiar).** F01
+  entregou a infraestrutura do modo household (read-only gate +
+  `?view=household` querystring + wire `{"reason":
+  "household_read_only"}`); F01 foi arquivado em
+  `2026-07-04-f01-household-cross-profile-consolidation/`. F01
+  ficou obsoleto porque agregava só perfis do viewer (intra-User)
+  e o seed canônico cria Italo e Ana como `User` rows separadas,
+  então o toggle nunca representava "a família". F06
+  (`f06-family-household-full-join-aggregate`) substitui a
+  semântica: `?view=household` agora é agregado cross-User
+  (família inteira) com full-join por nome de classe/ativo,
+  `target_pct` suprimido (alocação-alvo cross-User é ambígua),
+  toggle renomeado `Casa` → `Família` (visibilidade =
+  `len(all_profiles) >= 2`), e o read-only gate de F01 é
+  reusado sem retrabalho. Spec deltas consolidados em
+  `openspec/specs/cross-profile-sharing/spec.md` (F01: 3 ADDED;
+  F06: 2 MODIFIED + 1 REMOVED + 1 ADDED).
 - **F — páginas do sistema (top-level nav).** Implementado em F02. Quatro
   tabs top-level persistentes em `base.html`: **Patrimônio** (canônica
   em `/patrimonio`, espelha o root URL `/` para compat), **Rebalanceamento**
@@ -563,6 +640,24 @@ indica o kind sugerido:
   As URLs `/dashboard` e `/rebalance` legadas respondem 404 (sem alias).
   F03 / F04 substituem os stubs pelo conteúdo real de Rentabilidade e
   Proventos sem mexer na top nav.
+- **F — Família como opção no profile-switcher (peer de Italo/Ana).**
+  Em application via F07
+  (`f07-familia-as-profile-option`, candidato
+  `openspec/changes/f07-familia-as-profile-option/`). Substitui o
+  toggle `?view=household` (F06) por uma opção `Família (agregado)`
+  dentro do `profile-switcher` `<select>` — peer dos perfis reais
+  Italo + Ana. A Família vira um `Profile` row sentinel com
+  `is_family_sentinel=True`, owned por um User `family` sem senha
+  (não autentica; só aparece como opção no chip). O fixture `Italo
+  RF2` (perfil #3 órfão do seed F01) sai — F07 produz o estado
+  canônico `db-reset` de exatamente 2 perfis reais + 1 sentinel.
+  Migration Alembic `0017_is_family_sentinel` adiciona a coluna com
+  `DEFAULT 0` (compat com rows legadas). A querystring
+  `?view=household` continua funcionando como deep-link; o chip é
+  a porta de entrada de primeira classe. Read-only gate
+  (`{"reason": "household_read_only"}` 409) reusado de F01 sem
+  retrabalho. Spec deltas em
+  `openspec/specs/cross-profile-sharing/spec.md`.
 - **F — alterar paleta para dark mode.** Substitui o register off-white
   descrito em §4.10 e em `DESIGN.md`. Tokens invertidos (background
   escuro, foreground claro), mesma personalidade domestic. Implica

@@ -102,6 +102,15 @@ SELECTORS: dict[str, str] = {
     "empty_state": '[data-testid="empty-state-onboarding"]',
     "empty_state_create_class_btn": '[data-testid="empty-state-create-class"]',
     "empty_state_create_class": '[data-testid="empty-state-create-class"]',
+    # ── F07 Família-as-profile option (peer of real profiles) ─────
+    # The Família sentinel renders as a ``<option>`` inside the
+    # ``profile-switcher`` ``<select>``; the legacy F01/F06 header
+    # toggle is gone (``family-toggle*`` and ``household-toggle*``
+    # testids are no longer emitted by any template). New code MUST
+    # target ``profile_option_family`` (or
+    # ``profile-switcher-optgroup`` for the visual separator).
+    "profile_option_family": '[data-testid="profile-option-family"]',
+    "profile_switcher_optgroup": '[data-testid="profile-switcher-optgroup"]',
     # ── Import modal ───────────────────────────────────────────────
     "dashboard_import_btn": '[data-testid="dashboard-import-btn"]',
     "import_modal_overlay": '[data-testid="import-modal-overlay"]',

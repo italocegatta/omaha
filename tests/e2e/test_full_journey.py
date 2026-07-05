@@ -54,8 +54,8 @@ if TYPE_CHECKING:
 
 from omaha.csv_import import parse_positions
 
-from .test_import_user_journey import _login_and_select_italo
 from .selectors import SELECTORS
+from .test_import_user_journey import _login_and_select_italo
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 FIXTURE_PATH = REPO_ROOT / "tests" / "fixtures" / "posicao_italo.csv"

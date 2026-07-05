@@ -33,7 +33,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from omaha.auth import DbSession, require_active_profile, require_user
+from omaha.auth import DbSession, require_active_profile, require_profile_writable, require_user
 from omaha.models import Profile, User
 from omaha.rebalance.glue import run_rebalance
 from omaha.rebalance.models import RebalanceValidationError
@@ -50,6 +50,7 @@ def post_rebalance(
     db: DbSession,
     user: User = Depends(require_user),
     profile: Profile = Depends(require_active_profile),
+    _writable: None = Depends(require_profile_writable),
 ) -> RebalancePlanResponse:
     """Compute and return the rebalance plan for the active profile.
 

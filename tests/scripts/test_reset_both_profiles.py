@@ -23,11 +23,14 @@ from scripts.reset_both_profiles import main
 def test_main_invokes_run_reset_for_both_profiles_in_order(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """The wrapper calls ``run_reset`` twice: ``("italo", ...)`` then ``("ana", ...)``.
+    """The wrapper calls ``run_reset`` for every profile in
+    ``PROFILES`` — the canonical pair (``italo`` + ``ana``) plus
+    the F01 fixture (``italo_rf2``).
 
     We don't care about the rest of the call signature (the wrapper
     reads the CSVs and passes them in); only the order + the profile
-    names matter.
+    names matter. The order matches ``PROFILES`` so the per-profile
+    reset is deterministic across runs.
     """
     call_log: list[tuple[str, str, str, str]] = []
 
@@ -56,10 +59,14 @@ def test_main_invokes_run_reset_for_both_profiles_in_order(
         rc = main()
 
     assert rc == 0
-    assert [name for name, *_ in call_log] == ["italo", "ana"]
+    from scripts.seed_from_csv import PROFILES
+
+    assert [name for name, *_ in call_log] == list(PROFILES)
     captured = capsys.readouterr()
-    assert "profile=italo mode=reset classes=6 assets=10 positions=5" in captured.out
-    assert "profile=ana mode=reset classes=6 assets=10 positions=5" in captured.out
+    for profile in PROFILES:
+        assert f"profile={profile} mode=reset classes=6 assets=10 positions=5" in captured.out, (
+            f"missing log line for {profile!r} in {captured.out!r}"
+        )
 
 
 def test_main_prints_per_profile_counts(capsys: pytest.CaptureFixture[str]) -> None:
@@ -83,10 +90,10 @@ def test_main_prints_per_profile_counts(capsys: pytest.CaptureFixture[str]) -> N
         main()
 
     captured = capsys.readouterr()
-    for profile, expected in (
-        ("italo", "classes=7 assets=13 positions=11"),
-        ("ana", "classes=7 assets=13 positions=11"),
-    ):
+    from scripts.seed_from_csv import PROFILES
+
+    for profile in PROFILES:
+        expected = "classes=7 assets=13 positions=11"
         line = next(r for r in captured.out.splitlines() if r.startswith(f"profile={profile}"))
         assert expected in line, f"missing fields in {line!r}"
 
@@ -99,8 +106,15 @@ def test_main_exits_non_zero_when_one_profile_fails(capsys: pytest.CaptureFixtur
     catches ``SystemExit`` per-profile and continues.
     """
 
+    from scripts.seed_from_csv import PROFILES
+
+    fail_profile = PROFILES[0]
+    # Preserve order so we know which profile(s) ran after the failure.
+    failures: list[str] = []
+
     def fake_run_reset(db, profile, classes, assets, positions):
-        if profile == "italo":
+        if profile == fail_profile:
+            failures.append(profile)
             # seed_from_csv.abort() does sys.exit(1) on validation
             # failures; emulate by raising SystemExit.
             raise SystemExit(1)
@@ -117,15 +131,20 @@ def test_main_exits_non_zero_when_one_profile_fails(capsys: pytest.CaptureFixtur
 
     assert rc == 1, f"expected 1 failure, got rc={rc}"
     captured = capsys.readouterr()
-    assert "profile=italo FAILED" in captured.err
-    # The other profile still ran.
-    assert "profile=ana mode=reset" in captured.out
+    assert f"profile={fail_profile} FAILED" in captured.err
+    # The other profiles still ran.
+    for other in PROFILES[1:]:
+        assert f"profile={other} mode=reset" in captured.out
 
 
-def test_main_exits_with_failure_count_when_both_profiles_fail(
+def test_main_exits_with_failure_count_when_all_profiles_fail(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Two profile failures → exit code 2. The exit code equals the failure count."""
+    """All-profile failures → exit code equals ``len(PROFILES)``.
+
+    Tracks the number of seeded profiles so adding the F01 fixture
+    (``italo_rf2``) does not silently lower the bar.
+    """
 
     def fake_run_reset(db, profile, classes, assets, positions):
         raise SystemExit(1)
@@ -139,4 +158,6 @@ def test_main_exits_with_failure_count_when_both_profiles_fail(
     ):
         rc = main()
 
-    assert rc == 2
+    from scripts.seed_from_csv import PROFILES
+
+    assert rc == len(PROFILES), f"expected {len(PROFILES)} failures, got rc={rc}"

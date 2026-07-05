@@ -94,31 +94,56 @@
     {% endif %}
 
     <div class="app-header-right">
-      {% if viewer is defined and viewer and owner is defined and owner %}
+      {% if viewer is defined and viewer and profiles is defined and profiles %}
         {# Profile chip — native <select> with server-rendered options.
-           The currently-active profile (owner) is marked via the
-           `selected` attribute (the browser renders the active row
-           with its own selection state, no extra glyph needed).
-           On change, the form's action is rewritten client-side and
-           the form submits to /profiles/{id}/select.
+           The currently-active profile (owner, when present) is
+           marked via the `selected` attribute; when the Família
+           sentinel is bound, the Família option is marked selected
+           instead and the `owner` variable is ``None`` so the chip
+           has no per-profile "selected" match. On change, the form's
+           action is rewritten client-side and the form submits to
+           ``/profiles/{id}/select`` — the sentinel id lands on the
+           same route; the handler detects the sentinel flag and
+           flips the ``view_mode`` session flag accordingly (D-F07.1).
 
-           The viewer-vs-owner distinction used to surface here as
-           a muted "Ana" label, but it acted like a stale breadcrumb
+           F07 — Família is a peer option rendered as the LAST
+           <option> in the list (visual order: real profiles first,
+           then Família). The visual separator between real profiles
+           and Família is the ``.profile-switcher__optgroup``
+           ``<optgroup>`` wrapping only the sentinel option; CSS
+           styles the group label with a thin top border so the
+           peer-vs-profile distinction reads at a glance. The
+           viewer-vs-owner distinction used to surface here as a
+           muted "Ana" label, but it acted like a stale breadcrumb
            — the operator's own session is the only thing that
            matters; whoever logged in is implicit from the chip
-           option they picked. The label was removed. #}
+           option they picked. The label was removed.
+
+           The Família sentinel is hidden when the database contains
+           zero real ``Profile`` rows (the chip itself is hidden —
+           nothing to switch between). The sentinel always renders
+           when ≥1 real profile exists, regardless of count: the
+           aggregate is the family, not a peer-of-many conditional. #}
         <form class="profile-switcher"
               method="post"
               data-testid="profile-switcher-form"
               id="profile-switcher-form"
-              action="/profiles/{{ owner.id }}/select">
+              action="/profiles/{{ owner.id if owner is defined and owner else (real_profiles[0].id if real_profiles else '') }}/select">
           <select name="profile_id"
                   data-testid="profile-switcher"
                   aria-label="Selecionar perfil"
                   onchange="this.form.action='/profiles/'+this.value+'/select'; this.form.submit()">
-            {% for p in profiles %}
-              <option value="{{ p.id }}"{% if p.id == owner.id %} selected{% endif %}>{{ p.name }}</option>
+            {% for p in real_profiles %}
+              <option value="{{ p.id }}"{% if owner is defined and owner and p.id == owner.id %} selected{% endif %}>{{ p.name }}</option>
             {% endfor %}
+            {% if familia_sentinel is defined and familia_sentinel %}
+              <optgroup label="—" class="profile-switcher__optgroup" data-testid="profile-switcher-optgroup">
+                <option value="{{ familia_sentinel.id }}"
+                        {% if owner is defined and owner and owner.id == familia_sentinel.id %}selected{% endif %}
+                        {% if view is defined and view == 'family' %}selected{% endif %}
+                        data-testid="profile-option-family">Família</option>
+              </optgroup>
+            {% endif %}
           </select>
         </form>
       {% endif %}

@@ -22,8 +22,26 @@
    same — the only testid changes are on the portfolio-header (now
    ``patrimonio-portfolio-header`` per F02 D3) and the action button
    row (same testids as the legacy sidebar triggers — kept stable so
-   BDD/e2e selectors don't churn). #}
-<div class="patrimonio-page">
+   BDD/e2e selectors don't churn).
+
+   F01 (household view) branches on ``view`` to hide the action
+   triggers and the inline-edit affordances when the operator is
+   looking at the household aggregate. ``read_only`` is the
+   shortcut flag — the same condition, exposed as a CSS-friendly
+   data-attribute so a single ``.is-read-only`` rule can mute the
+   action area instead of needing per-element conditionals. #}
+{% set view = view|default('profile') %}
+{% set read_only = read_only|default(false) %}
+<div class="patrimonio-page" data-view="{{ view }}" {% if read_only %}data-read-only="true"{% endif %}>
+
+  {# F01 household-mode note. The text is intentionally small and
+     lives at the very top of the body so the operator sees it
+     before any aggregate number — register domestic per PRD §4.10. #}
+  {% if read_only %}
+  <p class="patrimonio-read-only-note" data-testid="patrimonio-read-only-note">
+    Visão agregada — somente leitura.
+  </p>
+  {% endif %}
 
   {# patrimonio-page — action trigger row at the top of the body
      (F02, D2 + D3). The legacy sidebar's ``Importar CSV`` /
@@ -33,7 +51,11 @@
      ``empty-state-create-class``) so the BDD steps and e2e selectors
      that targeted the sidebar survive the layout swap. Each button
      opens the corresponding modal via the global Alpine store that
-     the modal markup (lower in the file) declares. #}
+     the modal markup (lower in the file) declares.
+
+     F01: hidden when ``view == 'household'`` so the operator can't
+     trigger a mutation that the API would reject with 409 anyway. #}
+  {% if view == 'profile' %}
   <section class="patrimonio-actions" data-testid="patrimonio-actions" x-data>
     <button type="button"
             class="btn patrimonio-action-btn"
@@ -54,6 +76,7 @@ Novo ativo
       Nova Classe
     </button>
   </section>
+  {% endif %}
 
   {% if asset_classes %}
   <section class="class-summary" data-testid="class-summary">
@@ -86,6 +109,12 @@ Novo ativo
     {% endif %}
 
     <section class="dashboard-distribution" data-testid="dashboard-distribution">
+      {# F06 follow-up: the "Carteira: 0.00% / Falta 100%" alert is
+         only meaningful when ``target_pct`` totals are well-defined
+         (per-profile view). In family mode the cross-User aggregate
+         has no well-defined portfolio ``target_pct`` (D-F06.3), so
+         the alert is suppressed entirely. #}
+      {% if view == 'profile' %}
       {# asset-table-view 9.x — sticky alert card with portfolio + per-class deviations.
          Wrapped in an empty x-data so the x-if is evaluated inside an Alpine
          component and re-renders when $store.classSum updates after init. #}
@@ -111,9 +140,10 @@ Novo ativo
           </div>
         </template>
       </div>
+      {% endif %}
 
       {% for c in class_aggregates %}
-      {% set class_data = {"id": c.id, "name": c.name, "target_pct": (c.target_pct | float), "color": c.color, "current_pct": (c.current_pct | float), "current_value": (c.current_value | float), "assets": []} %}
+      {% set class_data = {"id": c.id, "name": c.name, "target_pct": (c.target_pct | float), "color": c.color, "current_pct": (c.current_pct | float), "current_value": (c.current_value | float), "read_only": read_only, "assets": []} %}
       {% for a in c.assets %}
       {% set _ = class_data.assets.append({"id": a.id, "name": a.name, "target_pct": (a.target_pct_class | float), "current_pct_class": (a.current_pct_class | float), "current_pct_total": (a.current_pct_total | float), "target_pct_total": (a.target_pct_total | float), "position_count": a.position_count, "current_value": (a.current_value | float), "buy_enabled": a.buy_enabled, "sell_enabled": a.sell_enabled, "currency_code": a.currency_code}) %}
       {% endfor %}
@@ -123,12 +153,19 @@ Novo ativo
             <span class="class-chevron" data-testid="class-chevron" :class="{'class-chevron--open': isOpen}">▸</span>
             <span class="class-color-swatch" data-testid="class-color-swatch" style="background:{{ c.color }}"></span>
             <span class="class-section-name" data-testid="class-section-name">{{ c.name }}</span>
+            {# F01 household mode: hide the per-class × delete affordance.
+               The button is server-rendered (not Alpine-driven), so a
+               Jinja conditional is sufficient. The deletion API path is
+               also gated by ``require_profile_writable`` as a second
+               line of defence. #}
+            {% if view == 'profile' %}
             <button type="button"
                     class="class-section-delete-btn"
                     data-testid="class-delete-btn"
                     @click.stop="showDeleteConfirm = true"
                     x-show="!showDeleteConfirm && !deleting"
                     title="Remover classe">×</button>
+            {% endif %}
           </div>
 
           <span class="hdr-valor"
@@ -140,6 +177,10 @@ Novo ativo
           </span>
 
           <span class="hdr-alvo">
+            {# F01: the inline edit affordance on the class Alvo pill is
+               hidden in household mode (the household aggregate is
+               read-only). Same Jinja-level gate as the × button. #}
+            {% if view == 'profile' %}
             <span class="pct-target-pill" data-testid="class-target-pct-view" x-show="!editingClassPct" @click.stop="startEditClassPct()" title="Clique para editar">Alvo <span x-text="classTargetPct"></span>%</span>
             <span class="pct-target-pill" data-testid="class-target-pct-edit" x-show="editingClassPct" x-cloak>
               Alvo
@@ -162,6 +203,12 @@ Novo ativo
                     x-text="editClassPctError"
                     x-cloak></span>
             </span>
+            {% endif %}
+            {# F06 family mode: the column is omitted entirely (no
+               Alvo pill, no placeholder). The aggregated class
+               carries no well-defined target_pct — profiles may
+               diverge, so the F01 "read-only Alvo" fallback is
+               replaced by a hard suppression in D-F06.3. #}
           </span>
 
           <span class="hdr-atual">
@@ -243,24 +290,35 @@ Novo ativo
               <tr data-testid="dashboard-asset-row" :data-asset-id="a.id" :data-position-count="a.position_count">
                 <td data-testid="asset-row-name">
                   <span data-testid="asset-row-name-text" x-text="a.name"></span>
+                  {# F01: per-asset × delete button is hidden in
+                     household mode (the row still renders the name
+                     so the asset list remains visible). #}
                   <button type="button"
                           class="dashboard-asset-delete-btn"
                           data-testid="dashboard-asset-delete-btn"
                           @click="askDeleteAsset(a.id, a.name)"
-                          x-show="showDeleteAssetId !== a.id && !deletingAssetId"
+                          x-show="showDeleteAssetId !== a.id && !deletingAssetId && !readOnly"
                           title="Remover ativo">×</button>
                 </td>
                 <td data-testid="asset-row-class" x-text="className"></td>
                 <td data-testid="asset-position-count" x-text="a.position_count"></td>
                 <td data-testid="asset-current-value" x-text="formatBRL(a.current_value)"></td>
                 <td data-testid="asset-target-pct-class">
+                  {# F01: gate the editable cell behind ``!readOnly`` —
+                     the static span renders in both modes so the
+                     column keeps its width, but in household mode
+                     the clickable affordance is hidden. #}
                   <button type="button"
                           class="asset-pct-cell asset-pct-cell--editable"
                           @click="startEdit(a.id)"
-                          x-show="editingAssetId !== a.id"
+                          x-show="editingAssetId !== a.id && !readOnly"
                           title="Clique para editar">
                     <span x-text="formatPct(a.target_pct)"></span>
                   </button>
+                  <span class="asset-pct-cell"
+                        data-testid="asset-target-pct-class-static"
+                        x-show="editingAssetId !== a.id && readOnly"
+                        x-cloak><span x-text="formatPct(a.target_pct)"></span></span>
                   <div class="asset-pct-cell asset-pct-cell--editing"
                        data-testid="asset-target-pct-class-editing"
                        x-show="editingAssetId === a.id"
@@ -287,13 +345,18 @@ Novo ativo
                   <span x-text="formatPct(a.current_pct_class)"></span>
                 </td>
                 <td data-testid="asset-target-pct-total">
+                  {# F01: same pattern as the per-class pct cell above. #}
                   <button type="button"
                           class="asset-pct-cell asset-pct-cell--editable"
                           @click="startEditTotal(a.id)"
-                          x-show="editingTotalAssetId !== a.id"
+                          x-show="editingTotalAssetId !== a.id && !readOnly"
                           title="Clique para editar">
                     <span x-text="formatPct(a.target_pct_total)"></span>
                   </button>
+                  <span class="asset-pct-cell"
+                        data-testid="asset-target-pct-total-static"
+                        x-show="editingTotalAssetId !== a.id && readOnly"
+                        x-cloak><span x-text="formatPct(a.target_pct_total)"></span></span>
                   <div class="asset-pct-cell asset-pct-cell--editing"
                        data-testid="asset-target-pct-total-editing"
                        x-show="editingTotalAssetId === a.id"
@@ -333,13 +396,16 @@ Novo ativo
                      ``currencyBadge`` is a read-only visual; currency
                      changes go through the import modal flow. #}
                 <td data-testid="asset-buy-cell">
+                  {# F01: trade toggles are visually inert in household
+                     mode — the button still renders (so the column
+                     keeps its width) but is disabled. #}
                   <button type="button"
                           class="trade-toggle trade-toggle--buy"
                           :class="a.buy_enabled ? 'trade-toggle--on' : 'trade-toggle--off'"
                           data-testid="asset-buy-toggle"
                           :data-asset-id="a.id"
                           :data-buy-enabled="a.buy_enabled ? 'true' : 'false'"
-                          :disabled="savingTrade !== null && savingTrade.assetId === a.id && savingTrade.field === 'buy_enabled'"
+                          :disabled="readOnly || (savingTrade !== null && savingTrade.assetId === a.id && savingTrade.field === 'buy_enabled')"
                           @click="toggleTradeFlag(a.id, 'buy_enabled', !a.buy_enabled)"
                           title="Permitir compra pelo solver">
                     <span x-text="a.buy_enabled ? 'Liberado' : 'Bloqueado'"></span>
@@ -352,7 +418,7 @@ Novo ativo
                           data-testid="asset-sell-toggle"
                           :data-asset-id="a.id"
                           :data-sell-enabled="a.sell_enabled ? 'true' : 'false'"
-                          :disabled="savingTrade !== null && savingTrade.assetId === a.id && savingTrade.field === 'sell_enabled'"
+                          :disabled="readOnly || (savingTrade !== null && savingTrade.assetId === a.id && savingTrade.field === 'sell_enabled')"
                           @click="toggleTradeFlag(a.id, 'sell_enabled', !a.sell_enabled)"
                           title="Permitir venda pelo solver">
                     <span x-text="a.sell_enabled ? 'Liberado' : 'Bloqueado'"></span>
@@ -956,6 +1022,14 @@ Novo ativo
       classColor: initial.color,
       classCurrentPct: initial.current_pct,
       classCurrentValue: initial.current_value,
+
+      // F01: read-only mode flag for the household aggregate view.
+      // When true, every mutation affordance (delete buttons, inline
+      // pct edits, trade toggles) is gated so a click does nothing —
+      // the API would also reject the request with 409, but the UI
+      // never gets there because the buttons don't fire. The flag
+      // is set once from the server-rendered class_data blob.
+      readOnly: initial.read_only === true,
 
       // Register with the class allocation sum store on init so the
       // Distribution header shows the live total across all classes.

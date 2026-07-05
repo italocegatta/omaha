@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
+from .selectors import SELECTORS
 from .test_import_user_journey import (
     ACOES_NAMES,
     MATCHED_NAMES,
@@ -31,7 +32,6 @@ from .test_import_user_journey import (
     UNMATCHED_NAMES,
     _login_and_select_italo,
 )
-from .selectors import SELECTORS
 
 FIXTURE_PATH = REPO_ROOT / "tests" / "fixtures" / "sample_broker.csv"
 

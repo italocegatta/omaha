@@ -142,6 +142,13 @@ decomposed first via this layer.
   `openspec_roadmap.quality_gate`) after each lifecycle gate and resolve
   issues before the next gate.
 - Update the roadmap after every `propose`, `apply`, and `archive`.
+- **After every `apply` that touches runtime code (routes, templates,
+  models, seed, migrations, static assets), the agent MUST invoke the
+  `refresh-for-test` skill and emit the mandatory delivery receipt
+  (PRD §4.9) before reporting done. Skipping the receipt is a
+  delivery failure — the user opens the URL and sees a stale or empty
+  DB and concludes the feature is broken. No exceptions for "trivial"
+  follow-up patches.
 - Token/context limits come from `openspec_roadmap` in
   `openspec/config.yaml`. Do not load the full PRD unless the slice is
   ambiguous.

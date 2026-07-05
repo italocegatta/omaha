@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 
 from tests.e2e.conftest import _seed_assets_with_positions_via_import
 
-from .test_import_user_journey import _create_three_classes, _login_and_select_italo
 from .selectors import SELECTORS
+from .test_import_user_journey import _create_three_classes, _login_and_select_italo
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 TEST_DB_PATH = REPO_ROOT / "data" / "test_e2e.db"
@@ -468,9 +468,7 @@ class TestS10AssetTable:
 
         table_width = width_data["tableWidth"]
         th_widths = width_data["thWidths"]
-        assert len(th_widths) == _N_COLS, (
-            f"expected {_N_COLS} th elements, got {len(th_widths)}"
-        )
+        assert len(th_widths) == _N_COLS, f"expected {_N_COLS} th elements, got {len(th_widths)}"
 
         # The structural invariant: column widths must sum to the
         # table width within rounding tolerance. A real layout

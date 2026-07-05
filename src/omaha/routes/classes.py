@@ -57,7 +57,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
-from omaha.auth import DbSession, require_active_profile, require_user
+from omaha.auth import DbSession, require_active_profile, require_profile_writable, require_user
 from omaha.models import AssetClass, Profile, User
 
 router = APIRouter(tags=["classes"])
@@ -168,6 +168,7 @@ def post_classes(
     db: DbSession,
     user: User = Depends(require_user),
     profile: Profile = Depends(require_active_profile),
+    _writable: None = Depends(require_profile_writable),
     name: Annotated[list[str], Form(alias="name[]")] = [],  # noqa: B006
     target_pct: Annotated[list[str], Form(alias="target_pct[]")] = [],  # noqa: B006
 ) -> Response:
@@ -237,6 +238,7 @@ def delete_class(
     request: Request,
     db: DbSession,
     profile: Profile = Depends(require_active_profile),
+    _writable: None = Depends(require_profile_writable),
 ) -> RedirectResponse:
     """Delete a class that belongs to the active profile, then 303 to ``/``.
 
@@ -261,6 +263,7 @@ def delete_class_api(
     request: Request,
     db: DbSession,
     profile: Profile = Depends(require_active_profile),
+    _writable: None = Depends(require_profile_writable),
 ) -> Response:
     """Delete a single class with asset-guard.
 
@@ -305,6 +308,7 @@ def post_class(
     db: DbSession,
     user: User = Depends(require_user),
     profile: Profile = Depends(require_active_profile),
+    _writable: None = Depends(require_profile_writable),
     payload: dict = None,
 ) -> Response:
     """Create a single class with duplicate-name detection and per-row validation.
@@ -405,6 +409,7 @@ def patch_class(
     request: Request,
     db: DbSession,
     profile: Profile = Depends(require_active_profile),
+    _writable: None = Depends(require_profile_writable),
     payload: dict = None,
 ) -> Response:
     """Update a single class's ``target_pct`` inline.

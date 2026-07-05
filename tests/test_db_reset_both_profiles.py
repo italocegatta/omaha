@@ -101,13 +101,30 @@ def test_reset_both_profiles_seeds_both_profiles(tmp_path: Path) -> None:
                     "GROUP BY p.id ORDER BY p.display_order"
                 )
             ).fetchall()
-        assert len(rows) == 2, f"expected 2 profiles, got {rows}"
+        # F07 — the canonical post-F07 shape is 2 real profiles
+        # (Italo + Ana) + 1 Família sentinel (no classes, owned
+        # by the password-less ``family`` user). The F01
+        # ``Italo RF2`` fixture is retired. The Família sentinel
+        # row carries zero ``AssetClass`` rows so the per-profile
+        # count assertion below iterates only the two real
+        # profiles by name.
+        assert len(rows) == 3, f"expected 3 profiles (Italo, Ana, Família), got {rows}"
+        names = [r[0] for r in rows]
+        assert names == ["Italo", "Ana", "Família"], names
         for name, classes, assets, positions in rows:
+            if name == "Família":
+                # Sentinel carries zero rows (read-only aggregate).
+                assert classes == 0, f"{name} has {classes} classes; sentinel must be empty"
+                assert assets == 0, f"{name} has {assets} assets; sentinel must be empty"
+                assert positions == 0, f"{name} has {positions} positions; sentinel must be empty"
+                continue
             assert classes > 0, f"{name} has 0 classes"
             assert assets > 0, f"{name} has 0 assets"
             assert positions > 0, f"{name} has 0 positions"
-        # The first profile is Italo (display_order=0).
         assert rows[0][0] == "Italo"
         assert rows[1][0] == "Ana"
+        # rows[2] is the Família sentinel (display_order=2,
+        # owned by the password-less ``family`` user).
+        assert rows[2][0] == "Família"
     finally:
         engine.dispose()

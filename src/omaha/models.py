@@ -99,6 +99,21 @@ class Profile(Base):
     )
     name: Mapped[str] = mapped_column(String(64), nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # F07 — Família-as-profile sentinel. When ``True`` this Profile
+    # row represents the cross-User family aggregate (peer of the real
+    # profiles in the profile-switcher) instead of a per-User portfolio.
+    # The row is owned by a no-password ``User("family")`` so it
+    # cannot authenticate; ``get_active_profile`` short-circuits to
+    # ``None`` when this flag is set because the sentinel does not own
+    # any ``AssetClass`` rows (mutations on Família are nonsensical —
+    # the family aggregate is read-only by F01/F06 contract). The
+    # default ``False`` keeps the column backward compatible with rows
+    # from before the migration; existing Italo RF2 fixture rows (F01)
+    # backfill to ``False`` and stay filterable as ordinary profiles
+    # until a future R-slice drops them.
+    is_family_sentinel: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=sa.false()
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )
@@ -112,7 +127,10 @@ class Profile(Base):
     )
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
-        return f"Profile(id={self.id!r}, name={self.name!r}, user_id={self.user_id!r})"
+        return (
+            f"Profile(id={self.id!r}, name={self.name!r}, "
+            f"user_id={self.user_id!r}, is_family_sentinel={self.is_family_sentinel!r})"
+        )
 
 
 class AssetClass(Base):

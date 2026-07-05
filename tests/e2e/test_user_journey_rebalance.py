@@ -42,6 +42,7 @@ if TYPE_CHECKING:
 # absolute imports of sibling test files don't resolve. We import
 # S04's helpers as a relative import within the tests.e2e package
 # (``tests/e2e/__init__.py`` exists).
+from .selectors import SELECTORS
 from .test_import_user_journey import (
     FIXTURE_PATH,
     UNMATCHED_NAMES,
@@ -50,7 +51,6 @@ from .test_import_user_journey import (
     _login_and_select_italo,
     _seed_43_assets,
 )
-from .selectors import SELECTORS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 SCREENSHOT_DIR = Path("/tmp/s05_e2e_screenshots")

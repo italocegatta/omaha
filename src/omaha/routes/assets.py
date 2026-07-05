@@ -63,7 +63,7 @@ from fastapi import APIRouter, Body, Depends, Form, HTTPException, Request, Resp
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.exc import IntegrityError
 
-from omaha.auth import DbSession, require_active_profile, require_user
+from omaha.auth import DbSession, require_active_profile, require_profile_writable, require_user
 from omaha.models import Asset, AssetClass, Profile, User
 
 router = APIRouter(tags=["assets"])
@@ -111,6 +111,7 @@ def post_assets(
     db: DbSession,
     user: User = Depends(require_user),
     profile: Profile = Depends(require_active_profile),
+    _writable: None = Depends(require_profile_writable),
     name: Annotated[str, Form()] = "",  # noqa: B006
     asset_class_id: Annotated[int, Form()] = 0,  # noqa: B006
     buy_enabled: Annotated[str, Form()] = "",  # noqa: B006
@@ -242,6 +243,7 @@ def post_api_asset(
     request: Request,
     db: DbSession,
     profile: Profile = Depends(require_active_profile),
+    _writable: None = Depends(require_profile_writable),
     body: Annotated[dict[str, Any] | None, Body()] = None,
 ) -> dict[str, Any]:
     if body is None:
@@ -419,6 +421,7 @@ def patch_asset(
     asset_id: int,
     db: DbSession,
     profile: Profile = Depends(require_active_profile),
+    _writable: None = Depends(require_profile_writable),
     body: Annotated[dict[str, Any], Body()] = {},  # noqa: B006
 ) -> dict[str, Any]:
     """Update one asset's mutable attributes (per-row range check only; D006).
@@ -563,6 +566,7 @@ def delete_api_asset(
     asset_id: int,
     db: DbSession,
     profile: Profile = Depends(require_active_profile),
+    _writable: None = Depends(require_profile_writable),
 ) -> Response:
     asset = db.get(Asset, asset_id)
     if asset is None or asset.asset_class.profile_id != profile.id:
@@ -638,6 +642,7 @@ def delete_asset(
     request: Request,
     db: DbSession,
     profile: Profile = Depends(require_active_profile),
+    _writable: None = Depends(require_profile_writable),
 ) -> RedirectResponse:
     """Delete an asset that walks back to the active profile, then 303.
 

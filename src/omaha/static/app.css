@@ -240,6 +240,114 @@ header.app-header form.profile-switcher {
   align-items: center;
   margin: 0;
 }
+
+/* F06 family toggle (was F01 household toggle) — sits between the
+   profile chip and the logout form. Native <form method=get> with
+   a single submit button; the two states ("Família" / "Perfil")
+   share the same button class so the visual register stays
+   consistent. The active state (``--active``) marks the "Perfil"
+   exit affordance so the operator can see at a glance that
+   family-aggregate mode is on. The legacy ``.household-toggle`` /
+   ``.app-header__household-chip`` selectors are kept as aliases
+   so BDD / e2e selectors written against the F01 surface keep
+   resolving during the cutover.
+
+   F07 — Família is no longer a header toggle; it lives inside
+   the profile-switcher ``<select>`` (peer of real profiles). The
+   toggle form is no longer rendered by ``base.html``; the CSS
+   below is kept as an alias (per D-F07.5 / design Decision 5)
+   so any inline / e2e reference to ``.family-toggle*`` or
+   ``.household-toggle*`` keeps resolving. New UI MUST NOT depend
+   on these classes — use the ``.profile-switcher`` chip's
+   Família option instead. */
+header.app-header form.family-toggle,
+header.app-header form.household-toggle {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+}
+header.app-header form.family-toggle button.app-header__family-chip,
+header.app-header form.household-toggle button.app-header__household-chip {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+header.app-header form.family-toggle button.app-header__family-chip:hover,
+header.app-header form.household-toggle button.app-header__household-chip:hover {
+  background: var(--surface-2, var(--surface));
+  border-color: var(--accent);
+}
+header.app-header form.family-toggle button.app-header__family-chip--active,
+header.app-header form.household-toggle button.app-header__household-chip--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--surface);
+}
+header.app-header form.family-toggle button.app-header__family-chip--active:hover,
+header.app-header form.household-toggle button.app-header__household-chip--active:hover {
+  background: var(--accent-strong, var(--accent));
+  border-color: var(--accent-strong, var(--accent));
+}
+
+/* F07 — Família-as-profile option visual separator. The
+   profile-switcher renders the Família sentinel inside an
+   ``<optgroup>`` between the real profiles and the sentinel,
+   marked with a thin top border + neutral label so the
+   peer-vs-profile distinction reads at a glance without
+   introducing a new color token. The Família ``<option>`` itself
+   is highlighted with ``--accent`` (fern) when selected — same
+   token the tab-nav active state uses (D-F07.5). */
+header.app-header form.profile-switcher optgroup.profile-switcher__optgroup {
+  /* <optgroup> on Chrome / Firefox renders the label as plain text
+     inside the dropdown. The thin top border (rendered as a
+     background gradient — borders on <optgroup> are not
+     supported across browsers) gives the visual separator that
+     distinguishes Família from the per-User options above. */
+  font-style: normal;
+  border-top: 1px solid var(--border-strong);
+  margin-top: 0.25rem;
+  padding-top: 0.25rem;
+}
+header.app-header form.profile-switcher optgroup.profile-switcher__optgroup[label]::before {
+  content: attr(label);
+  display: inline-block;
+  padding: 0 0.5rem;
+  color: var(--ink-muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+}
+header.app-header form.profile-switcher option[data-testid="profile-option-family"]:checked {
+  /* Native <option> styling is browser-controlled; the accent
+     underline is the closest portable signal that the Família
+     sentinel is the active selection. Browsers that ignore
+     ::checked on <option> fall back to the system highlight,
+     which is still legible. */
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+/* F01 household read-only banner + action area dimming. The
+   note sits at the top of the body in PT-BR register domestic
+   (PRD §4.10). The .is-read-only wrapper class on the action
+   section is a forward-compat hook for future actions that
+   escape the per-template {% if view == 'profile' %} gate. */
+.patrimonio-read-only-note {
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+  margin: 0 0 1rem 0;
+  font-style: italic;
+}
+.patrimonio-page[data-read-only="true"] .patrimonio-actions {
+  display: none;
+}
 header.app-header form.profile-switcher select {
   appearance: none;
   -webkit-appearance: none;
@@ -2681,4 +2789,3 @@ td.editing {
    ``.sidebar-action--active``) are removed along with the sidebar
    itself. Active tab styling lives under ``.tab-nav__btn--active``
    in the top-nav block near the top of this file. */
-

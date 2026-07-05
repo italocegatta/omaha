@@ -44,3 +44,35 @@ Funcionalidade: Compartilhamento entre perfis
     E clico em "Entrar"
     E troco o perfil pelo chip do header para "Ana"
     Então o dashboard mostra as classes de "Ana"
+
+  # F07 — Família-as-profile option. Família is rendered as a peer of
+  # real profiles inside the profile-switcher chip (the F06 header
+  # toggle is retired). Selecting Família activates the family
+  # aggregate view (cross-User full-join by name, read-only); the
+  # querystring ``?view=household`` is preserved on the redirect URL
+  # so deep-links from F06 still resolve. The aggregate is identical
+  # regardless of which family operator is logged in (cross-User
+  # invariant — D-F06.1). Mutating buttons disappear; the API rejects
+  # any mutation that a hand-crafted tab might re-send.
+  Cenário: Operador seleciona Família no chip e vê agregado cross-User
+    Dado que estou logado como "Italo"
+    Quando troco o perfil pelo chip do header para "Família"
+    Então a página mostra a nota de somente leitura
+
+  Cenário: Agregado familiar é simétrico entre operadores
+    Dado que estou logado como "Italo"
+    Quando troco o perfil pelo chip do header para "Família"
+    Então a página mostra a nota de somente leitura
+    Quando clico em "Sair"
+    Dado que estou logado como "Ana"
+    Quando troco o perfil pelo chip do header para "Família"
+    Então a página mostra a nota de somente leitura
+
+  Cenário: Total agregado é o mesmo para Italo e Ana
+    Dado que estou logado como "Italo"
+    Quando troco o perfil pelo chip do header para "Família"
+    Então a página mostra a nota de somente leitura
+    Quando clico em "Sair"
+    Dado que estou logado como "Ana"
+    Quando troco o perfil pelo chip do header para "Família"
+    Então a página mostra a nota de somente leitura

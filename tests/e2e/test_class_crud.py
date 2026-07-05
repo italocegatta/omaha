@@ -49,8 +49,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
-from .test_import_user_journey import _login_and_select_italo
 from .selectors import SELECTORS
+from .test_import_user_journey import _login_and_select_italo
 
 
 def _debug_dump(page: Page, tag: str) -> None:
@@ -138,9 +138,7 @@ class TestS02ClassCRUD:
         profile_header = page.locator('[data-testid="profile-switcher"]')
         profile_header.wait_for(state="visible", timeout=5000)
         selected_value = profile_header.evaluate("el => el.value")
-        assert selected_value, (
-            f"profile-switcher has no selected value; got: {selected_value!r}"
-        )
+        assert selected_value, f"profile-switcher has no selected value; got: {selected_value!r}"
 
     # ── Test 2: Create first class from empty state ────────────
 
@@ -271,12 +269,8 @@ class TestS02ClassCRUD:
         modal.locator(SELECTORS["new_class_modal_pct_input"]).wait_for(
             state="visible", timeout=2000
         )
-        modal.locator(SELECTORS["new_class_modal_submit"]).wait_for(
-            state="visible", timeout=2000
-        )
-        modal.locator(SELECTORS["new_class_modal_cancel"]).wait_for(
-            state="visible", timeout=2000
-        )
+        modal.locator(SELECTORS["new_class_modal_submit"]).wait_for(state="visible", timeout=2000)
+        modal.locator(SELECTORS["new_class_modal_cancel"]).wait_for(state="visible", timeout=2000)
 
         # Cancel closes the modal.
         modal.locator(SELECTORS["new_class_modal_cancel"]).click()
@@ -326,16 +320,13 @@ class TestS02ClassCRUD:
 
         # Now do the actual delete: click x again, then "Sim, remover".
         acoes_row.locator(SELECTORS["class_delete_btn"]).click()
-        acoes_row.locator(SELECTORS["class_delete_confirm"]).wait_for(
-            state="visible", timeout=2000
-        )
+        acoes_row.locator(SELECTORS["class_delete_confirm"]).wait_for(state="visible", timeout=2000)
         acoes_row.locator(SELECTORS["class_delete_confirm_yes"]).click()
 
         # On success (204), the page reloads. Wait for only Reserva.
         try:
             page.wait_for_function(
-                "() => document.querySelectorAll("
-                f"'{SELECTORS['class_summary_row']}').length === 1",
+                f"() => document.querySelectorAll('{SELECTORS['class_summary_row']}').length === 1",
                 timeout=8000,
             )
         except Exception:
@@ -394,9 +385,7 @@ class TestS02ClassCRUD:
         # Click x to trigger the delete confirm.
         class_row = page.locator(SELECTORS["class_summary_row"]).first
         class_row.locator(SELECTORS["class_delete_btn"]).click()
-        class_row.locator(SELECTORS["class_delete_confirm"]).wait_for(
-            state="visible", timeout=2000
-        )
+        class_row.locator(SELECTORS["class_delete_confirm"]).wait_for(state="visible", timeout=2000)
 
         # Click "Sim, remover" -- the server should reject with 409.
         class_row.locator(SELECTORS["class_delete_confirm_yes"]).click()

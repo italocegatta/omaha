@@ -40,7 +40,7 @@ from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from omaha.auth import DbSession, require_active_profile, require_user
+from omaha.auth import DbSession, require_active_profile, require_profile_writable, require_user
 from omaha.config import settings
 from omaha.csv_import import (
     RawPosition,
@@ -154,6 +154,7 @@ async def post_import(
     db: DbSession,
     user: User = Depends(require_user),
     profile: Profile = Depends(require_active_profile),
+    _writable: None = Depends(require_profile_writable),
     file: UploadFile = File(...),  # noqa: B008
 ) -> Response:
     """Parse the upload, persist a preview, redirect to /import/review."""
@@ -209,6 +210,7 @@ async def post_confirm(
     db: DbSession,
     user: User = Depends(require_user),
     profile: Profile = Depends(require_active_profile),
+    _writable: None = Depends(require_profile_writable),
 ) -> Response:
     """Upsert Position rows for every row in the preview, then redirect."""
     preview_id = request.session.get(SESSION_PREVIEW_KEY)
@@ -484,6 +486,7 @@ async def preview_import(
     db: DbSession,
     user: User = Depends(require_user),
     profile: Profile = Depends(require_active_profile),
+    _writable: None = Depends(require_profile_writable),
     file: UploadFile = File(...),
 ) -> Response:
     """Parse an uploaded CSV and return a JSON preview.
@@ -533,6 +536,7 @@ def commit_import(
     db: DbSession,
     user: User = Depends(require_user),
     profile: Profile = Depends(require_active_profile),
+    _writable: None = Depends(require_profile_writable),
 ) -> Response:
     """Commit a preview: create Asset rows for unmatched, upsert Positions.
 

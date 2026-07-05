@@ -53,6 +53,18 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SEED_DIR = REPO_ROOT / "data" / "seed"
 
 PROFILES = ("italo", "ana")
+
+# Maps each CLI ``--profile`` value to the ``(user.username,
+# Profile.name)`` pair the seed targets. The canonical pair
+# (``italo`` → ``Italo`` / ``Italo``) keeps the legacy 1-to-1 shape;
+# the F01 fixture pair (``italo_rf2`` → ``Italo`` / ``Italo RF2``)
+# was retired in F07 because the F01 multi-profile intra-User
+# invariant is dead — the Família sentinel (seed.py) is the only
+# cross-User aggregator now. Use ``italo`` and ``ana`` only.
+PROFILE_OWNER_TO_NAME: dict[str, tuple[str, str]] = {
+    "italo": ("Italo", "Italo"),
+    "ana": ("Ana", "Ana"),
+}
 MODES = ("reset", "upsert", "diff")
 
 CLASS_HEADER = ("name", "target_pct", "display_order", "quote_kind")
@@ -395,12 +407,9 @@ def validate(
 
 
 def get_profile_id(db: Session, profile: str) -> int:
-    user = db.query(User).filter(User.username == profile.capitalize()).one()
-    prof = (
-        db.query(Profile)
-        .filter(Profile.user_id == user.id, Profile.name == profile.capitalize())
-        .one()
-    )
+    user_username, profile_name = PROFILE_OWNER_TO_NAME[profile]
+    user = db.query(User).filter(User.username == user_username).one()
+    prof = db.query(Profile).filter(Profile.user_id == user.id, Profile.name == profile_name).one()
     return prof.id
 
 

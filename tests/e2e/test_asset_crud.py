@@ -24,8 +24,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
-from .test_import_user_journey import _login_and_select_italo
 from .selectors import SELECTORS
+from .test_import_user_journey import _login_and_select_italo
 
 
 def _debug_dump(page: Page, tag: str) -> None:

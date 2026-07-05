@@ -230,7 +230,12 @@ def test_reset_wipes_existing_state_first(omaha_db) -> None:
         # preview + 3 assets + 2 classes. After reset, all of this must be
         # gone and the canonical Italo state must replace it.
         user = session.query(User).filter(User.username == "Italo").one()
-        profile = session.query(Profile).filter(Profile.user_id == user.id).one()
+        # F01 fixture: Italo also owns a second profile
+        # (``Italo RF2``) so the household toggle is visible in the
+        # canonical seed. Filter by name to disambiguate.
+        profile = (
+            session.query(Profile).filter(Profile.user_id == user.id, Profile.name == "Italo").one()
+        )
         c1 = AssetClass(
             profile_id=profile.id, name="Garbage Class A", target_pct=10, display_order=99
         )

@@ -186,6 +186,15 @@ def create_app() -> FastAPI:
     templates.env.filters["brl"] = _brl
     app.state.templates = templates
 
+    # F01: register the HouseholdReadOnlyError handler so
+    # ``require_profile_writable`` can short-circuit a mutation
+    # request with the exact wire shape
+    # ``{"reason": "household_read_only"}`` (no FastAPI
+    # ``{"detail": ...}`` wrapper).
+    from omaha.auth import register_exception_handlers as _register_auth_handlers
+
+    _register_auth_handlers(app)
+
     app.include_router(health_routes.router)
     app.include_router(auth_routes.router)
     app.include_router(pages_routes.router)

@@ -416,6 +416,18 @@ def dashboard_shows_empty_state(page: Page):
     empty.wait_for(state="visible", timeout=5000)
 
 
+@then("a página mostra a nota de somente leitura")
+def page_shows_read_only_note(page: Page):
+    """F01 household mode: the dashboard renders the
+    ``patrimonio-read-only-note`` element when ``?view=household``
+    is active. The note is the visible signal that the operator is
+    looking at the household aggregate (a sum of every viewer-owned
+    profile) and not the per-profile view.
+    """
+    note = page.locator('[data-testid="patrimonio-read-only-note"]')
+    note.wait_for(state="visible", timeout=5000)
+
+
 @then(parsers.parse('a página mostra a mensagem de erro "{text}"'))
 def page_shows_error(page: Page, text: str):
     locator = page.locator(

@@ -32,13 +32,13 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
-from .test_asset_crud import _create_seed_assets
-from .test_import_user_journey import _create_three_classes, _login_and_select_italo
-from .selectors import SELECTORS
 from tests.e2e.conftest import (
     _seed_assets_with_positions_via_import,
     _set_asset_target_pcts_via_db,
 )
+
+from .selectors import SELECTORS
+from .test_import_user_journey import _create_three_classes, _login_and_select_italo
 
 
 def _debug_dump(page: Page, tag: str) -> None:
@@ -125,9 +125,7 @@ class TestRebalancePage:
                 }""",
                 selector,
             )
-            opened = page.evaluate(
-                "(name) => Alpine.store(name).open === true", store_name
-            )
+            opened = page.evaluate("(name) => Alpine.store(name).open === true", store_name)
             assert opened, (
                 f"{selector} click did not flip {store_name}.open to True; "
                 "Alpine scope likely broken on patrimonio-actions."
@@ -141,9 +139,7 @@ class TestRebalancePage:
         # Tab nav is visible on /patrimonio
         assert page.locator('[data-testid="app-tab-nav"]').count() == 1
         # The patrimonio tab is active (aria-current="true")
-        active = page.locator(
-            '[data-testid="app-tab-btn-patrimonio"][aria-current="true"]'
-        )
+        active = page.locator('[data-testid="app-tab-btn-patrimonio"][aria-current="true"]')
         assert active.count() == 1
 
     def test_submit_rebalance_navigates_to_plan(self, page: Page, live_url: str) -> None:
@@ -161,7 +157,11 @@ class TestRebalancePage:
                 ("Acoes", "REBAL_B"),
                 ("Reserva", "REBAL_C"),
             ],
-            positions={"REBAL_A": (100.0, 100.0), "REBAL_B": (100.0, 100.0), "REBAL_C": (100.0, 100.0)},
+            positions={
+                "REBAL_A": (100.0, 100.0),
+                "REBAL_B": (100.0, 100.0),
+                "REBAL_C": (100.0, 100.0),
+            },
         )
         # CSV import leaves target_pct=0 on every asset. The CVXPY
         # engine rejects that state ("Os pesos-alvo dos ativos devem
@@ -178,9 +178,7 @@ class TestRebalancePage:
 
         # Fill the in-body form and submit.
         page.fill(SELECTORS["rebalance_contribution_input"], "5000")
-        page.evaluate(
-            "() => document.querySelector('[data-testid=\"rebalance-form\"]').submit()"
-        )
+        page.evaluate("() => document.querySelector('[data-testid=\"rebalance-form\"]').submit()")
 
         page.wait_for_selector(SELECTORS["rebalance_plan"], timeout=10000)
 
@@ -231,7 +229,11 @@ class TestRebalancePage:
                 ("Acoes", "SORT_B"),
                 ("Reserva", "SORT_C"),
             ],
-            positions={"SORT_A": (100.0, 100.0), "SORT_B": (100.0, 100.0), "SORT_C": (100.0, 100.0)},
+            positions={
+                "SORT_A": (100.0, 100.0),
+                "SORT_B": (100.0, 100.0),
+                "SORT_C": (100.0, 100.0),
+            },
         )
         # CSV import leaves target_pct=0; CVXPY rejects that. Patch
         # each asset's target_pct so the per-class sum equals 100.
@@ -245,9 +247,7 @@ class TestRebalancePage:
         page.wait_for_selector(SELECTORS["rebalance_form"], timeout=5000)
 
         page.fill(SELECTORS["rebalance_contribution_input"], "5000")
-        page.evaluate(
-            "() => document.querySelector('[data-testid=\"rebalance-form\"]').submit()"
-        )
+        page.evaluate("() => document.querySelector('[data-testid=\"rebalance-form\"]').submit()")
         page.wait_for_selector(SELECTORS["rebalance_plan"], timeout=10000)
         # Wait for Alpine hydration so the click handler is bound
         # and the rows are rendered.
@@ -367,14 +367,10 @@ class TestRebalancePage:
         page.wait_for_selector(
             '[data-testid="rebalance-form-error-inline"]', state="visible", timeout=3000
         )
-        error_text = page.locator(
-            '[data-testid="rebalance-form-error-inline"]'
-        ).inner_text()
+        error_text = page.locator('[data-testid="rebalance-form-error-inline"]').inner_text()
         assert "Saques serão suportados" in error_text
         # URL did not change.
-        assert page.url.rstrip("/").endswith(
-            (live_url + "/rebalanceamento").rstrip("/")
-        )
+        assert page.url.rstrip("/").endswith((live_url + "/rebalanceamento").rstrip("/"))
 
     def test_legacy_rebalance_url_returns_404(self, page: Page, live_url: str) -> None:
         """``GET /rebalance`` returns HTTP 404 after F02 (D1)."""

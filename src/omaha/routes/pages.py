@@ -68,7 +68,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, 
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import selectinload
 
-from omaha.auth import DbSession, get_active_profile, require_user
+from omaha.auth import DbSession, get_active_profile, require_profile_writable, require_user
 from omaha.models import Asset, AssetClass, Profile, User
 from omaha.rebalance.glue import run_rebalance
 from omaha.rebalance.models import RebalanceValidationError
@@ -82,6 +82,46 @@ def _templates(request: Request):
     return request.app.state.templates
 
 
+def _all_family_profiles(db: DbSession) -> list[Profile]:
+    """Return every :class:`Profile` row in the database (F06 helper).
+
+    F06 — the family aggregate is cross-User. The toggle visibility
+    condition is therefore "the database contains ≥2 profiles",
+    independent of which operator is logged in. The helper
+    excludes any sentinel ``Profile.name == "system"`` row so a
+    future system profile does not inflate the count.
+
+    F07 — Família (the cross-User aggregate) is now a real Profile
+    row with ``is_family_sentinel=True``. ``_all_family_profiles``
+    still returns every row (sentinel included) so the
+    profile-switcher renders Família as a peer; use
+    :func:`_real_profiles` to get only the per-User portfolios.
+    """
+    return db.query(Profile).filter(Profile.name != "system").order_by(Profile.display_order).all()
+
+
+def _real_profiles(db: DbSession) -> list[Profile]:
+    """Return every real (non-sentinel) :class:`Profile` row.
+
+    F07 — the Família sentinel (``is_family_sentinel=True``) lives
+    in the same table as the per-User profiles; queries that need
+    "per-User portfolios only" must filter it out so:
+
+    * the profile-switcher renders the sentinel as a peer but the
+      rest of the system never iterates the sentinel as if it were
+      a portfolio,
+    * the asset-class / position aggregations stay cross-User via
+      :func:`family_asset_classes` (which deliberately walks every
+      row) — the "real" helper is for UI / per-User flows only.
+    """
+    return (
+        db.query(Profile)
+        .filter(Profile.is_family_sentinel.is_(False))
+        .order_by(Profile.display_order)
+        .all()
+    )
+
+
 def _common_context(
     request: Request, db: DbSession, user: User, owner: Profile | None
 ) -> dict[str, Any]:
@@ -89,26 +129,61 @@ def _common_context(
 
     Every authenticated template (the patrimonio page, the rebalance
     page, the rentabilidade/proventos stubs, any future page that
-    extends ``base.html``) gets the same trio of variables:
+    extends ``base.html``) gets the same trio of variables plus the
+    F07 split:
 
     * ``profiles`` — every ``Profile`` row in the DB, in
       ``display_order`` ascending. Powers the header chip's
-      ``<select>`` options.
+      ``<select>`` options (sentinel included — used by
+      templates that need the full list, e.g. the legacy
+      ``profile-switcher``).
+    * ``real_profiles`` — F07 — only the per-User profiles
+      (``is_family_sentinel=False``). Used by the profile-switcher
+      template to render real options in display_order before the
+      Família sentinel.
+    * ``familia_sentinel`` — F07 — the Família sentinel Profile
+      row, or ``None`` when missing (legacy databases pre-F07).
+      ``base.html`` uses this to render the Família option as a
+      peer of the real profiles inside an ``<optgroup>``.
     * ``viewer`` — the logged-in :class:`User`. The header renders a
       muted label with ``viewer.username`` when viewer ≠ owner.
-    * ``owner`` — the active :class:`Profile` (``active_profile_id``
-      resolved to a row), or ``None`` if no profile is active. The
-      chip marks this profile as ``selected`` (the browser renders
-      the active row with its own selection state; no extra glyph
-      needed).
+    * ``owner`` — the active :class:`Profile`` (``active_profile_id``
+      resolved to a row), or ``None`` if no profile is active or if
+      the Família sentinel is bound. The chip marks this profile as
+      ``selected`` (the browser renders the active row with its
+      own selection state; no extra glyph needed). When the
+      sentinel is bound, ``owner`` is ``None`` (the
+      :func:`omaha.auth.get_active_profile` helper short-circuits)
+      and the Família option is the selected one.
     """
-    all_profiles = db.query(Profile).order_by(Profile.display_order).all()
+    all_profiles = _all_family_profiles(db)
+    real = _real_profiles(db)
+    familia_sentinel: Profile | None = None
+    for profile in all_profiles:
+        if profile.is_family_sentinel:
+            familia_sentinel = profile
+            break
+    is_household_view = request.query_params.get("view") == "household"
     return {
         "user": user,
         "viewer": user,
         "owner": owner,
         "profile": owner,  # legacy alias — some templates still read `profile`
         "profiles": all_profiles,
+        "real_profiles": real,
+        "familia_sentinel": familia_sentinel,
+        # F06 legacy flags — kept for backward compat with templates
+        # that still key on them (the chip switcher no longer reads
+        # them). ``family_aggregate_visible`` is always True post-F07
+        # when the sentinel exists; the sentinel itself is the chip
+        # affordance, not a separate toggle.
+        "family_aggregate_visible": familia_sentinel is not None,
+        "viewer_owns_multiple_profiles": len(real) >= 2,
+        # F06: legacy querystring flag, kept for templates that
+        # still render the toggle alias. F07 removes the toggle
+        # itself; the querystring continues to drive the family
+        # view as a deep-link entry point.
+        "is_household_view": is_household_view,
     }
 
 
@@ -116,7 +191,9 @@ def _render_patrimonio(
     request: Request,
     db: DbSession,
     user: User,
-    profile: Profile,
+    profile: Profile | None,
+    *,
+    view: str = "profile",
 ) -> Response:
     """Render the patrimonio page (the dashboard, post-F02).
 
@@ -124,20 +201,47 @@ def _render_patrimonio(
     render path (the old ``/`` route continues to work because the
     app has shipped with it since direct-landing; ``/patrimonio``
     is the F02 canonical URL — see roadmap §F02, D1 + D8).
+
+    ``view`` switches between the per-profile default and the
+    family aggregate (F01 — ``?view=household`` querystring; F07 —
+    Família sentinel bound via the profile-switcher). Family mode
+    is read-only: mutation buttons are hidden in the template and
+    the dep :func:`require_profile_writable` raises 409 on any
+    POST/PATCH/DELETE to a mutation endpoint while the session flag
+    is set.
+
+    ``profile`` is the per-User active profile, or ``None`` when
+    the operator selected the Família sentinel. The sentinel path
+    is family-only — callers detect it via
+    :func:`_resolve_view_mode` and pass ``view="family"`` with a
+    ``None`` profile. The :func:`omaha.auth.get_active_profile`
+    helper also short-circuits the sentinel to ``None``; the routes
+    re-resolve it from the session id so the helper's contract
+    stays clean.
     """
-    asset_classes = (
-        db.query(AssetClass)
-        .options(
-            selectinload(AssetClass.assets).selectinload(Asset.positions),
+    if view == "family":
+        asset_classes = family_asset_classes(db)
+        aggregates = family_aggregates(asset_classes)
+        read_only = True
+    else:
+        if profile is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        asset_classes = (
+            db.query(AssetClass)
+            .options(
+                selectinload(AssetClass.assets).selectinload(Asset.positions),
+            )
+            .filter(AssetClass.profile_id == profile.id)
+            .order_by(AssetClass.display_order)
+            .all()
         )
-        .filter(AssetClass.profile_id == profile.id)
-        .order_by(AssetClass.display_order)
-        .all()
-    )
-    aggregates = portfolio_aggregates(asset_classes)
+        aggregates = portfolio_aggregates(asset_classes)
+        read_only = False
     context = _common_context(request, db, user, profile)
     context.update(
         {
+            "view": view,
+            "read_only": read_only,
             "asset_classes": asset_classes,
             "portfolio": aggregates["portfolio"],
             "class_aggregates": aggregates["classes"],
@@ -146,17 +250,74 @@ def _render_patrimonio(
     return _templates(request).TemplateResponse(request, "patrimonio.html", context)
 
 
-def _resolve_patrimonio_target(
-    request: Request, db: DbSession
-) -> Profile | None:
+def _resolve_view_mode(request: Request, db: DbSession, owner: Profile | None) -> str:
+    """Resolve the family read-only flag from querystring OR sentinel.
+
+    F01 Decision 1 — querystring is the canonical signal. The
+    caller is responsible for also binding the value into
+    ``request.session["view_mode"]`` so the
+    :func:`require_profile_writable` dependency can gate mutations
+    on the same flag (mutations don't carry the querystring).
+
+    F06 — the URL keeps the historical ``?view=household`` shape
+    (D-F06.4) but the internal context value is now ``"family"``
+    (D-F06.5) to match the renamed family aggregate.
+
+    F07 — Família is selectable via the profile-switcher (peer of
+    real profiles). When the operator selects the sentinel row,
+    ``active_profile_id`` points to the sentinel; the caller's
+    :func:`omaha.auth.get_active_profile` returns ``None`` for
+    sentinel rows, so we resolve the sentinel directly here (via
+    the bound session id) and return ``"family"`` whenever either
+    the querystring OR the sentinel match fires. Any other value
+    falls back to ``"profile"`` so a typo or a stale client cannot
+    accidentally toggle the read-only mode.
+    """
+    if request.query_params.get("view") == "household":
+        return "family"
+    sentinel_id = request.session.get("active_profile_id")
+    if sentinel_id is not None:
+        sentinel = db.get(Profile, sentinel_id)
+        if sentinel is not None and sentinel.is_family_sentinel:
+            return "family"
+    return "profile"
+
+
+def _resolve_patrimonio_target(request: Request, db: DbSession) -> Profile | None:
     """Resolve the active profile for the patrimonio / rebalance pages.
 
     Returns the active :class:`Profile` or ``None`` when the session
     has no resolvable active_profile_id (no user, no profile, or
     pointing at a deleted profile). Callers use the ``None`` signal
-    to redirect to ``/login``.
+    to redirect to ``/login`` — except the patrimonio routes, which
+    distinguish the Família sentinel case via
+    :func:`_resolve_view_mode` and render the family aggregate
+    instead.
     """
     return get_active_profile(request, db)
+
+
+def _sentinel_redirect(request: Request, db: DbSession) -> RedirectResponse | None:
+    """Return a redirect to the family-aggregate patrimonio when sentinel is bound.
+
+    F07 — Família (the ``is_family_sentinel`` profile) has no
+    ``AssetClass`` rows, so the non-patrimonio pages (rebalance,
+    rentabilidade, proventos) cannot render meaningful per-profile
+    content while the sentinel is active. Routes call this helper
+    first; if it returns a :class:`RedirectResponse` the route
+    short-circuits and bounces the operator to the canonical
+    family-view entry point. Returns ``None`` when the sentinel
+    is NOT active so the route can continue with the normal
+    per-profile flow.
+    """
+    profile_id = request.session.get("active_profile_id")
+    if profile_id is None:
+        return None
+    profile = db.get(Profile, profile_id)
+    if profile is None or not profile.is_family_sentinel:
+        return None
+    request.session["view_mode"] = "family"
+    return RedirectResponse("/patrimonio?view=household", status_code=303)
 
 
 @router.get("/", response_class=HTMLResponse, response_model=None)
@@ -174,12 +335,24 @@ def index(
     pointing at another user's profile) is cleared and the user is
     bounced to ``/login`` — the post-login route binds a fresh
     landing profile, so re-logging-in is the recovery path.
+
+    F07 — when the bound ``active_profile_id`` is the Família
+    sentinel (the operator picked Família via the
+    profile-switcher), ``get_active_profile`` short-circuits to
+    ``None`` and :func:`_resolve_view_mode` returns ``"family"``
+    (querystring-free entry point — D-F07.1). The page renders the
+    family aggregate directly, with no redirect and no querystring.
     """
     profile = _resolve_patrimonio_target(request, db)
-    if profile is None:
+    view = _resolve_view_mode(request, db, profile)
+    if profile is None and view != "family":
         request.session.pop("active_profile_id", None)
         return RedirectResponse("/login", status_code=303)
-    return _render_patrimonio(request, db, user, profile)
+    if view == "family":
+        request.session["view_mode"] = "family"
+    else:
+        request.session.pop("view_mode", None)
+    return _render_patrimonio(request, db, user, profile, view=view)
 
 
 @router.get("/patrimonio", response_class=HTMLResponse, response_model=None)
@@ -197,12 +370,21 @@ def get_patrimonio(
     HTTP redirect: the active-tab detection in ``base.html`` reads
     ``request.url.path`` and lights up the matching tab on either
     URL (``/`` highlights "Patrimônio").
+
+    F07 — same sentinel handling as :func:`index` — Família
+    activates the family aggregate via the bound sentinel id, no
+    querystring needed.
     """
     profile = _resolve_patrimonio_target(request, db)
-    if profile is None:
+    view = _resolve_view_mode(request, db, profile)
+    if profile is None and view != "family":
         request.session.pop("active_profile_id", None)
         return RedirectResponse("/login", status_code=303)
-    return _render_patrimonio(request, db, user, profile)
+    if view == "family":
+        request.session["view_mode"] = "family"
+    else:
+        request.session.pop("view_mode", None)
+    return _render_patrimonio(request, db, user, profile, view=view)
 
 
 @router.get("/dashboard")
@@ -233,11 +415,26 @@ def select_profile(
     is still rendered in the header (muted label), but it no longer
     gates access. A non-existent id still 404s so a hand-crafted
     POST never silently no-ops.
+
+    F07 — when the operator selects the Família sentinel via the
+    profile-switcher, the helper binds the sentinel id AND flips
+    the session ``view_mode`` flag to ``"family"`` so the
+    :func:`require_profile_writable` dep gates mutations on the
+    same signal (the JSON POST from the select form does not
+    carry the ``?view=household`` querystring). The redirect keeps
+    the legacy querystring on the URL so the deep-link contract
+    ``?view=household`` remains valid (D-F07.2 — the URL is the
+    canonical family-view wire shape; the chip is the new entry
+    point).
     """
     profile = db.get(Profile, profile_id)
     if profile is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     request.session["active_profile_id"] = profile.id
+    if profile.is_family_sentinel:
+        request.session["view_mode"] = "family"
+        return RedirectResponse("/patrimonio?view=household", status_code=303)
+    request.session.pop("view_mode", None)
     return RedirectResponse("/", status_code=303)
 
 
@@ -316,7 +513,15 @@ def get_rebalanceamento(
     The previous URL ``/rebalance`` is no longer served — see F02
     D1 + D9. Requests to ``/rebalance`` return HTTP 404 from a sibling
     handler so the breakage is visible.
+
+    F07 — when the Família sentinel is the active profile, the
+    rebalance page has no per-profile content to show (sentinel
+    owns zero ``AssetClass`` rows); redirect to the canonical
+    family-view entry point on the patrimonio dashboard.
     """
+    redirect = _sentinel_redirect(request, db)
+    if redirect is not None:
+        return redirect
     profile = get_active_profile(request, db)
     if profile is None:
         request.session.pop("active_profile_id", None)
@@ -329,6 +534,7 @@ def post_rebalanceamento(
     request: Request,
     db: DbSession,
     user: User = Depends(require_user),
+    _writable: None = Depends(require_profile_writable),
     contribution: str = Form(default=""),
 ) -> Response:
     """Run the rebalance pipeline and re-render the page with the plan.
@@ -346,6 +552,11 @@ def post_rebalanceamento(
     Phase 4 feature). Solver validation failures map to
     ``form_error`` with the validation message verbatim — the page
     re-renders, no redirect, no 4xx.
+
+    F07 — Família sentinel: the ``require_profile_writable`` dep
+    raises 409 ``household_read_only`` while the family session flag
+    is set; the sentinel POST path therefore never reaches the
+    rebalance solver.
     """
     profile = get_active_profile(request, db)
     if profile is None:
@@ -421,7 +632,12 @@ def get_rentabilidade(
     ``rentabilidade.html``); F03 replaces this stub with the real
     content (time series of returns). Stub exists so the F02 top nav
     is complete + clickable end-to-end — see F02 decision D6.
+
+    F07 — Família sentinel: redirect to the family-view patrimonio.
     """
+    redirect = _sentinel_redirect(request, db)
+    if redirect is not None:
+        return redirect
     profile = get_active_profile(request, db)
     if profile is None:
         request.session.pop("active_profile_id", None)
@@ -440,7 +656,12 @@ def get_proventos(
 
     Same shape as :func:`get_rentabilidade`. F04 replaces this stub
     with the real content (dividends / JCP per asset, class, profile).
+
+    F07 — Família sentinel: redirect to the family-view patrimonio.
     """
+    redirect = _sentinel_redirect(request, db)
+    if redirect is not None:
+        return redirect
     profile = get_active_profile(request, db)
     if profile is None:
         request.session.pop("active_profile_id", None)
@@ -449,7 +670,12 @@ def get_proventos(
     return _templates(request).TemplateResponse(request, "proventos.html", context)
 
 
-__all__ = ["router", "portfolio_aggregates"]
+__all__ = [
+    "router",
+    "portfolio_aggregates",
+    "family_aggregates",
+    "family_asset_classes",
+]
 
 
 # Eight visually-distinct hex colors assigned to classes in
@@ -697,4 +923,265 @@ def _compute_class_totals(klass: AssetClass) -> dict[str, Any]:
         "class_invested": class_invested,
         "class_current": class_current,
         "assets": asset_rows,
+    }
+
+
+def household_asset_classes(db: DbSession, viewer: User) -> list[AssetClass]:
+    """DEPRECATED — kept for backward compat only.
+
+    F01 implementation of the intra-User household aggregate.
+    Superseded by :func:`family_asset_classes` in F06, which loads
+    every :class:`Profile` row in the database (cross-User full-join).
+    The F01 variant walked ``viewer.profiles`` and was therefore
+    useless in the default seed (Italo and Ana are two separate
+    ``User`` rows, so each one only ever saw their own profile).
+    New code MUST call :func:`family_asset_classes`; the
+    :func:`_render_patrimonio` ``view == 'family'`` branch is the
+    single production consumer. Delete in a future R-slice refator.
+    """
+    profile_ids = [p.id for p in viewer.profiles]
+    if not profile_ids:
+        return []
+    return (
+        db.query(AssetClass)
+        .options(
+            selectinload(AssetClass.assets).selectinload(Asset.positions),
+        )
+        .filter(AssetClass.profile_id.in_(profile_ids))
+        .order_by(AssetClass.profile_id, AssetClass.display_order)
+        .all()
+    )
+
+
+def household_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
+    """DEPRECATED — kept for backward compat only.
+
+    F01 household-mode mirror of :func:`portfolio_aggregates`.
+    Superseded by :func:`family_aggregates` in F06. New code MUST
+    call :func:`family_aggregates`; the
+    :func:`_render_patrimonio` ``view == 'family'`` branch is the
+    single production consumer. Delete in a future R-slice refator.
+    """
+    return portfolio_aggregates(asset_classes)
+
+
+def family_asset_classes(db: DbSession) -> list[AssetClass]:
+    """Load every :class:`AssetClass` row in the database, eager-loaded.
+
+    F06 — family aggregate view (cross-User full-join). The function
+    walks **every** ``Profile`` row in the database (system-profile
+    sentinel rows, if any, are excluded via ``Profile.name !=
+    "system"``) and returns one flat list of :class:`AssetClass`
+    rows in ``Profile.display_order`` / ``AssetClass.display_order``
+    order so the template can render a single section per class
+    without grouping logic.
+
+    The selectinload strategy mirrors :func:`_render_patrimonio`'s
+    per-profile path so the family branch keeps the same N+1-safe
+    behaviour the original patrimonio already has.
+
+    The function deliberately does NOT take a ``viewer`` parameter:
+    ``cross-profile-sharing`` (F06 MODIFIED) requires the family
+    aggregate to be identical regardless of which family operator
+    is logged in. PRD §1.2 pins the two operators as password-shared,
+    so exposing the cross-User aggregate does not leak data to
+    third parties. If the product later introduces differentiated
+    per-User authentication, a new gate must be reintroduced here.
+    """
+    return (
+        db.query(AssetClass)
+        .join(Profile, AssetClass.profile_id == Profile.id)
+        .options(
+            selectinload(AssetClass.assets).selectinload(Asset.positions),
+        )
+        .filter(Profile.name != "system")
+        .order_by(Profile.display_order, AssetClass.display_order)
+        .all()
+    )
+
+
+def _aggregate_classes_by_name(
+    asset_classes: list[AssetClass],
+) -> list[dict[str, Any]]:
+    """Collapse :class:`AssetClass` rows with identical ``name`` (F06 D3).
+
+    Returns a list of class-shaped dicts (same wire shape as
+    :func:`_compute_class_totals` consumes) keyed by ``name``. The
+    collapse preserves the ``color`` of the **first** occurrence in
+    display order, the **minimum** ``display_order``, and sums
+    ``class_invested`` / ``class_current`` verbatim per
+    ``broker-csv-import-totals``.
+
+    The ``id`` field carries the first occurrence's
+    :class:`AssetClass.id` so the per-class CSS palette index
+    stays deterministic across renders. ``target_pct`` is forced
+    to ``None`` because the F06 invariant collapses classes whose
+    per-profile ``target_pct`` may diverge — the template reads
+    the flag and hides the ``Alvo`` pill in family mode.
+    """
+    grouped: dict[str, list[AssetClass]] = {}
+    for klass in asset_classes:
+        grouped.setdefault(klass.name, []).append(klass)
+
+    rows: list[dict[str, Any]] = []
+    for name, members in grouped.items():
+        invested = Decimal("0")
+        current = Decimal("0")
+        for member in members:
+            totals = _compute_class_totals(member)
+            invested += totals["class_invested"]
+            current += totals["class_current"]
+        rows.append(
+            {
+                "id": members[0].id,
+                "name": name,
+                "target_pct": None,
+                "color": _CLASS_COLORS[len(rows) % len(_CLASS_COLORS)],
+                "invested": invested,
+                "current_value": current,
+                "display_order": min(m.display_order for m in members),
+                "_members": members,
+            }
+        )
+    return rows
+
+
+def _aggregate_assets_by_name(classes: list[AssetClass]) -> list[dict[str, Any]]:
+    """Collapse :class:`Asset` rows with identical ``name`` across classes.
+
+    F06 D3 — within an aggregated class (already collapsed by
+    ``name``), ``Asset`` rows whose ``name`` matches across the
+    underlying profiles also collapse into a single asset row.
+    Sums ``qty``, ``invested``, ``current_value``, and
+    ``position_count`` verbatim per ``broker-csv-import-totals``.
+    The first occurrence's ``buy_enabled`` / ``sell_enabled`` /
+    ``currency_code`` wins so the row stays deterministic; a
+    divergence flag (``flags_divergent``) is included for callers
+    that want to surface the ambiguity in copy.
+    """
+    grouped: dict[str, list[Asset]] = {}
+    for klass in classes:
+        for asset in klass.assets:
+            grouped.setdefault(asset.name, []).append(asset)
+
+    rows: list[dict[str, Any]] = []
+    ZERO = Decimal("0")
+    for name, members in grouped.items():
+        invested = ZERO
+        current = ZERO
+        qty = ZERO
+        position_count = 0
+        for asset in members:
+            for pos in asset.positions:
+                position_count += 1
+                qty += pos.qty or ZERO
+                invested += pos.total_invested or ZERO
+                current += pos.total_current or ZERO
+        buy = members[0].buy_enabled
+        sell = members[0].sell_enabled
+        any_buy_divergent = any(a.buy_enabled != buy for a in members)
+        any_sell_divergent = any(a.sell_enabled != sell for a in members)
+        rows.append(
+            {
+                "id": members[0].id,
+                "name": name,
+                "position_count": position_count,
+                "qty": qty,
+                "invested": invested,
+                "current_value": current,
+                "target_pct_class": members[0].target_pct or ZERO,
+                "target_pct_total": ZERO,
+                "buy_enabled": buy,
+                "sell_enabled": sell,
+                "currency_code": members[0].currency_code,
+                "flags_divergent": any_buy_divergent or any_sell_divergent,
+            }
+        )
+    return rows
+
+
+def family_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
+    """F06 — family-mode mirror of :func:`portfolio_aggregates` with full-join.
+
+    F06 D1 — keep ``portfolio_aggregates`` and ``family_aggregates``
+    as sibling functions instead of one parametrized helper
+    (F01 Decision 5 precedent). The collapsed classes / assets
+    shortcut the per-profile path entirely.
+
+    Sum invariants match :func:`portfolio_aggregates`:
+
+    * ``broker-csv-import-totals`` — sum the broker-published
+      ``Position.total_invested`` / ``Position.total_current``
+      directly. Never recompute ``qty * price``.
+    * Same ``Decimal`` / ``HUNDRED`` percent math.
+    * Empty portfolio → ``gain_pct = None`` (renders "—") and
+      ``current_pct`` zeroed so the progress bars are empty.
+    * ``target_pct`` is forced to ``None`` for every class row
+      so the template can branch on ``view == 'family'`` and hide
+      the allocation-target pill. ``current_pct`` and
+      ``current_value`` stay meaningful (sum is well-defined).
+    """
+    ZERO = Decimal("0")
+    HUNDRED = Decimal("100")
+
+    class_rows = _aggregate_classes_by_name(asset_classes)
+
+    portfolio_invested = ZERO
+    portfolio_current = ZERO
+    for row in class_rows:
+        portfolio_invested += row["invested"]
+        portfolio_current += row["current_value"]
+        # Collapse assets inside this aggregated class. Pass the
+        # underlying class rows so positions across the same
+        # asset name from different profiles add up.
+        row["_assets"] = _aggregate_assets_by_name(row["_members"])
+        # Drop the synthetic members list — the template only
+        # consumes the per-asset dicts.
+        row.pop("_members")
+
+    portfolio_gain = portfolio_current - portfolio_invested
+    if portfolio_invested == ZERO:
+        portfolio_gain_pct: Decimal | None = None
+        for row in class_rows:
+            row["current_pct"] = ZERO
+            for asset in row["_assets"]:
+                asset["asset_pct"] = ZERO
+                asset["current_pct_class"] = ZERO
+                asset["current_pct_total"] = ZERO
+    else:
+        portfolio_gain_pct = (portfolio_gain / portfolio_invested) * HUNDRED
+        for row in class_rows:
+            row["current_pct"] = (
+                (row["current_value"] / portfolio_current) * HUNDRED
+                if portfolio_current > ZERO
+                else ZERO
+            )
+            class_current = row["current_value"]
+            for asset in row["_assets"]:
+                asset_pct = (
+                    (asset["current_value"] / class_current) * HUNDRED
+                    if class_current > ZERO
+                    else ZERO
+                )
+                asset["asset_pct"] = asset_pct
+                asset["current_pct_class"] = asset_pct
+                asset["current_pct_total"] = (
+                    (asset["current_value"] / portfolio_current) * HUNDRED
+                    if portfolio_current > ZERO
+                    else ZERO
+                )
+
+    classes_out: list[dict[str, Any]] = []
+    for row in class_rows:
+        row["assets"] = row.pop("_assets")
+        classes_out.append(row)
+
+    return {
+        "portfolio": {
+            "total_invested": portfolio_invested,
+            "current_value": portfolio_current,
+            "gain": portfolio_gain,
+            "gain_pct": portfolio_gain_pct,
+        },
+        "classes": classes_out,
     }

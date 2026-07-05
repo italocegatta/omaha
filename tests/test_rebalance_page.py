@@ -526,9 +526,9 @@ def test_patrimonio_tab_is_active_on_patrimonio(client: TestClient) -> None:
             r'<a[^>]*data-testid="app-tab-btn-patrimonio"[^>]*>',
             body,
         )
-        assert match is not None, (
-            f"patrimonio tab <a> not found in body for path {path}"
-        )
+        assert match is not None, f"patrimonio tab <a> not found in body for path {path}"
         tag = match.group(0)
         assert "tab-nav__btn--active" in tag, f"patrimonio tab not active on {path}: {tag!r}"
-        assert 'aria-current="true"' in tag, f"patrimonio tab missing aria-current on {path}: {tag!r}"
+        assert 'aria-current="true"' in tag, (
+            f"patrimonio tab missing aria-current on {path}: {tag!r}"
+        )

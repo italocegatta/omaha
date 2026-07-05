@@ -111,11 +111,32 @@ def test_index_with_active_profile_renders_dashboard(client: TestClient) -> None
     The profile name surfaces in the sidebar wordmark (the new
     header chip also shows it but the testid stays stable).
     """
+    from omaha.db import SessionLocal
+    from omaha.models import User
+
+    db = SessionLocal()
+    try:
+        ana = db.query(User).filter(User.username == "Ana").one_or_none()
+        print("\n\nDEBUG: Ana user:", ana)
+        if ana is not None:
+            print("DEBUG: Ana profiles:", [p.name for p in ana.profiles])
+    finally:
+        db.close()
     client.post(
         "/login",
         data={"username": "Ana", "password": "test-password"},
         follow_redirects=False,
     )
+    from omaha.db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        ana = db.query(User).filter(User.username == "Ana").one_or_none()
+        print("\n\nDEBUG after login: Ana user:", ana)
+        if ana is not None:
+            print("DEBUG after login: Ana profiles:", [p.name for p in ana.profiles])
+    finally:
+        db.close()
 
     response = client.get("/", follow_redirects=False)
 

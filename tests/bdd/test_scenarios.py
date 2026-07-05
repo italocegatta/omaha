@@ -211,6 +211,24 @@ def test_italo_sees_ana_classes_after_switch():
     pass
 
 
+@scenario(
+    "profile_sharing.feature",
+    "Operador seleciona Família no chip e vê agregado cross-User",
+    features_base_dir="tests/bdd/features",
+)
+def test_operador_seleciona_familia_no_chip_agregado_cross_user():
+    pass
+
+
+@scenario(
+    "profile_sharing.feature",
+    "Agregado familiar é simétrico entre operadores",
+    features_base_dir="tests/bdd/features",
+)
+def test_agregado_familiar_simetrico_entre_operadores():
+    pass
+
+
 # ─────────────────────────────────────────────────────────────────────
 # dashboard_inline_editing.feature
 # dashboard-inline-edit-friction: one-click focus + empty→zero.

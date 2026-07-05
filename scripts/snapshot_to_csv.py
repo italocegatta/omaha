@@ -84,6 +84,16 @@ SEED_DIR = REPO_ROOT / "data" / "seed"
 
 PROFILES = ("italo", "ana")
 
+# Profiles the DB may legitimately hold without a CSV triplet.
+# F07 — the Família sentinel Profile row is owned by the no-password
+# ``User("family")`` (see ``omaha.seed``); it owns zero
+# ``AssetClass`` rows, so the snapshot script has nothing to write.
+# Any legacy F01 ``Italo RF2`` fixture rows are dropped by the seed
+# layer so this list no longer needs to allowlist them. The script
+# only fails if it sees an unknown name that isn't on the sentinel
+# allow-list — see ``main``.
+HOUSEHOLD_FIXTURE_PROFILES: frozenset[str] = frozenset({"Família"})
+
 CLASS_HEADER = ("name", "target_pct", "display_order", "quote_kind")
 ASSET_HEADER = (
     "class_name",
@@ -240,10 +250,18 @@ def main(argv: list[str] | None = None) -> int:
     try:
         profiles = session.query(Profile).order_by(Profile.user_id, Profile.display_order).all()
         names = [p.name for p in profiles]
-        unknown = [n for n in names if n.lower() not in PROFILES]
+        # Unknown profiles are tolerated only if they are on the
+        # household fixture allow-list (F01 — empty second
+        # profile owned by Italo). Anything else aborts so a
+        # future ad-hoc profile can't silently survive a
+        # snapshot round-trip.
+        unknown = [
+            n for n in names if n.lower() not in PROFILES and n not in HOUSEHOLD_FIXTURE_PROFILES
+        ]
         if unknown:
             abort(
-                f"snapshot FAIL: profile {unknown!r} not in canonical set {{{', '.join(PROFILES)}}}"
+                f"snapshot FAIL: profile {unknown!r} not in canonical set "
+                f"{{{', '.join(PROFILES)}}} and not on the household fixture allow-list"
             )
         present = {n.lower() for n in names}
         missing = [p for p in PROFILES if p not in present]

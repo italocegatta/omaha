@@ -59,8 +59,8 @@ if TYPE_CHECKING:
 
 from tests.e2e.conftest import _seed_assets_with_positions_via_import
 
-from .test_import_user_journey import _login_and_select_italo
 from .selectors import SELECTORS
+from .test_import_user_journey import _login_and_select_italo
 from .test_user_journey_rebalance import S05_SELECTORS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent

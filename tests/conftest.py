@@ -169,6 +169,8 @@ _INTEGRATION_PREFIXES = (
     "tests/test_db_reset_both_profiles.py",
     "tests/test_e2e.py",
     "tests/test_healthz.py",
+    "tests/test_household_aggregate.py",
+    "tests/test_family_aggregate.py",
     "tests/test_import_commit.py",
     "tests/test_import_get_preview.py",
     "tests/test_import_preview.py",

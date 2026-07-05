@@ -12,8 +12,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import pytest
-
 from .selectors import DASHBOARD_SELECTORS
 from .test_asset_crud import _create_seed_assets
 from .test_import_user_journey import _login_and_select_italo
@@ -56,6 +54,7 @@ def _seed_one_asset(page: Page, live_url: str) -> None:
     # outside the asset/position seed invariant).
     import sqlite3
     from pathlib import Path
+
     db_path = Path(live_url.replace("http://127.0.0.1:", ""))  # unused
     repo_root = Path(__file__).resolve().parent.parent.parent
     db_path = repo_root / "data" / "test_e2e.db"
@@ -73,9 +72,7 @@ def _seed_one_asset(page: Page, live_url: str) -> None:
             )
             # CVXPY rejects target_pct=0 across a class; the asset
             # imported via _create_seed_assets also has 0 by default.
-            conn.execute(
-                "UPDATE assets SET target_pct = 100 WHERE name = 'INVENTORY_ASSET'"
-            )
+            conn.execute("UPDATE assets SET target_pct = 100 WHERE name = 'INVENTORY_ASSET'")
             conn.commit()
         finally:
             conn.close()
@@ -84,9 +81,7 @@ def _seed_one_asset(page: Page, live_url: str) -> None:
 class TestSelectorInventory:
     """Spec: e2e-selector-pinning — central map smoke."""
 
-    def test_every_inventory_entry_resolves_on_patrimonio(
-        self, page: Page, live_url: str
-    ) -> None:
+    def test_every_inventory_entry_resolves_on_patrimonio(self, page: Page, live_url: str) -> None:
         _login_and_select_italo(page, live_url)
         _seed_one_class(page, live_url)
         _seed_one_asset(page, live_url)
@@ -104,8 +99,7 @@ class TestSelectorInventory:
 
         assert not missing, (
             "Selectors in the central inventory that did NOT resolve on "
-            "/patrimonio (seeded with one class):\n  - "
-            + "\n  - ".join(missing)
+            "/patrimonio (seeded with one class):\n  - " + "\n  - ".join(missing)
         )
 
     def test_inventory_module_is_pytest_free(self) -> None:
