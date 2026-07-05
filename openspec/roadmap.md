@@ -123,28 +123,57 @@ Progress:
 - Archived: done
 
 ### F03 - Página Rentabilidade
-Status: `Ready`
+Status: `Ready` (deferido — owner 2026-07-05; ver D-F03-defer)
 Goal: Página top-level `/rentabilidade` mostrando série temporal de retorno
 por perfil/household. Substitui o stub "Em construção" criado por F02.
 Nova spec precisa ser escrita dentro da fatia
 (`openspec/specs/rentabilidade/spec.md`).
 Candidate OpenSpec change id: `f03-rentabilidade-page`
-Spec link: `openspec/changes/f03-rentabilidade-page/`
+Spec link: `openspec/changes/f03-rentabilidade-page/` *(proposal
+drafted 2026-07-05; change folder fica intacto para reuso futuro —
+não re-propor quando reativar)*
 Files:
 - `openspec/specs/rentabilidade/spec.md` (novo)
-- `src/omaha/routes/pages.py`
-- `src/omaha/templates/rentabilidade.html` (substituir stub)
-Notes: Escopo e definição de dados ainda não fechados — alinhar no proposal.
-Depende de F02 (slot `/rentabilidade` precisa existir). Side panel já foi
-removida em F02 — F03 não toca em `_sidebar.html`.
+- `src/omaha/calculation/rentabilidade.py` (novo — helpers puros `compute_window_summary`, `compute_class_breakdown`, `compute_monthly_series`, `quote_stale_assets`)
+- `src/omaha/routes/pages.py` (substituir handler `/rentabilidade`)
+- `src/omaha/routes/rentabilidade.py` (novo — endpoints `/api/rentabilidade/{summary,series}`)
+- `src/omaha/templates/rentabilidade.html` (substituir stub; hero + 3 tabelas + refresh btn)
+- `src/omaha/static/app.css` (regras `.rentabilidade-*`)
+- `tests/test_rentabilidade_summary.py` (novo, unit)
+- `tests/test_rentabilidade_series.py` (novo, unit)
+- `tests/test_rentabilidade_quote_carry.py` (novo, unit)
+- `tests/integration/test_rentabilidade_route.py` (novo)
+- `tests/bdd/features/rentabilidade.feature` (novo)
+- `tests/bdd/test_scenarios.py` (bindings)
+- `tests/e2e/selectors.py` (data-testids)
+- `tests/conftest.py` (adicionar prefixos `test_rentabilidade_*` em `_INTEGRATION_PREFIXES`)
+Notes: Escopo alinhado no proposal: 6 janelas fixas (1M/3M/6M/12M/YTD/All) +
+série mensal de 12 pontos + tabela por classe (All-time). Sem chart lib
+(PRD §1.5 "página pode ser pequena"). Carry-forward de quote para cobrir
+buracos sem inventar dados sintéticos; ativos com quote_kind='manual' usam
+`Position.current_price`. Família mode reusa agregação F06 (full-join por
+nome) + omite `target_pct` (D-F06.3). Sem migration Alembic — `Position` +
+`Quote` já cobrem o necessário. Não toca solver CVXPY nem provider yfinance
+em runtime (lê cache só). Critical-area cap 1 não aplicável.
+
+**DEFERIDO 2026-07-05** — owner pediu para não mexer em
+Rentabilidade/Proventos por enquanto (D-F03-defer). Move F03 + F04
+para o final do execution order. Mudar títulos das abas ou mexer em
+stub corrente também fica congelado. Quando owner retomar o tema,
+reativar via `start f03` ou `start f04` — proposal draft fica
+preservado em `openspec/changes/f03-rentabilidade-page/` (valid:
+true em 2026-07-05).
 Progress:
-- Proposed: pending
+- Proposed: done (2026-07-05; 4 artifacts completos;
+  `openspec validate` retorna `valid: true`). **Revertido para
+  Ready por deferral 2026-07-05 — nenhum apply rolou; artifacts
+  ficam intactos para reuso futuro.**
 - Applying: pending
 - Applied: pending
 - Archived: pending
 
 ### F04 - Página Proventos
-Status: `Ready`
+Status: `Ready` (deferido — owner 2026-07-05; ver D-F03-defer)
 Goal: Página top-level `/proventos` com dividendos/JCP recebidos por ativo,
 classe e perfil. Substitui o stub "Em construção" criado por F02.
 Nova spec a ser definida na fatia
@@ -156,9 +185,15 @@ Files:
 - `src/omaha/routes/pages.py`
 - `src/omaha/templates/proventos.html` (substituir stub)
 Notes: Depende de F02 (slot `/proventos` precisa existir). Side panel já foi
-removida em F02. Dados: provider de cotação atual não cobre eventos; a
+removido em F02. Dados: provider de cotação atual não cobre eventos; a
 fatia vai precisar definir a fonte (CSV import novo, sentinela na
 posição, ou skip até segunda iteração).
+
+**DEFERIDO 2026-07-05** — mesmo motivo de F03 (D-F03-defer).
+Proventos depende de escolha de fonte de dados ainda em aberto
+(provider de cotação yfinance não cobre eventos); sem decisão do
+owner sobre a fonte, F04 não pode ser proposta sem ambiguidade
+significativa. Reativar via `start f04` quando o tema voltar.
 Progress:
 - Proposed: pending
 - Applying: pending
@@ -783,25 +818,26 @@ Can run in parallel: yes
 
 Prioridade presume que o owner quer atacar mudanças estruturais primeiro
 (rebalance + páginas), qualidade em paralelo, e docs/infra no fim.
+**F03 + F04 movidas para o final** (deferral 2026-07-05, D-F03-defer).
 
 1. R01 - cleanup (zero risk, prep do repo) — archived
 2. F02 - tab nav + side panel removal + stubs (foundation para F03-F04) — archived
 3. F01 - household cross-profile (paralela a F02 — não bloqueia) — archived 2026-07-04 (superseded by F06)
 4. F06 - family full-join aggregate cross-User (substitui semântica F01; arquivada 2026-07-05)
-5. F07 - família como opção no profile-switcher (peer de Italo/Ana; dependente de F06; próxima fatia a executar)
-6. F03 - rentabilidade page (substitui stub criado em F02)
-7. F04 - proventos page (substitui stub criado em F02)
-8. F05 - dark mode palette swap
-9. R02 - revise CSV seed system
-10. R03 - extract quote_provider adapter
-11. R04 - partialize patrimonio template (depende de F02)
-12. T05 - BDD step-def drift after F02 (promoted 2026-07-04 — fecha o loop de follow-up de T01; mudança mecânica pequena)
-13. T01 - BDD + e2e 100% green — archived
-14. T02 - coverage in CI
-15. T03 - mutation testing rebalance
-16. I01 - backup scheduling
-17. I02 - TLS cert renewal automation
-18. D01 - README refresh (último — reflete tudo acima)
+5. F07 - família como opção no profile-switcher (peer de Italo/Ana; dependente de F06; **próxima fatia a executar**)
+6. F05 - dark mode palette swap
+7. R02 - revise CSV seed system
+8. R03 - extract quote_provider adapter
+9. R04 - partialize patrimonio template (depende de F02)
+10. T05 - BDD step-def drift after F02 (promoted 2026-07-04 — fecha o loop de follow-up de T01; mudança mecânica pequena)
+11. T01 - BDD + e2e 100% green — archived
+12. T02 - coverage in CI
+13. T03 - mutation testing rebalance
+14. I01 - backup scheduling
+15. I02 - TLS cert renewal automation
+16. D01 - README refresh (último — reflete tudo acima)
+17. **F03 - rentabilidade page** (deferida; final do queue — owner 2026-07-05)
+18. **F04 - proventos page** (deferida; final do queue — owner 2026-07-05)
 
 Notas de reordenamento:
 - **F02 vem antes de F01** porque a tab nav + side panel removal é
@@ -820,19 +856,22 @@ Notas de reordenamento:
   sem senha, drop do fixture `Italo RF2`, e rework do `profile-switcher`
   para 3 opções. Migration Alembic + cap 1 Applying (profile routing
   + auth são críticos). Não toca solver nem cotação.
-- **T05 promovido 2026-07-04** (de T-block final para imediatamente
-  após R04): o único follow-up aberto de T01, mudança mecânica
-  pequena, depende só do slot F02 (já arquivado). Rodar antes de
-  T02/T03 limpa a suíte BDD antes de investimento em tooling de
-  coverage/mutation.
+- **F03 + F04 adiada para o final** (D-F03-defer, 2026-07-05): owner
+  pediu para não mexer nas páginas Rentabilidade/Proventos por
+  enquanto. Reordenadas para depois de D01 (último); rationale: o
+  doc final (D01) precisa do surface pós-tudo, e F03/F04 só fazem
+  sentido quando o owner retomar o tema. Proposal draft de F03
+  em `openspec/changes/f03-rentabilidade-page/` (valid: true
+  2026-07-05) fica intacto para reuso — reativar via
+  `start f03` não exige re-propose. F04 ainda não tem proposal;
+  reativar via `start f04` abre propose.
 - T03 fica depois de R03 porque a fatia de mutation testing pode
   aproveitar adapter mais limpo para mockar providers. Se durante
   apply de T03 essa vantagem não se confirmar, mover T03 para antes
   de R03 sem outra consequência.
-- D01 no fim: doc precisa refletir surface pós-F-slice (regras §4.10
-  e features block mudam com F05 e F01-F04; PRD §5.3 precisa refletir
-  Rebalanceamento top-level após F02; F06 adiciona "agregado cross-User
-  família" no bloco de features).
+- D01 antes de F03+F04: doc pode refletir surface até I02 sem
+  aguardar as páginas deferidas; quando F03/F04 retomarem, D01 ganha
+  delta de features block (re-ordenado depois do apply).
 
 ## Open questions (grill 2026-07-03)
 
@@ -933,6 +972,18 @@ indica onde a decisão vai ser aplicada (fatia + artefato).
   recebe `MODIFIED` (semântica cross-User + full-join) e `REMOVED`
   nos requirements "intra-User" + "preserve per-profile isolation
   on household" (substituídos pelos novos). Decisão 2026-07-04.
+- **D-F03-defer — F03 e F04 movidas para o final do execution order
+  por pedido do owner em 2026-07-05.** Razão: foco atual está no
+  rearranjo da nav/profile-switcher (F02+F06+F07 já archived); páginas
+  Rentabilidade/Proventos são leitura analítica que pode esperar.
+  F03 tem proposal draft válido (`openspec/changes/f03-rentabilidade-page/`,
+  `valid: true` em 2026-07-05) — preservar artifacts intactos, não
+  re-propor quando reativar; usar `start f03` para retomar direto do
+  `apply`. F04 ainda sem proposal — `start f04` abre
+  `openspec-propose`. Stubs F02 (`Em construção`) permanecem
+  clicáveis na tab nav durante o deferral. Mudar a UI das tabs ou
+  renomear rótulos também fica congelado até owner retomar o tema.
+  Decisão 2026-07-05.
 
 ---
 
