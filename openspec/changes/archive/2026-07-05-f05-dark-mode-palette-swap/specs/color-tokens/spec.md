@@ -1,8 +1,5 @@
-# color-tokens Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change phase-02-palette. Update Purpose after archive.
-## Requirements
 ### Requirement: Design tokens define unambiguous foreground/background pairs
 
 The system SHALL define a complete set of CSS custom properties in `app.css` `:root` block where every foreground token is paired with a background token and every pair meets WCAG 2.1 AA contrast on the dark surface (`--bg: oklch(L≈0.18 hue≈60 chroma≈0.01)` warm-neutral, NOT pure black, NOT cold blue-gray).

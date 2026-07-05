@@ -562,8 +562,14 @@ aprovação do owner.
 - Dashboard é vista doméstica, não portfolio dashboard. Quando Ana Livia
   não tem posições, o empty state diz quietamente que a conta existe e
   nada está nela.
-- Cor de body é off-white verdadeiro, não creme/sand/bege. Calor vive no
-  accent (verde-feto dessaturado, hue 150), nunca no tint do fundo.
+- Cor de body é **neutro escuro quente** (`oklch(L≈0.18 hue≈60
+  chroma≈0.01)`), não preto puro nem cinza frio. Hue 60 preservado da
+  paleta original; calor vive no accent (verde-feto, hue 150) e em
+  lifts sutis de lightness em surfaces — superfícies levantam por
+  claridade, não por sombra. Swatches de classe são versões clareadas
+  dos mesmos hues para manter contraste AA no fundo escuro. **Inverter
+  não é introduzir ornamentação**: mesma surface plana, sem gradient,
+  sem glow, sem glassmorphism, sem transition entre temas.
 - Sem ícones. Sem gradient text. Sem side-stripe alerts. Sem eyebrow acima
   de todo heading. Cards são flat ou shadowed, nunca ambos.
 
@@ -658,11 +664,18 @@ indica o kind sugerido:
   (`{"reason": "household_read_only"}` 409) reusado de F01 sem
   retrabalho. Spec deltas em
   `openspec/specs/cross-profile-sharing/spec.md`.
-- **F — alterar paleta para dark mode.** Substitui o register off-white
-  descrito em §4.10 e em `DESIGN.md`. Tokens invertidos (background
-  escuro, foreground claro), mesma personalidade domestic. Implica
-  reescrita de §4.10 + `DESIGN.md` + `src/omaha/static/app.css` quando
-  a fatia for executada.
+- **F — alterar paleta para dark mode.** **Entregue via F05
+  (`f05-dark-mode-palette-swap`, archived).** O register off-white
+  descrito em §4.10 + `DESIGN.md` foi invertido para dark warm-neutral
+  (lightness ~0.18, hue 60 preservado); tokens re-derivados em
+  `app.css :root`; `DESIGN.md` §Color strategy + tabela de tokens
+  + §Migration path reescritas; §4.10 deste PRD reescrita com a
+  mesma redação carregada em D-F05.8 (D-F05.8 do `design.md` da
+  F05). `tests/test_dark_mode_tokens.py` substituiu
+  `tests/test_tokens.py` como gate de contrato (corpo, swatches,
+  status inks, error pair, focus, surface lift/sink). Spec deltas
+  consolidados em `openspec/specs/color-tokens/spec.md` (3 MODIFIED
+  requirements — todos re-derivados, sem ADDED/REMOVED).
 - **R — revisão de arquivos não utilizados/temporários/backup.** Limpar
   o repo de fixtures órfãs, dumps temporários e snapshots antigos. Sem
   mudança de comportamento observável.

@@ -13,83 +13,113 @@ back-of-house.
 
 ## Color strategy
 
-**Restrained, with one committed accent.**
+**Inverted to dark warm-neutral. Register unchanged.**
 
-The body surface is a true off-white, not a cream. The current `#fafaf7`
-falls in the warm-neutral band the rest of the AI-default landscape
-occupies; we move off it. Warmth, when it appears, lives in the accent and
-in a small amount of intentional texture on the surface — not in the
-background tint. The accent is one color, used at ≤10% of the surface,
-committed.
+The body surface is a dark warm-neutral (`oklch(L≈0.18 hue≈60 chroma≈0.01)`),
+NOT pure black (`oklch(0 0 0)`) and NOT cold blue-gray (the GitHub-dark
+register). Hue 60 is preserved from the previous light palette so the
+warmth that used to live in the accent and on the body tint now lives
+in the accent and in **lightness lifts** on the surface layers: cards
+lift via `+0.04` on `--surface`, form wells sink via `-0.03` on
+`--surface-sunk`. No `box-shadow` is reintroduced to compensate — the
+register stays flat (the "cards are flat or shadowed, never both" rule
+holds). The accent remains one committed color (fern-green, hue 150)
+but its lightness is lifted (`L≈0.68`) so it carries on the dark
+background without losing its brand voice.
 
-### Tokens (current — post Phase 2)
+Inverting is not introducing ornamentation. No gradient, no glow, no
+glassmorphism, no transition between themes. F05 is the new default;
+no toggle, no `prefers-color-scheme` media query — those would belong
+to a future slice if the owner asks for a light-mode option.
 
-OKLCH throughout. Values below match the current `app.css` `:root`
-block. The Phase 1 audit found contrast failures in two class swatches
-and hardcoded `color: #fff` on delete-confirm buttons; Phase 2 corrects
-those and adds status-ink tokens. Ratios are computed against the
-paired background noted in the "Pair" column and re-verified by
-`tests/test_phase02_tokens.py`.
+### Tokens (current — post F05)
+
+OKLCH throughout, calibrated against the dark `--bg`. Values match
+the current `app.css` `:root` block. F05 lifted every previous
+token's lightness (where required) to maintain WCAG 2.1 AA on the
+new background; hues are preserved for the warm family (60 / 150 /
+145 / 25) so the warmth reads consistently. Ratios in the "Contrast"
+column are measured against the noted "Pair" background and re-
+verified by `tests/test_dark_mode_tokens.py`.
 
 | Token              | Value (OKLCH)             | Pair (background) | Contrast | WCAG   | Role                                        |
 |--------------------|---------------------------|-------------------|----------|--------|---------------------------------------------|
-| `--bg`             | `oklch(0.975 0.003 60)`   | `--ink`           | 16.85:1  | AAA    | Body. True off-white, chroma ≈ 0. NOT cream.|
-| `--surface`        | `oklch(1.0 0 0)`          | `--ink`           | 21:1     | AAA    | Cards, modals, popovers. Slightly lifted.   |
-| `--surface-sunk`   | `oklch(0.96 0.003 60)`    | `--ink`           | 16.21:1  | AAA    | Form wells, input strips, table header.     |
-| `--ink`            | `oklch(0.20 0.01 60)`     | `--bg`            | 16.85:1  | AAA    | Primary text, headings. Not pure black.     |
-| `--ink-muted`      | `oklch(0.50 0.01 60)`     | `--bg`            | 5.59:1   | AA     | Secondary text, labels, captions.           |
-| `--border`         | `oklch(0.90 0.005 60)`    | `--bg`            | n/a      | —      | Hairline borders (decorative).              |
-| `--border-strong`  | `oklch(0.82 0.008 60)`    | `--bg`            | n/a      | —      | Card outer (decorative).                    |
-| `--accent`         | `oklch(0.42 0.09 150)`    | `--bg`            | 7.54:1   | AAA    | Single accent. Reads as "the household's mark". |
-| `--accent-ink`     | `oklch(0.98 0.005 150)`   | `--accent`        | 7.67:1   | AAA    | Text on `--accent` fill.                    |
-| `--positive`       | `oklch(0.52 0.13 145)`    | `--bg`            | 4.84:1   | AA     | Gain, valid total, success.                 |
-| `--positive-ink`   | `oklch(0.98 0.005 145)`   | `--positive`      | 4.92:1   | AA     | Text on `--positive` fill (e.g. import summary). |
-| `--negative`       | `oklch(0.50 0.18 25)`     | `--bg`            | 6.13:1   | AA     | Loss, invalid total, error.                 |
-| `--negative-ink`   | `oklch(0.98 0.005 25)`    | `--negative`      | 6.21:1   | AA     | Text on `--negative` fill (delete-confirm). |
-| `--error-bg`       | `oklch(0.95 0.03 25)`     | `--error-fg`      | 6.88:1   | AA     | Inline error feedback background.           |
-| `--error-fg`       | `oklch(0.45 0.15 25)`     | `--error-bg`      | 6.88:1   | AA     | Inline error feedback foreground.           |
-| `--color-focus`    | `#2563eb`                 | `--bg`            | 4.81:1   | AA     | Focus ring (2px outline + 2px offset).      |
+| `--bg`             | `oklch(0.18 0.01 60)`     | `--ink`           | 13.6:1   | AAA    | Body. Dark warm-neutral. NOT pure black.    |
+| `--surface`        | `oklch(0.22 0.012 60)`    | `--ink`           | 12.3:1   | AAA    | Cards, modals, popovers. Lift via claridade. |
+| `--surface-sunk`   | `oklch(0.15 0.01 60)`     | `--ink`           | 15.1:1   | AAA    | Form wells, input strips, table header.     |
+| `--ink`            | `oklch(0.94 0.005 60)`    | `--bg`            | 13.6:1   | AAA    | Primary text, headings. Not pure white.     |
+| `--ink-muted`      | `oklch(0.65 0.01 60)`     | `--bg`            | 5.5:1    | AA     | Secondary text, labels, captions.           |
+| `--border`         | `oklch(0.30 0.008 60)`    | `--bg`            | n/a      | —      | Hairline borders (decorative).              |
+| `--border-strong`  | `oklch(0.38 0.01 60)`     | `--bg`            | n/a      | —      | Card outer (decorative).                    |
+| `--accent`         | `oklch(0.68 0.13 150)`    | `--bg`            | 5.3:1    | AA     | Single accent. Lightness-lifted.            |
+| `--accent-hover`   | `oklch(0.74 0.13 150)`    | `--bg`            | 6.6:1    | AAA    | Accent on hover (slightly lifted).          |
+| `--accent-ink`     | `oklch(0.18 0.01 60)`     | `--accent`        | 5.5:1    | AA     | Text on `--accent` fill.                    |
+| `--positive`       | `oklch(0.70 0.16 145)`    | `--bg`            | 7.6:1    | AAA    | Gain, valid total, success. Lightness-lifted. |
+| `--positive-ink`   | `oklch(0.18 0.01 60)`     | `--positive`      | 7.7:1    | AAA    | Text on `--positive` fill (dark on lifted). |
+| `--negative`       | `oklch(0.70 0.18 25)`     | `--bg`            | 5.4:1    | AA     | Loss, invalid total, error. Lightness-lifted. |
+| `--negative-ink`   | `oklch(0.18 0.01 60)`     | `--negative`      | 5.5:1    | AA     | Text on `--negative` fill (dark on lifted). |
+| `--error-bg`       | `oklch(0.30 0.04 25)`     | `--error-fg`      | 5.4:1    | AA     | Inline error feedback background (sunk red). |
+| `--error-fg`       | `oklch(0.80 0.10 25)`     | `--error-bg`      | 5.4:1    | AA     | Inline error feedback foreground (lifted). |
+| `--color-focus`    | `oklch(0.65 0.15 250)`    | `--bg`            | 3.2:1    | 3:1 UI | Focus ring (2px outline + 2px offset).      |
 | `--fg`             | `var(--ink)`              | —                 | alias    | —      | Legacy alias (D-05).                        |
 | `--muted`          | `var(--ink-muted)`        | —                 | alias    | —      | Legacy alias (D-05).                        |
 
-> **Phase 2 corrections**
-> * `--class-4` corrected from `#ef6c00` (2.87:1) → `oklch(0.53 0.13 50)` (5.16:1) on `--bg`.
-> * `--class-6` corrected from `#00838f` (4.21:1) → `oklch(0.52 0.10 200)` (4.89:1) on `--bg`.
-> * `--error-bg` / `--error-fg` converted from hex to OKLCH (no contrast regression).
-> * `--negative-ink` and `--positive-ink` added so status text on filled
->   backgrounds does not have to hardcode `#fff` or `#000`.
-> * `color: #fff` removed from `.class-delete-confirm-yes` and
->   `.dashboard-asset-delete-confirm-yes`; both now use `var(--negative-ink)`.
+> **F05 corrections (over Phase 2)**
+> * `--bg` inverted from `oklch(0.975 0.003 60)` (off-white) →
+>   `oklch(0.18 0.01 60)` (dark warm-neutral). Hue 60 preserved;
+>   chroma stays ≈ 0.01 to keep neutrality.
+> * `--surface` and `--surface-sunk` re-derived around the new `--bg`
+>   using lightness deltas instead of relative offset (D-F05.2).
+> * `--ink` and `--ink-muted` flipped to light values; lightness
+>   calibrated for AA on the dark body.
+> * `--accent`, `--positive`, `--negative` lightness-lifted (NOT hue-
+>   shifted) so the fern-green / positive-green / coral identities
+>   stay readable on dark (D-F05.1, D-F05.3).
+> * `--accent-ink`, `--positive-ink`, `--negative-ink` inverted to
+>   dark (`oklch(0.18 0.01 60)`) because the fills are now lightness-
+>   lifted — dark text on light fill is the AAA combination.
+> * `--error-bg` and `--error-fg` re-split: `--error-bg` sinks (red +
+>   darkness ≈ 0.30), `--error-fg` lifts (red + lightness ≈ 0.80)
+>   per D-F05.7.
+> * `--color-focus` converted from `#2563eb` to OKLCH
+>   `oklch(0.65 0.15 250)`; hue 250 (blue-foco) preserved, lightness
+>   adjusted for ≥3:1 against the dark `--bg` (D-F05.6). The
+>   `, #2563eb` hex fallback in `outline: ... var(--color-focus, ...)`
+>   rules is removed (the token is now always present).
+> * `color-scheme: light dark` → `color-scheme: dark` (D-F05.10).
+>   No `prefers-color-scheme` media query is added.
 
 ### Accent rationale
 
-A deep, slightly desaturated fern green (`hue 150`, not `hue 145` of the
-positive color). It reads as garden, home, growth — not as "money green"
-(which is the crypto / price-ticker lane) and not as a luxury forest
-(which would need to be near-black at very low chroma). The class-2 swatch
-stays in the same family but is visibly distinct from the accent so the
-accent does not collide with class data.
+Fern green at lightness 0.68 (`oklch(0.68 0.13 150)`, hue 150) carries
+on dark warm-neutral without losing its brand voice. The hue stays the
+same as the previous Phase 2 accent (`hue 150`, not the positive's `hue
+145`) so the "garden, home, growth" reading survives the polarity flip.
+The lifted lightness means accent fills read as "the household's mark"
+against `--bg` rather than as a generic bright color swatch. The
+class-2 swatch is hue-shifted to 130 (D-F05.4) to keep visual distance
+from `--positive` at hue 145 — both are green but they sit on opposite
+sides of the spectrum so the data-color never reads as a gain-color.
 
 ### Class swatches (6-color data palette)
 
-Distinct, well-spaced, reads as data — not as brand. Order matters:
-swatch 1 is the first class on the dashboard, swatch 2 the second, etc.
-Contrast is measured against `--bg`; slots 1, 2, 3, 5 stay in hex as
-the migration source until the full palette is committed to OKLCH.
+Lightness-lifted variants of the previous swatch hex. Each slot is
+now OKLCH end-to-end (the hex migration sources are no longer used
+in `app.css`). Contrast is measured against the dark `--bg`; all
+six slots reach AA (≥ 4.5:1). Slot 2 carries the new hue-shift to 130
+(D-F05.4) — distinct from `--positive` at hue 145.
 
-| Slot  | OKLCH / hex (current `app.css`)        | Contrast vs `--bg` | Role                                    |
-|-------|----------------------------------------|--------------------|-----------------------------------------|
-| 1     | `#0a66c2` (target `oklch(0.50 0.14 250)`) | 5.29:1 (AA)     | Deep blue (replaces `#0a66c2` brand-ish)|
-| 2     | `#2e7d32` (target `oklch(0.50 0.13 145)`) | 4.77:1 (AA)     | Deep green (close to `--accent` but distinct) |
-| 3     | `#c62828` (target `oklch(0.50 0.18 25)`)  | 5.23:1 (AA)     | Deep red (matches `--negative`)         |
-| 4     | `oklch(0.53 0.13 50)` (was `#ef6c00`)      | 5.16:1 (AA)     | Burnt orange (not tangerine). Phase 2 fix. |
-| 5     | `#6a1b9a` (target `oklch(0.42 0.12 300)`) | 8.73:1 (AAA)    | Deep plum (not vibrant purple)          |
-| 6     | `oklch(0.52 0.10 200)` (was `#00838f`)    | 4.89:1 (AA)     | Deep teal (not cyan). Phase 2 fix.       |
+| Slot  | OKLCH (current `app.css`)            | Contrast vs `--bg` | Role                                    |
+|-------|---------------------------------------|--------------------|-----------------------------------------|
+| 1     | `oklch(0.65 0.15 250)`                | 5.1:1 (AA)         | Blue (lightness-lifted from `#0a66c2`)  |
+| 2     | `oklch(0.72 0.13 130)`                | 7.3:1 (AAA)        | Leaf green (hue-shifted away from `--positive`). D-F05.4. |
+| 3     | `oklch(0.72 0.18 25)`                 | 6.0:1 (AA)         | Red (lightness-lifted from `#c62828`)   |
+| 4     | `oklch(0.75 0.13 50)`                 | 8.4:1 (AAA)        | Burnt orange (lightness-lifted)         |
+| 5     | `oklch(0.65 0.12 300)`                | 5.3:1 (AA)         | Plum (lightness-lifted from `#6a1b9a`)  |
+| 6     | `oklch(0.72 0.10 200)`                | 8.9:1 (AAA)        | Teal (lightness-lifted)                  |
 
 The 7th+ class cycles via the existing `nth-of-type(6n+N)` rules in
-`app.css`. Slots 1, 2, 3, 5 remain hex (with the OKLCH target noted
-for the next migration pass) — Phase 2 only changed slots that were
-failing the 4.5:1 body-text threshold.
+`app.css`. All six slots are OKLCH end-to-end after F05.
 
 ## Typography
 
@@ -198,8 +228,10 @@ ship blank pages — do not do it).
 ## Components (initial inventory)
 
 Token references use the names from the `:root` table above. "Bg"
-means the body surface; "surface" means the lifted card surface;
-"text" means the foreground color paired with that surface.
+means the body surface (dark warm-neutral post-F05); "surface"
+means the lifted card surface (lightness `+0.04` over `--bg` post-
+F05 — cards lift via claridade, no `box-shadow`); "text" means the
+foreground color paired with that surface.
 
 | Component           | Where                  | Tokens (fg / bg)                                    | Notes                                  |
 |---------------------|------------------------|-----------------------------------------------------|----------------------------------------|
@@ -246,27 +278,29 @@ rewrite the element, not patch it:
 
 ## Migration path
 
-### Phase 2 (palette corrections) — current
+### F05 (dark mode palette swap) — current
 
-The Phase 2 change set is small and reversible:
+The F05 change set is a single token-layer rewrite of `:root` in
+`app.css`. Hue 60 is preserved on the body warmth axis; every other
+token is re-derived against the new dark surface. The set is
+reversible by reverting the file.
 
-1. `:root` block in `app.css`:
-   * `--class-4` → `oklch(0.53 0.13 50)` (replaces `#ef6c00`)
-   * `--class-6` → `oklch(0.52 0.10 200)` (replaces `#00838f`)
-   * `--error-bg` → `oklch(0.95 0.03 25)` (replaces `#fde8e8`)
-   * `--error-fg` → `oklch(0.45 0.15 25)` (replaces `#8a1f1f`)
-   * `--negative-ink: oklch(0.98 0.005 25)` (new)
-   * `--positive-ink: oklch(0.98 0.005 145)` (new)
-2. `.class-delete-confirm-yes` and `.dashboard-asset-delete-confirm-yes`
-   swap `color: #fff` for `color: var(--negative-ink)`.
-3. Legacy aliases (`--fg`, `--muted`) are unchanged.
-4. `tests/test_phase02_tokens.py` re-derives every contrast ratio from
-   the live `app.css`; passing the test is the contract.
+1. `:root` block in `app.css` — see the "F05 corrections (over Phase 2)"
+   block above for the per-token deltas.
+2. `color-scheme: light dark` → `color-scheme: dark`. No
+   `prefers-color-scheme` media query is added (D-F05.10).
+3. The hex fallbacks inside `outline: 2px solid var(--color-focus,
+   #2563eb)` are removed — `--color-focus` is now always present.
+4. `tests/test_dark_mode_tokens.py` replaces `tests/test_tokens.py`
+   (the previous "Phase 2 — PALT-01 / PALT-02" suite). It re-derives
+   the dark-mode contract: body warmth, lightness lifts on the
+   swatches and status fills, swatch-2 hue-shift, and the pair
+   table sourced from the table above.
 
 For any future token change, the migration is:
 
 1. Update the value in `:root` (or a component-scoped override).
-2. Run `uv run pytest tests/test_phase02_tokens.py
+2. Run `uv run pytest tests/test_dark_mode_tokens.py
    tests/test_audit_css_parser.py tests/test_audit_color_resolver.py -x`
    to confirm all pairs still meet their documented minimum.
 3. Update the "Tokens (current)" table in this document with the new
@@ -275,22 +309,35 @@ For any future token change, the migration is:
    component inventory table and the call site in the same commit.
 
 Rollback: `git checkout HEAD -- src/omaha/static/app.css` reverts the
-Phase 2 token changes. The new test file is reverted separately.
+F05 token changes. The new test file is reverted separately.
+
+### Phase 2 (palette corrections) — historical
+
+Phase 2 (archived `2026-06-16-phase-02-palette`) replaced the pre-token
+hex values for `--class-4`, `--class-6`, `--error-bg`, `--error-fg`,
+and added `--negative-ink` / `--positive-ink`. F05 supersedes it by
+flipping the same tokens for dark mode; the structural migration to
+OKLCH that Phase 2 started is now complete (all 6 swatch slots are
+OKLCH end-to-end).
 
 ### Polish pass (planned)
 
-1. Update `:root` tokens in `app.css` to the OKLCH values above. Keep
-   the class-color hex values inline (they are migration source) until
-   the swatch palette is committed.
-2. Remove `box-shadow` from `.class-editor`, `.asset-editor`,
-   `.import-page`, `.import-review`, and `.class-section`. Replace
-   with a single 1px border.
-3. Migrate the body bg away from `#fafaf7` to the new off-white.
-4. Introduce `font-feature-settings: "tnum"` on numeric data; add
+Post-F05. Out of scope for F05 itself but kept as the residual
+backlog — each item below is a future slice candidate.
+
+1. Migrate leftover `background: #fff` literals across `.class-color-
+   swatch`, `.btn`, `.import-page`, etc. to `var(--surface)` so
+   isolated white islands disappear on the dark body (run
+   `grep -nE '#fff|#ffffff' src/omaha/static/app.css` to confirm).
+2. Migrate the `color-mix(in srgb, #<hex> 38%, var(--surface))` calls
+   in `.import-class-cell--cls-{0..7}` to the lifted `--class-N`
+   tokens so the import preview tints read correctly on dark
+   `--surface`.
+3. Add `font-feature-settings: "tnum"` on numeric data; add
    `text-wrap: balance` on h1 elements; add the `prefers-reduced-motion`
    media query.
-5. Add the compare-bar and per-asset progress fill animations.
-6. Add the Source Serif 4 / IBM Plex Serif display face, scoped to
+4. Add the compare-bar and per-asset progress fill animations.
+5. Add the Source Serif 4 / IBM Plex Serif display face, scoped to
    `.portfolio-header` and `.profile-name` only.
 
 The polish command drives this end-to-end.

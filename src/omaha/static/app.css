@@ -1,31 +1,31 @@
 /* Omaha — application stylesheet (S01 foundation + S03 class editor + S05 polish). */
 
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
 
-  /* Surface tokens — OKLCH, target values per DESIGN.md.
-     The body uses --bg (off-white); cards and modals lift to --surface;
-     form wells, input strips, and table headers sink to --surface-sunk. */
-  --bg: oklch(0.975 0.003 60);          /* off-white body. Not cream. */
-  --surface: oklch(1.0 0 0);            /* cards, modals, popovers. */
-  --surface-sunk: oklch(0.96 0.003 60); /* form wells, input strips. */
+  /* Surface tokens — dark warm-neutral, NOT pure black, NOT cold blue-gray.
+     F05 inversion: body sinks to --bg (~0.18), cards lift to --surface (~0.22)
+     via claridade (no box-shadow). Form wells sink to --surface-sunk (~0.15). */
+  --bg: oklch(0.18 0.01 60);            /* dark warm-neutral body */
+  --surface: oklch(0.22 0.012 60);      /* cards, modals, popovers (lift via claridade) */
+  --surface-sunk: oklch(0.15 0.01 60);  /* form wells, input strips */
 
-  /* Ink tokens. --ink is not pure black; --ink-muted is for secondary text. */
-  --ink: oklch(0.20 0.01 60);
-  --ink-muted: oklch(0.50 0.01 60);
+  /* Ink tokens. --ink is warm-neutral light; --ink-muted is for secondary text. */
+  --ink: oklch(0.94 0.005 60);
+  --ink-muted: oklch(0.65 0.01 60);
 
-  /* Border tokens. --border is the hairline; --border-strong is for card outer. */
-  --border: oklch(0.90 0.005 60);
-  --border-strong: oklch(0.82 0.008 60);
+  /* Border tokens — hairline, "present without competing". */
+  --border: oklch(0.30 0.008 60);
+  --border-strong: oklch(0.38 0.01 60);
 
-  /* Accent — single committed color (deep fern, hue 150). */
-  --accent: oklch(0.42 0.09 150);
-  --accent-hover: oklch(0.34 0.10 150);
-  --accent-ink: oklch(0.98 0.005 150);
+  /* Accent — fern-green, hue 150 preserved, lightness lifted to contrast on dark. */
+  --accent: oklch(0.68 0.13 150);
+  --accent-hover: oklch(0.74 0.13 150);
+  --accent-ink: oklch(0.18 0.01 60);
 
-  /* Status colors — gain/positive and loss/negative. */
-  --positive: oklch(0.52 0.13 145);
-  --negative: oklch(0.50 0.18 25);
+  /* Status colors — hue preserved, lightness lifted for AA contrast on dark. */
+  --positive: oklch(0.70 0.16 145);
+  --negative: oklch(0.70 0.18 25);
 
   /* Legacy aliases — point to the new OKLCH tokens so existing rules
      (still using var(--fg), var(--muted)) resolve to the same values
@@ -34,40 +34,33 @@
   --fg: var(--ink);
   --muted: var(--ink-muted);
 
-  /* App-specific error feedback — not in the design token table. */
-  --error-bg: oklch(0.95 0.03 25);
-  --error-fg: oklch(0.45 0.15 25);
+  /* App-specific error feedback — sunken red surface, lightness-lifted red foreground. */
+  --error-bg: oklch(0.30 0.04 25);
+  --error-fg: oklch(0.80 0.10 25);
 
-  /* Status ink tokens — high-luminance text on status fills. */
-  --negative-ink: oklch(0.98 0.005 25);
-  --positive-ink: oklch(0.98 0.005 145);
+  /* Status ink tokens — dark on lifted fills (AAA contrast over --positive / --negative). */
+  --negative-ink: oklch(0.18 0.01 60);
+  --positive-ink: oklch(0.18 0.01 60);
 
-  /* Class color tokens (S05 T03) — kept as hex per DESIGN.md
-     ("migration source until the swatch palette is committed"). Must
-     stay in sync with _CLASS_COLORS in src/omaha/routes/pages.py (the
-     first 6 of the 8-color server-side palette). Used by
-     .class-color-swatch and the per-class progress fills. The 7th+
-     class section reuses tokens 1-6 via the nth-of-type cycling
-     rules below. */
-  --class-1: #0a66c2; /* blue   */
-  --class-2: #2e7d32; /* green  */
-  --class-3: #c62828; /* red    */
-  --class-4: oklch(0.53 0.13 50);  /* orange — corrected 2026-06 to meet ≥4.5:1 vs --bg */
-  --class-5: #6a1b9a; /* purple */
-  --class-6: oklch(0.52 0.10 200); /* teal   — corrected 2026-06 to meet ≥4.5:1 vs --bg */
+  /* Class color tokens — lightness-lifted variants of the swatch palette.
+     Must stay in sync with _CLASS_COLORS in src/omaha/routes/pages.py. */
+  --class-1: oklch(0.65 0.15 250); /* blue   (hue 250 lifted to L=0.65) */
+  --class-2: oklch(0.72 0.13 130); /* green  (hue shifted to 130 to disambiguate from --positive at 145, D-F05.4) */
+  --class-3: oklch(0.72 0.18 25);  /* red    */
+  --class-4: oklch(0.75 0.13 50);  /* orange */
+  --class-5: oklch(0.65 0.12 300); /* purple */
+  --class-6: oklch(0.72 0.10 200); /* teal   */
 
-  /* Focus ring color (S05 T04). Matches the accent used for input
-     focus borders. Override by setting --color-focus on a container
-     (e.g. a dark backdrop). */
-  --color-focus: #2563eb;
+  /* Focus ring color (S05 T04) — blue-foco with lightness adjusted for dark. */
+  --color-focus: oklch(0.65 0.15 250);
 
   /* Alert severity tokens (asset-table-view 5.2). */
   --alert-ok: var(--positive);
-  --alert-warn: oklch(0.70 0.12 85);
+  --alert-warn: oklch(0.78 0.13 85);
   --alert-danger: var(--negative);
 
   /* Hover surface for editable table cells (asset-table-view 5.3). */
-  --bg-hover: oklch(0.93 0.003 60);
+  --bg-hover: oklch(0.28 0.01 60);
 
   /* Single source of truth for asset table column proportions
      (class-section-consolidated-totals). Read by both the
@@ -147,14 +140,14 @@ input:focus,
 select:focus,
 button:focus,
 [tabindex]:focus {
-  outline: 2px solid var(--color-focus, #2563eb);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 input:focus-visible,
 select:focus-visible,
 button:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid var(--color-focus, #2563eb);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 
