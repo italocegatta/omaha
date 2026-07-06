@@ -98,6 +98,37 @@ _PT_LABEL_TO_TESTID_SLUG: dict[str, str] = {
 }
 
 
+# bdd-step-def-aliases (spec): alias chain consulted by ``click_button``
+# before its default ``button:has-text`` / ``[data-testid]`` / ``a:has-text``
+# candidates. Anchors the resolution on a stable testid when an F-slice
+# re-organises an affordance and the Gherkin label drifts from the
+# visible button text. Keys are the legacy Gherkin labels; values are
+# ordered tuples of CSS selectors tried in sequence (first visible match
+# wins). Each entry carries an inline comment naming the F-slice that
+# introduced the drift so PR review sees the rationale.
+STEP_CLICK_ALIASES: dict[str, tuple[str, ...]] = {
+    # F02 moved the create-class button out of the removed sidebar.
+    # Post-F02 the trigger is
+    # ``[data-testid="empty-state-create-class"]`` with visible
+    # text "Nova Classe" (no leading "+"). The second tuple
+    # entry is the in-modal "Salvar" submit
+    # (``[data-testid="new-class-modal-submit"]``), listed as a
+    # safety net for any future step that walks past the trigger
+    # with the modal already open.
+    "+ Nova classe": (
+        '[data-testid="empty-state-create-class"]',
+        '[data-testid="new-class-modal-submit"]',
+    ),
+    # F02 symmetric preventive entry for the add-asset button
+    # (``[data-testid="dashboard-add-asset-open"]`` with visible
+    # text "Novo ativo"). No step call in the current BDD suite
+    # trips this fallback, but the chain stays symmetric so a
+    # future F-slice that re-routes the trigger does not silently
+    # break the suite.
+    "+ Novo ativo": ('[data-testid="dashboard-add-asset-open"]',),
+}
+
+
 @when(parsers.parse('preencho o campo "{label}" com "{value}"'))
 def fill_field(page: Page, label: str, value: str):
     selectors: list[str] = []
@@ -129,6 +160,25 @@ def fill_field(page: Page, label: str, value: str):
 
 @when(parsers.parse('clico em "{label}"'))
 def click_button(page: Page, label: str):
+    # Alias chain (spec ``bdd-step-def-aliases``): if the Gherkin
+    # label has an explicit mapping, try those selectors first.
+    # First visible match wins; the default candidate sequence is
+    # the fallback (never replaced).
+    alias_candidates: list[str] = list(STEP_CLICK_ALIASES.get(label, ()))
+    for sel in alias_candidates:
+        loc = page.locator(sel)
+        if loc.count() == 0:
+            continue
+        try:
+            loc.first.wait_for(state="visible", timeout=5000)
+            loc.first.click()
+            return
+        except Exception:
+            visible = loc.locator("visible=true")
+            if visible.count() > 0:
+                visible.first.click()
+                return
+            continue
     candidates = [
         f'button:has-text("{label}")',
         f'[data-testid="{label}"]',

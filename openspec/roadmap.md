@@ -123,17 +123,16 @@ Progress:
 - Archived: done
 
 ### F03 - Página Rentabilidade
-Status: `Ready` (deferido — owner 2026-07-05; ver D-F03-defer)
+Status: `Closed` 2026-07-06 (proposal archived without apply; D-F03-defer
+tornou-se permanente por pedido do owner)
 Goal: Página top-level `/rentabilidade` mostrando série temporal de retorno
 por perfil/household. Substitui o stub "Em construção" criado por F02.
 Nova spec precisa ser escrita dentro da fatia
 (`openspec/specs/rentabilidade/spec.md`).
 Candidate OpenSpec change id: `f03-rentabilidade-page`
-Spec link: `openspec/changes/f03-rentabilidade-page/` *(proposal
-drafted 2026-07-05; change folder fica intacto para reuso futuro —
-não re-propor quando reativar)*
+Spec link: `openspec/changes/archive/2026-07-06-f03-rentabilidade-page/`
 Files:
-- `openspec/specs/rentabilidade/spec.md` (novo)
+- `openspec/specs/rentabilidade/spec.md` (novo — não sincronizado; capability nunca implementada)
 - `src/omaha/calculation/rentabilidade.py` (novo — helpers puros `compute_window_summary`, `compute_class_breakdown`, `compute_monthly_series`, `quote_stale_assets`)
 - `src/omaha/routes/pages.py` (substituir handler `/rentabilidade`)
 - `src/omaha/routes/rentabilidade.py` (novo — endpoints `/api/rentabilidade/{summary,series}`)
@@ -163,14 +162,37 @@ stub corrente também fica congelado. Quando owner retomar o tema,
 reativar via `start f03` ou `start f04` — proposal draft fica
 preservado em `openspec/changes/f03-rentabilidade-page/` (valid:
 true em 2026-07-05).
+
+**CLOSED 2026-07-06** — owner pediu para fechar a spec. Proposal
+draft movido para
+`openspec/changes/archive/2026-07-06-f03-rentabilidade-page/`
+(via `openspec-archive-change`). Delta spec **não** sincronizada
+em `openspec/specs/rentabilidade/spec.md` — capability nunca foi
+implementada, então o spec não pode viver nos main specs
+(spec-driven: spec descreve comportamento existente). Stub
+`/rentabilidade` em `templates/rentabilidade.html` permanece
+intocado (regra D-F03-defer). F04 (Proventos) segue no mesmo
+estado de deferral — owner decide separadamente.
+
+**Reactivation path (se o owner retomar o tema):** (a) mover a
+pasta de `archive/2026-07-06-f03-rentabilidade-page/` de volta
+para `openspec/changes/`; (b) re-validar a proposal (escopo pode
+ter envelhecido em ~2026-07-06 baseline: F06/F07 archived +
+R02/R03/R04 archived mudaram invariantes que o proposal
+original assumia); (c) revisar e atualizar tasks.md
+(`as_of=2024-03-15` no cenário principal pode precisar de data
+fresca); (d) rodar `openspec validate
+f03-rentabilidade-page --json` para confirmar `valid: true`
+antes de delegar `openspec-apply-change`. **NÃO** re-propor via
+`openspec-propose` — o proposal draft é reutilizável.
 Progress:
 - Proposed: done (2026-07-05; 4 artifacts completos;
-  `openspec validate` retorna `valid: true`). **Revertido para
-  Ready por deferral 2026-07-05 — nenhum apply rolou; artifacts
-  ficam intactos para reuso futuro.**
-- Applying: pending
-- Applied: pending
-- Archived: pending
+  `openspec validate` retorna `valid: true`).
+- Applying: skipped (nunca rolou — D-F03-defer)
+- Applied: skipped (nunca rolou)
+- Archived: done 2026-07-06 (folder movido para
+  `archive/2026-07-06-f03-rentabilidade-page/`; delta spec
+  descartada — capability não implementada)
 
 ### F04 - Página Proventos
 Status: `Ready` (deferido — owner 2026-07-05; ver D-F03-defer)
@@ -694,7 +716,7 @@ Progress:
   preservado (Ready slice com proposal draft válido por D-F03-defer).
 
 ### R04 - Partialize `templates/patrimonio.html`
-Status: `Applied`
+Status: `Archived` 2026-07-06
 Goal: Quebrar `templates/patrimonio.html` (após rename de `dashboard.html`
 em F02, ~1600 linhas) em partials. Já existem `_sidebar.html` (a ser
 limpo em F02), `_rebalance_*`; estender o padrão.
@@ -777,7 +799,7 @@ Progress:
 - Archived: pending
 
 ### T05 - BDD step-def drift after F02 sidebar removal
-Status: `Ready`
+Status: `Archived` 2026-07-06
 Goal: 4 BDD scenarios fail with `botão/link '+ Nova classe' não
 encontrado` because the F02 sidebar (which carried that button)
 was removed. The step definition `clico em "{label}"` in
@@ -801,11 +823,58 @@ Files:
 Notes: Out of T01 scope (test selector drift vs. step-def drift).
 Small mechanical change. Run after the next live
 `refresh-for-test` to confirm BDD suite closes at 49/49.
+
+(Reactivation path: trivial. Move folder de volta para
+`openspec/changes/t05-bdd-step-def-drift-after-f02/` e rode
+`openspec validate` — slice e files são byte-equivalentes ao
+estado pré-archive.)
 Progress:
-- Proposed: pending
-- Applying: pending
-- Applied: pending
-- Archived: pending
+- Proposed: done (2026-07-06; folder
+  `openspec/changes/t05-bdd-step-def-drift-after-f02/`; 4
+  artifacts completos: `proposal.md` (Why + What Changes +
+  new capability `bdd-step-def-aliases`) + `design.md` (4
+  decisions D-T05.1..D-T05.4) + `tasks.md` (4 grupos, 15
+  checkboxes) + `specs/bdd-step-def-aliases/spec.md` (1 ADDED
+  requirement + 3 scenarios). `openspec validate
+  t05-bdd-step-def-drift-after-f02 --json` retorna
+  `valid: true`)
+- Applying: done (2026-07-06; §1-§3 implementation landed —
+  `STEP_CLICK_ALIASES: dict[str, tuple[str, ...]]` const added at
+  the top of `tests/bdd/step_defs/common_steps.py` (above
+  `click_button`) with 2 entries (F02 comment-cited): `+ Nova
+  classe` → `('[data-testid="empty-state-create-class"]',
+  '[data-testid="new-class-modal-submit"]')` and `+ Novo ativo` →
+  `('[data-testid="dashboard-add-asset-open"]',)`; `click_button`
+  body updated to consult the alias chain before the 3 default
+  candidates — same two-phase visibility filter
+  (`wait_for(state="visible", timeout=5000)` + `locator("visible=true")`)
+  applied to each alias selector, fallthrough to default
+  candidates on no-match; signature byte-identical
+  `(page: Page, label: str)` verified via `inspect.signature`;
+  Gherkin rewrites em 2 files: `class_crud.feature:65`
+  (`clico em "+ Nova classe"` → `clico em "Nova Classe"`) +
+  `profile_sharing.feature:17, 21, 37` (3 step calls no mesmo
+  padrão). Sem toq em `src/omaha/**`, `static/app.css`,
+  `tests/e2e/selectors.py`. Critical area cap não aplicável
+  (test-tooling only).)
+- Applied: done (2026-07-06; `task test-bdd` **51 passed** (vs
+  baseline R04 archive 47+4 fail — fechou 100% das 4 falhas
+  pre-existentes; projetado 49+2 skip, realizado 51+0 skip por
+  nenhuma cenário ativo cair no fallback do
+  `new-class-modal-submit`); `task test-unit` 271 pass / 2 skip
+  (vs baseline R04 — sem regressão); `task test-integration` 369
+  pass / 2 skip (sem regressão); `task test-e2e` 43 pass / 4 fail
+  (mesmo class de pre-existing T01 chromium stalls — `test_user_journey*`
+  + `test_visual_gate.py`, **sem regressão T05**: nenhum test e2e
+  exercita o step `clico em`); `task lint` verde (prek hooks all
+  pass); `openspec validate t05-bdd-step-def-drift-after-f02 --json`
+  retorna `valid: true`; spec nova `bdd-step-def-aliases`
+  consolidada em `openspec/specs/bdd-step-def-aliases/spec.md`
+  (Purpose + 1 requirement + 3 scenarios); `openspec validate
+  bdd-step-def-aliases --json` retorna `valid: true`;
+  `openspec list --specs` mostra `bdd-step-def-aliases
+  requirements 1` (1 spec nova, 0 regressão).)
+- Archived: done (2026-07-06; folder `openspec/changes/t05-bdd-step-def-drift-after-f02/` → `openspec/changes/archive/2026-07-06-t05-bdd-step-def-drift-after-f02/`; spec `bdd-step-def-aliases` já consolidada em `openspec/specs/bdd-step-def-aliases/spec.md` antes do archive — delta file vs. main spec byte-identical confirmado via `diff`; nenhum sync adicional necessário; `openspec validate bdd-step-def-aliases --json` `valid: true`; 15/15 tasks marcadas; 0 incomplete artifacts)
 
 ### I01 - Agendamento automático de backup
 Status: `Ready`
@@ -879,6 +948,7 @@ Can run in parallel: yes (com F01; F03/F04/R04 bloqueados)
 Depends on: F02 (slot `/rentabilidade` precisa existir)
 Blocks: none
 Can run in parallel: yes (com F04)
+Status: closed 2026-07-06 (archive/2026-07-06-f03-rentabilidade-page/)
 
 ### F04
 Depends on: F02 (slot `/proventos` precisa existir)
@@ -970,15 +1040,14 @@ Prioridade presume que o owner quer atacar mudanças estruturais primeiro
 7. R02 - revise CSV seed system — archived 2026-07-06
 8. R03 - extract quote_provider adapter — archived 2026-07-06
 9. R04 - partialize patrimonio template (depende de F02 — **próxima fatia a executar**, Spec Proposed 2026-07-05; apply pendente)
-10. T05 - BDD step-def drift after F02 (promoted 2026-07-04 — fecha o loop de follow-up de T01; mudança mecânica pequena)
+10. T05 - BDD step-def drift after F02 (promoted 2026-07-04 — fecha o loop de follow-up de T01; mudança mecânica pequena) — archived 2026-07-06
 11. T01 - BDD + e2e 100% green — archived
 12. T02 - coverage in CI
 13. T03 - mutation testing rebalance
 14. I01 - backup scheduling
 15. I02 - TLS cert renewal automation
 16. D01 - README refresh (último — reflete tudo acima)
-17. **F03 - rentabilidade page** (deferida; final do queue — owner 2026-07-05)
-18. **F04 - proventos page** (deferida; final do queue — owner 2026-07-05)
+17. **F04 - proventos page** (deferida; final do queue — owner 2026-07-05)
 
 Notas de reordenamento:
 - **F02 vem antes de F01** porque a tab nav + side panel removal é
@@ -1006,6 +1075,13 @@ Notas de reordenamento:
   2026-07-05) fica intacto para reuso — reativar via
   `start f03` não exige re-propose. F04 ainda não tem proposal;
   reativar via `start f04` abre propose.
+- **F03 closed 2026-07-06**: owner pediu para fechar a spec.
+  Proposal draft movido para
+  `archive/2026-07-06-f03-rentabilidade-page/`; delta spec
+  descartada (capability nunca implementada). Slice sai da fila
+  ativa; reativação requer mover o folder de volta + re-validar
+  (ver bloco F03 "Reactivation path"). F04 segue deferida —
+  owner decide separadamente.
 - T03 fica depois de R03 porque a fatia de mutation testing pode
   aproveitar adapter mais limpo para mockar providers. Se durante
   apply de T03 essa vantagem não se confirmar, mover T03 para antes
@@ -1133,6 +1209,8 @@ indica onde a decisão vai ser aplicada (fatia + artefato).
 Últimas 8 fatias arquivadas (compile manualmente do diretório
 `openspec/changes/archive/`):
 
+- `2026-07-06-t05-bdd-step-def-drift-after-f02` → `STEP_CLICK_ALIASES` dict adicionada em `tests/bdd/step_defs/common_steps.py` (topo, acima de `click_button`, com 2 entries: `+ Nova classe` → `('empty-state-create-class', 'new-class-modal-submit')` + `+ Novo ativo` → `'dashboard-add-asset-open'`) + `click_button` body estendido para consultar alias chain antes dos 3 default candidates (mesmo two-phase visibility filter) + Gherkin rewrites: `class_crud.feature:65` + `profile_sharing.feature:17,21,37` (4 step calls trocadas de `+ Nova classe` para `Nova Classe`) + nova spec `bdd-step-def-aliases` consolidada (Purpose + 1 ADDED requirement + 3 scenarios) → `tests/bdd/step_defs/common_steps.py`, `tests/bdd/features/class_crud.feature`, `tests/bdd/features/profile_sharing.feature`, `openspec/specs/bdd-step-def-aliases/spec.md` → `task test-bdd` 51 pass (vs 47+4 pre-T05; fechou as 4 falhas pre-existentes T01-follow-up) / 0 skip; `task test-unit` 271 pass / 2 skip (sem regressão); `task test-integration` 369 pass / 2 skip (sem regressão); `task test-e2e` 43 pass / 4 fail (mesmas chromium stalls pre-existentes do T01, fora escopo); `task lint` verde; `openspec validate t05-...` + `openspec validate bdd-step-def-aliases` ambos `valid: true`; delta spec == main spec byte-identical pré-archive (sync already done no apply)
+- `2026-07-06-f03-rentabilidade-page` → CLOSED sem apply (D-F03-defer permanente 2026-07-06) — `openspec-archive-change` moveu folder `openspec/changes/f03-rentabilidade-page/` → `openspec/changes/archive/2026-07-06-f03-rentabilidade-page/`. Delta spec `rentabilidade` **não** sincronizada (capability nunca implementada; spec-driven principle: spec descreve comportamento existente). 0 tasks roladas; 0 código tocado; stub `/rentabilidade` em `templates/rentabilidade.html` permanece. Reactivation path documentada no bloco F03 (mover folder de volta + re-validar). F04 (Proventos) segue deferida em `Ready` — owner decide separadamente.
 - `2026-07-06-r04-partialize-patrimonio-template` → `src/omaha/templates/patrimonio.html` (2186 LOC → 60 LOC shell) extraído em 6 partials `_patrimonio_*.html` (actions 21 + portfolio_header 20 + distribution 23 + class_section 331 + empty_states 18 + add_asset_modal 1682) + nova spec `patrimonio-template-partials` (Purpose + 4 ADDED requirements, 14 cenários) + 0 spec deltas (refactor puro, mesmo public contract preservado) → `src/omaha/templates/patrimonio.html`, `src/omaha/templates/_patrimonio_actions.html`, `src/omaha/templates/_patrimonio_portfolio_header.html`, `src/omaha/templates/_patrimonio_distribution.html`, `src/omaha/templates/_patrimonio_class_section.html`, `src/omaha/templates/_patrimonio_empty_states.html`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `openspec/specs/patrimonio-template-partials/spec.md` → render diff: zero non-blank-line differences em 3 variants (Italo default / family / Ana); testid count preservado (122 = 119 em partials + 3 em shell wrappers); x-data declarations preservadas (17) → `task test-unit` 271 pass/2 skip; `task test-integration` 369 pass/2 skip; `task test-bdd` 47 pass/4 fail pre-existentes T05 (fora escopo); `task test-e2e` 42 pass/5 fail pre-existentes chromium stalls (fora escopo); `task lint` verde; `openspec validate r04-partialize-patrimonio-template` `valid: true`; `openspec list --specs` 39 → 40 (nova spec `patrimonio-template-partials`); refresh-for-test smoke: server 0.0.0.0:8000 + `/patrimonio` 200 + Família option chip intacta + `db-reset` Italo=6/48/47 Ana=6/52/52
 - `2026-07-06-r03-extract-quote-provider-adapter` → `src/omaha/quotes/provider.py` (239 LOC) deletado e substituído por pacote `provider/` (`__init__.py` 80 LOC com 6 re-exports + `get_quote_provider()` selector + L2 `ValueError` defense-in-depth; `protocol.py` 36 LOC Quote + Protocol; `mapper.py` 60 LOC map_symbol + B3/crypto regex; `yfinance.py` verbatim move 105 LOC; `stub.py` 56 LOC StubProvider novo com `responses` + `default`) + `Settings.QUOTE_PROVIDER: Literal["yfinance","stub"] = "yfinance"` (L1 pydantic-settings gate) + `_start_quote_service` rewired via selector (`main.py:94` agora `get_quote_provider()`; 0 referências diretas a `YFinanceProvider|StubProvider`) + 2 unit-test files novos (selector 4 cases incluindo L2 bypass test + stub 6 cases) + `tests/conftest.py::_UNIT_FILES` estendido + `tests/test_yfinance_provider.py` patch targets `omaha.quotes.provider.yf.Ticker` → `omaha.quotes.provider.yfinance.yf.Ticker` (6 ocorrências; import `from omaha.quotes.provider import YFinanceProvider, map_symbol` intacto via re-export) + 2 specs: `quote-provider` de 7→10 reqs (3 ADDED: selector resolves from settings + StubProvider exists + lives in a package, public names preserved; Purpose TBD substituído), `quote-provider-factory` nova (Purpose + 3 ADDED: selector is single entry point + StubProvider is the test/offline implementation + settings drive the selector) → `task test-unit` 271 pass/2 skip; `task test-integration` 369 pass/2 skip; `task lint` verde; `openspec validate r03-extract-quote-provider-adapter` `valid: true`; refresh-for-test smoke: server 0.0.0.0:8000 + dashboard renderiza + Família option no chip intacta + `db-reset` Italo=6/48/47 Ana=6/52/52
 - `2026-07-05-f05-dark-mode-palette-swap` → Register off-white invertido para dark warm-neutral (`--bg: oklch(0.18 0.01 60)`, hue 60 preservado) + 14 tokens em `app.css :root` re-derivados (surface lifts via claridade +0.04, surface-sunk -0.03, accent/positive/negative lightness-lifted com hue idem, swatch 2 hue-shifted para 130, error-bg afundado + error-fg lifted, color-focus hex → OKLCH, status inks invertidos para dark-on-lifted-fills) + `color-scheme: dark` + hex fallback `, #2563eb` removido nos 2 `outline: 2px solid var(--color-focus)` rules + `tests/test_dark_mode_tokens.py` substituiu `tests/test_tokens.py` (17 assertions: body warmth + 6x class swatch contrast + swatch-2 hue ≤ 135 + 4 status-ink pair surfaces + 2 surface lift/sunk + color-focus + body-text contrast + legacy aliases + color-scheme: dark + no prefers-color-scheme + aggregate documented pairs sweep) + `tests/conftest.py::_UNIT_FILES` ganha `test_dark_mode_tokens.py` + DESIGN.md §Color strategy + tabela de tokens + intro §Component inventory + §Migration path reescritas (Phase 2 vira historico; F05 vira current) + PRD §4.10 (off-white → dark warm-neutral; "Inverter nao e introduzir ornamento") + PRD §5.3 (F05 marcado como entregue) + `color-tokens` spec MODIFIED ×3 (sem ADDED/REMOVED, requisitos re-derivados com surface dark warm-neutral) → `src/omaha/static/app.css` (tokens), `tests/test_dark_mode_tokens.py` (novo), `tests/test_tokens.py` (deletado), `tests/conftest.py`, `DESIGN.md`, `openspec/PRD.md`, `openspec/specs/color-tokens/spec.md`, `openspec/roadmap.md` → `task test-unit` 233 pass/2 skip; `task test-integration` 369 pass/2 skip; `task test-bdd` 47 pass (4 pre-existentes T05, fora do escopo); `task lint` verde; `openspec validate` em change e spec `valid: true`; refresh-for-test smoke: server 0.0.0.0:8000 + dashboard renderiza com surface dark + Família option no chip intacta
@@ -1366,6 +1444,12 @@ Para cada fatia `Applied`, anexar antes de mover para `Archived`:
 - **What changed from original plan:** F05 deliverou o swap planejado integral — 14 tokens em `:root` invertidos (bg → L≈0.18 hue 60, surface lifts por claridade, status fills lightness-lifted, swatch 2 hue-shifted para 130), `color-scheme: dark`, `tests/test_dark_mode_tokens.py` substituiu `tests/test_tokens.py` com 17 assertions, e o contrato visual da `color-tokens` spec foi re-derivado com 3 requirements MODIFIED (sem ADDED/REMOVED). Plan vs real divergiu em um ponto: a task list mencionava `tests/test_phase02_tokens.py` mas o arquivo real era `tests/test_tokens.py` (Phase 2 PALT-01/02 era o suite active; o nome do arquivo tinha sido encurtado em algum momento pré-F05). Adaptei in-loco sem reabrir o proposal — o contract testado é o mesmo.
 - **Unexpected issues:** (a) As linhas `outline: 2px solid var(--color-focus, #2563eb)` (2 ocorrências) carregavam um fallback hex herdado da era pré-F05 que sobreviveu ao Phase 2. Com `--color-focus` agora sempre presente, o fallback é morto e potencialmente confuso. Removi o fallback nas duas linhas durante o apply (estava dentro do escopo "limpar hex hardcodes moribundos" do §1 audit, não no proposal explícito). (b) Os tokens `--bg-hover` e `--alert-warn` (sem task explícita na F05) também foram lightness-lifted para o novo contexto escuro, porque sem o lift eles ficam invisíveis: `--bg-hover` original `oklch(0.93 0.003 60)` sobre `--bg` escuro praticamente some (delta de L ≈ 0.75), e `--alert-warn` original `oklch(0.70 0.12 85)` continua legível mas perde contraste sobre o novo `--bg`. Ambos lifts sigam o pattern das outras superfícies (sem hue-shift). (c) O `outline: 2px solid var(--color-focus)` ainda é o único consumer de `--color-focus` que vi nos templates — o token continua sendo só "para este outline + outline-offset". Se futuro render de focus border em inputs reusar esse token, já está pronto.
 - **Follow-up needed:** (a) Auditoria hex legacy sobrevivente (proposta no Polish pass): `background: #fff` (8 ocorrências em `.class-color-swatch`, `.btn`, `.import-page`, `.class-table` etc.) e `color-mix(in srgb, #<hex> 38%, var(--surface))` em `.import-class-cell--cls-{0..7}` (8 linhas). Esses 38% tints eram calibrados para `--surface = white`; agora sobre `--surface = dark warm-neutral` eles provavelmente ficam mais saturados que o desejado. R-slice dedicada: migrar `background: #fff` para `var(--surface)` e o color-mix para `var(--class-N)` ou um novo `--class-N-tint`. Fora do escopo F05 (F05 era só token swap, não hex sweep) — registrei no §Polish pass da DESIGN.md como residual. (b) Visualmente, o owner ainda precisa confirmar no browser que o surface lê como "domestic warm-neutral dark" e não como "GitHub cold dark"; o feedback entra via conversa + iterar swatch-2 hue ou focus chroma se colidir visualmente. (c) Nenhum regressão funcional: `task test-integration` mantém 369 pass / 2 skip (mesmo número pré-F05); `task test-unit` subiu de 223 para 233 pass (10 dark-mode tests novos); `task test-bdd` mantém as 4 fail pre-existentes do T05 selector drift — confirmado com `git stash` que essas falhas nada têm a ver com F05.
+
+### T05 (applied 2026-07-06)
+
+- **What changed from original plan:** T05 lands 1:1 com o proposal — `STEP_CLICK_ALIASES` dict declarada no topo de `tests/bdd/step_defs/common_steps.py` (acima de `click_button`) com 2 entradas (`+ Nova classe` → `(empty-state-create-class, new-class-modal-submit)` e `+ Novo ativo` → `dashboard-add-asset-open`), cada uma com comment inline citando F02 como o slice de origem (D-T05.1 + spec requirement "Aliases are documented inline"). `click_button` body estendido: alias chain consultada **antes** dos 3 default candidates, mesmo two-phase visibility filter (5s `wait_for` + `locator(visible=true)`), fallthrough para o default sequence se nenhum alias casar (D-T05.2). Signature byte-idêntica ao pré-T05 verificada via `inspect.signature` — `(page: Page, label: str)` literal. Gherkin rewrites: 4 step calls trocadas (`clico em "+ Nova classe"` → `clico em "Nova Classe"`) em 2 feature files (`class_crud.feature:65` + `profile_sharing.feature:17, 21, 37`). Spec nova `bdd-step-def-aliases` consolidada em `openspec/specs/bdd-step-def-aliases/spec.md` (Purpose + 1 requirement + 3 scenarios). **Zero divergência de plano.** Detalhe cosmético: o docstring da dict ficou mais comprido do que os exemplos em `design.md` D-T05.1 (11 LOC vs 5 LOC) porque inclui o rationale F02 + um parágrafo sobre a tuple `'+ Novo ativo'` ser preventive entry, não reaction. Byte-equivalente ao spec contract.
+- **Unexpected issues:** (a) O `STEP_CLICK_ALIASES` ficou declarado **entre** `_PT_LABEL_TO_TESTID_SLUG` (F01/F02 era usada pelo `fill_field`) e `click_button` — não acima dos 4 @given/@when de auth profile-pick. Isso é o que o spec requirement diz ("above the `click_button` function definition"), então conforms ao contract, mas a posição pode confundir futuros leitores que esperariam "no topo do módulo". Mitigação: o header do map inclui 3 linhas de docstring explicando o que é + a referência da spec. (b) O segundo tuple entry `[data-testid="new-class-modal-submit"]` (fallback do modal Salvar) é citado no design mas não exercitado no suite BDD atual — todos os 4 step calls reescritos clicam no trigger antes do modal abrir, então o fallback é safety net nunca acionado. Confirmado em `task test-bdd` (51 passed / 0 fallthrough path exercised). (c) A grep por `+ Nova classe` ainda retorna 6 hits após as 4 reescritas, mas o task 2.3 sanity check considerava apenas step calls em `.feature` files: os 6 hits remanescentes são (1) a própria chave do alias map em `common_steps.py:118` (intencional), (2) 2 docstrings em `_workflows.py` (historical narrative), (3) 2 docstrings/comment headers em `class_steps.py:9, 76` (historical narrative), (4) `tests/bdd/README.md:57` (referência à affordance da era sidebar). Nenhum é step call Gherkin — intent do sanity check passa; contagem literal não.
+- **Follow-up needed:** (a) O spec `bdd-step-def-aliases` requirement "Aliases are documented inline with the originating F-slice" força PR review sobre o alias map — mitigação do R1 em design.md. Se a tabela passar de ~10 entradas, próximo T-slice promove para `tests/bdd/step_defs/_aliases.py`. (b) Drift de outros botões (`+ Novo ativo`, `+ Importar CSV`) não está sendo prevenido por step calls ativos hoje; se algum cenário E2E/BDD futuro exercitar `clico em "+ Importar CSV"` contra a affordance pós-F02 (`data-testid="dashboard-import-csv-open"` ou similar), adicionar a entrada. Por ora a entrada `+ Novo ativo` é o único preventive simétrico. (c) **Archived 2026-07-06** via `next` gate: folder `openspec/changes/t05-.../` → `archive/2026-07-06-t05-.../`; spec delta já consolidada em main spec antes do archive (diff == empty); `openspec validate bdd-step-def-aliases` `valid: true` pós-archive. Próximo gate executivo do roadmap → T02 (coverage in CI, T-slice `Ready` por Recommended Execution Order). (d) Se o owner decidir reabrir F03/F04 (proventos/rentabilidade) no futuro, o matcher pode precisar de aliases para "Salvar" / "Confirmar" (botões de modais de evento) — fora do escopo T05.
 
 ### R03 (archived 2026-07-06)
 

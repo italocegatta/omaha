@@ -62,7 +62,7 @@ Funcionalidade: CRUD de classes via formulário inline e PATCH
   Esquema do Cenário: Negative — duplicate class name
     Dado que estou logado como "<profile>"
     E criei a classe "RF Pós" com "50%"
-    Quando clico em "+ Nova classe"
+    Quando clico em "Nova Classe"
     E preencho o campo "Nome da classe" com "RF Pós"
     E preencho o campo "Alocação alvo" com "50"
     E clico em "Salvar"
