@@ -94,6 +94,9 @@ jobs:
         run: uv sync --frozen --group dev
 
       - name: Reset database (migrate + seed from CSV)
+        env:
+          SECRET_KEY: ci-test-secret-key-not-for-production-use-1234567890abcdef
+          ADMIN_PASSWORD: distendidos
         run: uv run task db-reset
 
       - name: Run integration tests
@@ -125,6 +128,9 @@ jobs:
         run: uv sync --frozen --group dev
 
       - name: Reset database (migrate + seed from CSV)
+        env:
+          SECRET_KEY: ci-test-secret-key-not-for-production-use-1234567890abcdef
+          ADMIN_PASSWORD: distendidos
         run: uv run task db-reset
 
       - name: Run BDD tests
@@ -156,6 +162,9 @@ jobs:
         run: uv sync --frozen --group dev
 
       - name: Reset database (migrate + seed from CSV)
+        env:
+          SECRET_KEY: ci-test-secret-key-not-for-production-use-1234567890abcdef
+          ADMIN_PASSWORD: distendidos
         run: uv run task db-reset
 
       - name: Generate coverage XML
