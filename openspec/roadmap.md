@@ -867,23 +867,97 @@ Progress:
   F04 (Proventos, deferida).
 
 ### T03 - Mutation testing do rebalance engine
-Status: `Ready`
-Goal: Aplicar mutation testing sobre `src/omaha/rebalance/engine.py` e
-`data_bridges.py`. Solver é crítico — invariant "soma 100" e limites de
+Status: `Archived` 2026-07-06
+Goal: Aplicar mutation testing sobre `src/omaha/rebalance/solver.py` e
+`validation.py`. Solver é crítico — invariant "soma 100" e limites de
 classe precisam ser exercidos além de cobertura de linha.
 Candidate OpenSpec change id: `t03-mutation-testing-rebalance-engine`
-Spec link: `openspec/changes/t03-mutation-testing-rebalance-engine/`
+Spec link: `openspec/changes/archive/2026-07-06-t03-mutation-testing-rebalance-engine/`
 Files:
-- `src/omaha/rebalance/engine.py`
-- `src/omaha/rebalance/data_bridges.py`
-- `tests/rebalance/`
+- `src/omaha/rebalance/solver.py`
+- `src/omaha/rebalance/validation.py`
+- `pyproject.toml` (`mutmut>=3.0,<4` em `[dependency-groups].dev` + 3 entries em `[tool.taskipy.tasks]`: `mutation`, `mutation-report`, `mutation-baseline` + novo bloco `[tool.mutmut]` com `source_paths` + `only_mutate` + `also_copy` + `pytest_add_cli_args` + `pytest_add_cli_args_test_selection`)
+- `.gitignore` (`mutants/`)
+- `scripts/mutation_report.py` (novo)
+- `scripts/mutation_baseline.py` (novo)
+- `.mutmut-baseline` (commitado — baseline inicial)
+- `openspec/specs/rebalance-mutation-testing/spec.md` (novo — 4 ADDED requirements)
 Notes: Domínio crítico — cap de 1 fatia Applying. Rodar após R03 (adapter)
-se a fatia crescer.
+se a fatia crescer. **Escopo restrito a 2 arquivos** (D-T03.3) —
+`solver.py` (CVXPY LP) + `validation.py` (11 checks, "soma 100%")
+são o par canônico coberto pelos unit tests
+(`tests/test_rebalance_*.py` sem DB/TestClient). Outros arquivos
+do pacote (`engine.py` shim + `glue.py` orchestration + `policy.py`
++ `postprocessing.py` + `builders.py`) ficam fora da primeira
+baseline — extensão vira slice futura (engine/glue exigem
+TestClient+DB; demais são auxiliares). Sem `fail_under` gate
+(D-T03.2) — mutation score é signal, promoção a gate é owner-
+separada mesmo padrão de T02 com `coverage fail_under`. Sem CI
+integration (D-T03.7) — tool roda só local por enquanto (timing
+proibitivo + sem cache de mutants). Tool escolhido: `mutmut3`
+(D-T03.1) sobre `cosmic-ray` por footprint/curva/integração
+pytest nativa; trade-off aceito: AST-based não captura mutações
+de bytecode, suficiente para o domínio isolado. Primeira baseline:
+**869 mutants, killed=556, survived=301, no_tests=12** (killed_share
+0.649 — captured em `.mutmut-baseline` 2026-07-06).
 Progress:
-- Proposed: pending
-- Applying: pending
-- Applied: pending
-- Archived: pending
+- Proposed: done 2026-07-06; folder
+  `openspec/changes/t03-mutation-testing-rebalance-engine/`; 4
+  artifacts completos (`proposal.md` 5.0K + `design.md` 7.0K com
+  7 decisions D-T03.1..D-T03.7 + `tasks.md` 5.5K com 7 grupos /
+  23 checkboxes + `specs/rebalance-mutation-testing/spec.md` com
+  4 ADDED requirements / 12 scenarios). `openspec validate
+  t03-mutation-testing-rebalance-engine --json` retorna
+  `valid: true`
+- Applying: done 2026-07-06; §1-§5 implementation landed —
+  `pyproject.toml` ganhou dep `mutmut>=3.0,<4` no grupo dev +
+  bloco `[tool.mutmut]` com `source_paths=["src"]` +
+  `only_mutate=["src/omaha/rebalance/solver.py",
+  "src/omaha/rebalance/validation.py"]` + `also_copy` (17
+  paths: scripts/, alembic/, alembic.ini, data/seed/, prod.yml,
+  docker-compose.yml, Dockerfile, nginx/, tests/scripts/,
+  tests/fixtures/, tests/posicao_italo.csv) +
+  `pytest_add_cli_args` (--no-cov, no cacheprovider, ignore e2e +
+  bdd) + `pytest_add_cli_args_test_selection` (6 rebalance unit
+  test files); `[tool.taskipy.tasks]` ganhou 3 entries
+  (`mutation`, `mutation-report`, `mutation-baseline`);
+  `scripts/mutation_report.py` (99 LOC — coleta `.meta` JSONs
+  em `mutants/**/*.meta` recursivo, render counts + killed_share)
+  + `scripts/mutation_baseline.py` (55 LOC — render baseline
+  com 7 linhas incluindo UTC ISO-8601 timestamp); `.gitignore`
+  ganhou `mutants/`; `uv run task lint` verde; `task test-unit`
+  271 pass / 2 skip; `task test-integration` 369 pass / 2 skip;
+  `task test-bdd` 51 pass; `task coverage` 92%; `openspec
+  validate` retorna `valid: true`. **Decision flip (escopo
+  corrigido em apply):** slice-text original mencionava
+  `engine.py` + `data_bridges.py` (que não existe); o par
+  canônico coberto pelos unit tests é `solver.py` +
+  `validation.py`. Justificativa registrada em proposal §Impact
+  e design.md §D-T03.3.
+- Applied: done 2026-07-06; baseline capture executado —
+  `task mutation` gerou 869 mutants em `solver.py` +
+  `validation.py` (~3 min wall-clock, 5.12 mutations/sec);
+  `task mutation-baseline` escreveu `.mutmut-baseline` com
+  7 linhas (killed=556, survived=301, no_tests=12, timeout=0,
+  skipped=0, killed_share=0.649, generated_at=2026-07-06T
+  21:25:16+00:00). 301 survived mutants é sinal de test gap —
+  registrado como follow-up slice (provável prefixo `R` ou `T`)
+  fora do escopo do T03. 12 no_tests indica que `validation.py`
+  tem algumas funções puras que nem os unit tests exercitam
+  (heurística de assoc). Nenhum regressão nos baselines
+  archive (`task test-unit` 271 pass, `task test-integration`
+  369 pass, `task test-bdd` 51 pass, coverage 92%).
+- Archived: done 2026-07-06; archive
+  `openspec/changes/archive/2026-07-06-t03-mutation-testing-rebalance-engine/`;
+  spec `rebalance-mutation-testing` consolidada em
+  `openspec/specs/rebalance-mutation-testing/spec.md` (4 ADDED
+  requirements + Purpose + drift correction: `mutants/` no lugar
+  de `.mutmut-cache/` — mutmut3 não expõe `report`/`html`
+  subcommands; HTML scenario substituído por "Mutant-level
+  details são readable via `.meta` JSONs"). `openspec list --specs`
+  agora reporta 41 specs (40 pre + 1 new). 8 specs pre-existentes
+  continuam falhando (broker-csv-*, dashboard-*, import-*) —
+  não relacionado a T03.
 
 ### T05 - BDD step-def drift after F02 sidebar removal
 Status: `Archived` 2026-07-06
@@ -1308,6 +1382,7 @@ indica onde a decisão vai ser aplicada (fatia + artefato).
 Últimas 8 fatias arquivadas (compile manualmente do diretório
 `openspec/changes/archive/`):
 
+- `2026-07-06-t03-mutation-testing-rebalance-engine` → dep `mutmut>=3.0,<4` em `[dependency-groups].dev` + bloco `[tool.mutmut]` em `pyproject.toml` (`source_paths = ["src"]` + `only_mutate = ["src/omaha/rebalance/solver.py", "src/omaha/rebalance/validation.py"]` + `also_copy` (17 paths: scripts/, alembic/, alembic.ini, data/seed/, prod.yml, docker-compose.yml, Dockerfile, nginx/, tests/scripts/, tests/fixtures/, tests/posicao_italo.csv) + `pytest_add_cli_args = ["--no-cov", "-p", "no:cacheprovider", "--ignore=tests/e2e", "--ignore=tests/bdd"]` + `pytest_add_cli_args_test_selection = [6 rebalance unit test files]`) + `[tool.taskipy.tasks]` ganha 3 entries (`mutation` → `uv run mutmut run`, `mutation-report` → `python -m scripts.mutation_report`, `mutation-baseline` → `python -m scripts.mutation_baseline`) + `scripts/mutation_report.py` (99 LOC — recursive `mutants/**/*.meta` glob + per-status counts + killed_share) + `scripts/mutation_baseline.py` (55 LOC — 7-line `.mutmut-baseline` com UTC ISO-8601 timestamp) + `.gitignore` ganha `mutants/` (mutmut3 cache) + `.mutmut-baseline` (baseline committed) → `pyproject.toml`, `.gitignore`, `scripts/mutation_report.py`, `scripts/mutation_baseline.py`, `openspec/specs/rebalance-mutation-testing/spec.md` (4 ADDED requirements + Purpose), `.mutmut-baseline`, `openspec/roadmap.md` → 869 mutants gerados em ~3 min wall-clock (5.12 mutations/sec) sobre `solver.py` (21K) + `validation.py` (8.4K); baseline capturada: `killed=556, survived=301, no_tests=12, timeout=0, skipped=0, killed_share=0.649, generated_at=2026-07-06T21:25:16+00:00` → 301 survived mutants é sinal de test gap (provável follow-up `R`/`T` slice fora do escopo T03); 12 no_tests = funções puras em `validation.py` que nenhum unit test exercita → `task test-unit` 271 pass / 2 skip (R02/R04 baseline); `task test-integration` 369 pass / 2 skip (R02/R03/R04 baseline); `task test-bdd` 51 pass (T05 baseline); `task coverage` 92% line (T02 baseline); `task lint` verde; `openspec validate t03-mutation-testing-rebalance-engine --json` e `openspec validate rebalance-mutation-testing --json` ambos `valid: true`; `openspec list --specs` reporta **41 specs** (40 pre + 1 new `rebalance-mutation-testing`). **Drift correction no archive:** slice-text original mencionava `engine.py` + `data_bridges.py` (que não existe no package rebalance); durante apply escopo corrigido para `solver.py` + `validation.py` (par coberto pelos unit tests sem TestClient+DB) — registrado no proposal §Impact e design.md §D-T03.3. Spec main e delta divergem em algumas referências mutmut2 (`mutmut run --paths-to-mutate`, `mutmut report`/`html` subcommands) que mutmut3 não suporta; main spec foi escrita alinhada com o que realmente shipped (`mutants/**/*.meta` JSONs em vez de `.mutmut-cache/`, e "per-mutant details via `.meta` JSONs" no lugar do "HTML view" scenario).
 - `2026-07-06-t02-coverage-report-in-ci` → **GH Actions deferred per owner 2026-07-06** (desenvolvimento local, CI não exercitado). Implementação local landou: `pyproject.toml` ganha `[tool.coverage.run]` (source=`["src/omaha"]`, branch=false, omit `__main__.py`) + `[tool.coverage.report]` (exclude_lines para 4 padrões; sem fail_under) + `addopts` em `[tool.pytest.ini_options]` estendido para `--cov=src/omaha --cov-report=xml:reports/coverage.xml` + `task coverage` reescrito para `-m "unit or integration" --cov=src/omaha --cov-report=term-missing --cov-report=xml:reports/coverage.xml` (BDD/e2e excluídos — passa de 10+ min timeout para 3 min); `.gitignore` ganha `reports/coverage.xml` + `reports/.coverage`; `.github/workflows/ci.yml` criado com 5 jobs (lint standalone + test-unit/integration/bdd com `needs: lint` + coverage com `needs: [test-unit, test-integration]`), triggers `push`/`pull_request` em `[main]`, `astral-sh/setup-uv@v4` com `python-version: "3.12"` + `actions/cache@v4` keyed em `hashFiles('uv.lock')`, `actions/upload-artifact@v4` para `coverage-report`, test-integration/test-bdd/coverage ganham step `Reset database` (`uv run task db-reset`) com `env: SECRET_KEY + ADMIN_PASSWORD` injetados → `src/omaha/static/app.css` (não tocado), `pyproject.toml`, `.gitignore`, `.github/workflows/ci.yml`, `openspec/specs/ci-coverage-pipeline/spec.md` (nova, 10 ADDED requirements + Purpose), `openspec/roadmap.md` → 5 Actions runs tentadas: (1) `setup-python@v5 cache:"uv"` inválido, (2) `setup-uv@v4 python-version-file` inválido, (3) `uv sync --extra dev` inválido (dev em `[dependency-groups]`), (4) **lint + test-unit verdes** + test-integration/bdd falhas por DB ausente, (5) db-reset falha por `SECRET_KEY` ausente (fix aplicado); última versão do workflow (commit `bac8b47`) tem os 5 fixes acumulados mas não foi exercitada end-to-end → `task test-unit` 271 pass/2 skip (R04 match); `task test-integration` 369 pass/2 skip (R02/R03/R04 match); `task test-bdd` 51 pass (T05 match); `task coverage` 640 pass/4 skip + **92% line coverage** com `reports/coverage.xml` Cobertura-compatible (`<coverage version=... line-rate="0.9163" ...>` + `<package name=...>` structure); `ruff check` + `ruff format --check` verdes em `src tests alembic`; `openspec validate t02-coverage-report-in-ci --json` `valid: true`; `openspec list --specs` 40 → 41 (nova spec `ci-coverage-pipeline`); GH Actions runner **não exercitado** end-to-end por decisão do owner; workflow file fica commitado como infra dormente ("útil no futuro" per owner); reactivation path explícito em `archive/2026-07-06-t02-coverage-report-in-ci/tasks.md` §5
 - `2026-07-06-t05-bdd-step-def-drift-after-f02` → `STEP_CLICK_ALIASES` dict adicionada em `tests/bdd/step_defs/common_steps.py` (topo, acima de `click_button`, com 2 entries: `+ Nova classe` → `('empty-state-create-class', 'new-class-modal-submit')` + `+ Novo ativo` → `'dashboard-add-asset-open'`) + `click_button` body estendido para consultar alias chain antes dos 3 default candidates (mesmo two-phase visibility filter) + Gherkin rewrites: `class_crud.feature:65` + `profile_sharing.feature:17,21,37` (4 step calls trocadas de `+ Nova classe` para `Nova Classe`) + nova spec `bdd-step-def-aliases` consolidada (Purpose + 1 ADDED requirement + 3 scenarios) → `tests/bdd/step_defs/common_steps.py`, `tests/bdd/features/class_crud.feature`, `tests/bdd/features/profile_sharing.feature`, `openspec/specs/bdd-step-def-aliases/spec.md` → `task test-bdd` 51 pass (vs 47+4 pre-T05; fechou as 4 falhas pre-existentes T01-follow-up) / 0 skip; `task test-unit` 271 pass / 2 skip (sem regressão); `task test-integration` 369 pass / 2 skip (sem regressão); `task test-e2e` 43 pass / 4 fail (mesmas chromium stalls pre-existentes do T01, fora escopo); `task lint` verde; `openspec validate t05-...` + `openspec validate bdd-step-def-aliases` ambos `valid: true`; delta spec == main spec byte-identical pré-archive (sync already done no apply)
 - `2026-07-06-f03-rentabilidade-page` → CLOSED sem apply (D-F03-defer permanente 2026-07-06) — `openspec-archive-change` moveu folder `openspec/changes/f03-rentabilidade-page/` → `openspec/changes/archive/2026-07-06-f03-rentabilidade-page/`. Delta spec `rentabilidade` **não** sincronizada (capability nunca implementada; spec-driven principle: spec descreve comportamento existente). 0 tasks roladas; 0 código tocado; stub `/rentabilidade` em `templates/rentabilidade.html` permanece. Reactivation path documentada no bloco F03 (mover folder de volta + re-validar). F04 (Proventos) segue deferida em `Ready` — owner decide separadamente.

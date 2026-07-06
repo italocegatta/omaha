@@ -80,3 +80,9 @@ nginx/*
 !nginx/.gitkeep
 !nginx/nginx.conf
 .coverage
+
+# Mutation testing — mutmut cache + per-run JSON outputs. Cache is
+# recreated by `task mutation`; no `.gitkeep` needed (existence is
+# a side-effect of the first run). See
+# `openspec/specs/rebalance-mutation-testing/spec.md`.
+mutants/

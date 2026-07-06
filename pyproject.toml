@@ -40,6 +40,7 @@ dev = [
     "playwright>=1.60.0",
     "taskipy>=1.13",
     "pytest-bdd>=8.0,<10",
+    "mutmut>=3.0,<4",
 ]
 
 [project.scripts]
@@ -88,6 +89,72 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "raise NotImplementedError",
     "if TYPE_CHECKING:",
+]
+
+[tool.mutmut]
+# Mutation testing for the rebalance solver (PRD §4.4 critical area).
+# mutmut3 reads this block on first `mutmut run` invocation. Scope is
+# restricted via `only_mutate` — the auto-guess would otherwise walk all
+# of `src/`, which is broader than we want for the first slice (D-T03.3).
+# Adding more files is a follow-up slice (R/T), not a config flip here.
+#
+# `also_copy` mirrors the tree dependencies our integration tests need
+# at the `mutants/` cwd (mutmut runs pytest under that subdir). Without
+# these, `tests/scripts/test_reset_both_profiles.py`'s `from scripts...`
+# import fails at collection, and alembic can't locate `alembic.ini`.
+# See `mutmut/__main__.py` `also_copy` defaults for the upstream rules.
+source_paths = ["src"]
+only_mutate = [
+    "src/omaha/rebalance/solver.py",
+    "src/omaha/rebalance/validation.py",
+]
+also_copy = [
+    "scripts/",
+    "alembic/",
+    "alembic.ini",
+    "data/seed/",
+    "data/seed/README.md",
+    "tests/scripts/",
+    "tests/fixtures/",
+    "tests/posicao_italo.csv",
+    # Mirror the top-level deployment artifacts that integration tests
+    # open via `REPO_ROOT` (e.g. `tests/test_dockerfile.py`,
+    # `tests/test_backup.py`). Without these, mutmut's per-test pytest
+    # run — which executes from `mutants/` — fails collection because
+    # the cwd-relative `REPO_ROOT` shift makes the originals missing.
+    "prod.yml",
+    "docker-compose.yml",
+    "Dockerfile",
+    "nginx/",
+    "nginx/nginx.conf",
+]
+# Override the project's `addopts` (which appends `--cov` and
+# `--cov-report=xml:reports/coverage.xml` to every pytest invocation)
+# so mutmut's per-mutant pytest runs stay fast. Also skip tests/e2e
+# and tests/bdd — mutmut's trampoline is collected against unit
+# tests only (Playwright would dominate wall-clock cost).
+#
+# `pytest_add_cli_args_test_selection` scopes the stats phase to
+# pure-function rebalance tests in `tests/test_rebalance_*.py`
+# (the `_UNIT_FILES` set in `tests/conftest.py`). Integration tests
+# (DB/TestClient-based) are out of scope for the first slice
+# because mutmut runs pytest from a `mutants/` cwd which loses
+# the project's REPO_ROOT-relative paths — extending coverage to
+# the integration set needs a follow-up slice (mutmut 3.x
+# limitation; see `openspec/roadmap.md` T03 Notes).
+pytest_add_cli_args = [
+    "--no-cov",
+    "-p", "no:cacheprovider",
+    "--ignore=tests/e2e",
+    "--ignore=tests/bdd",
+]
+pytest_add_cli_args_test_selection = [
+    "tests/test_rebalance_constants.py",
+    "tests/test_rebalance_engine_regression.py",
+    "tests/test_rebalance_policy.py",
+    "tests/test_rebalance_postprocessing.py",
+    "tests/test_rebalance_solver.py",
+    "tests/test_rebalance_validation.py",
 ]
 
 [tool.pyright]
@@ -198,6 +265,14 @@ prod-rebuild = { cmd = "docker build -t omaha:prod . && docker compose -f prod.y
 
 # ── Code quality ────────────────────────────────────────────────────────────
 coverage     = { cmd = "uv run pytest -m 'unit or integration' --cov=src/omaha --cov-report=term-missing --cov-report=xml:reports/coverage.xml", help = "Run unit + integration tests with coverage report (term-missing + XML; BDD/e2e excluded for speed)" }
+# Mutation testing — scope is `rebalance.engine` + `rebalance.data_bridges`
+# only (D-T03.3). Config lives in `[tool.mutmut]` in this file; mutmut
+# reads it on first `mutmut run` invocation. First execution may take
+# 5–15 min; report + baseline live as separate tasks so the cache is
+# reusable across calls.
+mutation          = { cmd = "uv run mutmut run", help = "Run mutation testing on the rebalance solver + validation (scoped via [tool.mutmut] only_mutate; first run populates mutants/)" }
+mutation-report   = { cmd = "uv run python -m scripts.mutation_report", help = "Render mutation results to stdout: per-status counts + killed share (errors if mutants/ has no .meta files)" }
+mutation-baseline = { cmd = "uv run python -m scripts.mutation_baseline", help = "Capture the current mutation score to .mutmut-baseline (killed, survived, no_tests, timeout, skipped, killed_share, generated_at)" }
 update       = { cmd = "uv sync --upgrade",                                 help = "Upgrade all dependencies within version constraints" }
 
 # ── Onboarding ──────────────────────────────────────────────────────────────

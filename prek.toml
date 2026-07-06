@@ -16,6 +16,7 @@ exclude = '''
   | data/.*
   | backups/.*
   | certs/.*
+  | mutants/.*
 )$
 '''
 
@@ -103,7 +104,7 @@ hooks = [
 repo = "local"
 hooks = [
     # BDD moved to `task test-bdd` (needs dev server) — runs in CI job, not pre-push
-    { id = "pytest", name = "pytest", entry = "uv run pytest --ignore=tests/e2e --ignore=tests/audit_integration --ignore=tests/bdd", language = "system", pass_filenames = false, stages = ["pre-push"], priority = 4 },
+    { id = "pytest", name = "pytest", entry = "uv run pytest --ignore=tests/e2e --ignore=tests/audit_integration --ignore=tests/bdd --ignore=mutants", language = "system", pass_filenames = false, stages = ["pre-push"], priority = 4 },
 ]
 
 # ── commit-msg stage ─────────────────────────────────────────────────────────
