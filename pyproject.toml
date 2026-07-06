@@ -197,7 +197,7 @@ prod-logs    = { cmd = "docker compose -f prod.yml logs -f",                help
 prod-rebuild = { cmd = "docker build -t omaha:prod . && docker compose -f prod.yml up -d", help = "Rebuild the prod image and restart the stack" }
 
 # ── Code quality ────────────────────────────────────────────────────────────
-coverage     = { cmd = "uv run pytest --cov=src/omaha --cov-report=term-missing", help = "Run tests with coverage report (missing lines per module)" }
+coverage     = { cmd = "uv run pytest -m 'unit or integration' --cov=src/omaha --cov-report=term-missing --cov-report=xml:reports/coverage.xml", help = "Run unit + integration tests with coverage report (term-missing + XML; BDD/e2e excluded for speed)" }
 update       = { cmd = "uv sync --upgrade",                                 help = "Upgrade all dependencies within version constraints" }
 
 # ── Onboarding ──────────────────────────────────────────────────────────────

@@ -762,7 +762,7 @@ Progress:
 - Archived: done
 
 ### T02 - Coverage report no CI
-Status: `Spec Proposed`
+Status: `Applying`
 Goal: `task coverage` existe; falta cabo no pipeline (GitHub Actions).
 Wire `--cov-report=xml` + upload para o driver de coverage usado pelo
 repo. **Repo não tem CI** (verificado `ls .github/workflows/` → não
@@ -774,7 +774,7 @@ Candidate OpenSpec change id: `t02-coverage-report-in-ci`
 Spec link: `openspec/changes/t02-coverage-report-in-ci/`
 Files:
 - `.github/workflows/ci.yml` (novo — 5 jobs: lint, test-unit, test-integration, test-bdd, coverage)
-- `pyproject.toml` (`[tool.coverage.run]` com `source = ["src/omaha"]` + `[tool.coverage.report]` com `exclude_lines` + `addopts` ganha `--cov-report=xml:reports/coverage.xml`)
+- `pyproject.toml` (`[tool.coverage.run]` com `source = ["src/omaha"]` + `[tool.coverage.report]` com `exclude_lines` + `addopts` ganha `--cov-report=xml:reports/coverage.xml` + `task coverage` reescrito para `-m "unit or integration"`)
 - `.gitignore` (acrescentar `reports/coverage.xml`)
 Notes: Sem `fail_under` — gate de threshold é decisão owner-separada.
 E2E (`task test-e2e`) e audit integration ficam fora do workflow (D-T02.9).
@@ -793,7 +793,39 @@ Progress:
   `openspec validate t02-coverage-report-in-ci` retorna `valid: true`;
   spec validation: 41 total / 0 errors (40 pre + 1 new
   `ci-coverage-pipeline`)
-- Applying: pending
+- Applying: done 2026-07-06; §1-§4 implementation landed —
+  `pyproject.toml` ganha bloco `[tool.coverage.run]` (source =
+  `["src/omaha"]`, branch=false, omit `__main__.py`) + bloco
+  `[tool.coverage.report]` (exclude_lines para `pragma: no cover`
+  / `if __name__ == "__main__":` / `raise NotImplementedError`
+  / `if TYPE_CHECKING:`; sem fail_under); `addopts` da
+  `[tool.pytest.ini_options]` estendido para
+  `--cov=src/omaha --cov-report=xml:reports/coverage.xml`
+  (preserva `-q --ignore=tests/e2e/_disabled` anterior); `task
+  coverage` em `[tool.taskipy.tasks]` reescrito para usar
+  `-m "unit or integration"` (BDD/e2e excluídos — passa de 10+
+  min de timeout para 3 min, preserva scope "code coverage"
+  separando de "behavior coverage"); `.gitignore` ganha
+  `reports/coverage.xml` e `reports/.coverage` (preserva
+  `coverage/` entry pré-existente); `.github/workflows/ci.yml`
+  criado com 5 jobs (`lint` sem `needs`, `test-unit` /
+  `test-integration` / `test-bdd` com `needs: lint`,
+  `coverage` com `needs: [test-unit, test-integration]`),
+  triggers `push` em `[main]` + `pull_request` em `[main]`,
+  Python via `actions/setup-python@v5` + `cache: "uv"` +
+  `python-version-file: ".python-version"`, `actions/upload-artifact@v4`
+  para `coverage-report` com `retention-days: 30`; coverage
+  job chama `pytest -m "unit or integration" -q
+  --ignore=tests/e2e/_disabled` (sem `--cov=...` explícito —
+  addopts fornece); verification local: `task test-unit`
+  271 pass / 2 skip (R04 baseline match), `task
+  test-integration` 369 pass / 2 skip (R02/R03/R04 baseline
+  match), `task test-bdd` 51 pass (T05 baseline match),
+  `task coverage` 640 pass / 4 skip / **92% line coverage** com
+  `reports/coverage.xml` Cobertura-compatible (`<coverage
+  version=... line-rate="0.9163" ...>` + `<package name=...>`
+  structure), `ruff check` + `ruff format --check` ambos
+  verdes em `src tests alembic`)
 - Applied: pending
 - Archived: pending
 
