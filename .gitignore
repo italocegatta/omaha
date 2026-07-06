@@ -39,6 +39,8 @@ target/
 vendor/
 *.log
 coverage/
+reports/coverage.xml
+reports/.coverage
 .cache/
 tmp/
 
@@ -77,3 +79,4 @@ certs/*
 nginx/*
 !nginx/.gitkeep
 !nginx/nginx.conf
+.coverage

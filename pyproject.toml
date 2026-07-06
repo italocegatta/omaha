@@ -65,11 +65,29 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q --ignore=tests/e2e/_disabled"
+addopts = "-q --ignore=tests/e2e/_disabled --cov=src/omaha --cov-report=xml:reports/coverage.xml"
 markers = [
     "unit: pure-function tests, no DB no HTTP",
     "integration: tests requiring DB, TestClient, or external services",
     "bdd: BDD e2e scenarios under tests/bdd/",
+]
+
+[tool.coverage.run]
+source = ["src/omaha"]
+branch = false
+omit = [
+    "src/omaha/__main__.py",
+]
+
+[tool.coverage.report]
+# Coverage is informational — no fail_under threshold (D-T02.4).
+# `term-missing` is added by `task coverage` only; the XML report is
+# produced by every pytest invocation via addopts so CI can upload it.
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
 ]
 
 [tool.pyright]
