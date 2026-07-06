@@ -762,19 +762,37 @@ Progress:
 - Archived: done
 
 ### T02 - Coverage report no CI
-Status: `Ready`
+Status: `Spec Proposed`
 Goal: `task coverage` existe; falta cabo no pipeline (GitHub Actions).
 Wire `--cov-report=xml` + upload para o driver de coverage usado pelo
-repo.
+repo. **Repo não tem CI** (verificado `ls .github/workflows/` → não
+existe), então escopo da fatia absorve "introduzir workflow mínimo":
+lint + unit + integration + BDD + coverage job, cache de `uv`, sem
+e2e/audit (ficam fora por decisão D-T02.9 / D-T02.4 — gate de threshold
+fica para slice futura owner-driven).
 Candidate OpenSpec change id: `t02-coverage-report-in-ci`
 Spec link: `openspec/changes/t02-coverage-report-in-ci/`
 Files:
-- `.github/workflows/*.yml`
-- `pyproject.toml` (tool.coverage.*)
-Notes: Verificar se já existe workflow de CI antes de propor; se não
-existir, escopo da fatia vira "introduzir CI" e isso pode virar F/I.
+- `.github/workflows/ci.yml` (novo — 5 jobs: lint, test-unit, test-integration, test-bdd, coverage)
+- `pyproject.toml` (`[tool.coverage.run]` com `source = ["src/omaha"]` + `[tool.coverage.report]` com `exclude_lines` + `addopts` ganha `--cov-report=xml:reports/coverage.xml`)
+- `.gitignore` (acrescentar `reports/coverage.xml`)
+Notes: Sem `fail_under` — gate de threshold é decisão owner-separada.
+E2E (`task test-e2e`) e audit integration ficam fora do workflow (D-T02.9).
+Reports XML vai para `reports/coverage.xml` (D-T02.3); diretório `reports/`
+já existe vazio no repo. Cache de `uv` via `actions/setup-python@v5`
+com `cache: "uv"` (D-T02.8). Coverage roda como job separado que
+re-invoca pytest com `--cov` (D-T02.2) — desacopla signal de cobertura
+dos jobs de teste puro (preserva `task test-unit` limpo como gate de
+pre-push via prek).
 Progress:
-- Proposed: pending
+- Proposed: done 2026-07-06; folder
+  `openspec/changes/t02-coverage-report-in-ci/`; 4 artifacts
+  completos (`proposal.md` + `specs/ci-coverage-pipeline/spec.md`
+  com 10 ADDED requirements + `design.md` com 9 decisions
+  D-T02.1..D-T02.9 + `tasks.md` com 6 grupos, 28 checkboxes);
+  `openspec validate t02-coverage-report-in-ci` retorna `valid: true`;
+  spec validation: 41 total / 0 errors (40 pre + 1 new
+  `ci-coverage-pipeline`)
 - Applying: pending
 - Applied: pending
 - Archived: pending
