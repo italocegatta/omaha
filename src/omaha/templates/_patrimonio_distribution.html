@@ -1,0 +1,24 @@
+{% if view == 'profile' %}
+      <div x-data>
+        <template x-if="$store.classSum.deviatingClasses.length > 0 || Math.abs($store.classSum.delta) > 0.01">
+          <div class="asset-allocation-alert"
+               data-testid="asset-allocation-alert"
+               :class="'asset-allocation-alert--' + $store.classSum.severity">
+            <div class="asset-allocation-alert-portfolio" data-testid="asset-allocation-alert-portfolio">
+              <strong>Carteira:</strong>
+              <span x-text="Number($store.classSum.totalPct).toFixed(2) + '%'"></span>
+              <span x-show="$store.classSum.message" x-text="$store.classSum.message"></span>
+            </div>
+            <div class="asset-allocation-alert-classes">
+              <template x-for="cd in $store.classSum.deviatingClasses" :key="cd.name">
+                <div class="asset-allocation-alert-class"
+                     data-testid="asset-allocation-alert-class"
+                     :class="'asset-allocation-alert-class--' + cd.severity">
+                  <span x-text="cd.name"></span>: <span x-text="cd.message"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+      {% endif %}

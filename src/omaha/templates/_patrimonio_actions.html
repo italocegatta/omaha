@@ -1,0 +1,22 @@
+{% if view == 'profile' %}
+  <section class="patrimonio-actions" data-testid="patrimonio-actions" x-data>
+    <button type="button"
+            class="btn patrimonio-action-btn"
+            data-testid="dashboard-import-btn"
+            @click="$store.importModal.openModal()">
+      Importar CSV
+    </button>
+    <button type="button"
+            class="btn patrimonio-action-btn"
+            data-testid="dashboard-add-asset-open"
+            @click="$store.addAssetModal.openModal()">
+Novo ativo
+    </button>
+    <button type="button"
+            class="btn patrimonio-action-btn"
+            data-testid="empty-state-create-class"
+@click="$store.newClassModal.openModal()">
+      Nova Classe
+    </button>
+  </section>
+  {% endif %}

@@ -1,0 +1,21 @@
+{% if portfolio.current_value %}
+    <section class="patrimonio-portfolio-header"
+             data-testid="patrimonio-portfolio-header">
+      <section class="portfolio-header" data-testid="portfolio-header">
+        <div class="portfolio-stat" data-testid="portfolio-invested">
+          <span class="portfolio-stat-label">Investido</span>
+          <span class="portfolio-stat-value">{{ portfolio.total_invested | brl }}</span>
+        </div>
+        <div class="portfolio-stat" data-testid="portfolio-total">
+          <span class="portfolio-stat-label">Valor atual</span>
+          <span class="portfolio-stat-value">{{ portfolio.current_value | brl }}</span>
+        </div>
+        <div class="portfolio-stat {% if portfolio.gain >= 0 %}portfolio-gain-positive{% else %}portfolio-gain-negative{% endif %}"
+             data-testid="portfolio-gain"
+             data-gain-sign="{% if portfolio.gain >= 0 %}positive{% else %}negative{% endif %}">
+          <span class="portfolio-stat-label">Ganho</span>
+          <span class="portfolio-stat-value">{{ portfolio.gain | brl }} ({{ portfolio.gain_pct | round(2) }}%)</span>
+        </div>
+      </section>
+    </section>
+    {% endif %}

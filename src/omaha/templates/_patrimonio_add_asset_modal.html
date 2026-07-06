@@ -1,0 +1,1683 @@
+<!-- asset-table-view 10.2/10.3 — dashboard-level add-asset modal.
+     Overlay + panel with class select, name, and target_pct inputs.
+     State lives in a global Alpine store ($store.addAssetModal) so
+     the sidebar trigger button (in a different x-data scope) can open
+     it without nesting. Uses the shared modal shell classes
+     (.modal-overlay / .modal-panel / .modal-header / .modal-title /
+     .modal-close / .modal-body / .modal-footer). -->
+<div class="modal-overlay"
+     x-data
+     x-show="$store.addAssetModal.open"
+     x-cloak
+     x-transition.opacity.duration.200ms
+     @click.self="$store.addAssetModal.closeModal()"
+     data-testid="add-asset-modal-overlay">
+  <div class="modal-panel" @click.stop>
+    <div class="modal-header">
+      <h2 class="modal-title">Novo ativo</h2>
+      <button type="button"
+              class="modal-close"
+              data-testid="add-asset-modal-close"
+              @click="$store.addAssetModal.closeModal()">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="add-asset-modal-field">
+        <label for="add-asset-class">Classe</label>
+        <select id="add-asset-class"
+                class="add-asset-modal-input"
+                data-testid="dashboard-add-asset-modal-class"
+                x-init="$nextTick(() => { const cid = $store.addAssetModal.classId; if (cid) $el.value = cid; })"
+                x-effect="(() => { const cid = $store.addAssetModal.classId; if (cid) $el.value = cid; })()"
+                @change="$store.addAssetModal.classId = $event.target.value">
+          <option value="">Selecione...</option>
+          {% for c in class_aggregates %}
+          <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="add-asset-modal-field">
+        <label for="add-asset-name">Nome</label>
+        <input type="text"
+               id="add-asset-name"
+               class="add-asset-modal-input"
+               data-testid="dashboard-add-asset-name"
+               x-model="$store.addAssetModal.name"
+               placeholder="Ex: PETR4"
+               :disabled="$store.addAssetModal.saving"
+               @keyup.enter="$store.addAssetModal.submit()">
+      </div>
+
+      <div class="add-asset-modal-field">
+        <label for="add-asset-target">Alvo % (dentro da classe)</label>
+        <input type="number"
+               id="add-asset-target"
+               class="add-asset-modal-input"
+               data-testid="dashboard-add-asset-target-pct"
+               x-model="$store.addAssetModal.targetPct"
+               step="0.01"
+               min="0"
+               max="100"
+               placeholder="0"
+               :disabled="$store.addAssetModal.saving"
+               @keyup.enter="$store.addAssetModal.submit()">
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button"
+              class="btn"
+              data-testid="dashboard-add-asset-cancel"
+              @click="$store.addAssetModal.closeModal()"
+              :disabled="$store.addAssetModal.saving">Cancelar</button>
+      <button type="button"
+              class="btn btn-primary"
+              data-testid="dashboard-add-asset-submit"
+              @click="$store.addAssetModal.submit()"
+              :disabled="$store.addAssetModal.saving">
+        <span x-show="!$store.addAssetModal.saving">Salvar</span>
+        <span x-show="$store.addAssetModal.saving">Salvando...</span>
+      </button>
+    </div>
+
+    <p class="add-asset-modal-error"
+       data-testid="dashboard-add-asset-error"
+       x-show="$store.addAssetModal.error"
+       x-text="$store.addAssetModal.error"
+       x-cloak></p>
+  </div>
+</div>
+
+<!-- dashboard-action-sidebar — new-class modal. Promotes the old
+     inline newClassForm to a real modal sharing the shell.
+     Posts JSON to /api/classes and reloads the page on 201 so the
+     new class section renders with server-side aggregate data. -->
+<div class="modal-overlay"
+     x-data
+     x-show="$store.newClassModal.open"
+     x-cloak
+     x-transition.opacity.duration.200ms
+     @click.self="$store.newClassModal.closeModal()"
+     data-testid="new-class-modal-overlay">
+  <div class="modal-panel" @click.stop>
+    <div class="modal-header">
+      <h2 class="modal-title">Nova classe</h2>
+      <button type="button"
+              class="modal-close"
+              data-testid="new-class-modal-close"
+              @click="$store.newClassModal.closeModal()">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="add-asset-modal-field">
+        <label for="new-class-modal-name">Nome</label>
+        <input type="text"
+               id="new-class-modal-name"
+               class="add-asset-modal-input"
+               data-testid="new-class-modal-name-input"
+               x-model="$store.newClassModal.name"
+               placeholder="Ex: Renda Fixa"
+               :disabled="$store.newClassModal.saving"
+               @keyup.enter="$store.newClassModal.submit()">
+      </div>
+      <div class="add-asset-modal-field">
+        <label for="new-class-modal-pct">Alvo %</label>
+        <input type="number"
+               id="new-class-modal-pct"
+               class="add-asset-modal-input"
+               data-testid="new-class-modal-pct-input"
+               x-model="$store.newClassModal.targetPct"
+               step="0.01"
+               min="0"
+               max="100"
+               placeholder="60"
+               :disabled="$store.newClassModal.saving"
+               @keyup.enter="$store.newClassModal.submit()">
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button"
+              class="btn"
+              data-testid="new-class-modal-cancel"
+              @click="$store.newClassModal.closeModal()"
+              :disabled="$store.newClassModal.saving">Cancelar</button>
+      <button type="button"
+              class="btn btn-primary"
+              data-testid="new-class-modal-submit"
+              @click="$store.newClassModal.submit()"
+              :disabled="$store.newClassModal.saving">
+        <span x-show="!$store.newClassModal.saving">Salvar</span>
+        <span x-show="$store.newClassModal.saving">Salvando...</span>
+      </button>
+    </div>
+
+    <p class="add-asset-modal-error"
+       data-testid="new-class-modal-error"
+       x-show="$store.newClassModal.error"
+       x-text="$store.newClassModal.error"
+       x-cloak></p>
+  </div>
+</div>
+
+<!-- S04/T03: Import modal overlay. Uses the shared modal shell
+     (.modal-overlay / .modal-panel--wide for the review table that
+     exceeds the default 480px cap / .modal-header / .modal-title /
+     .modal-close). Body content stays bespoke (file picker, review
+     table, etc.). -->
+<div class="modal-overlay"
+     x-data
+     x-show="$store.importModal.open"
+     x-cloak
+     x-transition.opacity.duration.200ms
+     @click.self="$store.importModal.closeModal()"
+     data-testid="import-modal-overlay">
+  <div class="modal-panel modal-panel--wide" @click.stop>
+    <div class="modal-header">
+      <h2 class="modal-title">Importar posições</h2>
+      <button type="button"
+              class="modal-close"
+              data-testid="import-modal-close"
+              @click="$store.importModal.closeModal()">&times;</button>
+    </div>
+
+    <!-- Step 1: File upload -->
+    <div class="import-modal-step"
+         x-show="$store.importModal.step === 1"
+         x-transition:enter.duration.200ms>
+      <div class="import-modal-upload-area">
+        <p style="font-size:0.85rem;color:var(--muted);margin:0;">
+          Selecione um arquivo CSV com as posições do seu corretor
+        </p>
+        <input type="file"
+               accept=".csv"
+               data-testid="import-file-input"
+               @change="$store.importModal.file = $event.target.files[0]; $store.importModal.error = ''"
+               :disabled="$store.importModal.uploading">
+        <button type="button"
+                class="import-btn import-btn-primary"
+                data-testid="import-upload-btn"
+                @click="$store.importModal.uploadFile()"
+                :disabled="!$store.importModal.file || $store.importModal.uploading">
+          <span x-show="!$store.importModal.uploading">Enviar</span>
+          <span x-show="$store.importModal.uploading">Enviando...</span>
+        </button>
+      </div>
+      <p class="import-modal-error"
+         x-show="$store.importModal.step1Error"
+         x-text="$store.importModal.step1Error"
+         x-cloak
+         data-testid="import-upload-error"></p>
+    </div>
+
+    <!-- Step 2: Review + commit -->
+    <div class="import-modal-step"
+         x-show="$store.importModal.step === 2"
+         x-transition:enter.duration.200ms>
+
+      <!-- Expired preview -->
+      <div class="import-expired-message"
+           x-show="$store.importModal.previewError"
+           data-testid="import-expired-message">
+        <p>Sessão expirada. Reenvie o arquivo.</p>
+        <button type="button"
+                class="import-btn import-btn-primary"
+                @click="$store.importModal.goBackToStep1()">
+          Reenviar
+        </button>
+      </div>
+
+      <template x-if="!$store.importModal.previewError">
+        <div>
+          <!-- Existing assets (auto-matched) -->
+          <div class="import-review-section import-review-section--existing" x-show="$store.importModal.autoMatched.length > 0">
+            <h3>Ativos existentes na carteira</h3>
+            <table class="import-review-table" data-testid="import-existing-table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Qtde</th>
+                  <th>Preço médio</th>
+                  <th>Total atual</th>
+                  <th>Classe</th>
+                  {# asset-trade-flags: per-asset trade-control columns.
+                     Auto-matched rows show the current ``Asset`` values
+                     (preserved across re-imports); unmatched rows show
+                     the project defaults (``True / True / BRL``). The
+                     operator can flip each toggle before commit. #}
+                  <th>Compra</th>
+                  <th>Venda</th>
+                  <th>Moeda</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="(row, i) in $store.importModal.autoMatched" :key="row.broker_ticker">
+                  <tr data-testid="import-existing-row"
+                      x-data="{
+                        cellColor: 'transparent',
+                        getClassIndex(color) {
+                          if (!color || color === 'transparent') return -1;
+                          var list = Alpine.store('importModal').assetClasses;
+                          for (var i = 0; i < list.length; i++) {
+                            if (list[i].color === color) return i;
+                          }
+                          return -1;
+                        }
+                      }">
+                    <td x-text="row.name"></td>
+                    <td x-text="row.qty"></td>
+                    <td>R$ <span x-text="$store.importModal.formatBRL(row.avg_price, 0)"></span></td>
+                    <td>R$ <span x-text="$store.importModal.formatBRL(row.current_value, 0)"></span></td>
+                    <td class="import-class-cell"
+                        :class="cellColor === 'transparent' ? 'import-class-cell--pending' : 'import-class-cell--cls-' + getClassIndex(cellColor)"
+                        data-testid="import-class-cell-existing">
+                      <span class="class-color-swatch import-class-swatch"
+                            :style="`background: ${cellColor}`"
+                            x-init="cellColor = $store.importModal.getClassColor(($store.importModal.assignments[row.broker_ticker] || {}).class_id)"
+                            x-effect="cellColor = $store.importModal.getClassColor(($store.importModal.assignments[row.broker_ticker] || {}).class_id)"></span>
+                      <select :style="cellColor === 'transparent' ? '' : `background: color-mix(in srgb, ${cellColor} 30%, white); border-color: ${cellColor}`"
+                              x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })"
+                              x-effect="(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })()"
+                              @change="$store.importModal.assignments[row.broker_ticker].class_id = $event.target.value"
+                              data-testid="import-existing-class">
+                        <option value="">Selecione...</option>
+                        <template x-for="ac in $store.importModal.assetClasses" :key="ac.id">
+                          <option :value="ac.id" x-text="ac.name"></option>
+                        </template>
+                      </select>
+                    </td>
+                    <td data-testid="import-existing-buy">
+                      <label class="import-trade-toggle">
+                        <input type="checkbox"
+                               data-testid="import-existing-buy-toggle"
+                               :checked="$store.importModal.assignments[row.broker_ticker] ? $store.importModal.assignments[row.broker_ticker].buy_enabled : true"
+                               @change="$store.importModal.setBuy(row.broker_ticker, $event.target.checked)">
+                        <span>Compra</span>
+                      </label>
+                    </td>
+                    <td data-testid="import-existing-sell">
+                      <label class="import-trade-toggle">
+                        <input type="checkbox"
+                               data-testid="import-existing-sell-toggle"
+                               :checked="$store.importModal.assignments[row.broker_ticker] ? $store.importModal.assignments[row.broker_ticker].sell_enabled : true"
+                               @change="$store.importModal.setSell(row.broker_ticker, $event.target.checked)">
+                        <span>Venda</span>
+                      </label>
+                    </td>
+                    <td data-testid="import-existing-currency">
+                      <select class="import-currency-select"
+                              x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.currency_code ?? 'BRL'; })"
+                              x-effect="(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.currency_code ?? 'BRL'; })()"
+                              @change="$store.importModal.setCurrency(row.broker_ticker, $event.target.value)"
+                              data-testid="import-existing-currency-select">
+                        <option value="BRL">BRL</option>
+                        <option value="USD">USD</option>
+                      </select>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- New assets (unmatched) -->
+          <div class="import-review-section import-review-section--new" x-show="$store.importModal.unmatched.length > 0">
+            <h3>Novos ativos</h3>
+            <table class="import-review-table" data-testid="import-unmatched-table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Qtde</th>
+                  <th>Preço médio</th>
+                  <th>Total atual</th>
+                  <th>Classe</th>
+                  <th>Compra</th>
+                  <th>Venda</th>
+                  <th>Moeda</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="(row, i) in $store.importModal.unmatched" :key="row.broker_ticker">
+                  <tr data-testid="import-unmatched-row"
+                      x-data="{
+                        cellColor: 'transparent',
+                        getClassIndex(color) {
+                          if (!color || color === 'transparent') return -1;
+                          var list = Alpine.store('importModal').assetClasses;
+                          for (var i = 0; i < list.length; i++) {
+                            if (list[i].color === color) return i;
+                          }
+                          return -1;
+                        }
+                      }">
+                    <td x-text="row.name"></td>
+                    <td x-text="row.qty"></td>
+                    <td>R$ <span x-text="$store.importModal.formatBRL(row.avg_price, 0)"></span></td>
+                    <td>R$ <span x-text="$store.importModal.formatBRL(row.current_value, 0)"></span></td>
+                    <td class="import-class-cell"
+                        :class="cellColor === 'transparent' ? 'import-class-cell--pending' : 'import-class-cell--cls-' + getClassIndex(cellColor)"
+                        data-testid="import-class-cell-assignment">
+                      <span class="class-color-swatch import-class-swatch"
+                            :style="`background: ${cellColor}`"
+                            x-init="cellColor = $store.importModal.getClassColor(($store.importModal.assignments[row.broker_ticker] || {}).class_id)"
+                            x-effect="cellColor = $store.importModal.getClassColor(($store.importModal.assignments[row.broker_ticker] || {}).class_id)"></span>
+                      <select :style="cellColor === 'transparent' ? '' : `background: color-mix(in srgb, ${cellColor} 30%, white); border-color: ${cellColor}`"
+                              x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })"
+                              x-effect="(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })()"
+                              @change="$store.importModal.assignments[row.broker_ticker].class_id = $event.target.value"
+                              data-testid="import-assignment-class">
+                        <option value="">Selecione...</option>
+                        <template x-for="ac in $store.importModal.assetClasses" :key="ac.id">
+                          <option :value="ac.id" x-text="ac.name"></option>
+                        </template>
+                      </select>
+                    </td>
+                    <td data-testid="import-unmatched-buy">
+                      <label class="import-trade-toggle">
+                        <input type="checkbox"
+                               data-testid="import-unmatched-buy-toggle"
+                               :checked="$store.importModal.assignments[row.broker_ticker] ? $store.importModal.assignments[row.broker_ticker].buy_enabled : true"
+                               @change="$store.importModal.setBuy(row.broker_ticker, $event.target.checked)">
+                        <span>Compra</span>
+                      </label>
+                    </td>
+                    <td data-testid="import-unmatched-sell">
+                      <label class="import-trade-toggle">
+                        <input type="checkbox"
+                               data-testid="import-unmatched-sell-toggle"
+                               :checked="$store.importModal.assignments[row.broker_ticker] ? $store.importModal.assignments[row.broker_ticker].sell_enabled : true"
+                               @change="$store.importModal.setSell(row.broker_ticker, $event.target.checked)">
+                        <span>Venda</span>
+                      </label>
+                    </td>
+                    <td data-testid="import-unmatched-currency">
+                      <select class="import-currency-select"
+                              x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.currency_code ?? 'BRL'; })"
+                              x-effect="(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.currency_code ?? 'BRL'; })()"
+                              @change="$store.importModal.setCurrency(row.broker_ticker, $event.target.value)"
+                              data-testid="import-unmatched-currency-select">
+                        <option value="BRL">BRL</option>
+                        <option value="USD">USD</option>
+                      </select>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Commit error -->
+          <p class="import-modal-error"
+             x-show="$store.importModal.error"
+             x-text="$store.importModal.error"
+             x-cloak
+             data-testid="import-commit-error"></p>
+
+          <!-- Actions -->
+          <div class="import-modal-actions">
+            <button type="button"
+                    class="import-btn"
+                    @click="$store.importModal.closeModal()">Cancelar</button>
+            <button type="button"
+                    class="import-btn import-btn-primary"
+                    data-testid="import-commit-btn"
+                    @click="$store.importModal.commit()"
+                    :disabled="$store.importModal.committing">
+              <span x-show="!$store.importModal.committing">Confirmar</span>
+              <span x-show="$store.importModal.committing">Salvando...</span>
+            </button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+</div>
+
+<script>
+  // asset-table-view 10.x: class list for the dashboard-level add-asset
+  // modal. The modal options are rendered by Alpine via <template x-for>,
+  // so the source list is injected here as a plain JS array.
+  window.__assetClasses = [{% for c in class_aggregates %}{id: {{ c.id }}, name: {{ c.name | tojson }}}{% if not loop.last %},{% endif %}{% endfor %}];
+
+  // fix-asset-table-ui-bugs: sort comparator factory. Returns a
+  // function that compares two assets by ``key`` in ``dir``
+  // direction. Shared between ``classSection.init()`` (initial
+  // ``displayAssets`` build) and ``classSection.sortBy()``
+  // (user-driven resort). Extracted so the two call sites stay
+  // byte-for-byte identical — a drift here would be a silent
+  // bug (different initial vs user-click order).
+  function sortFn(key, dir) {
+    return function (a, b) {
+      var cmp = 0;
+      if (key === 'class') {
+        cmp = (a.target_pct || 0) - (b.target_pct || 0);
+        if (cmp === 0) {
+          cmp = String(a.name).localeCompare(String(b.name));
+        }
+      } else if (key === 'name') {
+        cmp = String(a.name).localeCompare(String(b.name));
+      } else {
+        var av, bv;
+        switch (key) {
+          case 'qty':
+            av = a.position_count || 0;
+            bv = b.position_count || 0;
+            break;
+          case 'current-value':
+            av = a.current_value || 0;
+            bv = b.current_value || 0;
+            break;
+          case 'target-pct-class':
+            av = a.target_pct || 0;
+            bv = b.target_pct || 0;
+            break;
+          case 'current-pct-class':
+            av = a.current_pct_class || 0;
+            bv = b.current_pct_class || 0;
+            break;
+          case 'target-pct-total':
+            av = a.target_pct_total || 0;
+            bv = b.target_pct_total || 0;
+            break;
+          case 'current-pct-total':
+            av = a.current_pct_total || 0;
+            bv = b.current_pct_total || 0;
+            break;
+          default:
+            av = 0;
+            bv = 0;
+        }
+        cmp = av - bv;
+        if (cmp === 0) {
+          cmp = String(a.name).localeCompare(String(b.name));
+        }
+      }
+      return dir === 'asc' ? cmp : -cmp;
+    };
+  }
+
+  // Alpine.js component for the per-class section: 4-percentage
+  // view + inline editor for the asset ``target_pct_class`` column.
+  //
+  // The component owns the class's "live preview" of the per-class
+  // sum so the operator can see "Sobra/Falta X%" as they type,
+  // matching the server-side validator's wording byte-for-byte
+  // (the validator lives in ``omaha.validators`` and is the
+  // single source of truth — see T01-SUMMARY and T02-SUMMARY).
+  function classSection(initial) {
+    return {
+      classId: initial.id,
+      className: initial.name,
+      classTargetPct: initial.target_pct,
+      // ``classColor`` powers the swatch dot at the start of the
+      // asset-group header row (line 178) and ``classCurrentPct``
+      // powers the "Atual NN%" pill beside the target (line 181).
+      // Both come from the same ``class_data`` blob the section
+      // header reads (``c.color`` / ``c.current_pct`` from the
+      // Jinja context at line 80) — only the per-class
+      // ``classTargetPct`` was being copied before this change.
+      classColor: initial.color,
+      classCurrentPct: initial.current_pct,
+      classCurrentValue: initial.current_value,
+
+      // F01: read-only mode flag for the household aggregate view.
+      // When true, every mutation affordance (delete buttons, inline
+      // pct edits, trade toggles) is gated so a click does nothing —
+      // the API would also reject the request with 409, but the UI
+      // never gets there because the buttons don't fire. The flag
+      // is set once from the server-rendered class_data blob.
+      readOnly: initial.read_only === true,
+
+      // Register with the class allocation sum store on init so the
+      // Distribution header shows the live total across all classes.
+      // 3.3: also push the per-class asset-sum so the store's
+      // ``classDeltas[this.classId]`` is populated on the first
+      // reactive tick (the sticky alert card reads it).
+      // fix-asset-table-ui-bugs: also build the ``displayAssets``
+      // snapshot from ``assets`` using the default sort key. The
+      // snapshot is the array the table renders; PATCH handlers
+      // mutate the row object in place so the order stays frozen
+      // between explicit ``sortBy`` clicks.
+      init: function () {
+        this.displayAssets = this.assets.slice().sort(sortFn(this.sortKey, this.sortDir));
+        if (Alpine.store('classSum')) {
+          var store = Alpine.store('classSum');
+          store.register(this.classId, this.classTargetPct);
+          store.setClassSum(this.classId, this.classSum, this.className);
+        }
+      },
+      assets: initial.assets.map(function (a) {
+        return {
+          id: a.id,
+          name: a.name,
+          target_pct: a.target_pct,
+          current_pct_class: a.current_pct_class,
+          current_pct_total: a.current_pct_total,
+          target_pct_total: a.target_pct_total,
+          position_count: a.position_count,
+          current_value: a.current_value,
+          // asset-trade-flags: per-asset trade-control state copied
+          // from the server-rendered ``class_data.assets`` dict. The
+          // toggle UI mutates these in place after a successful
+          // PATCH (``toggleTradeFlag`` below) so the row's visual
+          // state reflects the server truth without a page reload.
+          buy_enabled: a.buy_enabled,
+          sell_enabled: a.sell_enabled,
+          currency_code: a.currency_code,
+        };
+      }),
+      editingAssetId: null,
+      editingValue: '',
+      saving: false,
+      error: '',
+      editingTotalAssetId: null,
+      editingTotalValue: '',
+      savingTotal: false,
+      errorTotal: '',
+
+      // asset-table-view 8.1: class groups are always visible; the
+      // chevron toggle was removed in 4.4.
+      isOpen: true,
+
+      // Delete button state — confirm dialog visibility, in-flight
+      // flag, and server error message (409 when class has assets).
+      // Each class-section instance owns its own copy so operators
+      // can delete independently.
+      showDeleteConfirm: false,
+      deleting: false,
+      deleteError: '',
+
+      // S03/T03: inline "+ Ativo" create form state. Lives inside
+      // the classSection scope so each class section owns its own
+      // form (independent across classes). The form mirrors the S02
+      // newClassForm pattern but reuses this component's x-data
+      // instead of a separate factory.
+      showAddAsset: false,
+      addingAsset: false,
+      newAssetName: '',
+      newAssetTargetPct: '',
+      addAssetError: '',
+
+      // S03/T04: per-asset delete confirm state. showDeleteAssetId
+      // matches a single asset id at a time (one confirm dialog per
+      // class section); deletingAssetId is set during the in-flight
+      // DELETE so both confirm buttons disable. deletingAssetName
+      // is the human-readable label from the template, used only
+      // for the confirm copy. Mirrors the S02 class-delete pattern
+      // (showDeleteConfirm / deleting) but lives on a separate
+      // namespace so the two delete flows never share state.
+      showDeleteAssetId: null,
+      deletingAssetId: null,
+      deleteAssetError: '',
+      deletingAssetName: '',
+
+      // R12: Class inline edit — click class target_pct span to
+      // show an inline input. PATCH /api/classes/{id} on blur or
+      // Enter. Mirrors the asset inline edit pattern (startEdit /
+      // commitEdit / cancelEdit) but lives on a separate namespace
+      // so no state bleeds between asset and class editing.
+      editingClassPct: false,
+      editClassPctValue: '',
+      editClassPctError: '',
+      savingClassPct: false,
+
+      // asset-trade-flags: per-asset buy/sell toggle in-flight
+      // tracker. Holds the asset id while the corresponding
+      // PATCH is in flight so the toggle button can disable
+      // itself (no optimistic update) and the other toggle on
+      // the same row stays clickable. ``null`` means no toggle
+      // in flight.
+      savingTrade: null,
+      tradeError: '',
+
+      // Live preview: the per-class sum of ``target_pct`` (i.e.
+      // the same value the T02 PATCH route's server-side
+      // validator will check). ``classDelta`` is signed:
+      // positive → missing allocation ("Falta X%"), negative →
+      // over-allocated ("Sobra X%"). Matches the
+      // ``validate_target_pct_sum`` integer-rounded delta
+      // (ROUND_HALF_UP) so the preview and the 422 body agree
+      // to the unit.
+      get classSum() {
+        var self = this;
+        // If currently editing, swap the in-flight value into the
+        // asset row's target_pct so the live sum reflects what the
+        // user just typed.
+        var total = 0;
+        for (var i = 0; i < self.assets.length; i++) {
+          var a = self.assets[i];
+          if (a.id === self.editingAssetId) {
+            var parsed = parseFloat(self.editingValue);
+            total += isNaN(parsed) ? 0 : parsed;
+          } else {
+            total += a.target_pct;
+          }
+        }
+        return total;
+      },
+      get classDelta() {
+        // Positive → under 100, negative → over 100.
+        return Math.round((100 - this.classSum) * 100) / 100;
+      },
+      get classCurrentStatus() {
+        // Drives the ``Atual`` pill modifier class. Within 1-cent
+        // tolerance of the target → 'ok' (green), otherwise 'off'
+        // (red). Tolerance matches ``SUM_TOLERANCE = 0.01`` in
+        // ``omaha.validators``.
+        return Math.abs(this.classCurrentPct - this.classTargetPct) <= 0.01
+          ? 'ok'
+          : 'off';
+      },
+      get classDeltaMessage() {
+        var delta = this.classDelta;
+        // 1-cent tolerance matches the server-side validator
+        // (``SUM_TOLERANCE = 0.01`` in ``omaha.validators``).
+        // Render the pill whenever the per-class sum is off, in
+        // steady state — no longer gated on inline edit.
+        if (Math.abs(delta) <= 0.01) return '';
+        if (delta < 0) {
+          // Over 100 → "Sobra X%" (same wording as validator).
+          return 'Sobra ' + Math.round(-delta) + '%';
+        }
+        // Under 100 → "Falta X%".
+        return 'Falta ' + Math.round(delta) + '%';
+      },
+
+      formatPct: function (value) {
+        // Format 0 as '—' so the operator notices the migration
+        // gap (D015: visual affordance). Non-zero renders as
+        // "X.XX%".
+        if (!value || Math.abs(value) < 0.005) return '—';
+        return Number(value).toFixed(2) + '%';
+      },
+      formatBRL: function (value) {
+        // BRL formatter reused by the asset-table rows after the
+        // per-class iteration moved to the assetTable component.
+        var n = Number(value) || 0;
+        return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      },
+      formatBRLCompact: function (value) {
+        // BRL with zero fraction digits — class-section "Valor" cell.
+        // The template gates on classCurrentValue > 0 and swaps in an
+        // em-dash for empty classes, so this is always called with
+        // a positive value.
+        var n = Number(value) || 0;
+        return n.toLocaleString('pt-BR', {
+          style: 'currency',
+          currency: 'BRL',
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        });
+      },
+
+      // asset-table-view 6.x/7.x: sortable asset table state. Lives
+      // directly on classSection so the row model is shared with the
+      // inline editor (no nested component / $parent indirection).
+      // fix-asset-table-ui-bugs: ``displayAssets`` is the snapshot
+      // the table iterates. Built once in ``init()`` and rebuilt by
+      // ``sortBy()`` on user-driven resort. PATCH handlers mutate
+      // the row object in place on this array — no re-sort, so the
+      // row order stays frozen between explicit sort clicks. The
+      // old ``sortedAssets`` getter + ``_pinFrozen`` pair was
+      // replaced because the getter re-ran on every ``assets``
+      // mutation, which (combined with a splice-based pin) caused
+      // the other rows in the class to visibly shift on PATCH.
+      displayAssets: [],
+      sortKey: 'class',
+      sortDir: 'asc',
+      sortBy: function (key) {
+        if (this.sortKey === key) {
+          this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+          this.sortKey = key;
+          this.sortDir = 'asc';
+        }
+        this.displayAssets = this.assets.slice().sort(sortFn(this.sortKey, this.sortDir));
+      },
+      sortIndicator: function (key) {
+        if (this.sortKey !== key) return '';
+        return this.sortDir === 'asc' ? '↑' : '↓';
+      },
+
+      // R12: Class inline edit — click the Alvo NN% span to show an
+      // input, PATCH on blur/Enter, update the local target_pct on
+      // success so the dashboard reacts immediately (no page reload).
+      // The server-side PATCH /api/classes/{id} endpoint handles the
+      // per-class target_pct update (the sum-to-100 gate was removed
+      // by D006).
+      startEditClassPct: function () {
+        this.editingClassPct = true;
+        this.editClassPctValue = String(this.classTargetPct);
+        this.editClassPctError = '';
+        var self = this;
+        // x-show toggles display:none; focus() silently no-ops on a
+        // hidden element. requestAnimationFrame waits for the next
+        // browser paint (the input is visible by then) and fires
+        // fast enough (≈16ms) that the user's first keystroke after
+        // the click lands in the input. A second rAF runs the
+        // select() so it survives Alpine's x-model re-sync that can
+        // reset the selection range right after the first paint.
+        // The class section has only one input per Alpine scope
+        // (``x-ref="classPctInput"``) so the testid selector is
+        // unambiguous.
+        requestAnimationFrame(function () {
+          var el = document.querySelector(
+            '[data-testid="class-inline-edit-input"]'
+          );
+          if (!el) return;
+          el.focus();
+          requestAnimationFrame(function () {
+            el.select();
+          });
+        });
+      },
+      cancelEditClassPct: function () {
+        this.editingClassPct = false;
+        this.editClassPctValue = '';
+        this.editClassPctError = '';
+      },
+      commitEditClassPct: function () {
+        if (this.editingClassPct === false) return;
+        var self = this;
+        var pct = (self.editClassPctValue ?? '').toString().trim();
+        if (pct === '') pct = '0';
+        self.savingClassPct = true;
+        self.editClassPctError = '';
+        fetch('/api/classes/' + self.classId, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target_pct: pct }),
+        })
+          .then(function (r) {
+            if (r.status === 200) {
+              return r.json();
+            }
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao salvar';
+              throw new Error(detail);
+            });
+          })
+          .then(function (payload) {
+            self.isOpen = true;
+            self.classTargetPct = parseFloat(payload.target_pct);
+            // Update the class-level allocation sum store so the
+            // Distribution header reflects the new total reactively.
+            // 3.3: also push the per-class asset-sum so the sticky
+            // alert card's per-class entry stays in sync — class PATCH
+            // recomputes target_pct_total for every asset, which can
+            // change the per-class delta even when the per-asset
+            // target_pcts didn't move (the class anchor changed).
+            if (Alpine.store('classSum')) {
+              var store = Alpine.store('classSum');
+              store.update(self.classId, self.classTargetPct);
+              store.setClassSum(self.classId, self.classSum, self.className);
+            }
+            // Recompute each asset's target_pct_total in the local
+            // model so the dashboard reflects the new class-level
+            // allocation without a page reload.
+            for (var i = 0; i < self.assets.length; i++) {
+              var a = self.assets[i];
+              a.target_pct_total = (a.target_pct * self.classTargetPct) / 100;
+            }
+            self.editingClassPct = false;
+            self.editClassPctValue = '';
+            self.editClassPctError = '';
+          })
+          .catch(function (err) {
+            self.editClassPctError = err && err.message ? err.message : 'Erro ao salvar';
+          })
+          .then(function () {
+            self.savingClassPct = false;
+          });
+      },
+
+      startEdit: function (id) {
+        if (this.editingTotalAssetId !== null) {
+          this.cancelEditTotal();
+        }
+        var asset = this.displayAssets.find(function (a) { return a.id === id; });
+        if (!asset) return;
+        this.editingAssetId = id;
+        this.editingValue = String(asset.target_pct);
+        this.error = '';
+        // Scope the input lookup to the row whose asset id matches
+        // ``id`` — ``x-ref="assetClassPctInput"`` collides across
+        // rows in the same classSection Alpine scope, so
+        // ``this.$refs.assetClassPctInput`` resolves to the LAST
+        // matching input registered, which may be in a different
+        // row. Use a per-row data attribute selector instead.
+        var self = this;
+        requestAnimationFrame(function () {
+          var el = document.querySelector(
+            '.asset-inline-edit-input[data-asset-id="' + id + '"]:not([data-testid*="total"])'
+          );
+          if (!el) return;
+          el.focus();
+          requestAnimationFrame(function () {
+            el.select();
+          });
+        });
+      },
+      startEditTotal: function (id) {
+        if (this.editingAssetId !== null) {
+          this.cancelEdit();
+        }
+        var asset = this.displayAssets.find(function (a) { return a.id === id; });
+        if (!asset) return;
+        this.editingTotalAssetId = id;
+        this.editingTotalValue = String(asset.target_pct_total);
+        this.errorTotal = '';
+        var self = this;
+        requestAnimationFrame(function () {
+          var el = document.querySelector(
+            '[data-testid="asset-target-pct-total-edit-input"][data-asset-id="' + id + '"]'
+          );
+          if (!el) return;
+          el.focus();
+          requestAnimationFrame(function () {
+            el.select();
+          });
+        });
+      },
+      cancelEditTotal: function () {
+        this.editingTotalAssetId = null;
+        this.editingTotalValue = '';
+        this.errorTotal = '';
+      },
+      cancelEdit: function () {
+        this.editingAssetId = null;
+        this.editingValue = '';
+        this.error = '';
+      },
+      commitEdit: function () {
+        if (this.editingAssetId === null) return;
+        var id = this.editingAssetId;
+        var self = this;
+        var pct = (self.editingValue ?? '').toString().trim();
+        if (pct === '') pct = '0';
+        self.saving = true;
+        self.error = '';
+        fetch('/api/assets/' + id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target_pct: pct }),
+        })
+          .then(function (r) {
+            if (r.status === 200) {
+              return r.json();
+            }
+            // 422 → validator rejection. Body shape:
+            // ``{"detail": "<Sobra/Falta X%>"}``.
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao salvar';
+              throw new Error(detail);
+            });
+          })
+          .then(function (payload) {
+            self.isOpen = true;
+            // Update the local row's target_pct and recompute
+            // target_pct_total in-place so the user sees the
+            // change immediately without a page reload.
+            // fix-asset-table-ui-bugs: mutate ``displayAssets``
+            // (the snapshot the table iterates) so the row order
+            // stays frozen. ``assets`` shares the same object
+            // references, so ``classSum`` keeps reading the
+            // post-PATCH value through ``assets``.
+            var parsed = parseFloat(payload.target_pct);
+            var asset = self.displayAssets.find(function (a) { return a.id === id; });
+            if (asset) {
+              asset.target_pct = isNaN(parsed) ? asset.target_pct : parsed;
+              asset.target_pct_total = (asset.target_pct * self.classTargetPct) / 100;
+            }
+            // 3.3: push the new per-class sum to the store on every
+            // successful asset PATCH so the per-class badge and the
+            // portfolio sticky alert card stay reactive without a
+            // page reload. ``update()`` on the class pct is a no-op
+            // here (asset PATCH doesn't move the class anchor) but
+            // it's part of the 3.3 contract — the store sees the
+            // post-PATCH class state on every write.
+            if (Alpine.store('classSum')) {
+              var store = Alpine.store('classSum');
+              store.update(self.classId, self.classTargetPct);
+              store.setClassSum(self.classId, self.classSum, self.className);
+            }
+            self.editingAssetId = null;
+            self.editingValue = '';
+            self.error = '';
+          })
+          .catch(function (err) {
+            self.error = err && err.message ? err.message : 'Erro ao salvar';
+          })
+          .then(function () {
+            self.saving = false;
+          });
+      },
+
+      // asset-table-view 7.1/7.2: inline edit of ``alvo % total``.
+      // The user edits the total allocation; the client back-solves
+      // ``target_pct = total * 100 / classTargetPct`` and PATCHes the
+      // server with the derived class-level percentage. The same
+      // local update + classSum store push pattern as ``commitEdit``
+      // keeps the per-class badge and portfolio alert reactive.
+      commitEditTotal: function () {
+        if (this.editingTotalAssetId === null) return;
+        var self = this;
+        var totalStr = (self.editingTotalValue ?? '').toString().trim();
+        if (totalStr === '') totalStr = '0';
+        var parsed = parseFloat(totalStr);
+        var newTargetPct = self.classTargetPct > 0
+          ? (parsed * 100) / self.classTargetPct
+          : 0;
+        var id = self.editingTotalAssetId;
+        self.savingTotal = true;
+        self.errorTotal = '';
+        fetch('/api/assets/' + id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target_pct: newTargetPct.toFixed(2) }),
+        })
+          .then(function (r) {
+            if (r.status === 200) {
+              return r.json();
+            }
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao salvar';
+              throw new Error(detail);
+            });
+          })
+          .then(function (payload) {
+            self.isOpen = true;
+            // fix-asset-table-ui-bugs: mutate ``displayAssets`` so
+            // the row order stays frozen after the PATCH (see
+            // ``commitEdit`` for the same pattern + reasoning).
+            var parsedPct = parseFloat(payload.target_pct);
+            var asset = self.displayAssets.find(function (a) { return a.id === id; });
+            if (asset) {
+              asset.target_pct = isNaN(parsedPct) ? asset.target_pct : parsedPct;
+              asset.target_pct_total = (asset.target_pct * self.classTargetPct) / 100;
+            }
+            if (Alpine.store('classSum')) {
+              var store = Alpine.store('classSum');
+              store.update(self.classId, self.classTargetPct);
+              store.setClassSum(self.classId, self.classSum, self.className);
+            }
+            self.editingTotalAssetId = null;
+            self.editingTotalValue = '';
+            self.errorTotal = '';
+          })
+          .catch(function (err) {
+            self.errorTotal = err && err.message ? err.message : 'Erro ao salvar';
+          })
+          .then(function () {
+            self.savingTotal = false;
+          });
+      },
+
+      // ── Delete class ──────────────────────────────────────────
+      //
+      // Shows confirm dialog; on confirm, DELETE /api/classes/{id}.
+      // 204 → page reload (class removed server-side).
+      // 409 → display server error (class has assets).
+      // Other errors → generic message.
+
+      confirmDelete: function () {
+        var self = this;
+        self.deleting = true;
+        self.deleteError = '';
+        fetch('/api/classes/' + self.classId, {
+          method: 'DELETE',
+        })
+          .then(function (r) {
+            if (r.status === 204) {
+              // Success — reload the page so the class section is removed
+              // and server-side aggregates re-render.
+              window.location.reload();
+              return;
+            }
+            // 409 (class has assets) or other error. Body shape:
+            // {"detail": "Classe tem N ativo(s); remova-os antes."}
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao remover classe';
+              throw new Error(detail);
+            });
+          })
+          .catch(function (err) {
+            self.deleteError = err && err.message ? err.message : 'Erro ao remover classe';
+          })
+          .then(function () {
+            self.deleting = false;
+          });
+      },
+
+      cancelDelete: function () {
+        this.showDeleteConfirm = false;
+        this.deleteError = '';
+        this.deleting = false;
+      },
+
+      // ── Inline create asset (S03/T03) ───────────────────────
+      //
+      // POSTs JSON {name, target_pct} to /api/assets. The T01
+      // server-side validator is the single source of truth for
+      // per-class sum validation, duplicate-name 409, and
+      // cross-profile class id 422 — this UI just renders the
+      // server's ``detail`` message verbatim on 4xx. On 201 we
+      // reload so the new asset row renders with server-side
+      // aggregate data (current_value, percentages, etc.).
+
+      addAsset: function () {
+        var self = this;
+        self.addingAsset = true;
+        self.addAssetError = '';
+        fetch('/api/assets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: self.newAssetName,
+            asset_class_id: self.classId,
+            target_pct: self.newAssetTargetPct,
+          }),
+        })
+          .then(function (r) {
+            if (r.status === 201) {
+              // Reload the page so the new asset row renders with
+              // server-side aggregate data (display_order, current
+              // value, percentages).
+              window.location.reload();
+              return;
+            }
+            // 409 (duplicate name) or 422 (validation error). Body
+            // shape: {"detail": "<message>"}.
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao criar ativo';
+              throw new Error(detail);
+            });
+          })
+          .catch(function (err) {
+            self.addAssetError = err && err.message ? err.message : 'Erro ao criar ativo';
+          })
+          .then(function () {
+            self.addingAsset = false;
+          });
+      },
+
+      cancelAddAsset: function () {
+        this.showAddAsset = false;
+        this.newAssetName = '';
+        this.newAssetTargetPct = '';
+        this.addAssetError = '';
+        this.addingAsset = false;
+      },
+
+      // ── Per-asset delete confirm (S03/T04) ─────────────────
+      //
+      // The × button per asset row calls askDeleteAsset(id, name)
+      // which sets showDeleteAssetId; the matching row's confirm
+      // dialog appears (x-show="showDeleteAssetId === id"). Only
+      // one row per class section can be in confirm state at a
+      // time because showDeleteAssetId is a single value.
+      //
+      // confirmDeleteAsset() DELETEs /api/assets/{showDeleteAssetId}.
+      // 204 → page reload (asset + cascading positions removed).
+      // 404 → server returns {"detail": "Ativo não encontrado."};
+      // surfaced verbatim. There is no 409 — positions cascade.
+      askDeleteAsset: function (id, name) {
+        this.showDeleteAssetId = id;
+        this.deletingAssetName = name;
+        this.deleteAssetError = '';
+      },
+
+      confirmDeleteAsset: function () {
+        if (this.showDeleteAssetId === null) return;
+        var id = this.showDeleteAssetId;
+        var self = this;
+        self.deletingAssetId = id;
+        self.deleteAssetError = '';
+        fetch('/api/assets/' + id, {
+          method: 'DELETE',
+        })
+          .then(function (r) {
+            if (r.status === 204) {
+              // Success — reload the page so the asset row (and its
+              // cascading positions) is removed and server-side
+              // aggregates re-render.
+              window.location.reload();
+              return;
+            }
+            // 404 or other 4xx. Body shape: {"detail": "..."}.
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao remover ativo';
+              throw new Error(detail);
+            });
+          })
+          .catch(function (err) {
+            self.deleteAssetError = err && err.message ? err.message : 'Erro ao remover ativo';
+          })
+          .then(function () {
+            self.deletingAssetId = null;
+          });
+      },
+
+      cancelDeleteAsset: function () {
+        this.showDeleteAssetId = null;
+        this.deletingAssetId = null;
+        this.deleteAssetError = '';
+        this.deletingAssetName = '';
+      },
+
+      // asset-trade-flags: flip a single trade-control field on an
+      // asset row and PATCH ``/api/assets/{id}`` with just that field.
+      // Visual state updates AFTER the server returns 200 so the UI
+      // never drifts from the source of truth. ``savingTrade``
+      // carries the {assetId, field} pair so only the toggle the
+      // operator actually clicked is disabled while the PATCH is in
+      // flight — the sibling toggle (and the currency badge) on the
+      // same row stay clickable / visually untouched.
+      toggleTradeFlag: function (assetId, field, value) {
+        var self = this;
+        if (self.savingTrade !== null) return; // another toggle in flight
+        self.savingTrade = { assetId: assetId, field: field };
+        self.tradeError = '';
+        var body = {};
+        body[field] = value;
+        fetch('/api/assets/' + assetId, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+          .then(function (r) {
+            if (r.status === 200) return r.json();
+            return r.json().then(function (j) {
+              var detail = (j && j.detail) ? j.detail : 'Erro ao salvar';
+              throw new Error(detail);
+            });
+          })
+          .then(function (payload) {
+            var asset = self.displayAssets.find(function (a) { return a.id === assetId; });
+            if (asset) {
+              asset.buy_enabled = payload.buy_enabled;
+              asset.sell_enabled = payload.sell_enabled;
+              asset.currency_code = payload.currency_code;
+            }
+          })
+          .catch(function (err) {
+            self.tradeError = err && err.message ? err.message : 'Erro ao salvar';
+          })
+          .then(function () {
+            self.savingTrade = null;
+          });
+      },
+    };
+  }
+
+  // S04/T03: Global Alpine store for the import modal. A store
+  // (not a component function) so the trigger button in the
+  // dashboard-actions div (which has no x-data of its own) can
+  // open it via $store.importModal.openModal().
+  document.addEventListener('alpine:init', function () {
+    // S02/D006 + asset-table-view 3.1/3.2/3.3: Class-level allocation
+    // sum tracker. Shows "Falta X%" / "Sobra X%" for the total of all
+    // class target_pcts AND, per the asset-table-view extension, the
+    // per-class asset-sum deviation in ``classDeltas[id] = {delta,
+    // message, severity}``. The asset-table-view spec uses both
+    // severities (per-class badge + portfolio sticky card) and reads
+    // them from this single store so the dashboard reacts without a
+    // page reload.
+    //
+    // API
+    // ---
+    // * ``register(id, pct)`` / ``update(id, pct)`` — the original
+    //   per-class ``target_pct`` setter (portfolio-level sum).
+    // * ``setClassSum(id, assetSum, name)`` — new in 3.1, extended
+    //   by 9.x: pushes the per-class sum of asset ``target_pct``s and
+    //   writes the ``{delta, message, severity, name}`` record into
+    //   ``classDeltas[id]``. The task text only names
+    //   ``register/update/_recalc``; ``setClassSum`` is the missing
+    //   push API that lets the ``classSection`` component feed the
+    //   per-class deviation in (the store has no other channel — the
+    //   assets live inside ``classSection``).
+    // * ``severityForDelta(delta)`` — new in 3.2: pure helper, exported
+    //   on the store, tier table ``<=0.01 ok``, ``<=5 warn``, ``>5
+    //   danger``.
+    // * ``_recalc()`` — now recomputes both the portfolio total /
+    //   delta / message / severity, in one pass.
+    //
+    // The store never blocks creation or editing (informational only).
+    // Each ``classSection`` registers via ``register()`` on init and
+    // calls ``update()`` + ``setClassSum()`` after a successful PATCH
+    // so the display is reactive without page reloads.
+    Alpine.store('classSum', {
+      items: {},
+      totalPct: 0,
+      delta: 0,
+      message: '',
+      severity: 'ok',
+      classDeltas: {},
+      register: function (id, pct) {
+        this.items[id] = pct;
+        this._recalc();
+      },
+      update: function (id, pct) {
+        this.items[id] = pct;
+        this._recalc();
+      },
+      // 3.1 / 9.x — push the per-class asset ``target_pct`` sum into
+      // the store. The store has no other channel for this data (the
+      // assets live inside ``classSection``), so the component must
+      // call this explicitly on init + after every PATCH. ``name``
+      // is stored so the sticky alert card can render the class label.
+      setClassSum: function (id, assetSum, name) {
+        var sum = parseFloat(assetSum) || 0;
+        var delta = Math.round((100 - sum) * 100) / 100;
+        var message = 'OK';
+        if (Math.abs(delta) > 0.01) {
+          if (delta < 0) {
+            message = 'Sobra ' + Math.round(-delta) + '%';
+          } else {
+            message = 'Falta ' + Math.round(delta) + '%';
+          }
+        }
+        this.classDeltas[id] = {
+          delta: delta,
+          message: message,
+          severity: this.severityForDelta(delta),
+          name: name || '',
+        };
+        this._recalc();
+      },
+      // 9.x — list of classDeltas entries whose absolute deviation
+      // exceeds the tolerance. Used by the sticky alert card to render
+      // only the deviating classes and to decide card visibility.
+      get deviatingClasses() {
+        var list = [];
+        for (var k in this.classDeltas) {
+          if (this.classDeltas.hasOwnProperty(k)) {
+            var cd = this.classDeltas[k];
+            if (Math.abs(cd.delta) > 0.01) {
+              list.push(cd);
+            }
+          }
+        }
+        return list;
+      },
+      // 3.2 — pure severity helper. ``<=0.01`` → ok, ``<=5`` →
+      // warn, else danger. Exported on the store so the per-class
+      // badge and the portfolio sticky card reuse the same tier
+      // table (single source of truth).
+      severityForDelta: function (delta) {
+        var abs = Math.abs(delta);
+        if (abs <= 0.01) return 'ok';
+        if (abs <= 5) return 'warn';
+        return 'danger';
+      },
+      _recalc: function () {
+        var sum = 0;
+        for (var k in this.items) {
+          if (this.items.hasOwnProperty(k)) {
+            sum += parseFloat(this.items[k]) || 0;
+          }
+        }
+        this.totalPct = Math.round(sum * 100) / 100;
+        var d = Math.round((100 - this.totalPct) * 100) / 100;
+        if (Math.abs(d) <= 0.01) {
+          this.delta = 0;
+          this.message = '';
+        } else if (d < 0) {
+          this.delta = d;
+          this.message = 'Sobra ' + Math.round(-d) + '%';
+        } else {
+          this.delta = d;
+          this.message = 'Falta ' + Math.round(d) + '%';
+        }
+        // 3.1/3.2 — derive the portfolio-level severity from the
+        // same delta so the sticky alert card can read it as
+        // ``$store.classSum.severity`` (no second helper needed).
+        this.severity = this.severityForDelta(d);
+      },
+    });
+
+    Alpine.store('importModal', {
+      open: false,
+      step: 1,
+      file: null,
+      previewId: null,
+      autoMatched: [],
+      unmatched: [],
+      assetClasses: [],
+      uploading: false,
+      committing: false,
+      error: '',
+      step1Error: '',
+      previewError: false,
+      assignments: {},
+
+      getAssetName: function (ticker) {
+        var a = this.assignments[ticker];
+        return a ? a.asset_name : '';
+      },
+      setAssetName: function (ticker, val) {
+        if (!this.assignments[ticker]) this.assignments[ticker] = { class_id: '', asset_name: '', buy_enabled: true, sell_enabled: true, currency_code: 'BRL' };
+        this.assignments[ticker].asset_name = val;
+        this.assignments = Object.assign({}, this.assignments);
+      },
+      // asset-trade-flags: setters for the per-row trade-control
+      // fields exposed in the import modal review. Each one
+      // upserts the assignment object (the row may not exist
+      // yet if the user flipped a toggle before picking a class)
+      // and reassigns ``assignments`` so Alpine picks up the
+      // change reactively.
+      setBuy: function (ticker, value) {
+        if (!this.assignments[ticker]) this.assignments[ticker] = { class_id: '', asset_name: '', buy_enabled: true, sell_enabled: true, currency_code: 'BRL' };
+        this.assignments[ticker].buy_enabled = !!value;
+        this.assignments = Object.assign({}, this.assignments);
+      },
+      setSell: function (ticker, value) {
+        if (!this.assignments[ticker]) this.assignments[ticker] = { class_id: '', asset_name: '', buy_enabled: true, sell_enabled: true, currency_code: 'BRL' };
+        this.assignments[ticker].sell_enabled = !!value;
+        this.assignments = Object.assign({}, this.assignments);
+      },
+      setCurrency: function (ticker, value) {
+        if (!this.assignments[ticker]) this.assignments[ticker] = { class_id: '', asset_name: '', buy_enabled: true, sell_enabled: true, currency_code: 'BRL' };
+        // The server's allowlist is {BRL, USD}; anything else
+        // is rejected at commit. Clamp defensively so the local
+        // state never holds a value the server would reject.
+        var v = String(value || '').toUpperCase();
+        if (v !== 'BRL' && v !== 'USD') v = 'BRL';
+        this.assignments[ticker].currency_code = v;
+        this.assignments = Object.assign({}, this.assignments);
+      },
+
+      formatBRL: function (v, decimals) {
+        var n = Number(v) || 0;
+        var d = (decimals === undefined || decimals === null) ? 2 : decimals;
+        return n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+      },
+      getClassColor: function (classId) {
+        if (!classId) return 'transparent';
+        var c = this.assetClasses.find(function (a) { return String(a.id) === String(classId); });
+        return c ? c.color : 'transparent';
+      },
+
+      openModal: function () {
+        this.resetState();
+        this.open = true;
+      },
+
+      closeModal: function () {
+        this.open = false;
+        this.resetState();
+      },
+
+      resetState: function () {
+        this.step = 1;
+        this.file = null;
+        this.previewId = null;
+        this.autoMatched = [];
+        this.unmatched = [];
+        this.assetClasses = [];
+        this.uploading = false;
+        this.committing = false;
+        this.error = '';
+        this.step1Error = '';
+        this.previewError = false;
+        this.assignments = {};
+      },
+
+      uploadFile: function () {
+        if (!this.file) return;
+        var self = this;
+        self.uploading = true;
+        self.step1Error = '';
+        self.error = '';
+        var fd = new FormData();
+        fd.append('file', self.file);
+        fetch('/api/import/preview', { method: 'POST', body: fd })
+          .then(function (r) {
+            if (r.ok) return r.json();
+            return r.json().then(function (body) {
+              throw new Error(body && body.detail ? body.detail : 'Erro ao enviar');
+            });
+          })
+          .then(function (data) {
+            self.previewId = data.preview_id;
+            self.autoMatched = data.auto_matched || [];
+            self.unmatched = data.unmatched || [];
+            self.assetClasses = data.asset_classes || [];
+
+            // Build default assignments for ALL rows.
+            var assigns = {};
+
+            // Auto-matched: pre-fill with current class and asset name.
+            // User can change the class via the dropdown.
+            // asset-trade-flags: also pre-fill the three trade-control
+            // fields from the server's per-row values so re-imports
+            // preserve the operator's prior toggle choices. The
+            // preview endpoint emits the asset's current values for
+            // auto_matched and project defaults for unmatched.
+            var autoMatched = data.auto_matched || [];
+            for (var i = 0; i < autoMatched.length; i++) {
+              var row = autoMatched[i];
+              assigns[row.broker_ticker] = {
+                class_id: row.asset_class_id,
+                asset_name: row.name,
+                buy_enabled: row.buy_enabled !== false,
+                sell_enabled: row.sell_enabled !== false,
+                currency_code: row.currency_code || 'BRL',
+              };
+            }
+
+            // Unmatched: use server-suggested class when available,
+            // otherwise leave empty for the user to pick. The trade-
+            // control fields fall back to the project defaults.
+            var unmatched = data.unmatched || [];
+            for (var i = 0; i < unmatched.length; i++) {
+              var row = unmatched[i];
+              var suggested = row.suggested_class_id;
+              assigns[row.broker_ticker] = {
+                class_id: suggested != null ? suggested : '',
+                asset_name: row.name,
+                buy_enabled: row.buy_enabled !== false,
+                sell_enabled: row.sell_enabled !== false,
+                currency_code: row.currency_code || 'BRL',
+              };
+            }
+            self.assignments = assigns;
+            self.step = 2;
+          })
+          .catch(function (err) {
+            self.step1Error = err && err.message ? err.message : 'Erro ao processar o arquivo';
+          })
+          .then(function () {
+            self.uploading = false;
+          });
+      },
+
+      commit: function () {
+        var self = this;
+        self.committing = true;
+        self.error = '';
+
+        // Build the assignments list from the assignments object.
+        // Skip rows where the user did not select a class.
+        // asset-trade-flags: include the three trade-control fields
+        // so the server's commit handler propagates them to the
+        // upsert (auto-matched) or new asset (unmatched). Defaults
+        // match the server-side AssignmentItem defaults so the wire
+        // shape is identical to before for any row the operator
+        // never touched.
+        var list = [];
+        for (var ticker in self.assignments) {
+          if (self.assignments.hasOwnProperty(ticker)) {
+            var a = self.assignments[ticker];
+            var rawClassId = a.class_id;
+            if (rawClassId === '' || rawClassId === null || rawClassId === undefined) continue;
+            list.push({
+              broker_ticker: ticker,
+              class_id: rawClassId,
+              asset_name: a.asset_name,
+              buy_enabled: a.buy_enabled !== false,
+              sell_enabled: a.sell_enabled !== false,
+              currency_code: a.currency_code || 'BRL',
+            });
+          }
+        }
+
+        fetch('/api/import/commit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            preview_id: self.previewId,
+            assignments: list,
+          }),
+        })
+          .then(function (r) {
+            if (r.ok) {
+              window.location.reload();
+              return;
+            }
+            return r.json().then(function (body) {
+              throw new Error(body && body.detail ? body.detail : 'Erro ao confirmar');
+            });
+          })
+          .catch(function (err) {
+            self.error = err && err.message ? err.message : 'Erro ao confirmar a importação';
+          })
+          .then(function () {
+            self.committing = false;
+          });
+      },
+
+      goBackToStep1: function () {
+        this.step = 1;
+        this.previewError = false;
+        this.error = '';
+        this.step1Error = '';
+      },
+    });
+
+    // asset-table-view 10.2/10.3 — global Alpine store for the dashboard-
+    // level add-asset modal. A store (not a component function) so the
+    // trigger button in the dashboard-actions area can open it via
+    // $store.addAssetModal.openModal() even though the button lives in a
+    // different x-data scope.
+    Alpine.store('addAssetModal', {
+      open: false,
+      assetClasses: [],
+      classId: '',
+      name: '',
+      targetPct: '',
+      saving: false,
+      error: '',
+
+      openModal: function () {
+        this.error = '';
+        this.name = '';
+        this.targetPct = '';
+        this.classId = '';
+        this.open = true;
+      },
+
+      closeModal: function () {
+        this.open = false;
+        this.error = '';
+      },
+
+      submit: function () {
+        var self = this;
+        self.saving = true;
+        self.error = '';
+
+        var payload = {
+          name: self.name,
+          asset_class_id: self.classId,
+        };
+        if (self.targetPct !== '') {
+          payload.target_pct = self.targetPct;
+        }
+
+        fetch('/api/assets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+          .then(function (r) {
+            if (r.status === 201) {
+              // Reload so the new asset row renders with server-side
+              // aggregate data (display_order, current_value, percentages).
+              window.location.reload();
+              return;
+            }
+            // 409 (duplicate name) or 422 (validation error). Body shape:
+            // {"detail": "<message>"}.
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao criar ativo';
+              throw new Error(detail);
+            });
+          })
+          .catch(function (err) {
+            self.error = err && err.message ? err.message : 'Erro ao criar ativo';
+          })
+          .then(function () {
+            self.saving = false;
+          });
+      },
+    });
+
+    // Hydrate the modal's class list from the server-rendered data.
+    Alpine.store('addAssetModal').assetClasses = window.__assetClasses || [];
+
+    // dashboard-action-sidebar — global Alpine store for the new-class
+    // modal. Mirrors the addAssetModal shape (open, saving, error,
+    // submit) but POSTs to /api/classes. Reloads on 201 so the new
+    // class section renders with server-side aggregate data.
+    Alpine.store('newClassModal', {
+      open: false,
+      name: '',
+      targetPct: '',
+      saving: false,
+      error: '',
+
+      openModal: function () {
+        this.error = '';
+        this.name = '';
+        this.targetPct = '';
+        this.open = true;
+      },
+
+      closeModal: function () {
+        this.open = false;
+        this.error = '';
+        this.name = '';
+        this.targetPct = '';
+      },
+
+      submit: function () {
+        var self = this;
+        self.saving = true;
+        self.error = '';
+        fetch('/api/classes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: self.name, target_pct: self.targetPct }),
+        })
+          .then(function (r) {
+            if (r.status === 201) {
+              window.location.reload();
+              return;
+            }
+            return r.json().then(function (body) {
+              var detail = (body && body.detail) ? body.detail : 'Erro ao criar classe';
+              throw new Error(detail);
+            });
+          })
+          .catch(function (err) {
+            self.error = err && err.message ? err.message : 'Erro ao criar classe';
+          })
+          .then(function () {
+            self.saving = false;
+          });
+      },
+    });
+  });
+</script>
