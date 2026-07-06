@@ -42,3 +42,4 @@
 - [x] 6.1 Update `openspec/roadmap.md` slice T02 block `Progress` — set `Proposed: done 2026-07-06`, link to `openspec/changes/t02-coverage-report-in-ci/` — done in propose phase
 - [x] 6.2 Verify `openspec validate t02-coverage-report-in-ci --json` returns `valid: true` — confirmed
 - [x] 6.3 Verify `openspec list --specs` shows new capability `ci-coverage-pipeline` — confirmed (41 total / 0 errors / new spec pending archive)
+
