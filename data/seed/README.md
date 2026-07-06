@@ -2,8 +2,11 @@
 
 Per-profile source of truth for **asset classes**, **per-class asset
 targets**, and **current broker positions**. Consumed exclusively by
-`scripts/seed_from_csv.py` (Taskipy: `task db-seed-from-csv` /
-`db-seed-diff` / `db-seed-upsert` / `db-reset`).
+the `scripts/seed_from_csv/` package (one module per concern:
+`loaders.py`, `validation.py`, `profiles.py`, `modes.py`, plus
+`__main__.py` for the CLI driver and `__init__.py` for the public
+re-exports). Invoked via Taskipy: `task db-seed-from-csv` /
+`db-seed-diff` / `db-seed-upsert` / `db-reset`.
 
 The CSVs are the source of truth. The xlsx workbooks in
 `~/github/investing/input/` and the broker export files in the same
@@ -55,10 +58,10 @@ For each profile (`italo`, `ana`):
 
 A `{profile}_assets.csv` with the legacy 4-column header
 (`class_name,name,target_pct,display_order`) is rejected by
-`scripts/seed_from_csv.py` with an `abort()` error and exit code
-1 — the same hard-fail pattern as `quote_kind`. This forces every
-CSV on disk to be updated in lockstep with the schema; no
-auto-upgrade with silent defaults.
+the seed script (`scripts/seed_from_csv/`) with an `abort()`
+error and exit code 1 — the same hard-fail pattern as
+`quote_kind`. This forces every CSV on disk to be updated in
+lockstep with the schema; no auto-upgrade with silent defaults.
 
 ## Sum invariant (validated before any DB write)
 

@@ -522,23 +522,70 @@ Progress:
 - Archived: done
 
 ### R02 - Revisar sistema de seed (caminho CSV)
-Status: `Ready`
+Status: `Archived`
 Goal: Tornar o caminho CSV (`scripts/seed_from_csv.py` + triplet em
 `data/seed/`) mais simples e direto para manutenção dos valores de seed
 na plataforma. Sem mudar invariantes: CSV continua sendo source of truth.
 Candidate OpenSpec change id: `r02-revise-csv-seed-system`
-Spec link: `openspec/changes/r02-revise-csv-seed-system/`
+Spec link: `openspec/changes/archive/2026-07-06-r02-revise-csv-seed-system/`
 Files:
-- `scripts/seed_from_csv.py`
+- `scripts/seed_from_csv.py` → `scripts/seed_from_csv/` package (loaders, validation, profiles, modes, __main__, __init__)
 - `data/seed/README.md`
-- `data/seed/{italo,ana}_*.csv`
+- `tests/test_seed_from_csv_loaders.py` (novo)
+- `tests/test_seed_from_csv_validation.py` (novo)
+- `tests/conftest.py` (`_UNIT_FILES` add dos 2 novos test files)
+- `openspec/specs/csv-seed-internals/spec.md` (nova capability, internal layout — consolidada 2026-07-06)
 Notes: PRD §4.3 é invariante — `seed.py` continua user+profile only; ativo/
-posição continuam só via CSV. Foco é DX, não contrato.
+posição continuam só via CSV. Foco é DX, não contrato. Refactor puro —
+contract `data-driven-seed` byte-preserved. Quatro consumers externos
+mantidos sem mudança: `scripts/snapshot_to_csv.py`,
+`scripts/reset_both_profiles.py`, `tests/test_seed_from_csv.py`,
+`tests/scripts/test_reset_both_profiles.py`. `python -m
+scripts.seed_from_csv` continua resolvendo via novo `__main__.py`.
+**Late-binding fix**: `loaders.py` e `validation.py` resolvem
+`SEED_DIR` via `scripts.seed_from_csv.SEED_DIR` (call-time lookup),
+não captura estática, para preservar o padrão de monkeypatch do test
+`test_seed_from_csv.py:665` (`seed_mod.SEED_DIR = tmp_path`).
 Progress:
-- Proposed: pending
-- Applying: pending
-- Applied: pending
-- Archived: pending
+- Proposed: done (2026-07-05; folder
+  `openspec/changes/r02-revise-csv-seed-system/`; 4 artifacts
+  completos; `openspec validate` retorna `valid: true`).
+- Applying: done (2026-07-05; package criado — `__init__.py`
+  re-export + `__main__.py` CLI + `loaders.py` (dataclasses +
+  helpers + load_* + SEED_DIR late-binding) + `validation.py`
+  (`validate()` cross-refs + sum invariants, SEED_DIR via
+  late-binding) + `profiles.py` (PROFILES + Família-sentinel
+  one-liner, F01-fixture narrative dropped) + `modes.py`
+  (`_wipe_profile` + `run_reset` + `run_upsert` + `run_diff`);
+  `scripts/seed_from_csv.py` deletado; `tests/test_seed_from_csv_loaders.py`
+  (22 cases) + `tests/test_seed_from_csv_validation.py` (7 cases) +
+  `tests/conftest.py::_UNIT_FILES` extended; `data/seed/README.md`
+  note do package layout).
+- Applied: done (2026-07-05; `task test-unit` 261 passed / 2
+  skipped (+28 from new tests vs pre-refactor 233);
+  `task test-integration` 369 passed / 2 skipped (no regressão;
+  `tests/test_seed_from_csv.py` 20 tests passam via subprocess +
+  module import); `task test-bdd` 47 passed / 4 failed (4 fail
+  pre-existentes do T05 BDD step-def drift — `+ Nova classe`
+  selector não atualizado após F02 sidebar removal, fora do
+  escopo R02); ruff check + ruff format verdes nos refactored
+  files; `task db-reset` ok com `italo=6/48/47 ana=6/52/52`
+  (mesmo baseline F07 archive); `openspec validate
+  r02-revise-csv-seed-system` retorna `valid: true`; server
+  healthz `200`; `python -m scripts.seed_from_csv --profile
+  italo --mode diff` retorna `would_create=0 would_update=0
+  would_orphan=0`).
+- Archived: done (2026-07-06; archive
+  `2026-07-06-r02-revise-csv-seed-system/`; spec
+  `csv-seed-internals` consolidada em
+  `openspec/specs/csv-seed-internals/spec.md` com 5 ADDED
+  requirements — package layout, one-module-per-concern,
+  private underscore helpers, dead F01-fixture narrative
+  removal, per-layer unit tests. Sync feita manualmente
+  antes do `--skip-specs` archive; `openspec validate
+  csv-seed-internals` retorna `valid: true`. 8 specs
+  pre-existentes continuam falhando (broker-csv-*,
+  dashboard-*, import-*) — não relacionado a R02)
 
 ### R03 - Extrair `quote_provider` adapter para pacote
 Status: `Ready`
@@ -827,7 +874,7 @@ Prioridade presume que o owner quer atacar mudanças estruturais primeiro
 4. F06 - family full-join aggregate cross-User (substitui semântica F01; arquivada 2026-07-05)
 5. F07 - família como opção no profile-switcher (peer de Italo/Ana; dependente de F06; **próxima fatia a executar**)
 6. F05 - dark mode palette swap
-7. R02 - revise CSV seed system
+7. R02 - revise CSV seed system — archived 2026-07-06
 8. R03 - extract quote_provider adapter
 9. R04 - partialize patrimonio template (depende de F02)
 10. T05 - BDD step-def drift after F02 (promoted 2026-07-04 — fecha o loop de follow-up de T01; mudança mecânica pequena)
