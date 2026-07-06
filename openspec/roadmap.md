@@ -762,7 +762,8 @@ Progress:
 - Archived: done
 
 ### T02 - Coverage report no CI
-Status: `Applying`
+Status: `Archived` (GH Actions deferred per owner 2026-07-06; infra
+dormente no repo, será reativada quando owner retomar o tema)
 Goal: `task coverage` existe; falta cabo no pipeline (GitHub Actions).
 Wire `--cov-report=xml` + upload para o driver de coverage usado pelo
 repo. **Repo não tem CI** (verificado `ls .github/workflows/` → não
@@ -771,7 +772,7 @@ lint + unit + integration + BDD + coverage job, cache de `uv`, sem
 e2e/audit (ficam fora por decisão D-T02.9 / D-T02.4 — gate de threshold
 fica para slice futura owner-driven).
 Candidate OpenSpec change id: `t02-coverage-report-in-ci`
-Spec link: `openspec/changes/t02-coverage-report-in-ci/`
+Spec link: `openspec/changes/archive/2026-07-06-t02-coverage-report-in-ci/`
 Files:
 - `.github/workflows/ci.yml` (novo — 5 jobs: lint, test-unit, test-integration, test-bdd, coverage)
 - `pyproject.toml` (`[tool.coverage.run]` com `source = ["src/omaha"]` + `[tool.coverage.report]` com `exclude_lines` + `addopts` ganha `--cov-report=xml:reports/coverage.xml` + `task coverage` reescrito para `-m "unit or integration"`)
@@ -779,8 +780,9 @@ Files:
 Notes: Sem `fail_under` — gate de threshold é decisão owner-separada.
 E2E (`task test-e2e`) e audit integration ficam fora do workflow (D-T02.9).
 Reports XML vai para `reports/coverage.xml` (D-T02.3); diretório `reports/`
-já existe vazio no repo. Cache de `uv` via `actions/setup-python@v5`
-com `cache: "uv"` (D-T02.8). Coverage roda como job separado que
+já existe vazio no repo. Cache de `uv` via `astral-sh/setup-uv@v4` +
+`actions/cache@v4` (D-T02.8 fix pós-run 1 — `setup-python@v5` não
+aceita `cache: "uv"`). Coverage roda como job separado que
 re-invoca pytest com `--cov` (D-T02.2) — desacopla signal de cobertura
 dos jobs de teste puro (preserva `task test-unit` limpo como gate de
 pre-push via prek).
@@ -790,9 +792,7 @@ Progress:
   completos (`proposal.md` + `specs/ci-coverage-pipeline/spec.md`
   com 10 ADDED requirements + `design.md` com 9 decisions
   D-T02.1..D-T02.9 + `tasks.md` com 6 grupos, 28 checkboxes);
-  `openspec validate t02-coverage-report-in-ci` retorna `valid: true`;
-  spec validation: 41 total / 0 errors (40 pre + 1 new
-  `ci-coverage-pipeline`)
+  `openspec validate t02-coverage-report-in-ci` retorna `valid: true`
 - Applying: done 2026-07-06; §1-§4 implementation landed —
   `pyproject.toml` ganha bloco `[tool.coverage.run]` (source =
   `["src/omaha"]`, branch=false, omit `__main__.py`) + bloco
@@ -812,22 +812,59 @@ Progress:
   `test-integration` / `test-bdd` com `needs: lint`,
   `coverage` com `needs: [test-unit, test-integration]`),
   triggers `push` em `[main]` + `pull_request` em `[main]`,
-  Python via `actions/setup-python@v5` + `cache: "uv"` +
-  `python-version-file: ".python-version"`, `actions/upload-artifact@v4`
-  para `coverage-report` com `retention-days: 30`; coverage
-  job chama `pytest -m "unit or integration" -q
+  Python via `astral-sh/setup-uv@v4` +
+  `python-version: "3.12"` + `actions/cache@v4` keyed em
+  `hashFiles('uv.lock')`, `actions/upload-artifact@v4` para
+  `coverage-report` com `retention-days: 30`; coverage job
+  chama `pytest -m "unit or integration" -q
   --ignore=tests/e2e/_disabled` (sem `--cov=...` explícito —
-  addopts fornece); verification local: `task test-unit`
-  271 pass / 2 skip (R04 baseline match), `task
-  test-integration` 369 pass / 2 skip (R02/R03/R04 baseline
-  match), `task test-bdd` 51 pass (T05 baseline match),
-  `task coverage` 640 pass / 4 skip / **92% line coverage** com
-  `reports/coverage.xml` Cobertura-compatible (`<coverage
-  version=... line-rate="0.9163" ...>` + `<package name=...>`
-  structure), `ruff check` + `ruff format --check` ambos
-  verdes em `src tests alembic`)
-- Applied: pending
-- Archived: pending
+  addopts fornece); test-integration + test-bdd + coverage
+  jobs ganham step `Reset database` (`uv run task db-reset`)
+  com `env: SECRET_KEY + ADMIN_PASSWORD` injetados; CI
+  verification local: `task test-unit` 271 pass / 2 skip
+  (R04 baseline match), `task test-integration` 369 pass /
+  2 skip (R02/R03/R04 baseline match), `task test-bdd` 51
+  pass (T05 baseline match), `task coverage` 640 pass / 4
+  skip / **92% line coverage** com `reports/coverage.xml`
+  Cobertura-compatible (`<coverage version=... line-rate="0.9163" ...>`
+  + `<package name=...>` structure), `ruff check` +
+  `ruff format --check` ambos verdes em `src tests alembic`
+- Applied: done 2026-07-06; **CI verification parcial** —
+  5 Actions runs tentadas durante a sessão (registro completo em
+  `archive/2026-07-06-t02-coverage-report-in-ci/tasks.md` §5):
+  - Run 1 (`99fcc5c`): falha `lint/Setup Python` —
+    `setup-python@v5 cache: "uv"` inválido → trocado por
+    `setup-uv@v4` + `actions/cache@v4`
+  - Run 2 (`d232f19`): falha `lint/Setup Python` —
+    `setup-uv@v4 python-version-file` inválido → trocado por
+    `python-version: "3.12"`
+  - Run 3 (`07c7f46`): falha `lint/Install dependencies` —
+    `uv sync --extra dev` → `Extra 'dev' is not defined`
+    (dev em `[dependency-groups]`, não em `[project.optional-dependencies]`)
+    → trocado por `--group dev`
+  - Run 4 (`e9df2d5`): **lint ✓ + test-unit ✓**. Falha
+    `test-integration` (28 errors: `no such table: positions`
+    — CI runner sem DB) + `test-bdd` (1 fail pre-existente
+    `test_import_happy_auto_match[Ana]` flake + mesmo DB issue) →
+    adicionado `db-reset` step
+  - Run 5 (`bac8b47`): falha `Reset database` —
+    `RuntimeError: SECRET_KEY is not set` → injetado `SECRET_KEY` +
+    `ADMIN_PASSWORD` env vars. **Último run antes da decisão
+    de pausar.** Estado pós-run 5: workflow com fixes
+    acumulados, ainda não validado end-to-end.
+- Archived: done 2026-07-06; archive
+  `openspec/changes/archive/2026-07-06-t02-coverage-report-in-ci/`
+  (4 artifacts preservados + tasks.md com 22/27 checkboxes
+  marcados + bloco §5 registrando as 5 runs de CI tentadas +
+  reactivation path explícito). Spec `ci-coverage-pipeline`
+  consolidada em `openspec/specs/ci-coverage-pipeline/spec.md`
+  (10 ADDED requirements + Purpose). **Decisão owner 2026-07-06:**
+  GH Actions fica dormente no repo (workflow file commitado
+  mas não exercitado); reativação só quando owner retomar o
+  tema. Slice sai da fila ativa — próximas fatias a executar
+  são T03 (mutation testing rebalance) ou I01 (backup
+  scheduling) ou I02 (TLS cert) ou D01 (README refresh) ou
+  F04 (Proventos, deferida).
 
 ### T03 - Mutation testing do rebalance engine
 Status: `Ready`
@@ -1089,10 +1126,10 @@ Prioridade presume que o owner quer atacar mudanças estruturais primeiro
 6. F05 - dark mode palette swap — archived 2026-07-05
 7. R02 - revise CSV seed system — archived 2026-07-06
 8. R03 - extract quote_provider adapter — archived 2026-07-06
-9. R04 - partialize patrimonio template (depende de F02 — **próxima fatia a executar**, Spec Proposed 2026-07-05; apply pendente)
+9. R04 - partialize patrimonio template (depende de F02) — archived 2026-07-06
 10. T05 - BDD step-def drift after F02 (promoted 2026-07-04 — fecha o loop de follow-up de T01; mudança mecânica pequena) — archived 2026-07-06
 11. T01 - BDD + e2e 100% green — archived
-12. T02 - coverage in CI
+12. **T02 - coverage in CI — archived 2026-07-06 (GH Actions deferred per owner; workflow file dormente no repo)**
 13. T03 - mutation testing rebalance
 14. I01 - backup scheduling
 15. I02 - TLS cert renewal automation
@@ -1132,6 +1169,18 @@ Notas de reordenamento:
   ativa; reativação requer mover o folder de volta + re-validar
   (ver bloco F03 "Reactivation path"). F04 segue deferida —
   owner decide separadamente.
+- **T02 archived 2026-07-06 (GH Actions deferred)**: implementação
+  local landou (pyproject.toml + .gitignore + workflow file em
+  `.github/workflows/ci.yml`); 5 Actions runs tentadas com
+  progresso (lint + test-unit verdes; test-integration + bdd
+  pendentes pós-db-reset/env-fix); owner decidiu pausar GH
+  Actions porque desenvolvimento ainda é local. Workflow file
+  fica commitado como infra dormente ("útil no futuro"). Slice
+  sai da fila ativa com reactivation path explícito (mover
+  folder de `archive/2026-07-06-t02-coverage-report-in-ci/` de
+  volta + re-validar). Próxima execução: T03 (mutation testing
+  rebalance) ou I01/I02 (infra) ou D01 (doc) ou F04 (Proventos
+  deferida).
 - T03 fica depois de R03 porque a fatia de mutation testing pode
   aproveitar adapter mais limpo para mockar providers. Se durante
   apply de T03 essa vantagem não se confirmar, mover T03 para antes
@@ -1259,6 +1308,7 @@ indica onde a decisão vai ser aplicada (fatia + artefato).
 Últimas 8 fatias arquivadas (compile manualmente do diretório
 `openspec/changes/archive/`):
 
+- `2026-07-06-t02-coverage-report-in-ci` → **GH Actions deferred per owner 2026-07-06** (desenvolvimento local, CI não exercitado). Implementação local landou: `pyproject.toml` ganha `[tool.coverage.run]` (source=`["src/omaha"]`, branch=false, omit `__main__.py`) + `[tool.coverage.report]` (exclude_lines para 4 padrões; sem fail_under) + `addopts` em `[tool.pytest.ini_options]` estendido para `--cov=src/omaha --cov-report=xml:reports/coverage.xml` + `task coverage` reescrito para `-m "unit or integration" --cov=src/omaha --cov-report=term-missing --cov-report=xml:reports/coverage.xml` (BDD/e2e excluídos — passa de 10+ min timeout para 3 min); `.gitignore` ganha `reports/coverage.xml` + `reports/.coverage`; `.github/workflows/ci.yml` criado com 5 jobs (lint standalone + test-unit/integration/bdd com `needs: lint` + coverage com `needs: [test-unit, test-integration]`), triggers `push`/`pull_request` em `[main]`, `astral-sh/setup-uv@v4` com `python-version: "3.12"` + `actions/cache@v4` keyed em `hashFiles('uv.lock')`, `actions/upload-artifact@v4` para `coverage-report`, test-integration/test-bdd/coverage ganham step `Reset database` (`uv run task db-reset`) com `env: SECRET_KEY + ADMIN_PASSWORD` injetados → `src/omaha/static/app.css` (não tocado), `pyproject.toml`, `.gitignore`, `.github/workflows/ci.yml`, `openspec/specs/ci-coverage-pipeline/spec.md` (nova, 10 ADDED requirements + Purpose), `openspec/roadmap.md` → 5 Actions runs tentadas: (1) `setup-python@v5 cache:"uv"` inválido, (2) `setup-uv@v4 python-version-file` inválido, (3) `uv sync --extra dev` inválido (dev em `[dependency-groups]`), (4) **lint + test-unit verdes** + test-integration/bdd falhas por DB ausente, (5) db-reset falha por `SECRET_KEY` ausente (fix aplicado); última versão do workflow (commit `bac8b47`) tem os 5 fixes acumulados mas não foi exercitada end-to-end → `task test-unit` 271 pass/2 skip (R04 match); `task test-integration` 369 pass/2 skip (R02/R03/R04 match); `task test-bdd` 51 pass (T05 match); `task coverage` 640 pass/4 skip + **92% line coverage** com `reports/coverage.xml` Cobertura-compatible (`<coverage version=... line-rate="0.9163" ...>` + `<package name=...>` structure); `ruff check` + `ruff format --check` verdes em `src tests alembic`; `openspec validate t02-coverage-report-in-ci --json` `valid: true`; `openspec list --specs` 40 → 41 (nova spec `ci-coverage-pipeline`); GH Actions runner **não exercitado** end-to-end por decisão do owner; workflow file fica commitado como infra dormente ("útil no futuro" per owner); reactivation path explícito em `archive/2026-07-06-t02-coverage-report-in-ci/tasks.md` §5
 - `2026-07-06-t05-bdd-step-def-drift-after-f02` → `STEP_CLICK_ALIASES` dict adicionada em `tests/bdd/step_defs/common_steps.py` (topo, acima de `click_button`, com 2 entries: `+ Nova classe` → `('empty-state-create-class', 'new-class-modal-submit')` + `+ Novo ativo` → `'dashboard-add-asset-open'`) + `click_button` body estendido para consultar alias chain antes dos 3 default candidates (mesmo two-phase visibility filter) + Gherkin rewrites: `class_crud.feature:65` + `profile_sharing.feature:17,21,37` (4 step calls trocadas de `+ Nova classe` para `Nova Classe`) + nova spec `bdd-step-def-aliases` consolidada (Purpose + 1 ADDED requirement + 3 scenarios) → `tests/bdd/step_defs/common_steps.py`, `tests/bdd/features/class_crud.feature`, `tests/bdd/features/profile_sharing.feature`, `openspec/specs/bdd-step-def-aliases/spec.md` → `task test-bdd` 51 pass (vs 47+4 pre-T05; fechou as 4 falhas pre-existentes T01-follow-up) / 0 skip; `task test-unit` 271 pass / 2 skip (sem regressão); `task test-integration` 369 pass / 2 skip (sem regressão); `task test-e2e` 43 pass / 4 fail (mesmas chromium stalls pre-existentes do T01, fora escopo); `task lint` verde; `openspec validate t05-...` + `openspec validate bdd-step-def-aliases` ambos `valid: true`; delta spec == main spec byte-identical pré-archive (sync already done no apply)
 - `2026-07-06-f03-rentabilidade-page` → CLOSED sem apply (D-F03-defer permanente 2026-07-06) — `openspec-archive-change` moveu folder `openspec/changes/f03-rentabilidade-page/` → `openspec/changes/archive/2026-07-06-f03-rentabilidade-page/`. Delta spec `rentabilidade` **não** sincronizada (capability nunca implementada; spec-driven principle: spec descreve comportamento existente). 0 tasks roladas; 0 código tocado; stub `/rentabilidade` em `templates/rentabilidade.html` permanece. Reactivation path documentada no bloco F03 (mover folder de volta + re-validar). F04 (Proventos) segue deferida em `Ready` — owner decide separadamente.
 - `2026-07-06-r04-partialize-patrimonio-template` → `src/omaha/templates/patrimonio.html` (2186 LOC → 60 LOC shell) extraído em 6 partials `_patrimonio_*.html` (actions 21 + portfolio_header 20 + distribution 23 + class_section 331 + empty_states 18 + add_asset_modal 1682) + nova spec `patrimonio-template-partials` (Purpose + 4 ADDED requirements, 14 cenários) + 0 spec deltas (refactor puro, mesmo public contract preservado) → `src/omaha/templates/patrimonio.html`, `src/omaha/templates/_patrimonio_actions.html`, `src/omaha/templates/_patrimonio_portfolio_header.html`, `src/omaha/templates/_patrimonio_distribution.html`, `src/omaha/templates/_patrimonio_class_section.html`, `src/omaha/templates/_patrimonio_empty_states.html`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `openspec/specs/patrimonio-template-partials/spec.md` → render diff: zero non-blank-line differences em 3 variants (Italo default / family / Ana); testid count preservado (122 = 119 em partials + 3 em shell wrappers); x-data declarations preservadas (17) → `task test-unit` 271 pass/2 skip; `task test-integration` 369 pass/2 skip; `task test-bdd` 47 pass/4 fail pre-existentes T05 (fora escopo); `task test-e2e` 42 pass/5 fail pre-existentes chromium stalls (fora escopo); `task lint` verde; `openspec validate r04-partialize-patrimonio-template` `valid: true`; `openspec list --specs` 39 → 40 (nova spec `patrimonio-template-partials`); refresh-for-test smoke: server 0.0.0.0:8000 + `/patrimonio` 200 + Família option chip intacta + `db-reset` Italo=6/48/47 Ana=6/52/52
@@ -1494,6 +1544,12 @@ Para cada fatia `Applied`, anexar antes de mover para `Archived`:
 - **What changed from original plan:** F05 deliverou o swap planejado integral — 14 tokens em `:root` invertidos (bg → L≈0.18 hue 60, surface lifts por claridade, status fills lightness-lifted, swatch 2 hue-shifted para 130), `color-scheme: dark`, `tests/test_dark_mode_tokens.py` substituiu `tests/test_tokens.py` com 17 assertions, e o contrato visual da `color-tokens` spec foi re-derivado com 3 requirements MODIFIED (sem ADDED/REMOVED). Plan vs real divergiu em um ponto: a task list mencionava `tests/test_phase02_tokens.py` mas o arquivo real era `tests/test_tokens.py` (Phase 2 PALT-01/02 era o suite active; o nome do arquivo tinha sido encurtado em algum momento pré-F05). Adaptei in-loco sem reabrir o proposal — o contract testado é o mesmo.
 - **Unexpected issues:** (a) As linhas `outline: 2px solid var(--color-focus, #2563eb)` (2 ocorrências) carregavam um fallback hex herdado da era pré-F05 que sobreviveu ao Phase 2. Com `--color-focus` agora sempre presente, o fallback é morto e potencialmente confuso. Removi o fallback nas duas linhas durante o apply (estava dentro do escopo "limpar hex hardcodes moribundos" do §1 audit, não no proposal explícito). (b) Os tokens `--bg-hover` e `--alert-warn` (sem task explícita na F05) também foram lightness-lifted para o novo contexto escuro, porque sem o lift eles ficam invisíveis: `--bg-hover` original `oklch(0.93 0.003 60)` sobre `--bg` escuro praticamente some (delta de L ≈ 0.75), e `--alert-warn` original `oklch(0.70 0.12 85)` continua legível mas perde contraste sobre o novo `--bg`. Ambos lifts sigam o pattern das outras superfícies (sem hue-shift). (c) O `outline: 2px solid var(--color-focus)` ainda é o único consumer de `--color-focus` que vi nos templates — o token continua sendo só "para este outline + outline-offset". Se futuro render de focus border em inputs reusar esse token, já está pronto.
 - **Follow-up needed:** (a) Auditoria hex legacy sobrevivente (proposta no Polish pass): `background: #fff` (8 ocorrências em `.class-color-swatch`, `.btn`, `.import-page`, `.class-table` etc.) e `color-mix(in srgb, #<hex> 38%, var(--surface))` em `.import-class-cell--cls-{0..7}` (8 linhas). Esses 38% tints eram calibrados para `--surface = white`; agora sobre `--surface = dark warm-neutral` eles provavelmente ficam mais saturados que o desejado. R-slice dedicada: migrar `background: #fff` para `var(--surface)` e o color-mix para `var(--class-N)` ou um novo `--class-N-tint`. Fora do escopo F05 (F05 era só token swap, não hex sweep) — registrei no §Polish pass da DESIGN.md como residual. (b) Visualmente, o owner ainda precisa confirmar no browser que o surface lê como "domestic warm-neutral dark" e não como "GitHub cold dark"; o feedback entra via conversa + iterar swatch-2 hue ou focus chroma se colidir visualmente. (c) Nenhum regressão funcional: `task test-integration` mantém 369 pass / 2 skip (mesmo número pré-F05); `task test-unit` subiu de 223 para 233 pass (10 dark-mode tests novos); `task test-bdd` mantém as 4 fail pre-existentes do T05 selector drift — confirmado com `git stash` que essas falhas nada têm a ver com F05.
+
+### T02 (archived 2026-07-06 — GH Actions deferred per owner)
+
+- **What changed from original plan:** Slice landed the local infra (pyproject.toml coverage config + .gitignore + workflow file) as planned. **Two divergences** documented in `archive/2026-07-06-t02-coverage-report-in-ci/tasks.md` §5: (a) `task coverage` was rewritten to use `-m "unit or integration"` (not in the original proposal). Reason: with the global `addopts` adding cov machinery to every pytest call, running the full `pytest` (no marker filter) hit a 10+ min timeout because BDD serial adds heavy coverage instrumentation overhead. Restricting to unit+integration keeps `task coverage` at 3 min and preserves the "code coverage vs behavior coverage" split from D-T02.2. (b) **GH Actions verification was attempted but not finalized.** 5 runs were pushed to `main`; lint + test-unit went green from run 4; test-integration/test-bdd/coverage stalled on db-reset + env-config issues; fixes were committed at every step but the final end-to-end green never happened. Owner decision 2026-07-06: pause GH Actions entirely because "desenvolvimento ainda é local". Workflow file stays in `.github/workflows/ci.yml` as dormant infra ("útil no futuro").
+- **Unexpected issues:** (a) `actions/setup-python@v5` does NOT accept `cache: "uv"` — only pip/pipenv/poetry. Had to swap for `astral-sh/setup-uv@v4` + manual `actions/cache@v4` keyed on `hashFiles('uv.lock')`. The design.md D-T02.8 explicitly considered this trade-off and chose wrong. (b) `astral-sh/setup-uv@v4` accepts `python-version` (string, e.g. "3.12"), not `python-version-file`. `.python-version` file is still the single source of truth locally — workflow just hardcodes the resolved version. (c) `uv sync --extra dev` fails because the project uses PEP 735 `[dependency-groups]` (not `[project.optional-dependencies]`). Correct flag is `--group dev`. (d) CI runner has no DB schema. Tests assumed `data/portfolio.db` exists. Fix: add explicit `Reset database` step (`uv run task db-reset`) before every test run that hits the DB; inject `SECRET_KEY` + `ADMIN_PASSWORD` env vars (CI-only, never reach production config). (e) Pre-existing BDD flake `test_import_happy_auto_match[Ana]` ("esperava 0 linhas unmatched, vi 4") surfaced at run 4 — same class of flake documented in F07 follow-up; out of scope T02.
+- **Follow-up needed:** (a) Reactivation path documented in `archive/2026-07-06-t02-coverage-report-in-ci/tasks.md` §5. Last committed workflow (commit `bac8b47`) has all 5 fixes accumulated; next push should pass — barring new flakes. (b) Investigate the BDD flake separately (pre-existing, surfaced only because T02 made the integration job fail loudly). (c) Decide whether to add `--cov-fail-under` threshold once owner picks a coverage floor (D-T02.4 deferred — separate slice). (d) If/when GH Actions reactivates, consider pinning `actions/checkout@v4` to a major-version commit SHA per repo security baseline (out of scope T02; latent risk). (e) The `addopts` global change has a small DX cost: every `pytest` invocation now triggers cov machinery (overhead ~1s per single test). Acceptable per D-T02.5 trade-off; can be revisited if devs complain. (f) **GH Actions is OFF for now** — repo runs no CI. Pre-push pytest hook (per `prek.toml`) still gates local pushes with unit + integration tests; BDD + coverage remain taskipy commands.
 
 ### T05 (applied 2026-07-06)
 
