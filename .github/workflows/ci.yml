@@ -18,11 +18,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
           python-version-file: ".python-version"
-          cache: "uv"
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
 
       - name: Install dependencies
         run: uv sync --frozen --extra dev
@@ -42,11 +49,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
           python-version-file: ".python-version"
-          cache: "uv"
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
 
       - name: Install dependencies
         run: uv sync --frozen --extra dev
@@ -63,11 +77,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
           python-version-file: ".python-version"
-          cache: "uv"
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
 
       - name: Install dependencies
         run: uv sync --frozen --extra dev
@@ -84,11 +105,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
           python-version-file: ".python-version"
-          cache: "uv"
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
 
       - name: Install dependencies
         run: uv sync --frozen --extra dev
@@ -105,11 +133,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
           python-version-file: ".python-version"
-          cache: "uv"
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
 
       - name: Install dependencies
         run: uv sync --frozen --extra dev
