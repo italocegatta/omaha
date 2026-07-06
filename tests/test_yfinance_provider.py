@@ -90,7 +90,7 @@ def _fast_info_dict(price: float | None, currency: str | None = "USD") -> dict[s
 
 def test_yfinance_provider_fetch_returns_quote_for_known_symbol() -> None:
     """A symbol with a fast_info['last_price'] returns a Quote."""
-    with patch("omaha.quotes.provider.yf.Ticker") as ticker_cls:
+    with patch("omaha.quotes.provider.yfinance.yf.Ticker") as ticker_cls:
         ticker_cls.return_value.fast_info = {"last_price": 38.5, "currency": "BRL"}
         provider = YFinanceProvider()
         result = asyncio.run(provider.fetch("PETR4"))
@@ -103,7 +103,7 @@ def test_yfinance_provider_fetch_returns_quote_for_known_symbol() -> None:
 
 def test_yfinance_provider_fetch_handles_missing_price() -> None:
     """A symbol with no ``last_price`` returns None (no raise)."""
-    with patch("omaha.quotes.provider.yf.Ticker") as ticker_cls:
+    with patch("omaha.quotes.provider.yfinance.yf.Ticker") as ticker_cls:
         ticker_cls.return_value.fast_info = _fast_info_dict(price=None)
         provider = YFinanceProvider()
         result = asyncio.run(provider.fetch("UNKNOWN_XYZ"))
@@ -113,7 +113,7 @@ def test_yfinance_provider_fetch_handles_missing_price() -> None:
 
 def test_yfinance_provider_fetch_handles_yfinance_exception() -> None:
     """An exception inside yfinance is swallowed and returns None."""
-    with patch("omaha.quotes.provider.yf.Ticker") as ticker_cls:
+    with patch("omaha.quotes.provider.yfinance.yf.Ticker") as ticker_cls:
         ticker_cls.side_effect = RuntimeError("network down")
         provider = YFinanceProvider()
         result = asyncio.run(provider.fetch("PETR4"))
@@ -136,7 +136,7 @@ def test_yfinance_provider_fetch_many_isolates_failures() -> None:
             info["last_price"] = 190.0
         return MagicMock(fast_info=info)
 
-    with patch("omaha.quotes.provider.yf.Ticker", side_effect=_fake_ticker):
+    with patch("omaha.quotes.provider.yfinance.yf.Ticker", side_effect=_fake_ticker):
         provider = YFinanceProvider()
         results = asyncio.run(provider.fetch_many(["PETR4", "BAD", "AAPL"]))
 
@@ -153,7 +153,7 @@ def test_yfinance_provider_fetch_many_isolates_failures() -> None:
 
 def test_yfinance_provider_btc_maps_to_btc_usd() -> None:
     """BTC is fetched as BTC-USD on Yahoo."""
-    with patch("omaha.quotes.provider.yf.Ticker") as ticker_cls:
+    with patch("omaha.quotes.provider.yfinance.yf.Ticker") as ticker_cls:
         ticker_cls.return_value.fast_info = {"last_price": 65000.0, "currency": "USD"}
         provider = YFinanceProvider()
         result = asyncio.run(provider.fetch("BTC"))
@@ -165,7 +165,7 @@ def test_yfinance_provider_btc_maps_to_btc_usd() -> None:
 
 def test_yfinance_provider_brl_x_maps_through() -> None:
     """BRL=X is fetched verbatim with currency=BRL."""
-    with patch("omaha.quotes.provider.yf.Ticker") as ticker_cls:
+    with patch("omaha.quotes.provider.yfinance.yf.Ticker") as ticker_cls:
         ticker_cls.return_value.fast_info = {"last_price": 5.18, "currency": "BRL"}
         provider = YFinanceProvider()
         result = asyncio.run(provider.fetch("BRL=X"))

@@ -588,23 +588,110 @@ Progress:
   dashboard-*, import-*) — não relacionado a R02)
 
 ### R03 - Extrair `quote_provider` adapter para pacote
-Status: `Ready`
+Status: `Archived`
 Goal: Hoje só existe uma implementação implícita (`yfinance`). Promover
 `QuoteProvider` para pacote com interface explícita de forma que trocar
 provider não toque consumers (`QuoteCache`, `MarketPriceLookup`).
 Candidate OpenSpec change id: `r03-extract-quote-provider-adapter`
 Spec link: `openspec/changes/r03-extract-quote-provider-adapter/`
 Files:
-- `src/omaha/quotes/provider.py` (refactor)
-- `src/omaha/quotes/cache.py`
-- `src/omaha/rebalance/` (consumers)
-Notes: Sem mudança de comportamento. Aplica-se melhor após ciclo F02-F04
-(parada estrutural).
+- `src/omaha/quotes/provider.py` (refactor → `provider/` package: `protocol.py`, `mapper.py`, `yfinance.py`, `stub.py`, `__init__.py` + selector)
+- `src/omaha/quotes/cache.py` (sem mudança; re-export preserva import)
+- `src/omaha/rebalance/` (sem mudança; já só fala com Protocol)
+- `src/omaha/config.py` (`QUOTE_PROVIDER: Literal["yfinance", "stub"]`)
+- `src/omaha/main.py` (`_start_quote_service` chama `get_quote_provider()` em vez de importar `YFinanceProvider` direto)
+- `tests/test_quote_provider_selector.py` (novo)
+- `tests/test_quote_provider_stub.py` (novo)
+- `tests/conftest.py` (`_UNIT_FILES` estendido)
+Notes: Sem mudança de comportamento — yfinance permanece default.
+Scope refinado após inspeção do código atual: o `QuoteProvider` Protocol
+já existe; o gap real é que `main.py:97` é o único import direto de
+`YFinanceProvider`. Slice adiciona package layout + selector +
+`StubProvider` + 1 setting + 1 spec delta (`quote-provider`, 3 ADDED) +
+1 spec nova (`quote-provider-factory`). Critical area = rebalance
+solver + cotação yfinance (cap 1 Applying).
 Progress:
-- Proposed: pending
-- Applying: pending
-- Applied: pending
-- Archived: pending
+- Proposed: done (2026-07-05; folder
+  `openspec/changes/r03-extract-quote-provider-adapter/`; 4
+  artifacts completos: `proposal.md` (Why + What Changes + 1 NEW +
+  1 MODIFIED capability + Impact) + `design.md` (Context + Goals/
+  Non-Goals + 6 decisions D-R03.1..D-R03.6 + Risks/Trade-offs) +
+  `tasks.md` (8 grupos, 27 checkboxes) +
+  `specs/quote-provider/spec.md` (delta: 3 ADDED requirements:
+  "Provider selector resolves from settings", "StubProvider
+  exists in the package for tests + offline", "Provider lives
+  in a package, public names preserved") +
+  `specs/quote-provider-factory/spec.md` (NEW capability, 3
+  ADDED requirements: selector entry point, StubProvider is
+  the test/offline impl, settings drive the selector).
+  `openspec validate r03-extract-quote-provider-adapter` retorna
+  `valid: true`. `quote-provider` spec delta valid: true;
+  `quote-provider-factory` é nova (não tem top-level spec até
+  archive). 8 specs pre-existentes continuam falhando
+  (broker-csv-*, dashboard-*, import-*) — não relacionado a
+  R03).
+- Applying: done (2026-07-05; `src/omaha/quotes/provider/`
+  package criado com `__init__.py` (re-export + `get_quote_provider()`)
+  + `protocol.py` (Quote + QuoteProvider) + `mapper.py`
+  (map_symbol + regex) + `yfinance.py` (verbatim move,
+  import path atualizado para `omaha.quotes.provider.mapper` /
+  `omaha.quotes.provider.protocol`) + `stub.py` (StubProvider
+  novo com `responses` + `default`); `src/omaha/quotes/provider.py`
+  deletado; `src/omaha/main.py:_start_quote_service` agora chama
+  `get_quote_provider()` em vez de importar `YFinanceProvider`
+  direto (verificado: `rg "YFinanceProvider|StubProvider"
+  src/omaha/main.py` retorna 0 matches); `src/omaha/config.py`
+  ganha `QUOTE_PROVIDER: Literal["yfinance", "stub"] = "yfinance"`
+  (pydantic-settings Literal — falha no boot em valor inválido);
+  `tests/test_quote_provider_selector.py` (4 casos: default
+  → YFinanceProvider, stub → StubProvider, valor inválido
+  bypass-pydantic → ValueError com offender quoted, sem cache —
+  duas chamadas retornam instâncias distintas); `tests/test_quote_provider_stub.py`
+  (6 casos: mapped → Quote, unmapped → None, unmapped +
+  configured default, fetch_many preserva ordem, per-symbol
+  None não aborta batch, isolamento entre instâncias);
+  `tests/test_yfinance_provider.py` patch target atualizado
+  de `omaha.quotes.provider.yf.Ticker` → `omaha.quotes.provider.yfinance.yf.Ticker`
+  (6 ocorrências; import no topo continua resolvendo via
+  re-export); `tests/conftest.py::_UNIT_FILES` estendido com
+  os 2 novos test files; `tests/test_quote_service.py` e
+  `tests/test_market_prices_adapter.py` inalterados — re-export
+  preserva imports `from omaha.quotes.provider import Quote`).
+- Applied: done (2026-07-05; `task test-unit` 271 passed /
+  2 skipped (+10 vs pre-slice 261: 4 selector + 6 stub, all
+  green sem regressão); `task test-integration` 369 passed /
+  2 skipped (sem regressão; `test_yfinance_provider.py` rola
+  contra o moved code com paths atualizados);
+  `ruff check` + `ruff format --check` verde no package +
+  novos tests + `main.py` + `config.py` + `test_yfinance_provider.py`
+  + `conftest.py`; `openspec validate r03-extract-quote-provider-adapter
+  --json` retorna `valid: true`; smoke selectors via bypass
+  pydantic: default → `YFinanceProvider`,
+  `Settings(QUOTE_PROVIDER="stub")` → `StubProvider`,
+  `Settings(); settings.QUOTE_PROVIDER = "brapi";
+  get_quote_provider()` → `ValueError: unknown QUOTE_PROVIDER:
+  'brapi'` (defense-in-depth path; L1 pydantic já bloqueia
+  `Settings(QUOTE_PROVIDER="brapi")` no construtor);
+  refresh-for-test smoke OK: server 0.0.0.0:8000, `/healthz`
+  `{"status":"ok","db":"ok"}`, `db-reset` produz Italo=6/48/47
+  + Ana=6/52/52 (3 users, 3 profiles — Família sentinel intacta),
+  dashboard renderiza classes seeded ("RF Din" substring match
+  count=5), Família option no chip renderiza.))
+- Archived: done (2026-07-06; archive
+  `2026-07-06-r03-extract-quote-provider-adapter/`; spec
+  consolidation manual pre-archive (skip-specs flag): 3 ADDED
+  requirements em `openspec/specs/quote-provider/spec.md` final
+  (selector resolves from settings + StubProvider exists + lives
+  in a package, public names preserved — Purpose TBD substituído
+  por Purpose real cobrindo o fetch contract) + novo arquivo
+  `openspec/specs/quote-provider-factory/spec.md` com Purpose
+  (cobre runtime seam vs. fetch contract) + 3 ADDED requirements
+  (selector is single entry point + StubProvider is the
+  test/offline implementation + settings drive the selector);
+  `openspec list --specs`: 39 total (38 pre + 1 new
+  quote-provider-factory), `quote-provider` requirementCount=10
+  (7 base + 3 delta), sem specs com errors. F03 active change
+  preservado (Ready slice com proposal draft válido por D-F03-defer).
 
 ### R04 - Partialize `templates/patrimonio.html`
 Status: `Ready`
@@ -1040,6 +1127,7 @@ indica onde a decisão vai ser aplicada (fatia + artefato).
 Últimas 8 fatias arquivadas (compile manualmente do diretório
 `openspec/changes/archive/`):
 
+- `2026-07-06-r03-extract-quote-provider-adapter` → `src/omaha/quotes/provider.py` (239 LOC) deletado e substituído por pacote `provider/` (`__init__.py` 80 LOC com 6 re-exports + `get_quote_provider()` selector + L2 `ValueError` defense-in-depth; `protocol.py` 36 LOC Quote + Protocol; `mapper.py` 60 LOC map_symbol + B3/crypto regex; `yfinance.py` verbatim move 105 LOC; `stub.py` 56 LOC StubProvider novo com `responses` + `default`) + `Settings.QUOTE_PROVIDER: Literal["yfinance","stub"] = "yfinance"` (L1 pydantic-settings gate) + `_start_quote_service` rewired via selector (`main.py:94` agora `get_quote_provider()`; 0 referências diretas a `YFinanceProvider|StubProvider`) + 2 unit-test files novos (selector 4 cases incluindo L2 bypass test + stub 6 cases) + `tests/conftest.py::_UNIT_FILES` estendido + `tests/test_yfinance_provider.py` patch targets `omaha.quotes.provider.yf.Ticker` → `omaha.quotes.provider.yfinance.yf.Ticker` (6 ocorrências; import `from omaha.quotes.provider import YFinanceProvider, map_symbol` intacto via re-export) + 2 specs: `quote-provider` de 7→10 reqs (3 ADDED: selector resolves from settings + StubProvider exists + lives in a package, public names preserved; Purpose TBD substituído), `quote-provider-factory` nova (Purpose + 3 ADDED: selector is single entry point + StubProvider is the test/offline implementation + settings drive the selector) → `task test-unit` 271 pass/2 skip; `task test-integration` 369 pass/2 skip; `task lint` verde; `openspec validate r03-extract-quote-provider-adapter` `valid: true`; refresh-for-test smoke: server 0.0.0.0:8000 + dashboard renderiza + Família option no chip intacta + `db-reset` Italo=6/48/47 Ana=6/52/52
 - `2026-07-05-f05-dark-mode-palette-swap` → Register off-white invertido para dark warm-neutral (`--bg: oklch(0.18 0.01 60)`, hue 60 preservado) + 14 tokens em `app.css :root` re-derivados (surface lifts via claridade +0.04, surface-sunk -0.03, accent/positive/negative lightness-lifted com hue idem, swatch 2 hue-shifted para 130, error-bg afundado + error-fg lifted, color-focus hex → OKLCH, status inks invertidos para dark-on-lifted-fills) + `color-scheme: dark` + hex fallback `, #2563eb` removido nos 2 `outline: 2px solid var(--color-focus)` rules + `tests/test_dark_mode_tokens.py` substituiu `tests/test_tokens.py` (17 assertions: body warmth + 6x class swatch contrast + swatch-2 hue ≤ 135 + 4 status-ink pair surfaces + 2 surface lift/sunk + color-focus + body-text contrast + legacy aliases + color-scheme: dark + no prefers-color-scheme + aggregate documented pairs sweep) + `tests/conftest.py::_UNIT_FILES` ganha `test_dark_mode_tokens.py` + DESIGN.md §Color strategy + tabela de tokens + intro §Component inventory + §Migration path reescritas (Phase 2 vira historico; F05 vira current) + PRD §4.10 (off-white → dark warm-neutral; "Inverter nao e introduzir ornamento") + PRD §5.3 (F05 marcado como entregue) + `color-tokens` spec MODIFIED ×3 (sem ADDED/REMOVED, requisitos re-derivados com surface dark warm-neutral) → `src/omaha/static/app.css` (tokens), `tests/test_dark_mode_tokens.py` (novo), `tests/test_tokens.py` (deletado), `tests/conftest.py`, `DESIGN.md`, `openspec/PRD.md`, `openspec/specs/color-tokens/spec.md`, `openspec/roadmap.md` → `task test-unit` 233 pass/2 skip; `task test-integration` 369 pass/2 skip; `task test-bdd` 47 pass (4 pre-existentes T05, fora do escopo); `task lint` verde; `openspec validate` em change e spec `valid: true`; refresh-for-test smoke: server 0.0.0.0:8000 + dashboard renderiza com surface dark + Família option no chip intacta
 - `2026-07-05-f07-familia-as-profile-option` → Família promoted from `?view=household` header toggle (F06) to peer `<option>` inside `profile-switcher` chip + new `Profile.is_family_sentinel` column + migration `0017` + User `family` (no password) + Família sentinel row seeded + `Italo RF2` fixture retired (CSV files deleted + `seed_from_csv.py` mapping dropped + `snapshot_to_csv.py` sentinel allow-list updated) + `auth.get_active_profile` short-circuits sentinel + `_real_profiles` helper + `_resolve_view_mode` also checks sentinel + `_sentinel_redirect` for non-patrimonio routes + `select_profile` flips `view_mode="family"` on sentinel bind + `_render_patrimonio` accepts `profile=None` for family view + rebalance/rentabilidade/proventos routes redirect to `/patrimonio?view=household` when sentinel bound + `base.html` 3-option profile-switcher with `<optgroup>` separator + toggle `?view=household` removido do header + CSS `.profile-switcher__optgroup` + Família accent + `household-toggle*` aliases kept for retrocompat + `tests/test_family_aggregate.py` rewrite (toggle tests → sentinel tests) + `tests/test_seed.py` Família sentinel assertions + `tests/test_db_reset_both_profiles.py` 2 real + 1 sentinel expectation + `tests/e2e/selectors.py` `profile_option_family` adds + `family_toggle*`/`household_toggle*` drop + BDD `profile_sharing.feature` scenarios reescritas ("clico em 'Família'" → "seleciono 'Família' no chip") + PRD §5.3 + roadmap slice updated → `src/omaha/models.py`, `alembic/versions/0017_is_family_sentinel.py`, `src/omaha/seed.py`, `src/omaha/auth.py`, `src/omaha/routes/pages.py`, `src/omaha/templates/base.html`, `src/omaha/static/app.css`, `scripts/seed_from_csv.py`, `scripts/snapshot_to_csv.py`, `scripts/reset_both_profiles.py`, `data/seed/italo_rf2_*.csv` (deleted), `tests/test_family_aggregate.py`, `tests/test_seed.py`, `tests/test_db_reset_both_profiles.py`, `tests/e2e/selectors.py`, `tests/bdd/features/profile_sharing.feature`, `tests/bdd/test_scenarios.py`, `openspec/roadmap.md`, `openspec/PRD.md`, `openspec/specs/cross-profile-sharing/spec.md` → `task test-integration`
 - `2026-07-05-f06-family-household-full-join-aggregate` → `?view=household` cross-User full-join aggregate (family) + `family_asset_classes` + `family_aggregates` + helpers `_aggregate_classes_by_name` + `_aggregate_assets_by_name` + `view_mode="family"` session flag + `Família` toggle + target_pct suppression + CSS rename (com aliases retrocompat) + tests `test_family_aggregate.py` com cross-User + collapse-by-name + target_pct-not-rendered → `auth.py`, `routes/pages.py`, `templates/base.html`, `templates/patrimonio.html`, `static/app.css`, `tests/test_family_aggregate.py`, `tests/bdd/features/profile_sharing.feature`, `tests/bdd/test_scenarios.py`, `tests/e2e/selectors.py`, `tests/conftest.py` → `task test-integration`
@@ -1052,9 +1140,11 @@ indica onde a decisão vai ser aplicada (fatia + artefato).
 - `2026-06-29-dashboard-inline-edit-friction` → melhorias de UX na edição inline → `src/omaha/static/app.css`, `templates/dashboard.html` → `task test-e2e`
 - `2026-06-29-add-db-snapshot` → adiciona `task db-snapshot` (DB → CSV) → `scripts/snapshot_to_csv.py`, `pyproject.toml` → `task db-snapshot`
 
-Onda recente: layout-foundation (F02 → T01 → T04) + BDD drift em
-fila (T05). Antes: rebalance infra (5 fatias seguidas), auth,
-dashboard, CSV seed driven, theme.
+Onda recente: layout-foundation (F02 → T01 → T04) + household
+evolution (F01 → F06 → F07) + theme swap (F05) + primeira refator
+estrutural (R03 — quote provider package). BDD drift ainda em fila
+(T05). Próxima onda candidata: quality + CI (T02 / T03) + cleanup
+(R04 partialize) + doc (D01). F03 + F04 deferidas no fim.
 
 ## Post-implementation reality check
 
@@ -1270,7 +1360,11 @@ Para cada fatia `Applied`, anexar antes de mover para `Archived`:
 - **Unexpected issues:** (a) As linhas `outline: 2px solid var(--color-focus, #2563eb)` (2 ocorrências) carregavam um fallback hex herdado da era pré-F05 que sobreviveu ao Phase 2. Com `--color-focus` agora sempre presente, o fallback é morto e potencialmente confuso. Removi o fallback nas duas linhas durante o apply (estava dentro do escopo "limpar hex hardcodes moribundos" do §1 audit, não no proposal explícito). (b) Os tokens `--bg-hover` e `--alert-warn` (sem task explícita na F05) também foram lightness-lifted para o novo contexto escuro, porque sem o lift eles ficam invisíveis: `--bg-hover` original `oklch(0.93 0.003 60)` sobre `--bg` escuro praticamente some (delta de L ≈ 0.75), e `--alert-warn` original `oklch(0.70 0.12 85)` continua legível mas perde contraste sobre o novo `--bg`. Ambos lifts sigam o pattern das outras superfícies (sem hue-shift). (c) O `outline: 2px solid var(--color-focus)` ainda é o único consumer de `--color-focus` que vi nos templates — o token continua sendo só "para este outline + outline-offset". Se futuro render de focus border em inputs reusar esse token, já está pronto.
 - **Follow-up needed:** (a) Auditoria hex legacy sobrevivente (proposta no Polish pass): `background: #fff` (8 ocorrências em `.class-color-swatch`, `.btn`, `.import-page`, `.class-table` etc.) e `color-mix(in srgb, #<hex> 38%, var(--surface))` em `.import-class-cell--cls-{0..7}` (8 linhas). Esses 38% tints eram calibrados para `--surface = white`; agora sobre `--surface = dark warm-neutral` eles provavelmente ficam mais saturados que o desejado. R-slice dedicada: migrar `background: #fff` para `var(--surface)` e o color-mix para `var(--class-N)` ou um novo `--class-N-tint`. Fora do escopo F05 (F05 era só token swap, não hex sweep) — registrei no §Polish pass da DESIGN.md como residual. (b) Visualmente, o owner ainda precisa confirmar no browser que o surface lê como "domestic warm-neutral dark" e não como "GitHub cold dark"; o feedback entra via conversa + iterar swatch-2 hue ou focus chroma se colidir visualmente. (c) Nenhum regressão funcional: `task test-integration` mantém 369 pass / 2 skip (mesmo número pré-F05); `task test-unit` subiu de 223 para 233 pass (10 dark-mode tests novos); `task test-bdd` mantém as 4 fail pre-existentes do T05 selector drift — confirmado com `git stash` que essas falhas nada têm a ver com F05.
 
-## Agent checklist (este registro)
+### R03 (archived 2026-07-06)
+
+- **What changed from original plan:** Slice landed in two halves aligned with the design's split between "fetch contract" (the package itself) and "runtime seam" (the selector). The package split into four submodules landed as designed (protocol + mapper + yfinance + stub + re-exporting __init__). The L1/L2 defense pattern also landed (pydantic `Literal` rejects at construction time; selector raises `ValueError` defense-in-depth). Two divergences from the plan: (a) `tests/test_yfinance_provider.py` was NOT a no-op as task 7.1 speculated — the test patches `omaha.quotes.provider.yf.Ticker`, and after the move `yf` lives at `omaha.quotes.provider.yfinance.yf`. All six patch targets had to flip. Caught at the first `task test-unit` run (collection-time `AttributeError`). (b) `tests/test_quote_provider_selector.py::test_unknown_provider_name_raises_value_error` initially tried `Settings(QUOTE_PROVIDER="brapi")` — pydantic-settings Literal already raises at construction, so the test never reached the selector's L2 path. Fixed by mutating the attribute directly to bypass L1 (`fake_settings.QUOTE_PROVIDER = "brapi"`). The bypass shape is the precise case the L2 `ValueError` exists for (per D-R03.2 / R-R03.b rationale).
+- **Unexpected issues:** (a) `tests/test_quote_provider_selector.py` originally imported `from typing import TYPE_CHECKING` with a stub `if TYPE_CHECKING: pass` block — removed during ruff format pass (F401 unused-import + dead-block). (b) `src/omaha/quotes/provider/__init__.py` originally imported `from omaha.config import Settings` inside `if TYPE_CHECKING:` for the docstring `:attr:` cross-reference — ruff F401 flagged it as unused. Dropped the TYPE_CHECKING block entirely; the docstring still references `Settings.QUOTE_PROVIDER` and reads correctly. (c) `src/omaha/config.py` import order had `from typing import Literal` placed between `import sys` and the third-party imports — ruff I001 sorted it above `from pydantic import Field` (correct Python 3 convention: stdlib before third-party). One-line `--fix`. (d) `pgrep` post-launch initially showed two uvicorn PIDs (the `uv run` wrapper + the actual python child) but only the python child held the port — both are gone after kill -9 via the next refresh-for-test cycle.
+- **Follow-up needed:** (a) Delete `household_asset_classes` / `household_aggregates` and the F01 `view_mode="household"` session key helpers in a future R-slice — `require_profile_writable` still has the read-back for `"household"` because the cutover kept backwards compat, but the F01 surface is no longer reached (F06 + F07 archived before R03). (b) `_quote_provider_selector_stub` test never runs against a real network outage — unit-only means the L2 `ValueError` path is exercised by the bypass test, not by an env var. A future integration test (under `tests/integration/`) could set `os.environ["OMAHA_QUOTE_PROVIDER"]` before app boot and assert the pydantic gate fires; out of scope for R03. (c) `tests/conftest.py::_UNIT_FILES` continues to grow — T05 + R03 + future R-track slices may push past the 25-item frozenset; the marker rule still tags unknown paths as `unit` with an `UnknownTestPath` warning. No blocker today.
 
 - [x] PRD link no topo (`openspec/PRD.md`).
 - [x] Como usar + status model + WIP + spec verification gate.

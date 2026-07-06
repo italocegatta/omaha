@@ -91,10 +91,10 @@ def _start_quote_service(app: FastAPI) -> None:
     cancel it. Skipped when ``OMAHA_SKIP_STARTUP=1`` (tests bypass
     startup so the loop never runs).
     """
-    from omaha.quotes.provider import YFinanceProvider
+    from omaha.quotes.provider import get_quote_provider
     from omaha.quotes.service import QuoteService
 
-    service = QuoteService(provider=YFinanceProvider())
+    service = QuoteService(provider=get_quote_provider())
     app.state.quote_service = service
     app.state.quote_task = asyncio.create_task(service.run_forever())
 

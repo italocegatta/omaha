@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -48,6 +49,13 @@ class Settings(BaseSettings):
     QUOTE_REFRESH_CIRCUIT_COOLDOWN_SECONDS: int = 300
     # Number of consecutive full-batch failures before opening the circuit.
     QUOTE_REFRESH_CIRCUIT_THRESHOLD: int = 3
+
+    # R03: provider selector source. ``"yfinance"`` (default) keeps the
+    # historical production wiring; ``"stub"`` resolves to the in-memory
+    # :class:`omaha.quotes.provider.StubProvider` for offline scenarios.
+    # Unknown values fail at pydantic-settings validation time, so a
+    # misconfigured deploy fails loudly at startup.
+    QUOTE_PROVIDER: Literal["yfinance", "stub"] = "yfinance"
 
     @property
     def effective_log_format(self) -> str:
