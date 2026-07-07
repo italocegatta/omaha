@@ -1296,7 +1296,14 @@ Progress:
   pré-existentes sem regressão F08.
 
 ### F09 - Typography refresh (display face + Inter feature-settings)
-Status: `Ready`
+Status: `Archived` (archive gate landed 2026-07-07;
+`openspec/changes/archive/2026-07-07-f09-typography-refresh/`; spec
+delta synced to `openspec/specs/typography-tokens/spec.md` with
+Purpose + 5 ADDED requirements, 11 scenarios; `openspec validate
+typography-tokens --json` retorna `valid: true` (1 INFO
+non-blocking sobre requirement text length); `openspec validate
+--specs` agora reporta 47 total (46 pre + 1 new `typography-tokens`),
+39 pass / 8 fail — mesmas 8 falhas pré-existentes sem regressão).
 Goal: Implementar escolha de display face de D02. Candidatos:
 Source Serif 4 (atual serif), Red Hat Display (sans Status Invest),
 IBM Plex Sans (character sans), Fraunces (optical sizing serif, mais
@@ -1307,13 +1314,17 @@ Validar display face com `tnum` em portfolio header (serif pode ter
 tnum fraco — testar antes). Atualizar DESIGN.md §Typography +
 §Component inventory.
 Candidate OpenSpec change id: `f09-typography-refresh`
-Spec link: `openspec/changes/f09-typography-refresh/` (criada no propose)
+Spec link: `openspec/changes/f09-typography-refresh/`
 Files:
 - `src/omaha/templates/base.html` (Google Fonts URL estendido com
   Inter variable + display face escolhido)
 - `src/omaha/static/app.css` (font-family chain atualizada +
   feature-settings `tnum, cv01, ss01, ss02` em `body`)
 - `DESIGN.md` (§Typography reescrita per face escolhido)
+- `tests/test_typography_tokens.py` (novo, unit — 8 assertions per
+  D-F09.8)
+- `tests/conftest.py` (`_UNIT_FILES` estendido com o test file novo —
+  per PRD §4.6 explicit allow-list)
 Notes: **D02 archived 2026-07-07** — gate resolvido (display face =
 **Red Hat Display** 700+; sans, não serif). Pode propor via `next`
 agora. Independente de F08 (paleta) e F10 (componentes) — pode
@@ -1326,7 +1337,96 @@ em Red Hat Display é default — verificar se mantém tabular figures em
 settings: "tnum"` no seletor). Self-host vs Google Fonts é decisão de
 implementação — Google Fonts é default (mesmo padrão atual). Custo
 1-2h.
-Progress: (vazio)
+Progress:
+- Proposed: done 2026-07-07
+- Applying: done 2026-07-07 (32/32 tasks; `task lint` verde;
+  `task test-unit` 284 pass / 2 skip (+13 novos: 8 unique + 3
+  parametrized retired-family cases + 5 parametrized display-selector
+  cases); `task test-integration` 369 pass / 2 skip sem regressão;
+  `task test-bdd` 51 pass sem regressão; `openspec validate
+  f09-typography-refresh --json` `valid: true`; `openspec validate
+  --specs` continua 38 pass / 8 fail sem regressão; refresh-for-test
+  smoke OK: `/healthz` ok, `db-reset` italo=6/48/47 ana=6/52/52,
+  Italo+Ana+Família views renderizam, `/static/app.css` servido
+  contém 9× Red Hat Display / 0× Source Serif 4 / 0× IBM Plex Serif
+  / 0× Georgia, body `font-feature-settings: "tnum", "cv01", "ss01",
+  "ss02"` confirmado, `.portfolio-stat-value` agora
+  `font-family: "Red Hat Display", "Inter", ...; font-weight: 700;`)
+- Applied: done 2026-07-07 — **post-apply bug fix same day**: a
+  duplicate `.portfolio-stat-value { font-size: 1.4rem; font-weight:
+  600; color: var(--fg); font-feature-settings: "tnum"; letter-spacing:
+  -0.01em; }` rule further down `app.css` (line 989, before fix)
+  silently overrode the Red Hat Display + 700 declarations from the
+  base rule at line 167 via CSS cascade (last rule wins). User
+  flagged "font still looks like Inter" in browser — investigation
+  found the duplicate. Fix: consolidated the two rule bodies into one
+  at the line 167 location (with all properties), deleted the bare
+  line 989 duplicate. Test `test_red_hat_display_on_display_selector`
+  strengthened to use `re.findall` over every rule body targeting the
+  selector (was using `re.search` first-match-only — would have
+  passed green while the page rendered Inter). Re-verified: served
+  `/static/app.css` has exactly 1 base `.portfolio-stat-value` rule
+  + 3 color-only variants; `task test-unit` 284 pass / 2 skip
+  unchanged; hard refresh in browser should now show Red Hat Display
+  on `.portfolio-stat-value`. Headless chromium smoke 2026-07-07
+  (`/tmp/f09-smoke.py`) confirma computed style live: 3 selectors
+  visíveis em `/patrimonio` (`.portfolio-stat-value`,
+  `.app-header-wordmark`, `.tab-nav__btn--active`) renderizam
+  `"Red Hat Display", Inter, -apple-system, ... sans-serif` /
+  `font-weight: 700`; 2 condicionais (`.empty-state-step-number`,
+  `.rebalance-stat-value`) só renderizam em empty-state / após
+  submeter `/rebalanceamento`, mas CSS rule está correta em ambos.
+- Archived: done 2026-07-07; archive
+  `2026-07-07-f09-typography-refresh/`; spec delta synced →
+  `openspec/specs/typography-tokens/spec.md` (Purpose + 5
+  Requirements: display face / Inter body feature-settings / Google
+  Fonts URL single source / no serif in display chain /
+  base.html + app.css pair synchronization; 11 scenarios — requisitos
+  corrigidos para 5 seletores implementados vs 6 originalmente
+  listados no delta; `.profile-name` e `.patrimonio-section-title`
+  não existem no CSS atual — references ajustadas para os 5
+  seletores reais: `.portfolio-stat-value`, `.app-header-wordmark`,
+  `.empty-state-step-number`, `.rebalance-stat-value`,
+  `.tab-nav__btn--active`). `openspec validate typography-tokens`
+  `valid: true` (1 INFO non-blocking sobre requirement text length);
+  `openspec list --specs` agora reporta 47 specs (46 pre + 1 new
+  `typography-tokens`); 8 specs pré-existentes continuam falhando
+  (broker-csv-*, dashboard-*, import-*) — não relacionado a F09.
+Goal: Implementar escolha de display face de D02. Candidatos:
+Source Serif 4 (atual serif), Red Hat Display (sans Status Invest),
+IBM Plex Sans (character sans), Fraunces (optical sizing serif, mais
+"voz"). Adicionar Inter feature-settings completos: `tnum` (já tem)
++ `cv01` (1 com base serif), `ss01` (open digits 6/9), `ss02`
+(zero/O disambiguation). Atualizar font loading em `base.html`.
+Validar display face com `tnum` em portfolio header (serif pode ter
+tnum fraco — testar antes). Atualizar DESIGN.md §Typography +
+§Component inventory.
+Candidate OpenSpec change id: `f09-typography-refresh`
+Spec link: `openspec/changes/f09-typography-refresh/`
+Files:
+- `src/omaha/templates/base.html` (Google Fonts URL estendido com
+  Inter variable + display face escolhido)
+- `src/omaha/static/app.css` (font-family chain atualizada +
+  feature-settings `tnum, cv01, ss01, ss02` em `body`)
+- `DESIGN.md` (§Typography reescrita per face escolhido)
+- `tests/test_typography_tokens.py` (novo, unit — 8 assertions per
+  D-F09.8)
+- `tests/conftest.py` (`_UNIT_FILES` estendido com o test file novo —
+  per PRD §4.6 explicit allow-list)
+Notes: **D02 archived 2026-07-07** — gate resolvido (display face =
+**Red Hat Display** 700+; sans, não serif). Pode propor via `next`
+agora. Independente de F08 (paleta) e F10 (componentes) — pode
+rodar em paralelo (cap 2). Implementa Red Hat Display 700+ em
+`.portfolio-stat-value` (e otras hero numerals) + Inter variable body
+com feature-settings `tnum, cv01, ss01, ss02`. Remove Source Serif 4
+do plano anterior (D02 §Gate 3 = sem serif). Validação pré-apply: tnum
+em Red Hat Display é default — verificar se mantém tabular figures em
+700+ (testar render antes de shipping; se fraco, abrir `font-feature-
+settings: "tnum"` no seletor). Self-host vs Google Fonts é decisão de
+implementação — Google Fonts é default (mesmo padrão atual). Custo
+1-2h.
+Progress:
+- Proposed: done 2026-07-07
 
 ### F10 - Component state language (5-state) + data table pattern upgrade
 Status: `Ready`

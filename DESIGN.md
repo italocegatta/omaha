@@ -173,7 +173,12 @@ The 7th+ class cycles via the existing `nth-of-type(6n+N)` rules in
 proeminentes de dados.** Decisão D02 (archived 2026-07-07) substitui
 o display serif (Source Serif 4 / IBM Plex Serif) por **sans**
 display — register maximalista lê fintech-pro em sans, não em serif.
-F09 materializa; até lá, o current é serif.
+**F09 archived 2026-07-07 — current = sans display.** Source Serif 4
+retired do build; app.css carrega Red Hat Display em 4 seletores
+(`.portfolio-stat-value`, `.app-header-wordmark`,
+`.empty-state-step-number`, `.rebalance-stat-value`) + body Inter
+variable com `tnum, cv01, ss01, ss02`. Spec `typography-tokens`
+captura o contrato.
 
 - **UI sans**: `Inter` (Google Fonts, com system fallback). Already
   on the system; upgrade para variable + feature-settings completos:

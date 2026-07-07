@@ -216,6 +216,7 @@ _UNIT_FILES = frozenset(
         "tests/test_rebalance_solver.py",
         "tests/test_rebalance_validation.py",
         "tests/test_dark_mode_tokens.py",
+        "tests/test_typography_tokens.py",
         "tests/test_yfinance_provider.py",
         "tests/test_quote_provider_selector.py",
         "tests/test_quote_provider_stub.py",

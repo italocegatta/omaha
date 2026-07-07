@@ -114,11 +114,13 @@
 body {
   margin: 0; font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: var(--bg); color: var(--fg); line-height: 1.5;
-  /* Tabular figures globally so any digit, currency, or percentage
-     renders with the spreadsheet look. Inline numerics inherit this;
-     display numerics (e.g. .portfolio-stat-value) get an explicit
-     letter-spacing tweak below. */
-  font-feature-settings: "tnum";
+  /* Tabular figures + Inter stylistic sets (D02 §Typography / F09).
+     `tnum` keeps numbers tabular, `cv01` renders 1 with a serif base,
+     `ss01` keeps 6 and 9 open, `ss02` distinguishes 0 from O. Inline
+     numerics inherit this; display numerics (e.g. .portfolio-stat-
+     value) ride on Red Hat Display 700+ which has its own tnum
+     default at the 700 weight (verify in T06 visual baseline). */
+  font-feature-settings: "tnum", "cv01", "ss01", "ss02";
 }
 
 /* Accessible focus rings (S05 T04). 2px outline + 2px offset is
@@ -151,17 +153,33 @@ button:focus-visible,
   outline-offset: 2px;
 }
 
-/* Display serif — per DESIGN.md typography section. Scoped to the
-   dashboard's portfolio header values only (the h1 "profile-name"
-   element was removed by direct-landing-with-header-profile-switcher;
-   the visual hero now lives in the portfolio stat values). Used
-   at most three times on the dashboard. Serif in a product register
-   must be surgical or it reads as luxury. The fallback to IBM Plex
-   Serif / Georgia keeps the metric the same if Source Serif 4 fails
-   to load (network blocked, ad-blocker, offline). */
+/* Display sans (Red Hat Display 700+) — per D02 §Gate 3 / F09.
+   Scoped to the dashboard's portfolio header values only (the h1
+   "profile-name" element was removed by direct-landing-with-header-
+   profile-switcher; the visual hero now lives in the portfolio
+   stat values). Used at most three times on the dashboard. Sans
+   in a product register reads as fintech-pro, not luxury. The
+   fallback chain drops through Inter (body sans) into system sans
+   so a Google Fonts outage degrades to a consistent sans rendering.
+   `tnum` is on by default at the 700 weight of Red Hat Display; if
+   a future weight swap loses it, re-add `font-feature-settings:
+   "tnum"` explicitly on this selector.
+
+   Color/positive/negative variants for the value live in the
+   `.portfolio-stat-value.positive/.negative` and `.portfolio-gain-
+   positive/.negative .portfolio-stat-value` rules below — they
+   override only the color, the font-family + weight are inherited
+   from this base rule. There is ONE `.portfolio-stat-value` rule
+   (consolidated from the duplicate that used to live further down
+   the file at the old line 989 — it stripped font-family and
+   re-introduced weight 600, silently overriding this declaration). */
 .portfolio-stat-value {
-  font-family: "Source Serif 4", "IBM Plex Serif", Georgia, serif;
-  font-weight: 600;
+  font-family: "Red Hat Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 700;
+  font-size: 1.4rem;
+  color: var(--fg);
+  font-feature-settings: "tnum";
+  letter-spacing: -0.01em;
 }
 
 /* Display heading — scoped to main so the header logo (which is also
@@ -196,13 +214,16 @@ header.app-header .main-nav a {
   padding: 0.25rem 0;
 }
 header.app-header .main-nav a:hover { color: var(--accent); }
-/* App-header wordmark — Source Serif 4 display face, sized larger
-   than the legacy 1.1rem and tracked tight for the editorial
-   register the rest of the brand surface uses. */
+/* App-header wordmark — Red Hat Display 700+ sans display face
+   (D02 §Gate 3 / F09). Sized larger than the legacy 1.1rem and
+   tracked tight for the fintech-pro register the rest of the brand
+   surface uses. Sans display (not serif) per D02 §Gate 3; Inter
+   and system sans fallbacks keep the wordmark readable during a
+   Google Fonts outage. */
 header.app-header .app-header-wordmark {
-  font-family: "Source Serif 4", "IBM Plex Serif", Georgia, serif;
+  font-family: "Red Hat Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--ink);
   margin: 0;
@@ -751,7 +772,8 @@ p.error, .error {
 }
 .tab-nav__btn--active {
   color: var(--ink);
-  font-weight: 600;
+  font-family: "Red Hat Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 700;
   border-bottom-color: var(--accent);
 }
 .tab-nav__btn[aria-current="true"] {
@@ -954,8 +976,8 @@ p.error, .error {
 }
 
 .empty-state-step-number {
-  font-family: "Source Serif 4", "IBM Plex Serif", Georgia, serif;
-  font-weight: 600;
+  font-family: "Red Hat Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--ink-muted);
   min-width: 1.5rem;
@@ -976,12 +998,6 @@ p.error, .error {
 .portfolio-stat-label {
   font-size: 0.7rem; text-transform: uppercase;
   color: var(--muted); letter-spacing: 0.05em;
-}
-.portfolio-stat-value {
-  font-size: 1.4rem; font-weight: 600; color: var(--fg);
-  /* Display numeric — explicit tnum (already on body) + tighter tracking. */
-  font-feature-settings: "tnum";
-  letter-spacing: -0.01em;
 }
 .portfolio-stat-value.positive { color: var(--positive); }
 .portfolio-stat-value.negative { color: var(--negative); }
@@ -2516,8 +2532,8 @@ td.editing {
 }
 
 .rebalance-stat-value {
-  font-family: "Source Serif 4", "IBM Plex Serif", Georgia, serif;
-  font-weight: 600;
+  font-family: "Red Hat Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 700;
   font-size: 1.15rem;
   color: var(--ink);
 }
