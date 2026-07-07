@@ -707,6 +707,76 @@ regra torna o wipe **impossível sem intenção explícita** e
 
 ---
 
+### 4.12 Agente — DB de prod é intocável sem autorização explícita
+
+**Regra do owner (2026-07-07, após incidente):** o agente
+NUNCA executa um comando destrutivo contra `data/portfolio.db`
+sem autorização explícita do owner na conversa atual. Cada
+sessão é zero-conf — não há "voce já tinha autorizado antes"
+nem "skill default".
+
+**Escopo da proibição.** Aplica-se a qualquer um destes
+disparadores, executado pelo agente (seja inline, via skill,
+via taskipy, ou via shell direto):
+
+- `task db-reset`, `task db-clear-assets`,
+  `task db-seed-from-csv --mode reset|upsert`,
+  `task db-seed --mode reset`
+- `python -m scripts.seed_from_csv --mode reset|upsert`
+- `python -m omaha.seed` (seed de users não destrói, mas
+  é side-effect em prod — também exige autorização)
+- `sqlite3 data/portfolio.db <UPDATE|DELETE|DROP>`
+- `cp <algum-snapshot>.db data/portfolio.db` (restore)
+- `rm data/portfolio.db`, `mv data/portfolio.db ...`,
+  `truncate data/portfolio.db`
+- Qualquer `POST /api/import/commit`, `POST /classes`,
+  `POST /classes/{id}/delete`, `DELETE /api/...` enviado
+  via `curl` / `httpx` / TestClient contra o servidor vivo.
+
+**Comandos permitidos sem autorização** (read-only):
+
+- `task test-unit`, `task test-integration`, `task test-bdd`,
+  `task test-e2e` — suites usam `tmp_path`, não tocam prod.
+- `task db-migrate` (alembic upgrade head é idempotente e
+  não destrói dados).
+- `curl GET ...` contra qualquer rota read-only.
+- `sqlite3 data/portfolio.db <SELECT>` ou queries de inspeção.
+- `task backup`, `python -m scripts.snapshot_db` — lê, escreve
+  em `data/snapshots/`, NÃO toca em `data/portfolio.db`.
+
+**Workflow obrigatório quando o owner pedir uma mudança que
+envolva prod DB.**
+
+1. Confirmar a operação literal que vai rodar (qual task /
+   comando, com quais flags).
+2. Listar exatamente quais linhas / tabelas mudam.
+3. Se o owner confirmar → executar.
+4. Se o owner não responder explicitamente → NÃO executar,
+   mesmo que a mudança seja trivial.
+
+**Conflito com skill `refresh-for-test`.** A skill
+`refresh-for-test` definia `db-reset` como default para o
+step "Bring DB to the right state" (Recipe §3). ESTE DEFAULT
+ESTÁ REVOGADO. A skill agora recomenda `db-migrate` (se a
+mudança tocou modelo) ou zero (se a mudança foi só template/
+CSS/rota). `db-reset` só é invocado sob autorização explícita
+do owner nesta sessão.
+
+**Anti-overengineering gate.** Se a mudança é bugfix < 30 min
+ou patch trivial, o agente NÃO entra no OpenSpec loop — mas
+AINDA assim precisa respeitar §4.12 (autorização para DB).
+
+**Violação.** O agente que executar qualquer item do escopo
+acima sem autorização explícita comete falha de entrega. O
+recovery é manual via `data/snapshots/` + `POST /admin/restore`
+— coberto por §4.11. A regra existe porque a consequência
+de um wipe acidental é silenciosa (DB está consistente, só
+está errado) e o owner não tem como distinguir "fui eu" de
+"foi o agente" sem o audit trail de §4.11 + uma conversa
+explícita com o agente.
+
+---
+
 ## 5. Trabalho em Curso e Horizonte
 
 ### 5.1 Estado atual (snapshot)

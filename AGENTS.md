@@ -4,7 +4,7 @@ Agent routing doc for the omaha repository. This file is **navigation only** —
 it points at the canonical sources. **It does not redefine rules.**
 
 > Golden rule: before touching anything, read
-> **[openspec/PRD.md](openspec/PRD.md) §4 (Regras de Ouro)**. The 10 standing
+> **[openspec/PRD.md](openspec/PRD.md) §4 (Regras de Ouro)**. The 12 standing
 > rules below are transcrito there. PRD is the single source of truth; this
 > file is the table of contents.
 
@@ -97,7 +97,7 @@ or production behavior; a one-line CSS patch does not.
 
 ## 4. Standing rules — READ [PRD §4](openspec/PRD.md#4-regras-de-ouro-operational-invariants)
 
-The 10 invariants below live in PRD §4. Linking here so this doc stays
+The 12 invariants below live in PRD §4. Linking here so this doc stays
 useful as a quick pointer. **Edit them only in the PRD.**
 
 1. **Family password — locked** (`distendidos`) — PRD §4.1
@@ -110,6 +110,8 @@ useful as a quick pointer. **Edit them only in the PRD.**
 8. **Taskipy — `task <name>` not raw commands** — PRD §4.8
 9. **Delivery finalization — `refresh-for-test` skill** — PRD §4.9
 10. **Brand register — domestic, no ornament** — PRD §4.10
+11. **DB mutation contract — destructive routes formalized** (R06 platform safety) — PRD §4.11
+12. **Agent — prod DB is untouchable without explicit authorization** (2026-07-07, after incident) — PRD §4.12
 
 ---
 

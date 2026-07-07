@@ -80,28 +80,42 @@ fix before continuing.
 
 ### 3. Bring DB to the right state
 
-Pick **one** based on what changed (do not guess, do not default to
-"leave the DB alone"):
+**Default for delivery = LEAVE THE DB ALONE.** Per PRD §4.12
+(codified 2026-07-07 after incident) the agent SHALL NOT
+invoke `task db-reset`, `task db-clear-assets`,
+`task db-seed-from-csv --mode reset|upsert`, or any other
+destructive DB command without explicit authorization from
+the owner in the current conversation.
 
-| Change type                              | Task                            |
+If the change requires a populated DB (new migration, model
+edit), `ask the owner first` and only then run `db-migrate`.
+If the owner authorizes a destructive op (e.g. "you can
+db-reset"), do it; otherwise skip this section entirely.
+
+| Change type                              | Task (only with owner OK)       |
 |------------------------------------------|---------------------------------|
 | New migration / model edit               | `uv run task db-migrate`        |
-| Default — populated, ready to test       | `uv run task db-reset`          |
-| User explicitly asked for empty import   | `uv run task db-clear-assets`   |
+| Owner explicitly authorized full reseed  | `uv run task db-reset`          |
+| Owner explicitly asked for empty import  | `uv run task db-clear-assets`   |
 | Only seed / config layer changed         | `uv run task db-seed`           |
 
-**Default for delivery = `db-reset`** unless the user explicitly asked
-for an asset-free surface.
-
-After `db-reset`, verify the row counts:
+**Read-only verification** (always safe, use this by default):
 
 ```bash
-uv run python -c "import sqlite3; c=sqlite3.connect('data/portfolio.db'); cur=c.cursor()
-print('classes', cur.execute('select count(*) from asset_classes').fetchone()[0])
-print('assets', cur.execute('select count(*) from assets').fetchone()[0])
-print('positions', cur.execute('select count(*) from positions').fetchone()[0])"
+URL=$(bash scripts/print_lan_url.sh)
+uv run python -c "
+import sqlite3
+c = sqlite3.connect('data/portfolio.db')
+print('classes', c.execute('SELECT COUNT(*) FROM asset_classes').fetchone()[0])
+print('assets', c.execute('SELECT COUNT(*) FROM assets').fetchone()[0])
+print('positions', c.execute('SELECT COUNT(*) FROM positions').fetchone()[0])
+"
 ```
 
+If the row counts don't match what the change should leave,
+ASK the owner — do NOT auto-fix.
+
+After `db-reset` (only with owner OK), verify the row counts:
 Expect `classes 6  assets 48  positions 47`. After `db-clear-assets`
 expect `assets 0  positions 0  classes 6`.
 
