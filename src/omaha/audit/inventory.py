@@ -101,7 +101,7 @@ class AuditContextFactory:
         "oklch(0.65 0.15 250)",  # blue          -- mirrors --class-1
         "oklch(0.72 0.13 130)",  # leaf green    -- mirrors --class-2
         "oklch(0.72 0.18 350)",  # magenta-red   -- mirrors --class-3 (F08 hue shift)
-        "oklch(0.75 0.13 50)",   # burnt orange  -- mirrors --class-4
+        "oklch(0.75 0.13 50)",  # burnt orange  -- mirrors --class-4
         "oklch(0.65 0.12 300)",  # plum          -- mirrors --class-5
         "oklch(0.72 0.10 200)",  # teal          -- mirrors --class-6
     )

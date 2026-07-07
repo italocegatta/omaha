@@ -540,8 +540,7 @@ def test_class_colors_tuple_all_oklch_no_hex() -> None:
 
     for i, value in enumerate(py_tuple):
         assert not value.startswith("#"), (
-            f"_CLASS_COLORS[{i}] = {value!r} is still a hex literal; "
-            f"must be OKLCH (F08 D-F08.3)"
+            f"_CLASS_COLORS[{i}] = {value!r} is still a hex literal; must be OKLCH (F08 D-F08.3)"
         )
         # Parse must succeed.
         Color(value).convert("oklch")

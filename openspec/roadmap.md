@@ -1918,6 +1918,7 @@ precisa do register escolhido pra re-derivar tokens.
 Blocks: R05 (precisa dos novos tokens pra derivar `--class-N-tint`),
 T06 (precisa do design novo aplicado pra capturar baseline)
 Can run in parallel: yes (com F09, F10 em Applying — cap 2)
+Status: archived 2026-07-07 (implementado; R05 + T06 desbloqueados)
 
 ### F09
 Depends on: D02 archived (gate resolvido 2026-07-07; display face
@@ -1957,6 +1958,7 @@ OKLCH pra derivar `--class-N-tint` corretamente; hex sweep só funciona
 pós-palette overhaul)
 Blocks: none
 Can run in parallel: yes (com T06, que não toca nos mesmos arquivos)
+Status: Ready (F08 applied 2026-07-07 → desbloqueado)
 
 ### R06
 Depends on: none (investiga standalone; sem pré-requisito de outras
@@ -1976,6 +1978,7 @@ capturar baseline significativa — se rodar antes, baseline captura
 o velho e perde utilidade)
 Blocks: none
 Can run in parallel: yes (com R05)
+Status: Ready (F08+F09+F10 all applied → desbloqueado)
 
 ## Recommended Execution Order
 
@@ -1987,39 +1990,19 @@ Prioridade presume que o owner quer atacar mudanças estruturais primeiro
 
 Owner abriu frente visual 2026-07-06 (sessão exploratória capturada
 em `openspec/.temp_assets/design-system-redesign-session-2026-07-06.md`).
-Queixa: paleta "não está bonita" + "não ajuda a entender informação".
-Referência: Status Invest (investidor.statusinvest.com.br). PRD §4.10
-liberado como restrição; §4.1-§4.9 inalterados. **D02 archived
-2026-07-07** — gate resolvido; owner escolheu register SI maximal com
-7 decisões aplicadas (sidebar NÃO, class-3 hue 350, Red Hat Display,
-dark-only, hue 60 mantém, escopo 3 fatias). F11 + F13 promoted a
-Blocked (per register decision); F08 + F09 + F10 + F12 promoted a
-Ready puro (gate atendido).
+D02 archived 2026-07-07 — gate resolvido; owner escolheu register
+SI maximal. F08+F09+F10+F12 all Archived. F11+F13 Deprecated per
+owner instruction 2026-07-07. R05+T06 now Ready (F08 applied).
 
 1. **D02 - design register decision** — archived 2026-07-07 (gate)
-2. **F12 - Material Symbols icons** (catalog definido em D02 §Iconography:
-   add / add_circle / upload / logout / close / warning / expand_*
-   / check_circle / help; gate D02 OK; paralelo com F08/F09/F10 em
-   Applying — cap 2; Spec link ainda vazio — proposta via
-   `openspec-propose`)
-3. F08 - palette overhaul v2 (tokens per register SI maximal; resolve
-   4 bugs concretos da paleta atual; alvos: emerald 0.68/0.20/152,
-   fern positive 0.79/0.19/145, coral negative 0.69/0.20/25, warning
-   amber, class-3 magenta-red hue 350)
-4. F09 - typography refresh (Red Hat Display 700+ + Inter feature-
-   settings `tnum, cv01, ss01, ss02`; pode rodar em paralelo com
-   F08/F10)
-5. F10 - component state language + table pattern (5-state feedback
-   idle/hover/focus/disabled/error + sticky `<thead>` + hover row bg
-   lift + total row emphasis + section dividers + form R$ prefix;
-   maior slice em volume, ~6h, 10 templates)
-6. F11 - sidebar reintroduce — **Blocked** (register ≠ A)
-7. R05 - hex literal audit (mecânico; depende de F08 pra novos tokens;
-   pode rodar em paralelo com T06)
-8. T06 - visual regression baseline (Playwright screenshots; depende
-   de F08+F09+F10 aplicados; roda em paralelo com R05)
-9. F13 - light/dark toggle — **Blocked** (owner não pediu; D-F05.10
-   dark-only mantido)
+2. **F08 - palette overhaul v2** — archived 2026-07-07 (implemented)
+3. **F09 - typography refresh** — archived 2026-07-07
+4. **F10 - component state language + table pattern** — archived 2026-07-07
+5. **F12 - Material Symbols icons** — archived 2026-07-07
+6. **F11 - sidebar reintroduce** — **Deprecated** 2026-07-07 (owner: "não fazem sentido")
+7. **F13 - light/dark toggle** — **Deprecated** 2026-07-07 (owner: "não fazem sentido")
+8. **R05 - hex literal audit** (Ready; F08 applied → unblocked; depende de F08 pra novos tokens OKLCH)
+9. **T06 - visual regression baseline** (Ready; F08+F09+F10 all applied → unblocked; Playwright screenshots)
 
 ### Fila histórica (já arquivada — referência)
 
