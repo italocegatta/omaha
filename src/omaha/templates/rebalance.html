@@ -46,16 +46,22 @@
         Aporte (R$)
       </label>
       <div class="rebalance-form-row">
-        <input type="number"
-               step="any"
-               name="contribution"
-               id="rebalance-contribution"
-               x-model="contribution"
-               inputmode="decimal"
-               data-testid="rebalance-contribution-input"
-               :class="{'rebalance-form-input--error': error}"
-               :disabled="inert"
-               required />
+        {# F10 D-F10.11: R$ prefix in a <label> wrapper keeps the click
+           target on the input; CSS owns the visual segment. The wrapper
+           flexes to fill the row, the submit button stays as a sibling. #}
+        <label class="input-prefix-wrap" for="rebalance-contribution">
+          <span class="input-prefix">R$</span>
+          <input type="number"
+                 step="any"
+                 name="contribution"
+                 id="rebalance-contribution"
+                 x-model="contribution"
+                 inputmode="decimal"
+                 data-testid="rebalance-contribution-input"
+                 :class="{'rebalance-form-input--error': error}"
+                 :disabled="inert"
+                 required />
+        </label>
         <button type="submit"
                 class="btn btn-primary rebalance-form-submit"
                 data-testid="rebalance-submit-btn"

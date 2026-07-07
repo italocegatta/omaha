@@ -2798,3 +2798,205 @@ td.editing {
    ``.sidebar-action--active``) are removed along with the sidebar
    itself. Active tab styling lives under ``.tab-nav__btn--active``
    in the top-nav block near the top of this file. */
+
+/* =============================================================
+   F10 — component state language + table pattern upgrade
+   (5-state feedback vocabulary, table pattern, and visual extras
+   memorialised by D02 §Components as part of the Status Invest
+   maximal register).
+   ============================================================= */
+
+/* Motion override — honour the OS-level reduced-motion preference
+   (D-F10.8 / F10 §Requirement: motion SHALL respect prefers-
+   reduced-motion). Without this, every hover/transition below would
+   animate even when the user has motion sickness or vestibular
+   sensitivities. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ::selection — brand-colour highlight for body text selection
+   (D-F10.8). Single rule covers the entire page; per-element
+   overrides are not used. */
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* Form autofill override — Chromium / WebKit paint autofilled
+   fields with yellow/blue background; override keeps the surface
+   and ink consistent with manual entry (D-F10.9). */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--ink) !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset !important;
+  box-shadow: 0 0 0 1000px var(--surface) inset !important;
+  caret-color: var(--ink);
+}
+
+/* Eyebrow label — uppercase, 0.04em tracking, --ink-muted.
+   Reserved for section labels above totals and statistics
+   (D-F10.10). Not for body text — body stays sans-serif at the
+   regular size. */
+.label-xs {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+  font-weight: 600;
+  margin: 0 0 0.25rem 0;
+}
+
+/* Section divider — hairline horizontal rule between major page
+   blocks (D-F10.7). The default <hr> renders with a double border
+   on some browsers; this class overrides to a single 1px top border
+   with the standard --border token. */
+.section-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 24px 0;
+  background: transparent;
+  height: 0;
+}
+
+/* Sticky <thead> — table headers stay pinned at the top of the
+   viewport as the user scrolls (D-F10.2). surface-sunk (darker
+   than --surface) gives the header a clear visual lift over the
+   rows underneath. z-index: 1 keeps the header above hover-lifted
+   rows. Only applied to top-level page tables — see F10 design
+   D-F10.2 rationale: tables inside modals keep their natural
+   internal scroll. The selector covers `.table-sticky-header` as
+   the canonical F10 hook and the existing `.asset-table` /
+   `.class-table` to keep HTML class attributes stable. */
+.table-sticky-header thead th,
+.asset-table thead th,
+.class-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-sunk);
+  z-index: 1;
+  /* Thead border-bottom adds a hairline that survives scroll
+     (otherwise the sticky edge looks naked against the rows). */
+  border-bottom: 1px solid var(--border);
+}
+
+/* Row hover lift — feedback tátil sem transition agressivo
+   (D-F10.3). Applied to all top-level table rows (tbody > tr) so
+   the user gets coherent feedback as the cursor crosses columns.
+   80ms ease is gentle enough for users with motion sensitivity
+   (also nulled by prefers-reduced-motion override above). */
+.table-sticky-header tbody tr,
+.class-table tbody tr,
+.asset-table tbody tr {
+  transition: background-color 80ms ease;
+}
+.table-sticky-header tbody tr:hover td,
+.class-table tbody tr:hover td,
+.asset-table tbody tr:hover td {
+  background: var(--bg-hover);
+}
+
+/* Row action column — hidden in idle state, revealed on row hover
+   (D-F10.4). Keeps the table clean when no cursor is engaged; on
+   hover, delete/edit affordances appear with a soft 80ms fade.
+   Mobile breakpoint always shows them — no hover on touch. */
+.row-actions {
+  opacity: 0;
+  transition: opacity 80ms ease;
+}
+tr:hover .row-actions,
+tr:focus-within .row-actions {
+  opacity: 1;
+}
+@media (max-width: 768px) {
+  .row-actions {
+    opacity: 1;
+  }
+}
+
+/* Total row emphasis — bold + 2px top border separates totals from
+   individual rows (D-F10.5). Applied to BOTH a generic
+   `.table-total` class (for future <tr class="table-total">) and
+   the existing `.class-total` div outside classes.html's table —
+   same visual treatment, single token contract. */
+.table-total,
+.class-total {
+  font-weight: 600;
+  border-top: 2px solid var(--border-strong);
+  /* tabular-nums + right-align reinforce numeric alignment. */
+  font-variant-numeric: tabular-nums;
+}
+/* When used as a <tr>, the border must live on the cell (not the
+   row), since border-top on <tr> is unreliable across browsers. */
+.table-total td {
+  border-top: 2px solid var(--border-strong);
+  font-weight: 600;
+}
+
+/* Numeric cells — tabular figures + right-align for currency and
+   percent columns (D-F10.6). Hooked by class rather than data-
+   testid so it stays decoupled from BDD selectors. Tabs, portfolio
+   stat values, and existing tabular rules (e.g. .asset-row-pct)
+   are unaffected — they keep their own selectors. */
+.is-numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Form R$ prefix — visual wrapper for currency inputs (D-F10.11).
+   The wrapper is a <label> so the click target stays the input,
+   and the R$ sits as a fixed left segment with a flat border against
+   the input. Browser quirks with ::before on <input> are why this
+   is a wrapper element, not a pseudo-element. */
+.input-prefix-wrap {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+  transition: border-color 80ms ease, box-shadow 80ms ease;
+}
+.input-prefix-wrap:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.input-prefix {
+  display: flex;
+  align-items: center;
+  padding: 0 0.75rem;
+  background: var(--surface-sunk);
+  color: var(--ink-muted);
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-right: 1px solid var(--border);
+  user-select: none;
+}
+.input-prefix-wrap input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+  color: var(--ink);
+}
+
+/* Warning line — rebalance warnings carry the only allowed border-
+   left > 1px in the design (D02 §Components exception). The
+   per-warning item renders with a 4px coral border-left + 12px
+   padding-left so the warning reads as "this needs attention". */
+.warning-line {
+  border-left: 4px solid var(--negative);
+  padding-left: 12px;
+}

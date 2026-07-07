@@ -404,6 +404,24 @@ disabled implícitos; foco e erro parciais.
 | Section divider     | various (`<hr>`)       | `border-top: 1px solid var(--border)`               | Entre blocos de Patrimônio (F10).       |
 | Eyebrow label       | various (`.label-xs`)  | `--ink-muted`                                       | Uppercase 0.04em tracking. Section labels acima de totals. |
 
+> **Vocabulário 5-state + table pattern + extras** (F10 — materializa
+> o contrato memorializado por D02 §Components; spec canônica em
+> [`openspec/specs/component-state-language/spec.md`](openspec/specs/component-state-language/spec.md)).
+> Cobre: 5 estados de feedback (idle/hover/focus/disabled/error) para
+> inputs/buttons/tabs/rows, sticky `<thead>` em tabelas top-level,
+> hover row bg lift, total row emphasis (`font-weight: 600` +
+> `border-top: 2px var(--border-strong)`), action column
+> `.row-actions` com `opacity: 0` idle → `1` em `tr:hover`
+> (sempre visível em `@media (max-width: 768px)`),
+> `::selection { background: var(--accent); color: var(--accent-ink) }`,
+> autofill override em `:-webkit-autofill`,
+> `.label-xs` para section labels acima de totals,
+> `.input-prefix-wrap` + `.input-prefix` para inputs de moeda (R$
+> no aporte), `prefers-reduced-motion: reduce` global override,
+> `.warning-line` (`border-left: 4px var(--negative) +
+> padding-left: 12px` — única exceção ao anti-pattern de
+> `border-left > 1px`).
+
 ## Anti-patterns (this project, named)
 
 When the polish pass encounters one of these, the right move is to
@@ -439,7 +457,9 @@ rewrite the element, not patch it:
 - **Action column sempre visível.** Coluna de ação em tabela só
   renderiza em `:hover` da linha — tabelas sem poluição visual
   default. Idem buttons destroy/confirm: `close` icon só após
-  hover.
+  hover. Padrão F10: `<td class="row-actions">` com
+  `opacity: 0` idle → `1` em `tr:hover` (mobile `@media
+  (max-width: 768px)` sempre visível).
 
 ## Migration path
 

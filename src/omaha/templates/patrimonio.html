@@ -54,9 +54,21 @@
 
   {% include "_patrimonio_actions.html" %}
 
+  {# F10 D-F10.7: section dividers between the three major blocks of
+     the patrimonio page (portfolio header / classes summary /
+     distribution). Hairline + 24px margin gives breathing room
+     without competing with the data. #}
+  {% if asset_classes %}
+  <hr class="section-divider" data-testid="patrimonio-divider-top" />
+  {% endif %}
+
   {% if asset_classes %}
   <section class="class-summary" data-testid="class-summary">
     {% include "_patrimonio_portfolio_header.html" %}
+    {# F10 D-F10.7: divider between portfolio header and the asset
+       distribution below. Hairline separation reinforces the
+       "hero stats → list of classes" reading order. #}
+    <hr class="section-divider" data-testid="patrimonio-divider-portfolio" />
     <section class="dashboard-distribution" data-testid="dashboard-distribution">
       {% include "_patrimonio_distribution.html" %}
       {% include "_patrimonio_class_section.html" %}

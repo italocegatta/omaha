@@ -105,6 +105,10 @@
            one <tr> per asset with one <td> per column. The legacy
            per-class `+ Ativo` button/form, the chevron toggle, and the
            `class-section-body--collapsed` hook are removed in 4.4. #}
+        {# F10 D-F10.2: sticky <thead> on top-level page tables. The
+           asset table is rendered outside any modal so the sticky
+           header is safe. The F10 CSS rule for `.asset-table thead
+           th` activates here. #}
         <table class="asset-table" data-testid="asset-table">
           <colgroup>
             <col class="col-ativo">

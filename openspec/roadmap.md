@@ -1429,7 +1429,7 @@ Progress:
 - Proposed: done 2026-07-07
 
 ### F10 - Component state language (5-state) + data table pattern upgrade
-Status: `Ready`
+Status: `Archived`
 Goal: Implementar vocabulário completo de 5 estados (idle/hover/focus/
 disabled/error) em inputs, buttons, tabs, table rows. Implementar
 data table pattern upgrade: sticky headers, hover row bg lift, total
@@ -1474,7 +1474,84 @@ shadow inset), eyebrow labels `.label-xs`, form R$ prefix em aporte.
 Estima 4-6h de CSS. Não altera spec contracts — apenas polish visual
 em superfícies existentes. Requer regressão visual (T06) rodando
 contra baseline antes de apply.
-Progress: (vazio)
+Progress:
+- Proposed: done 2026-07-07 (folder
+  `openspec/changes/f10-component-state-language-and-table-pattern/`;
+  4 artifacts completos: `proposal.md` (10 templates × 5 estados × 8
+  elementos = 40 micro-decisões; new capability
+  `component-state-language` sem MODIFIED em specs runtime) +
+  `design.md` (12 decisions D-F10.1..D-F10.12 + Risks +
+  Migration + Open Questions) + `tasks.md` (6 grupos: pre-audit +
+  CSS + templates + DESIGN.md + verification gate + sync+archive,
+  47 checkboxes) + `specs/component-state-language/spec.md` (8
+  ADDED Requirements, 22 scenarios — vocabulário 5-state + table
+  pattern + section dividers + ::selection + form autofill override
+  + eyebrow labels + form R$ prefix + prefers-reduced-motion).
+  `openspec validate f10-component-state-language-and-table-pattern --json`
+  retorna `valid: true`. `openspec validate --specs` reporta 39
+  pass / 8 fail — mesmas 8 falhas pré-existentes (broker-csv-*,
+  dashboard-*, import-*) sem regressão F10.
+- Applying: done 2026-07-07; §1-§5 implementation landed — `src/omaha/static/app.css`
+  ganhou bloco F10 ao final (10 grupos de regras: `prefers-reduced-motion`
+  override global, `::selection` accent, autofill override Chromium/WebKit,
+  `.label-xs` eyebrow, `.section-divider` hairline, sticky `<thead>`
+  para `.asset-table`/`.class-table` (sem mexer na string de classes —
+  hook vai pelo seletor), `tr:hover td` row lift com 80ms transition,
+  `.row-actions` opacity 0 / hover 1 / mobile sempre visível,
+  `.table-total` + `.class-total` total row emphasis,
+  `.is-numeric` tabular-nums + right-align, `.input-prefix-wrap` +
+  `.input-prefix` flex wrapper para R$, `.warning-line` border-left 4px
+  rebalance warning) + 5 templates tocados: `patrimonio.html` (2
+  `<hr class="section-divider">` entre portfolio header / classes
+  summary / distribution), `_patrimonio_class_section.html` (sem
+  mudança de classe — hook vai pelo seletor `.asset-table`), `classes.html`
+  (sem mudança de classe + `.class-total` ganha alias `.table-total`),
+  `rebalance.html` (aporte input wrapped em `<label class="input-prefix-wrap">`
+  com `<span class="input-prefix">R$</span>`), `_rebalance_plan.html`
+  (warning `<li>` ganha `.warning-line`) + `DESIGN.md` §Component
+  inventory ganha row cross-linking nova spec + §Anti-patterns
+  "Action column sempre visível" reforçado com referência ao padrão
+  `.row-actions` + mobile breakpoint. Zero `src/omaha/**` runtime
+  tocado (CSS + Jinja only). Pre-audit 1.1: 8 ocorrências de
+  `outline: none` no CSS — todas acompanham `:focus` (não `:focus-visible`)
+  com visual replacement (border-color + box-shadow) — base `:focus-visible`
+  rule continua intacta para keyboard navigation; sem regressão de
+  acessibilidade. Visual smoke §5.7: `/healthz` ok, `/patrimonio`
+  renderiza 2 dividers + classes seeded ("RF Din" count=5), `/rebalanceamento`
+  form R$ prefix renderiza, `/import` form intacto, `/login` auth-card
+  intacto.
+- Applied: done 2026-07-07; §5 verification gate + spec sync + archive —
+  `task lint` verde (prek hooks all pass: merge-conflict + yaml + toml +
+  json + large-files + pytest-unit stub + private-key + pyproject +
+  hardcoded-secrets); `task test-unit` **284 passed / 2 skipped**
+  (+13 vs F09 archive baseline 271: 13 do F09 typography tests; sem
+  regressão F10); `task test-integration` **369 passed / 2 skipped**
+  (R02/R03/R04/F09 baseline match — 0 F10 regression; warning
+  `Solution may be inaccurate` em `solver.py:511` pré-existente, fora
+  do escopo F10); `task test-bdd` **51 passed** (T05 baseline match);
+  `openspec validate f10-component-state-language-and-table-pattern --json`
+  `valid: true`; `openspec validate component-state-language --json`
+  `valid: true` pós-sync; `openspec validate --specs` reporta **40 pass
+  / 8 fail** (mesmas 8 falhas pré-existentes broker-csv-* + dashboard-*
+  + import-* — sem regressão F10); `task db-reset` ok com
+  `italo=6/48/47 ana=6/52/52` (R02/F07 baseline match). Smoke
+  live 5.7: `bash scripts/print_lan_url.sh` → `http://192.168.1.6:8000`;
+  `curl /healthz` `{"status":"ok","db":"ok","service":"omaha"}`; login
+  Italo + select profile + GET `/` renderiza 2 `<hr class="section-divider">`
+  + 5 ocorrências de "RF Din" (classes seeded); GET `/rebalanceamento`
+  renderiza `<label class="input-prefix-wrap">` + `<span class="input-prefix">R$</span>`
+  + input intacto; GET `/import` form intacto.
+- Archived: done 2026-07-07; folder `openspec/changes/f10-component-state-language-and-table-pattern/`
+  → `openspec/changes/archive/2026-07-07-f10-component-state-language-and-table-pattern/`
+  via `openspec archive --yes --skip-specs` (sync manual pre-archive —
+  delta file promoted para `## Requirements` + Purpose section em
+  `openspec/specs/component-state-language/spec.md`); `openspec validate
+  component-state-language --json` continua `valid: true` pós-sync;
+  `openspec list --specs` agora reporta **48 specs** (47 pre + 1 new
+  `component-state-language`); `openspec list` zero active changes.
+  Consequências: T06 (visual regression baseline) promoted a Ready
+  puro (gate F08+F09+F10 atendido — F08 archived proposal-only, F09
+  applied, F10 applied); F11/F13 permanecem Blocked (D02 §Gate 4/5).
 
 ### F11 - Sidebar reintroduce (conditional on register A)
 Status: `Blocked` 2026-07-07 (register D02 = SI maximal; register ≠ A
