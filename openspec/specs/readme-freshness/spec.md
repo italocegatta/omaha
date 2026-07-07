@@ -108,4 +108,3 @@ and `mutation` (introduced by T03).
   resolves to an existing taskipy entry, and the table
   explicitly mentions `test-bdd`, `test-integration`, and
   `mutation`
-
