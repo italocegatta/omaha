@@ -132,12 +132,11 @@ def test_icon_base_class_declares_material_symbols_outlined() -> None:
     css = _read(APP_CSS_PATH)
     icon_match = re.search(r"\.icon\s*\{([^}]+)\}", css)
     assert icon_match is not None, (
-        "`.icon { ... }` base rule not found in app.css. "
-        "F12 D-F12.3 requires the icon base class."
+        "`.icon { ... }` base rule not found in app.css. F12 D-F12.3 requires the icon base class."
     )
     rule_body = icon_match.group(1)
     assert '"Material Symbols Outlined"' in rule_body, (
-        f"`.icon` rule does not declare font-family: \"Material Symbols Outlined\". "
+        f'`.icon` rule does not declare font-family: "Material Symbols Outlined". '
         f"Got: {rule_body!r}"
     )
 
@@ -171,8 +170,7 @@ def test_size_modifier_declares_documented_font_size(
     assert match is not None, f"Size modifier {modifier} not found in app.css"
     rule_body = match.group(1)
     assert f"font-size: {expected_size}" in rule_body, (
-        f"Size modifier {modifier} does not declare font-size: {expected_size}. "
-        f"Got: {rule_body!r}"
+        f"Size modifier {modifier} does not declare font-size: {expected_size}. Got: {rule_body!r}"
     )
 
 
@@ -288,6 +286,5 @@ def test_base_html_sair_action_uses_logout_icon() -> None:
     assert icon_block is not None, "logout-form not found in base.html"
     icons_in_form = _extract_icon_names(icon_block.group(0))
     assert "logout" in icons_in_form, (
-        f"Sair action does not render the `logout` icon. "
-        f"Icons present: {icons_in_form!r}"
+        f"Sair action does not render the `logout` icon. Icons present: {icons_in_form!r}"
     )
