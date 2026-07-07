@@ -26,6 +26,12 @@ FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures"
 def _clean_data() -> None:
     from omaha.db import SessionLocal
     from omaha.models import Asset, AssetClass, ImportPreview, Position
+    from tests.conftest import _verify_session_local_is_safe
+
+    # Defense-in-depth (2026-07-07 incident): refuse to wipe if
+    # SessionLocal is bound to prod. See tests/conftest.py module-load
+    # block for the primary isolation contract.
+    _verify_session_local_is_safe()
 
     db = SessionLocal()
     try:

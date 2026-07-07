@@ -21,6 +21,17 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     SECRET_KEY: str = ""
+    # NOTE: this default points at the LIVE prod DB
+    # (`./data/portfolio.db`). It is ONLY safe to rely on when running
+    # the dev server (`uv run task serve` / `uv run uvicorn …`) — i.e.
+    # when no test harness is involved. **The pytest suite MUST
+    # override this via ``tests/conftest.py`` module-load before any
+    # test module imports ``omaha.db.SessionLocal``**; if a test
+    # triggers a code path that imports this module first (without
+    # conftest having set the env), SessionLocal will bind to prod and
+    # any ``_wipe_tables`` / ``_seed_class`` helper will corrupt the
+    # household's portfolio DB. See PRD §4.12 + the module-load
+    # isolation contract in ``tests/conftest.py``.
     DATABASE_URL: str = "sqlite:///./data/portfolio.db"
     ADMIN_PASSWORD: str | None = None
 

@@ -35,7 +35,18 @@ POLICIES = {
 
 @pytest.fixture(autouse=True)
 def _wipe_tables() -> None:
-    """Wipe classes / assets / positions before each test for isolation."""
+    """Wipe classes / assets / positions before each test for isolation.
+
+    Defense-in-depth (2026-07-07 incident): calls
+    ``_verify_session_local_is_safe()`` before any delete. If
+    SessionLocal is bound to prod ``data/portfolio.db`` the test
+    HARD-FAILS with RuntimeError instead of wiping the household
+    portfolio. See ``tests/conftest.py`` module-load block for the
+    primary isolation contract.
+    """
+    from tests.conftest import _verify_session_local_is_safe
+
+    _verify_session_local_is_safe()
     db = SessionLocal()
     try:
         db.query(Position).delete()

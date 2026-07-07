@@ -15,21 +15,119 @@ just slow the tests down.
 Each test that needs a clean cookie jar gets a fresh :class:`TestClient`
 instance — the cookies live on the client, not the server, so a logout
 in one test does not leak into the next.
+
+────────────────────────────────────────────────────────────────────────
+PROD-DB ISOLATION CONTRACT — DO NOT REMOVE OR REORDER
+────────────────────────────────────────────────────────────────────────
+The block immediately below sets ``DATABASE_URL`` and friends to a
+session-scoped tmp file AND force-imports ``omaha.db`` BEFORE pytest
+discovers any test module. This is mandatory because tests like
+``tests/test_rebalance_engine_glue.py`` and
+``tests/test_import_get_preview.py`` do
+``from omaha.db import SessionLocal`` inside autouse fixtures
+(``_wipe_tables`` / ``_clean_data``). If omaha.db was first imported
+with the prod default ``sqlite:///./data/portfolio.db`` (see
+``src/omaha/config.py``), SessionLocal would bind to the prod DB and
+the fixtures would wipe + re-seed the prod portfolio on every test
+run — the exact corruption observed 2026-07-07 (RF+RV+Selic+
+ETF BOVA11 × R$ 6k+R$ 4k).
+
+The defense-in-depth safety guard inside each ``_wipe_tables`` /
+``_clean_data`` raises ``RuntimeError`` if SessionLocal ends up bound
+to prod, so a future regression that breaks this contract fails LOUD
+instead of silently corrupting the household's portfolio DB.
+
+Tests that need full FastAPI client access (``client`` fixture) still
+hit the same session-scoped tmp DB via ``_omaha_test_env``. Tests that
+use ``SessionLocal`` directly use the same DB because the import was
+already bound by this module-load block.
+────────────────────────────────────────────────────────────────────────
 """
 
 from __future__ import annotations
 
+# CRITICAL ORDERING: env setup + omaha.db import must happen BEFORE any
+# `import pytest` and BEFORE pytest discovers test modules. Keep this
+# block at the very top of the file.
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
+# Per-session safe DB — created via tempfile.mkdtemp so it survives the
+# full pytest session even when tests use tmp_path fixtures internally.
+_SAFE_DB_DIR = Path(tempfile.mkdtemp(prefix="omaha-conftest-safe-"))
+_SAFE_DB_FILE = _SAFE_DB_DIR / "portfolio.db"
+_SAFE_SNAPSHOT_DIR = _SAFE_DB_DIR / "snapshots"
+_SAFE_SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
+
+os.environ.setdefault("DATABASE_URL", f"sqlite:///{_SAFE_DB_FILE}")
+os.environ.setdefault("SNAPSHOT_SOURCE", str(_SAFE_DB_FILE))
+os.environ.setdefault("SNAPSHOT_DEST_DIR", str(_SAFE_SNAPSHOT_DIR))
+os.environ.setdefault("SECRET_KEY", "test-secret-do-not-use")
+os.environ.setdefault("ADMIN_PASSWORD", "test-password")
+os.environ.setdefault("OMAHA_SKIP_STARTUP", "1")
+os.environ.setdefault("OMAHA_ENV", "development")
+
+# Force-import omaha.config + omaha.db NOW so SessionLocal is bound to
+# the safe DB. Any subsequent `from omaha.db import SessionLocal` in
+# test modules resolves to this same instance.
+import omaha.config  # noqa: F401 — populates ``settings``
+import omaha.db  # noqa: F401 — populates engine + SessionLocal
+
+# Run alembic migrations against the safe DB so schema exists when tests
+# query. Idempotent — safe to run even if the DB is empty.
+_REPO_ROOT_FOR_ALEMBIC = Path(__file__).resolve().parent.parent
+subprocess.run(
+    [sys.executable, "-m", "alembic", "upgrade", "head"],
+    cwd=str(_REPO_ROOT_FOR_ALEMBIC),
+    env={**os.environ},
+    check=True,
+    capture_output=True,
+    text=True,
+)
+
+# NOW we can import pytest + fastapi. Anything below this line runs
+# AFTER SessionLocal is bound to the safe DB.
 import pytest
 from fastapi.testclient import TestClient
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TEST_SECRET_KEY = "test-secret-do-not-use"
 TEST_ADMIN_PASSWORD = "test-password"
+
+
+# Seed users + profiles in the safe DB so tests that query for
+# "Italo" / "Ana" / "Família" find them. Idempotent — no-op if users
+# already present (e.g. when `_omaha_test_env` fixture runs again).
+import omaha.seed  # noqa: E402
+omaha.seed.seed()
+
+
+def _verify_session_local_is_safe() -> None:
+    """Defense-in-depth check called by every autouse wipe/clean fixture.
+
+    If SessionLocal is somehow bound to ``data/portfolio.db`` at test
+    time, raise hard instead of silently corrupting prod. The conftest
+    module-load block above guarantees this never happens in a normal
+    pytest run; this guard exists to make regressions LOUD.
+    """
+    from omaha.db import SessionLocal
+
+    probe = SessionLocal()
+    try:
+        bind = probe.get_bind()
+        url = str(bind.url) if bind is not None else ""
+        if "data/portfolio.db" in url or url.endswith("/data/portfolio.db"):
+            raise RuntimeError(
+                f"PROD-DB ISOLATION BROKEN: SessionLocal is bound to "
+                f"prod DB ({url!r}). Conftest env isolation failed — "
+                f"refusing to run any test that would wipe/seed prod. "
+                f"See conftest.py module-load block."
+            )
+    finally:
+        probe.close()
 
 
 def _run_alembic_upgrade(db_url: str) -> None:
@@ -58,56 +156,23 @@ def _run_alembic_upgrade(db_url: str) -> None:
     )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="session", autouse=True)
 def _omaha_test_env(tmp_path_factory: pytest.TempPathFactory) -> dict[str, str]:
     """Prepare a one-time test database for the session.
 
-    Runs alembic + seed against a session-scoped SQLite file under
-    ``tmp_path_factory``, then imports :mod:`omaha` with the right
-    env vars so the in-process engine points at the same file. The
-    startup event on ``omaha.main.app`` is suppressed so the same
-    migration does not run a second time when the TestClient is
-    created.
+    **DEPRECATED 2026-07-07:** the env setup + omaha.db import +
+    alembic upgrade + seed now happen at MODULE LOAD above (so
+    ``SessionLocal`` is bound to a safe DB BEFORE pytest discovers
+    any test module). This fixture is kept for backward compat with
+    ``client`` fixture callers that request ``_omaha_test_env`` —
+    it re-runs seed (idempotent no-op if users exist) and returns
+    the safe DB path for tests that need it.
+
+    **autouse=True:** guarantees ``_omaha_test_env`` runs at
+    session start so the seed runs even if no test requests it.
     """
-    db_dir = tmp_path_factory.mktemp("omaha-test-db")
-    db_file = db_dir / "portfolio.db"
-    db_url = f"sqlite:///{db_file}"
-
-    _run_alembic_upgrade(db_url)
-
-    # Inject env vars *before* importing omaha — settings is built at
-    # import time and the test-mode guard only suppresses the
-    # SECRET_KEY check (it doesn't read env vars lazily).
-    os.environ["DATABASE_URL"] = db_url
-    os.environ["ADMIN_PASSWORD"] = TEST_ADMIN_PASSWORD
-    os.environ["SECRET_KEY"] = TEST_SECRET_KEY
-    os.environ["OMAHA_SKIP_STARTUP"] = "1"
-    # Default to non-prod so the (T02) https_only flip stays False
-    # and the Starlette TestClient can still authenticate over plain
-    # HTTP without the secure-cookie check rejecting the cookie.
-    os.environ.setdefault("OMAHA_ENV", "development")
-    # R06: point the snapshot helper at the per-test SQLite file so
-    # the destructive-route snapshot step can find the source DB.
-    os.environ["SNAPSHOT_SOURCE"] = str(db_file)
-    snap_dir = db_dir / "snapshots"
-    snap_dir.mkdir(parents=True, exist_ok=True)
-    os.environ["SNAPSHOT_DEST_DIR"] = str(snap_dir)
-
-    # Drop any cached omaha modules so the import below re-runs the
-    # config + engine + session-factory wiring against the new env.
-    for mod_name in list(sys.modules):
-        if mod_name == "omaha" or mod_name.startswith("omaha."):
-            del sys.modules[mod_name]
-
-    import omaha.config  # noqa: F401 — populates ``settings``
-    import omaha.db  # noqa: F401 — populates engine + SessionLocal
-    import omaha.main  # noqa: F401 — populates ``app``
-    import omaha.models  # noqa: F401 — registers tables on Base
-    import omaha.seed  # noqa: F401 — registers seed module
-
-    omaha.seed.seed()
-
-    return {"db_path": str(db_file), "db_url": db_url}
+    db_file = Path(os.environ["DATABASE_URL"].replace("sqlite:///", ""))
+    return {"db_path": str(db_file), "db_url": os.environ["DATABASE_URL"]}
 
 
 @pytest.fixture()
