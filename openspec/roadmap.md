@@ -1089,21 +1089,484 @@ Progress:
 - Archived: done 2026-07-07; `openspec archive i02-tls-cert-renewal-automation --yes` moveu folder para `openspec/changes/archive/2026-07-07-i02-tls-cert-renewal-automation/` e sincronizou delta → `openspec/specs/tls-cert-renewal/spec.md` (7 ADDED requirements: scheduled certbot renew + deploy hook reloads nginx + interval configurable + failed renewal does not stop scheduler + certbot container has write access to certificate directory + ACME http-01 challenge webroot shared + certbot service can be disabled without affecting other services; 14 scenarios totais); `openspec validate tls-cert-renewal --json` `valid: true`; `openspec validate --specs` confirma só as 8 falhas pre-existentes (broker-csv-*, dashboard-*, import-*) sem regressão; `openspec list --specs` 43 → 44 specs.
 
 ### D01 - Refresh do README
-Status: `Spec Proposed` (synced 2026-07-06 — folder exists with valid proposal)
+Status: `Archived`
 Goal: Atualizar README para refletir a surface atual. Em particular a
 seção "Network access" (PRD §4.2) e o bloco de features (já fechado após
 F01-F05). Garantir `bash scripts/print_lan_url.sh` referenciado.
 Candidate OpenSpec change id: `d01-refresh-readme`
-Spec link: `openspec/changes/d01-refresh-readme/`
+Spec link: `openspec/changes/archive/2026-07-07-d01-refresh-readme/`
 Files:
 - `README.md`
 Notes: Doc-only — sem teste runtime, sem `src/omaha/`. Rodar por último
 para refletir o estado pós-F-slice.
 Progress:
 - Proposed: done (2026-07-06; folder + proposal.md + design.md + tasks.md + spec delta; `openspec validate` `valid: true`)
-- Applying: pending
-- Applied: pending
-- Archived: pending
+- Applying: done 2026-07-07; 8-section rewrite landed — intro rewritten (Família aggregate, dark warm-neutral palette, 4-tab nav `/patrimonio`+`/rebalanceamento`+`/rentabilidade`+`/proventos`, M002 deferral removed, quotes + rebalancing shipped) + Quick start promotes `task serve` as canonical (raw `uvicorn` form shown as equivalent) + adds `task db-migrate`/`db-seed`/`db-reset` blocks with current baseline (italo=6/48/47, ana=6/52/52) + Dev tasks table expanded from 30 → 46 rows (added `test-bdd`, `test-integration`, `mutation`, `mutation-report`, `mutation-baseline`, `db-seed-from-csv`, `db-seed-diff`, `db-seed-upsert`, `db-clear-assets`, `prek-install`; tightened descriptions of `test-unit`/`test`/`coverage`/`db-snapshot`) + Production deploy §3 manual certbot block removed, replaced by cross-reference to **Operação / TLS renewal** (added by I02) + Backup section verified (host-cron block already gone per I01; scheduler section already cross-references the I01-owned path; Restore subsection kept verbatim) + Testing the app URL flipped to `/patrimonio`, sidebar Importar CSV instruction replaced by patrimonio-body buttons, profile-switcher lists `Italo` / `Ana` / `Família` (read-only aggregate), `db-snapshot` expected output updated to current ana counts (52/52), Patrimonio empty-state copy for Ana + Família clarified + Project layout tree fully rewritten (templates: `patrimonio.html` + six `_patrimonio_*.html` partials from R04, dropped `dashboard.html`/`_sidebar.html`; new top-level dirs: `nginx/`, `openspec/`, `prod.yml`; new `src/omaha/` subdirs `audit/`, `quotes/`, `rebalance/` + new files `logging_config.py`, `middleware.py`, `validators.py`; `scripts/dev_reset.py` (stale) replaced by `scripts/seed_from_csv/` package + `reset_both_profiles.py` + the new backup/certbot/mutation scripts) + Project specs section rewritten (`.gsd/` bullet list dropped — `STATE.md`, `ROADMAP.md`, `REQUIREMENTS.md`, `DECISIONS.md`, `KNOWLEDGE.md`, `milestones/M001/slices/`; replaced by `openspec/` list: `PRD.md` (10 standing rules §4), `roadmap.md` (F/R/T/D/I slice register), `specs/<capability>/` (44 stable contracts), `changes/<change-id>/` (1:1 slice mapping) + one-line pointer to `AGENTS.md` for agent routing table).
+- Applied: done (8.1 `openspec validate d01-refresh-readme --json` `valid: true`; 8.3 `task lint` green — prek checks all pass; 8.4 `bash scripts/print_lan_url.sh` → `http://192.168.1.6:8000`; `openspec validate --specs` 36 pass / 8 fail — same 8 pre-existing failures from I02 archive (broker-csv-*, dashboard-*, import-*) — no D01 regression; 8.2 deferred — spec lived in delta until archive sync)
+- Archived: done 2026-07-07; `openspec archive d01-refresh-readme --yes` moveu folder para `openspec/changes/archive/2026-07-07-d01-refresh-readme/` e sincronizou delta → `openspec/specs/readme-freshness/spec.md` (6 ADDED requirements — sem MODIFIED/REMOVED — sobre freshness do README refletindo a surface atual); `openspec validate readme-freshness --json` `valid: true`; `openspec validate --specs` 37 pass / 8 fail (sem regressão — mesmas 8 falhas pré-existentes); `openspec list --specs` agora inclui `readme-freshness`. Caveat pré-existente preservado: warning non-blocking em `proposal.md` ("Why section should not exceed 1000 characters") é noise estilístico, não bloqueia gate.
+
+### D02 - Decisão de register do design system (Status Invest inspired)
+Status: `Archived` 2026-07-07
+Goal: Owner decide entre A (Status Invest puro fintech-pro), B (híbrido
+estrutura SI + warmth Omaha), C (Moleskine+ caderno com dados vivos), D
+(outra referência que owner traz). Saída é um documento de direção:
+PRD §4.10 vira memorial descritivo (não prescritivo) e DESIGN.md
+§Color strategy + §Typography + §Component inventory refletem o register
+escolhido. Sem implementação de código — só decisão + atualização
+documental. Gate absoluto de F08+.
+Candidate OpenSpec change id: `d02-design-register-decision`
+Spec link: `openspec/changes/archive/2026-07-07-d02-design-register-decision/`
+Files:
+- `openspec/PRD.md` (§4.10 reescrita como memorial + §5.3 marcada)
+- `DESIGN.md` (§Color strategy + §Typography + §Component inventory
+  reescritos per register escolhido)
+- `openspec/.temp_assets/design-system-redesign-session-2026-07-06.md`
+  (sessão exploratória que alimenta a decisão; contém matriz
+  Roubar/Rejeitar/Reframear, opções A/B/C/D com mockups ASCII, 4
+  bugs concretos, 7 gates abertos)
+Notes: Doc-only — sem teste runtime, sem `src/omaha/`. **Gates
+resolvidos 2026-07-07**: (1) register = **SI maximal, sidebar NÃO**;
+(2) class-3 hue = **350 magenta-red**; (3) display face = **Red Hat
+Display**; (4) sidebar = **NÃO**; (5) light/dark toggle = **NÃO**;
+(6) body warmth = **hue 60 mantém**; (7) escopo = **3 fatias
+(F08+F09+F10)** + 2 conditionals (F12 icons yes; F11/F13 blocked).
+Section dividers hairline + eyebrow labels + compare bar + portfolio
+hero refinement + tabelas sticky/hover/total-row + rebalance warnings
+border-left + form R$ prefix todos INCLUSOS (per gate 1 maximal, sem
+sidebar). F11 Blocked (register ≠ A); F12 unblock (icons yes per
+register); F13 Blocked (owner não pediu). Sessão exploratória em
+temp file.
+
+**Apply landed 2026-07-07** — PRD §4.10 reescrita como memorial
+descritivo do register (sem prescrever tokens; tokens vivem em
+DESIGN.md); PRD §5.3 ganhou bullet "Gate D02 resolvido" listando
+F08-F10+F12 unblocked + F11/F13 effectively blocked; DESIGN.md §Register
+atualizado para "Status Invest maximal, sidebar não reintroduzida";
+DESIGN.md §Color strategy ganhou subseção "Target register (D02) — to
+materialize in F08" com diretrizes (emerald accent 0.68/0.20/152, fern
+positive 0.79/0.19/145, coral negative 0.69/0.20/25, class-3 magenta-red
+hue 350, warning amber 0.78/0.16/75, surface hue 60 mantida, 4 bugs a
+resolver); DESIGN.md §Typography reescrita (Inter variable body + Red
+Hat Display 700+ display; feature-settings `tnum, cv01, ss01, ss02`;
+scale com display Red Hat 700); DESIGN.md §Iconography reescrita
+("Material Symbols Outlined, scoped" com catalog de 10 icons: add,
+add_circle, upload, logout, close, warning, expand_more, expand_less,
+check_circle, help); DESIGN.md §Anti-patterns ganhou 3 entries
+(reintroduzir sidebar, adicionar light/dark toggle, estado implícito
+silencioso, action column sempre visível) + excȩção warning border-left
+4px; DESIGN.md §Migration path ganhou D02 row listando F08-F10+F12 que
+materializam as decisões; DESIGN.md §Components (initial inventory)
+ganhou vocabulário 5-state feedback (idle/hover/focus/disabled/error)
++ 4 extras (sticky `<thead>`, hover row bg lift, total row emphasis,
+action column só-on-hover) + 6 extras (section dividers, ::selection,
+form autofill override, eyebrow labels, compare bar 3 fills, form R$
+prefix, warning border-left 4px allow). Zero runtime code tocado.
+Sessão exploratória permanece em `openspec/.temp_assets/
+design-system-redesign-session-2026-07-06.md`.
+
+Progress:
+- Proposed: done 2026-07-07 (change folder
+  `openspec/changes/d02-design-register-decision/`; 4 artifacts
+  completos: `proposal.md` (Why + 7 gates resolved + Impact sobre
+  PRD + DESIGN) + `design.md` (5 decisions D-D02.1..D-D02.5) +
+  `tasks.md` (5 grupos, 22 checkboxes) + `specs/design-register-
+  decision/spec.md` (2 ADDED requirements: memorialize register in
+  PRD/DESIGN + D02 unblocks F08/F09/F10/F12; 7 scenarios total).
+  `openspec validate d02-design-register-decision --json` retorna
+  `valid: true`. Mudança entra no roadmap como D02 — gate absoluto
+  da frente visual registrado no slice.)
+- Applying: done 2026-07-07 (doc-only apply: 22/22 tasks
+  marcadas; PRD §4.10 + §5.3 + DESIGN.md §Register + §Color
+  strategy + §Typography + §Scale + §Iconography + §Components
+  inventory + §Anti-patterns + §Migration path atualizadas;
+  zero código runtime tocado; zero testes a rodar; zero
+  `refresh-for-test` necessário — registry é doc-only).
+- Applied: done 2026-07-07 (gate 5: `openspec validate d02-
+  design-register-decision --json` continua `valid: true`; nenhuma
+  spec runtime regrediu — 8 specs pré-existentes continuam
+  falhando (broker-csv-*, dashboard-*, import-*) — não relacionado
+  a D02; `task lint` verde — prek check-merge-conflict +
+  check-yaml + check-toml + check-json + check-added-large-files +
+  pytest-unit stub + detect-private-key + validate-pyproject +
+  detect-hardcoded-secrets todos passam; nenhuma test-suite
+  rodada necessária porque D02 não toca `src/omaha/**`).
+- Archived: done 2026-07-07; `mv openspec/changes/d02-design-
+  register-decision/ → openspec/changes/archive/2026-07-07-d02-
+  design-register-decision/`; spec delta synced via pré-sync
+  para `openspec/specs/design-register-decision/spec.md`
+  (Purpose section adicionada — doc-only register memorial com
+  descrição do register escolhido + papel de gate da frente
+  visual; `## ADDED Requirements` da delta promovido para
+  `## Requirements` da spec canônica; 2 requirements + 7
+  scenarios totais: PRD §4.10 memorial + DESIGN.md sections
+  + PRD §5.3 gate marker + D02 unblocks F08/F09/F10/F12 +
+  F11/F13 remain blocked). `openspec validate
+  design-register-decision --json` retorna `valid: true`
+  pós-archive sync; `openspec list --specs` agora reporta 46
+  specs (45 pre + 1 new `design-register-decision`); `task lint`
+  verde; 8 specs pré-existentes continuam falhando
+  (broker-csv-*, dashboard-*, import-*) — não relacionado a D02.
+  Consequências: F08 + F09 + F10 + F12 passam de "Ready (gate
+  D02)" para Ready puro (gate atendido) — próximos `next` calls
+  podem propor essas fatias; F11 + F13 promoted a Blocked
+  formal (sidebar reintroduce e light/dark toggle incompatíveis
+  com register SI maximal sem sidebar e dark-only respectivamente).
+
+### F08 - Palette overhaul v2 (apply D02 decision)
+Status: `Archived` (2026-07-07; **proposal-only — no implementation**)
+Goal: Aplica novos tokens per register escolhido em D02. Resolve 4 bugs
+identificados na sessão 2026-07-06: (1) colisão `--class-3` vs
+`--negative` (ambos hue 25, chroma 0.18 — classe vermelha e loss
+number são indistinguíveis); (2) `--positive` sem punch (L 0.70 →
+0.74-0.78 para "data signal" legível em body escuro); (3) `_CLASS_COLORS`
+Python hex drift vs CSS OKLCH (swatch usa inline hex, CSS tem token
+OKLCH paralelo, dois sistemas); (4) `--accent` vs `--positive`
+ambiguidade cromática (hue gap 5° + chroma invertido — verde de marca
+vs verde de ganho indistinguíveis). Adiciona `--bg-secondary` se 3-tier
+surface escolhido em D02. Re-deriva tokens em `app.css :root`,
+sincroniza `_CLASS_COLORS` em `routes/pages.py`, atualiza
+`tests/test_dark_mode_tokens.py`, sincroniza spec `color-tokens`.
+Candidate OpenSpec change id: `f08-palette-overhaul-v2`
+Spec link: `openspec/changes/archive/2026-07-07-f08-palette-overhaul-v2/`
+Files:
+- `src/omaha/static/app.css` (:root tokens re-derivados + possível
+  adição `--bg-secondary` + `--class-N-tint`)
+- `src/omaha/routes/pages.py` (`_CLASS_COLORS` tuple alinhada com
+  tokens OKLCH — substituir hex por `oklch(...)` strings)
+- `tests/test_dark_mode_tokens.py` (atualizar pares WCAG + adicionar
+  asserts pros novos tokens)
+- `openspec/specs/color-tokens/spec.md` (delta MODIFIED — pares
+  re-derivados per register escolhido)
+Notes: **D02 archived 2026-07-07** — gate resolvido; pode propor
+via `next` agora. Depende da direção D02 memorializada em PRD §4.10
++ DESIGN.md. Pode coexistir com F09 e F10 em Applying (cap 2
+global). Critical-area = visual surface = cap 1 Applying (dentro do
+domínio visual, F08 é a slice fundamental). Re-derivar tokens preserva
+invariantes da spec (hue family warmth preservado, AA contrast em
+todos os pares). **Alvos do D02** a materializar: emerald accent
+`0.68 0.20 152`, fern positive `0.79 0.19 145`, coral negative
+`0.69 0.20 25`, warning amber `0.78 0.16 75`, class-3 hue 350
+magenta-red (resolve colisão com `--negative`), `--positive`
+lightness-lifted (data signal legível em dark). 4 bugs pré-D02 a
+resolver: (1) colisão `--class-3` vs `--negative`; (2) `--positive`
+sem punch; (3) `_CLASS_COLORS` Python hex drift vs CSS OKLCH; (4)
+`--accent` vs `--positive` ambiguidade cromática. `--bg-secondary`
+se 3-tier surface escolhido (default mantém 2-tier).
+Progress:
+- Proposed: done 2026-07-07 (folder
+  `openspec/changes/f08-palette-overhaul-v2/`; 4 artifacts
+  completos: `proposal.md` (4 bugs do polish pass + D02 targets +
+  Impact sobre CSS/Python tuple/tests/DESIGN/spec) + `design.md`
+  (Context + Goals/Non-Goals + 8 decisions D-F08.1..D-F08.8 +
+  Risks/Trade-offs + Migration Plan + Open Questions) + `tasks.md`
+  (7 grupos, 38 checkboxes: CSS token re-derivação + Python tuple
+  alignment + test extension + spec sync + DESIGN.md sync + render
+  verification + archive) + `specs/color-tokens/spec.md` delta
+  (MODIFIED × 3 — bodies + scenarios estendidos com 4 invariantes
+  de ambiguidade: hue gap ≥320° class-3 vs negative + positive L
+  ≥ 0.74 + lightness-positive > lightness-accent + Python-vs-CSS
+  parity assertion + hue gap accent/positive ≥ 6°).
+  `openspec validate f08-palette-overhaul-v2 --json` retorna
+  `valid: true`. `openspec validate --specs` reporta 38 pass / 8
+  fail — mesmas 8 falhas pré-existentes (broker-csv-*, dashboard-*,
+  import-*) sem regressão F08.
+- Applying: **skipped** 2026-07-07 (owner pediu sync + archive
+  sem apply — proposta preservada como registro dos D02
+  materialization targets; implementação fica para futura
+  retomada. Reactivation path: `start f08` abre novo OpenSpec
+  change reaproveitando este proposal + design + tasks intactos;
+  ou `openspec-apply-change` contra o folder arquivado se owner
+  decidir reativar via restore. 0/38 tasks marcadas no apply;
+  tasks.md preservado como blueprint da implementação futura.)
+- Applied: **skipped** (proposal-only archive; nenhum código
+  tocado — `src/omaha/static/app.css` mantém tokens F05;
+  `_CLASS_COLORS` em `routes/pages.py` + `audit/inventory.py`
+  mantém hex literals pré-F08; `tests/test_dark_mode_tokens.py`
+  inalterado)
+- Archived: done 2026-07-07 (folder movido para
+  `archive/2026-07-07-f08-palette-overhaul-v2/`; spec delta
+  sincronizada manualmente pre-archive via sync-specs —
+  `openspec/specs/color-tokens/spec.md` agora descreve invariantes
+  post-F08 com 3 requirements + 12 scenarios + Purpose real
+  substituindo TBD; `openspec validate color-tokens --json` retorna
+  `valid: true` com 1 INFO não-bloqueante sobre requirement text
+  length). `openspec archive --yes --skip-specs` usado — flag
+  justificada porque sync foi feito manualmente antes do archive
+  command. `openspec validate --specs` continua 38 pass / 8 fail
+  pré-existentes sem regressão F08.
+
+### F09 - Typography refresh (display face + Inter feature-settings)
+Status: `Ready`
+Goal: Implementar escolha de display face de D02. Candidatos:
+Source Serif 4 (atual serif), Red Hat Display (sans Status Invest),
+IBM Plex Sans (character sans), Fraunces (optical sizing serif, mais
+"voz"). Adicionar Inter feature-settings completos: `tnum` (já tem)
++ `cv01` (1 com base serif), `ss01` (open digits 6/9), `ss02`
+(zero/O disambiguation). Atualizar font loading em `base.html`.
+Validar display face com `tnum` em portfolio header (serif pode ter
+tnum fraco — testar antes). Atualizar DESIGN.md §Typography +
+§Component inventory.
+Candidate OpenSpec change id: `f09-typography-refresh`
+Spec link: `openspec/changes/f09-typography-refresh/` (criada no propose)
+Files:
+- `src/omaha/templates/base.html` (Google Fonts URL estendido com
+  Inter variable + display face escolhido)
+- `src/omaha/static/app.css` (font-family chain atualizada +
+  feature-settings `tnum, cv01, ss01, ss02` em `body`)
+- `DESIGN.md` (§Typography reescrita per face escolhido)
+Notes: **D02 archived 2026-07-07** — gate resolvido (display face =
+**Red Hat Display** 700+; sans, não serif). Pode propor via `next`
+agora. Independente de F08 (paleta) e F10 (componentes) — pode
+rodar em paralelo (cap 2). Implementa Red Hat Display 700+ em
+`.portfolio-stat-value` (e otras hero numerals) + Inter variable body
+com feature-settings `tnum, cv01, ss01, ss02`. Remove Source Serif 4
+do plano anterior (D02 §Gate 3 = sem serif). Validação pré-apply: tnum
+em Red Hat Display é default — verificar se mantém tabular figures em
+700+ (testar render antes de shipping; se fraco, abrir `font-feature-
+settings: "tnum"` no seletor). Self-host vs Google Fonts é decisão de
+implementação — Google Fonts é default (mesmo padrão atual). Custo
+1-2h.
+Progress: (vazio)
+
+### F10 - Component state language (5-state) + data table pattern upgrade
+Status: `Ready`
+Goal: Implementar vocabulário completo de 5 estados (idle/hover/focus/
+disabled/error) em inputs, buttons, tabs, table rows. Implementar
+data table pattern upgrade: sticky headers, hover row bg lift, total
+row emphasis, action column só-on-hover. Adicionar section dividers
+hairline entre blocos. Adicionar selection color (`::selection` em
+`--accent`). Adicionar form autofill override. Polish barato, alto
+impacto. Aplicar em 10 templates: base, login, patrimonio (+4
+partials), classes, assets, rebalance (+2 partials), import +
+import_review, rentabilidade (F03 deferred — só se retomado), proventos
+(F04 deferred).
+Candidate OpenSpec change id: `f10-component-state-language-and-table-pattern`
+Spec link: `openspec/changes/f10-component-state-language-and-table-pattern/` (criada no propose)
+Files:
+- `src/omaha/static/app.css` (estados de 8 elementos + sticky
+  `.class-table thead` + `.asset-table thead` + hover row + total
+  row + dividers + `::selection` + `:-webkit-autofill` override)
+- `src/omaha/templates/base.html` (tab states idle/hover/focus)
+- `src/omaha/templates/login.html` (input states)
+- `src/omaha/templates/patrimonio.html` + 4 partials
+  (`_patrimonio_actions`, `_patrimonio_portfolio_header`,
+  `_patrimonio_class_section`, `_patrimonio_distribution`)
+- `src/omaha/templates/classes.html` (class table)
+- `src/omaha/templates/assets.html` (asset editor rows)
+- `src/omaha/templates/rebalance.html` + 2 partials (`_rebalance_plan`,
+  `_rebalance_placeholder`)
+- `src/omaha/templates/import.html` + `import_review.html`
+- `DESIGN.md` (§Component inventory + §Anti-patterns atualizado —
+  adicionar tabela de state feedback vocabulary)
+Notes: **D02 archived 2026-07-07** — gate resolvido (SI maximal =
+5-state vocabulary + table pattern upgrade INCLUÍDO). Pode propor
+via `next` agora. Independente de F08/F09 — pode rodar em paralelo
+(cap 2). Maior slice em volume de mudança (10 templates × 5 estados
+× 8 elementos = 40 micro-decisões visuais). **Vocabulário explícito
+(D02 §Gate 1)**: idle/hover/focus/disabled/error com fg/bg documentados
+em DESIGN.md §Components. **Table pattern upgrade**: sticky `<thead>`,
+hover row bg lift, total row emphasis (border-top 2px +
+font-weight 600), action column só-on-hover (`opacity: 0` idle →
+`1` no `tr:hover`). **Extras**: section dividers hairline,
+`::selection { background: var(--accent); color: var(--accent-ink) }`,
+form autofill override (`-webkit-text-fill-color: var(--ink)` + box-
+shadow inset), eyebrow labels `.label-xs`, form R$ prefix em aporte.
+Estima 4-6h de CSS. Não altera spec contracts — apenas polish visual
+em superfícies existentes. Requer regressão visual (T06) rodando
+contra baseline antes de apply.
+Progress: (vazio)
+
+### F11 - Sidebar reintroduce (conditional on register A)
+Status: `Blocked` 2026-07-07 (register D02 = SI maximal; register ≠ A
+→ effectively blocked per dependency. Slice preservada para
+auditoria; reactivate via `restore f11` apenas se owner ativamente
+pedir outra direção de design.)
+Goal: Reverter F02 — reintroduzir sidebar fixa 272px com logo SVG no
+topo + nav vertical (4 itens: Patrimônio / Rebalanceamento /
+Rentabilidade / Proventos) + ações (+ Classe, + Ativo, Importar) +
+Sair no rodapé. Top nav com 4 tabs sai. Sidebar persiste em todas as
+páginas autenticadas. Logo "Omaha" vira wordmark SVG (atualmente é
+texto serif em h1). Mobile: sidebar colapsa em drawer (toggle
+hamburger) ou esconde — decisão de implementação. Reverte D7
+(`dashboard-sidebar` spec REMOVED).
+Candidate OpenSpec change id: `f11-sidebar-reintroduce`
+Spec link: `openspec/changes/f11-sidebar-reintroduce/` (criada quando
+reativada; por ora não é proposta — slice Blocked)
+Files:
+- `src/omaha/templates/base.html` (sidebar substitui top nav)
+- `src/omaha/templates/_sidebar.html` (recriar — deletado em F02)
+- `src/omaha/static/app.css` (`.app-sidebar`, `.app-sidebar__item`,
+  `.app-sidebar__item--active` com left-border 4px accent,
+  `.app-sidebar__logo`, mobile drawer)
+- `src/omaha/templates/patrimonio.html` + 4 partials (ajustar
+  margin-left ou padding-left)
+- `src/omaha/templates/rebalance.html` + 2 partials (ajustar)
+- `src/omaha/templates/classes.html` + `assets.html` + `import.html`
+  + `import_review.html` + `login.html` (ajustar)
+- `static/logo.svg` (novo — wordmark, opcional)
+- `openspec/specs/dashboard-sidebar/spec.md` (delta reverter REMOVED)
+Notes: **Bloqueada por decisão D02 archived 2026-07-07** — owner
+escolheu register SI maximal sem sidebar (gate D02 §Gate 4 = NÃO).
+Top nav com 4 tabs de F02 é permanente. PRD §4.10 reescrito como
+memorial registrando a decisão; DESIGN.md §Anti-patterns ganhou
+"Reintroduzir sidebar" como entry formal. Slice preservada no
+roadmap como histórico/auditoria. Reactivation path: owner pedir
+explicitamente reverter o register → `restore f11` promove a Ready →
+propose/apply/archive. Critical-area = layout = cap 1 Applying se
+um dia voltar. Reverte decisão D7 do grill 2026-07-03 quando landa.
+Quebra alias `_sidebar.html` — verificar tests que importam o partial
+no apply. Estima 3-4h.
+Progress:
+- 2026-07-07: Blocked formal per D02 gate. Sem progress de execução.
+
+### F12 - Material Symbols icon system (conditional on register A/B)
+Status: `Ready` (Blocked se register C/D sem icons)
+Goal: Adicionar Material Symbols Outlined font (Google Fonts ou
+self-host). Substituir glyphs textuais (`×`, `−`, `▾`, `▶`) por icons.
+Adicionar icons em: action buttons (+ Classe, + Ativo, Importar, Sair),
+warnings (triangular), delete confirm (`close`), expand chevron
+(`expand_more`), theme toggle (sun/moon, se F13 também rodar).
+Stroke-based 1.5px conforme padrão anterior se mantido.
+Candidate OpenSpec change id: `f12-material-symbols-icons`
+Spec link: `openspec/changes/f12-material-symbols-icons/` (criada no propose)
+Files:
+- `src/omaha/templates/base.html` (Google Fonts URL para Material
+  Symbols Outlined)
+- `src/omaha/static/app.css` (`.icon`, `.icon--sm` 16px, `.icon--md`
+  20px, `.icon--lg` 24px)
+- `src/omaha/templates/_patrimonio_actions.html` (icons em buttons)
+- `src/omaha/templates/_patrimonio_class_section.html` (delete icon)
+- `src/omaha/templates/_rebalance_plan.html` (warning icon)
+- `src/omaha/templates/_patrimonio_add_asset_modal.html` (close icon)
+- `src/omaha/templates/import_review.html` (status icons)
+- `src/omaha/templates/login.html` (icon em botão submit, opcional)
+- `DESIGN.md` (§Iconography — atualmente "None required" vira
+  "Material Symbols, scoped")
+Notes: **D02 archived 2026-07-07** — gate resolvido (SI maximal
+INCLUI icons; catalog definido em D02 §Iconography / DESIGN.md
+§Iconography). Pode propor via `next` agora. Implementa Material
+Symbols Outlined (Google Fonts) com 10 icons: `add`, `add_circle`,
+`upload`, `logout`, `close`, `warning`, `expand_more`,
+`expand_less`, `check_circle`, `help`. Tamanhos CSS `.icon--sm`
+16px / `.icon--md` 20px / `.icon--lg` 24px; cor `currentColor`.
+Stroke-based SVG ad-hoc anterior fica deprecado. Cobre: action
+buttons (`+ Classe`, `+ Ativo`, `Importar`, `Sair` em
+`_patrimonio_actions` + `base.html`), delete confirm (`close` em
+`_patrimonio_class_section`), warning triangle (`warning` em
+`_rebalance_plan`), modal close (`close` em
+`_patrimonio_add_asset_modal`), expand chevron (`expand_more` /
+`expand_less` em `_patrimonio_class_section`), import status
+(`check_circle` / `help` em `import_review.html`). Custo 2-3h.
+Stroke-based 1.5px anterior não se mantém — Material Symbols é
+filled por default (variants do font).
+Progress: (vazio)
+
+### F13 - Light/dark toggle (conditional on owner request)
+Status: `Blocked` 2026-07-07 (D02 archived sem light/dark toggle —
+gate = NÃO; owner não pediu). Slice preservada para auditoria;
+reactivate via `restore f13` apenas se owner ativamente pedir.
+Goal: Reintroduzir light mode. Re-derivar TODOS os tokens em variante
+light (body off-white warm, surface lift via claridade inversa, ink
+dark warm-neutral, accent fern chroma-down para AA em light). Adicionar
+UI toggle no header (sun/moon icons). Persistir preferência em cookie
+ou localStorage. Adicionar `prefers-color-scheme` media query fallback.
+Reverte decisão D-F05.10 ("F05 dropped light/dark toggle
+deliberadamente").
+Candidate OpenSpec change id: `f13-light-dark-toggle`
+Spec link: `openspec/changes/f13-light-dark-toggle/` (criada quando
+reativada; por ora não é proposta — slice Blocked)
+Files:
+- `src/omaha/static/app.css` (`:root` light + `.dark` overrides +
+  `prefers-color-scheme` media query)
+- `src/omaha/templates/base.html` (toggle UI no header com icons
+  Material Symbols `light_mode` / `dark_mode`)
+- `src/omaha/static/theme.js` (novo — preference persistence + early
+  init script pra evitar FOUC)
+- `tests/test_dark_mode_tokens.py` (renomear + estender pra cobrir
+  light + dark)
+- `tests/test_light_mode_tokens.py` (novo)
+- `openspec/specs/color-tokens/spec.md` (delta ADDED — light variant
+  requirements)
+- `DESIGN.md` (§Color strategy estendido com light + dark)
+Notes: **Bloqueada por decisão D02 archived 2026-07-07** — owner
+escolheu register SI maximal sem light/dark toggle (gate D02 §Gate
+5 = NÃO). Dark-only D-F05.10 mantido. PRD §4.10 reescrito como
+memorial registrando a decisão; DESIGN.md §Anti-patterns ganhou
+"Adicionar light/dark toggle" como entry formal. Slice preservada
+no roadmap como histórico/auditoria. Reactivation path: owner pedir
+explicitamente toggle → `restore f13` promove a Ready → propose/apply
+/archive. Critical-area = visual surface = cap 1 Applying se um dia
+voltar. Maior slice em custo (4-6h estimadas) porque re-deriva TODOS
+os 17+ tokens em duas variantes + adiciona JS de persistência.
+**Não-default**: nunca promove automaticamente.
+Progress:
+- 2026-07-07: Blocked formal per D02 gate. Sem progress de execução.
+
+### R05 - Audit + migração de literais hex legados (residual F05)
+Status: `Ready`
+Goal: Migrar literais hex legados em `app.css` pra tokens. Identificado
+em polish pass F05 §Polish pass item 1+2 (residual documentado em
+DESIGN.md linhas 326-336). Inclui: 8 ocorrências `background: #fff`
+em `.class-color-swatch`, `.btn`, `.import-page`, `.class-table` etc.
+(calibrados pra `--surface = white`, agora sobre `--surface = dark
+warm-neutral` ficam ilhas brancas isoladas); 8 linhas `color-mix(in
+srgb, #<hex> 38%, var(--surface))` em `.import-class-cell--cls-{0..7}`
+(tints calibrados pra surface white, agora ficam saturados demais).
+Migra pra `var(--surface)` e `--class-N-tint` (novo token derivado
+de `--class-N` com lightness lift para AA em dark surface).
+Candidate OpenSpec change id: `r05-hex-literal-audit-and-migration`
+Spec link: `openspec/changes/r05-hex-literal-audit-and-migration/` (criada no propose)
+Files:
+- `src/omaha/static/app.css` (migra `background: #fff` → `var(--surface)`
+  nos 8 sites; migra `color-mix(... #<hex> 38% ...)` →
+  `color-mix(in srgb, var(--class-N) 38%, var(--surface))` ou novo
+  `--class-N-tint` token)
+- `src/omaha/templates/_patrimonio_add_asset_modal.html` (se hex
+  inline existir)
+- `openspec/specs/color-tokens/spec.md` (delta ADDED — `--class-N-tint`
+  requirement, 1 slot × 6 variants)
+- `DESIGN.md` (§Polish pass item 1+2 marcado done; §Migration path
+  atualizado)
+Notes: **D02 archived 2026-07-07** — gate resolvido. Depende de
+F08 (precisa dos novos tokens OKLCH pra derivar `--class-N-tint`
+corretamente) — gate D02 não era blocker direto, F08 é. Residual do
+polish pass F05 registrado em DESIGN.md §Polish pass items 1+2 antes
+de D02; após D02, esses items permanecem como candidates of R05.
+Mecânico, baixo risco. Estima 1-2h. Confirma pre-condition com
+`grep -nE '#fff|#ffffff' src/omaha/static/app.css` antes de propor
+pra contar sites exatos.
+Progress: (vazio)
+
+### T06 - Visual regression baseline (screenshot diffs)
+Status: `Ready`
+Goal: Adicionar baseline de testes de regressão visual via Playwright.
+Captura snapshot de 10 páginas em viewport padrão (1440×900) e
+viewport mobile (375×667). Baseline commitado em
+`tests/visual/baselines/`. Diff threshold 0.5% pixels diferentes por
+página (sugestão — owner decide). Roda como gate separado em CI (não
+bloqueia dev local por default). Cobre: login, patrimonio (logged in),
+classes, assets, rebalance (form + plan), import (form + review),
+rentabilidade, proventos, audit_report. Pre-requisito: F08 + F09 + F10
+já aplicados (captura baseline do design NOVO, não do atual — se rodar
+antes, baseline captura o velho e perde utilidade).
+Candidate OpenSpec change id: `t06-visual-regression-baseline`
+Spec link: `openspec/changes/t06-visual-regression-baseline/` (criada no propose)
+Files:
+- `tests/visual/` (novo diretório)
+- `tests/visual/conftest.py` (Playwright fixture + viewport config +
+  auth helper pra logar antes de capturar páginas autenticadas)
+- `tests/visual/test_snapshots.py` (10 page snapshot tests)
+- `tests/visual/baselines/` (PNGs baseline, committed)
+- `pyproject.toml` (taskipy `task test-visual`)
+- `.gitignore` (não ignorar `tests/visual/baselines/`)
+- `DESIGN.md` (§Polish pass — testing strategy)
+Notes: **D02 archived 2026-07-07** — gate resolvido. Depende de
+F08 + F09 + F10 (precisa do design novo aplicado pra capturar baseline
+significativa — se rodar antes, baseline captura o velho e perde
+utilidade). Rodar DEPOIS das 3 F-slice. Threshold 0.5% é sugestão
+inicial — owner ajusta conforme sensibilidade desejada. Custo 3-4h.
+Pode rodar em paralelo com R05 (não tocam nos mesmos arquivos).
+Progress: (vazio)
 
 ## Dependencies
 
@@ -1201,11 +1664,113 @@ deprecated 2026-07-06 saem do gate)
 Blocks: none
 Can run in parallel: yes
 
+### D02
+Depends on: none (sessão exploratória 2026-07-06 já capturada em
+`openspec/.temp_assets/design-system-redesign-session-2026-07-06.md`;
+owner precisa resolver 7 gates antes de propor)
+Blocks: F08, F09, F10, F12, R05, T06 (toda a série visual
+depende da decisão de register — R05 depende de F08 que depende de D02;
+T06 depende das 3 F-slice)
+Can run in parallel: yes (com qualquer F/R/T/I slice não-visual)
+Status: Applied pending archive 2026-07-07 (`d02-design-register-decision/`)
+
+### F08
+Depends on: D02 archived (gate resolvido 2026-07-07; register SI
+maximal memorializado em PRD §4.10 + DESIGN.md §Color strategy). F08
+precisa do register escolhido pra re-derivar tokens.
+Blocks: R05 (precisa dos novos tokens pra derivar `--class-N-tint`),
+T06 (precisa do design novo aplicado pra capturar baseline)
+Can run in parallel: yes (com F09, F10 em Applying — cap 2)
+
+### F09
+Depends on: D02 archived (gate resolvido 2026-07-07; display face
+Red Hat Display + Inter feature-settings completos).
+Blocks: T06
+Can run in parallel: yes (com F08, F10 em Applying — cap 2)
+
+### F10
+Depends on: D02 archived (gate resolvido 2026-07-07; 5-state + table
+pattern + extras INCLUSOS no register SI maximal).
+Blocks: T06
+Can run in parallel: yes (com F08, F09 em Applying — cap 2)
+
+### F11
+Depends on: D02 archived + register = A (sidebar só faz sentido em A)
+Blocks: T06
+Can run in parallel: yes (Blocked 2026-07-07 — register D02 = SI maximal,
+≠ A; slice preservada no roadmap como histórico)
+
+### F12
+Depends on: D02 archived (gate resolvido 2026-07-07; catalog Material
+Symbols definido em D02 §Iconography / DESIGN.md §Iconography).
+Icons INCLUSOS no register SI maximal (gate §Gate 1 = maximal inclui
+icons).
+Blocks: T06
+Can run in parallel: yes (com F08/F09/F10 — cap 2)
+
+### F13
+Depends on: D02 archived + owner explícito pedir light/dark toggle
+Blocks: T06
+Can run in parallel: yes (Blocked 2026-07-07 — owner não pediu toggle,
+D-F05.10 mantido; slice preservada como histórico)
+
+### R05
+Depends on: D02 archived (gate OK) + F08 (precisa dos novos tokens
+OKLCH pra derivar `--class-N-tint` corretamente; hex sweep só funciona
+pós-palette overhaul)
+Blocks: none
+Can run in parallel: yes (com T06, que não toca nos mesmos arquivos)
+
+### T06
+Depends on: F08 + F09 + F10 (precisa do design novo aplicado pra
+capturar baseline significativa — se rodar antes, baseline captura
+o velho e perde utilidade)
+Blocks: none
+Can run in parallel: yes (com R05)
+
 ## Recommended Execution Order
 
 Prioridade presume que o owner quer atacar mudanças estruturais primeiro
 (rebalance + páginas), qualidade em paralelo, e docs/infra no fim.
-**F03 + F04 movidas para o final** (deferral 2026-07-05, D-F03-defer).
+**F03 + F4 movidas para o final** (deferral 2026-07-05, D-F03-defer).
+
+### Fila ativa — design system redesign (gate D02 archived)
+
+Owner abriu frente visual 2026-07-06 (sessão exploratória capturada
+em `openspec/.temp_assets/design-system-redesign-session-2026-07-06.md`).
+Queixa: paleta "não está bonita" + "não ajuda a entender informação".
+Referência: Status Invest (investidor.statusinvest.com.br). PRD §4.10
+liberado como restrição; §4.1-§4.9 inalterados. **D02 archived
+2026-07-07** — gate resolvido; owner escolheu register SI maximal com
+7 decisões aplicadas (sidebar NÃO, class-3 hue 350, Red Hat Display,
+dark-only, hue 60 mantém, escopo 3 fatias). F11 + F13 promoted a
+Blocked (per register decision); F08 + F09 + F10 + F12 promoted a
+Ready puro (gate atendido).
+
+1. **D02 - design register decision** — archived 2026-07-07 (gate)
+2. F08 - palette overhaul v2 (tokens per register SI maximal; resolve
+   4 bugs concretos da paleta atual; alvos: emerald 0.68/0.20/152,
+   fern positive 0.79/0.19/145, coral negative 0.69/0.20/25, warning
+   amber, class-3 magenta-red hue 350)
+3. F09 - typography refresh (Red Hat Display 700+ + Inter feature-
+   settings `tnum, cv01, ss01, ss02`; pode rodar em paralelo com
+   F08/F10)
+4. F10 - component state language + table pattern (5-state feedback
+   idle/hover/focus/disabled/error + sticky `<thead>` + hover row bg
+   lift + total row emphasis + section dividers + form R$ prefix;
+   maior slice em volume, ~6h, 10 templates)
+5. F11 - sidebar reintroduce — **Blocked** (register ≠ A)
+6. F12 - material symbols icons (catalog definido em D02 §Iconography:
+   add / add_circle / upload / logout / close / warning / expand_*
+   / check_circle / help; roda em paralelo com F08/F09/F10)
+7. R05 - hex literal audit (mecânico; depende de F08 pra novos tokens;
+   pode rodar em paralelo com T06)
+8. T06 - visual regression baseline (Playwright screenshots; depende
+   de F08+F09+F10 aplicados; roda em paralelo com R05)
+9. F13 - light/dark toggle — **Blocked** (owner não pediu; D-F05.10
+   dark-only mantido)
+
+### Fila histórica (já arquivada — referência)
 
 1. R01 - cleanup (zero risk, prep do repo) — archived
 2. F02 - tab nav + side panel removal + stubs (foundation para F03-F04) — archived
@@ -1222,7 +1787,26 @@ Prioridade presume que o owner quer atacar mudanças estruturais primeiro
 13. T03 - mutation testing rebalance
 14. I01 - backup scheduling — archived 2026-07-06
 15. I02 - TLS cert renewal automation — archived 2026-07-07
-16. D01 - README refresh (último — reflete tudo acima)
+16. D01 - README refresh (último — reflete tudo acima; deferred atrás da fila visual)
+
+- **Fila visual D02-F08-F09-F10-F11-F12-R05-T06-F13 promoted 2026-07-06**:
+  owner abriu frente de redesign visual em sessão exploratória usando
+  Status Invest (investidor.statusinvest.com.br) como referência
+  primária. Queixas: paleta "não está bonita" + "em muitos casos não
+  ajuda o usuário a entender a informação". PRD §4.10 (register
+  "domestic, Moleskine, sem ornamento") foi liberado pelo owner como
+  restrição — pode ser reescrito. Constraints PRD §4.1-§4.9 (auth,
+  bind, seed, test markers, BDD, taskipy, refresh-for-test)
+  permanecem. Sessão completa em
+  `openspec/.temp_assets/design-system-redesign-session-2026-07-06.md`
+  (matriz Roubar/Rejeitar/Reframear, opções A/B/C/D com mockups
+  ASCII, 4 bugs concretos, 7 gates abertos). D02 é gate absoluto: sem
+  decisão de register, F08+ não podem propor. F11/F12/F13 são
+  conditional (dependem da direção D02 escolher). F08/F09/F10
+  podem correr em paralelo (cap 2). R05 é mecânico e roda em paralelo
+  com T06. T06 captura baseline visual do design NOVO, por isso
+  depende de F08+F09+F10 aplicados. D01 (README) deferido atrás da
+  fila visual — README precisa refletir surface pós-redesign.
 
 **Removidos da fila ativa 2026-07-06:**
 - F03 - rentabilidade page (Closed 2026-07-06 — D-F03-defer permanente)
@@ -1423,8 +2007,14 @@ indica onde a decisão vai ser aplicada (fatia + artefato).
 Onda recente: layout-foundation (F02 → T01 → T04) + household
 evolution (F01 → F06 → F07) + theme swap (F05) + refator
 estrutural (R03 — quote provider package; R04 — patrimonio
-partials). BDD drift ainda em fila (T05). Próxima onda candidata:
-quality + CI (T02 / T03) + doc (D01). F03 + F04 deferidas no fim.
+partials) + infra backup (I01) + TLS renewal (I02) +
+mutation testing (T03) + CI coverage (T02, deferred) + BDD
+step-def (T05) + README refresh (D01). **D02-applied 2026-07-07**
+abre frente visual pós-D02: F08 (palette overhaul v2) +
+F09 (typography refresh) + F10 (component state language +
+table pattern) + F12 (Material Symbols icons) ficam unblocked;
+F11 + F13 promoted a Blocked per register decision. Próxima
+`next` esperada: F08 (gate D02 resolvido).
 
 ## Post-implementation reality check
 

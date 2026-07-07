@@ -1,11 +1,15 @@
 # Omaha
 
-Self-hosted family investment portfolio tracker for two profiles (Italo and
-Ana Livia). FastAPI + SQLAlchemy 2 + SQLite + Jinja2 + Alpine.js.
+Self-hosted family investment portfolio tracker for the household — two
+real profiles (Italo and Ana Livia) plus a third read-only **Família**
+aggregate that joins both across every class. FastAPI + SQLAlchemy 2 +
+SQLite + Jinja2 + Alpine.js. Ships in a dark warm-neutral palette.
 
-Profile-aware asset tree with strict target validation, broker CSV import,
-and distribution visualization. Live quotes, BRL/USD conversion, and
-rebalancing are deferred to milestone M002.
+Profile-aware asset tree with strict target validation, broker CSV
+import, distribution visualization, CVXPY-based rebalancing, and live
+quotes via yfinance (BRL/USD conversion on the foreign side). The UI is
+a four-tab top-level nav: `/patrimonio`, `/rebalanceamento`,
+`/rentabilidade`, `/proventos`.
 
 ---
 
@@ -23,15 +27,28 @@ cp .env.example .env
 # Canonical default is `distendidos` — see AGENTS.md "Family password".
 
 # 3. Run the dev server. Bind to 0.0.0.0 — see "Network access" below.
-uv run uvicorn omaha.main:app --host 0.0.0.0 --port 8000
+#    Canonical invocation:
+uv run task serve
+#    Equivalent raw form (the task wraps this — see pyproject.toml):
+uv run uvicorn omaha.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Migrations and the family user/profiles seed run automatically on startup
 via the FastAPI lifespan hook. To run them by hand:
 
 ```bash
-uv run alembic upgrade head
-uv run python -m omaha.seed
+uv run task db-migrate
+uv run task db-seed
+```
+
+The canonical **destructive** reset for a manual import-flow test
+(re-seeds both profiles from the CSV triplet in one shot) is:
+
+```bash
+uv run task db-reset
+# expected:
+#   profile=italo mode=reset classes=6 assets=48 positions=47
+#   profile=ana   mode=reset classes=6 assets=52 positions=52
 ```
 
 ---
@@ -46,41 +63,51 @@ venv and runs the `task` console script); the same works as plain
 
 Discover them any time with `uv run task --list`.
 
-| Task            | What it does                                                                    |
-|-----------------|---------------------------------------------------------------------------------|
-| `serve`         | Start the dev server on `0.0.0.0:8000` with auto-reload.                        |
-| `serve-prod`    | Start the server without auto-reload (production-shaped).                      |
-| `test`          | Run the full test suite (unit + integration + e2e).                             |
-| `test-unit`     | Run unit and integration tests only (skip e2e).                                 |
-| `test-e2e`      | Run end-to-end (Playwright) tests.                                              |
-| `test-file`     | Run a specific test file: `task test-file tests/test_X.py`.                     |
-| `test-pattern`  | Run tests matching a name substring: `task test-pattern "smoke"`.                |
-| `test-one`      | Run a single test by node id: `task test-one tests/test_X.py::test_y`.          |
-| `lint`          | Run prek hooks: ruff format check, ruff --fix, hygiene.                         |
-| `format`        | Auto-format the codebase with ruff.                                              |
-| `check`         | CI-style gate: `lint` + `test-unit`.                                            |
-| `coverage`      | Run tests with coverage report (missing lines per module).                      |
-| `db-current`    | Show the current Alembic revision head.                                         |
-| `db-downgrade`  | Revert the last Alembic migration.                                              |
-| `db-history`    | Show the full Alembic migration timeline.                                       |
-| `db-migrate`    | Apply pending Alembic migrations.                                               |
-| `db-revision`   | Create a new Alembic revision: `task db-revision -m "add foo column"`.          |
-| `db-seed`       | Run the idempotent family + profiles seed.                                      |
-| `db-reset`      | Wipe + reseed BOTH profiles (Italo + Ana) for manual import-flow testing.       |
-| `db-snapshot`   | Export live DB state (classes + assets + positions) to `data/seed/*.csv` for both profiles. Internal dev tool. |
-| `docker-build`  | Build the dev Docker image from docker-compose.yml.                             |
-| `docker-down`   | Stop and remove the dev Docker Compose stack.                                   |
-| `docker-up`     | Start the dev Docker Compose stack in detached mode.                            |
-| `install`       | `uv sync` — install / sync locked dependencies into `.venv`.                    |
-| `install-e2e`   | One-time download of the Playwright Chromium browser.                           |
-| `prod-down`     | Stop and remove the production Docker Compose stack.                            |
-| `prod-logs`     | Stream logs from all production services.                                       |
-| `prod-rebuild`  | Rebuild the prod image and restart the stack.                                   |
-| `prod-up`       | Start the production Docker Compose stack.                                      |
-| `backup`        | Snapshot the prod DB to `./backups/` (one-off container from `prod.yml`).       |
-| `clean`         | Remove Python bytecode and tool caches (keeps `.venv` and `node_modules`).      |
-| `secret-key`    | Generate a cryptographically random SECRET_KEY.                                 |
-| `update`        | Upgrade all dependencies within version constraints.                            |
+| Task               | What it does                                                                    |
+|--------------------|---------------------------------------------------------------------------------|
+| `serve`            | Start the dev server on `0.0.0.0:8000` with auto-reload.                        |
+| `serve-prod`       | Start the server without auto-reload (production-shaped).                      |
+| `test`             | Run the full test suite (unit + integration + e2e + BDD).                       |
+| `test-unit`        | Pure-function tests — no DB, no HTTP, no Playwright.                            |
+| `test-integration` | Tests requiring DB, TestClient, or audit pipeline (full S0* + T0* route families). |
+| `test-e2e`         | End-to-end Playwright tests under `tests/e2e/`.                                 |
+| `test-bdd`         | BDD scenarios under `tests/bdd/` (pytest-bdd, real Chromium).                   |
+| `test-file`        | Run a specific test file: `task test-file tests/test_X.py`.                     |
+| `test-pattern`     | Run tests matching a name substring: `task test-pattern "smoke"`.               |
+| `test-one`         | Run a single test by node id: `task test-one tests/test_X.py::test_y`.          |
+| `lint`             | Run prek hooks: ruff format check, ruff --fix, hygiene.                         |
+| `format`           | Auto-format the codebase with ruff.                                             |
+| `check`            | CI-style gate: `lint` + unit/integration tests.                                 |
+| `coverage`         | Run unit + integration tests with coverage report (term-missing + XML).         |
+| `mutation`         | Run mutation testing on the rebalance solver + validation (scoped via `[tool.mutmut]` `only_mutate`; first run populates `mutants/`). |
+| `mutation-report`  | Render mutation results to stdout: per-status counts + killed share.            |
+| `mutation-baseline`| Capture the current mutation score to `.mutmut-baseline`.                       |
+| `db-current`       | Show the current Alembic revision head.                                         |
+| `db-downgrade`     | Revert the last Alembic migration.                                              |
+| `db-history`       | Show the full Alembic migration timeline.                                       |
+| `db-migrate`       | Apply pending Alembic migrations.                                               |
+| `db-revision`      | Create a new Alembic revision: `task db-revision -m "add foo column"`.          |
+| `db-seed`          | Run the idempotent family + profiles seed.                                      |
+| `db-seed-from-csv` | Wipe + reseed Italo from `data/seed/*.csv` (override with `-- --profile ana --mode diff`). |
+| `db-seed-diff`     | Print the CSV-vs-DB diff for Italo without writing (override with `-- --profile ana`). |
+| `db-seed-upsert`   | Reconcile Italo's DB with `data/seed/*.csv` (create-or-update, no delete). Override with `-- --profile ana`. |
+| `db-clear-assets`  | Delete ALL asset rows (keep classes intact).                                    |
+| `db-reset`         | Wipe + reseed BOTH profiles (Italo + Ana) from `data/seed/*.csv` in one invocation. |
+| `db-snapshot`      | Export live DB state (classes + assets + positions) to `data/seed/*.csv` for ALL canonical profiles (italo + ana). Internal dev tool. |
+| `docker-build`     | Build the dev Docker image from docker-compose.yml.                             |
+| `docker-down`      | Stop and remove the dev Docker Compose stack.                                   |
+| `docker-up`        | Start the dev Docker Compose stack in detached mode.                            |
+| `install`          | `uv sync` — install / sync locked dependencies into `.venv`.                    |
+| `install-e2e`      | Download the Playwright Chromium browser (one-time).                            |
+| `prek-install`     | Install prek git hooks (pre-commit, pre-push, commit-msg) into `.git/hooks/`.   |
+| `prod-down`        | Stop and remove the production Docker Compose stack.                            |
+| `prod-logs`        | Stream logs from all production services.                                       |
+| `prod-rebuild`     | Rebuild the prod image and restart the stack.                                   |
+| `prod-up`          | Start the production Docker Compose stack.                                      |
+| `backup`           | Snapshot the prod DB to `./backups/` (one-off container from `prod.yml`).       |
+| `clean`            | Remove Python bytecode and tool caches (keeps `.venv` and `node_modules`).      |
+| `secret-key`       | Generate a cryptographically random SECRET_KEY.                                 |
+| `update`           | Upgrade all dependencies within version constraints.                            |
 
 A few things worth knowing:
 
@@ -113,20 +140,13 @@ automatic path.
 #    (slim runtime, non-root, baked-in HEALTHCHECK against /healthz).
 docker build -t omaha:prod .
 
-# 2. Get a TLS cert. The recommended path is the certbot standalone
-#    challenge against the public DNS name you point at the host.
-#    (Replace omaha.example.com with your real hostname.)
-sudo certbot certonly --standalone -d omaha.example.com
+# 2. Bootstrap TLS. TLS cert renewal is automated by the `certbot`
+#    scheduler service in `prod.yml` (see **Operação / TLS renewal**
+#    below — added by I02). Run the **First-time setup** block once to
+#    obtain the initial cert + populate `./certs/`; the scheduler
+#    handles all subsequent renewals.
 
-# 3. Copy the cert chain into the ./certs bind mount that prod.yml
-#    wires into the nginx container. nginx reads fullchain.pem +
-#    privkey.pem from /etc/nginx/certs.
-sudo cp /etc/letsencrypt/live/omaha.example.com/fullchain.pem ./certs/
-sudo cp /etc/letsencrypt/live/omaha.example.com/privkey.pem   ./certs/
-sudo chown $USER:$USER ./certs/*.pem
-chmod 600 ./certs/privkey.pem
-
-# 4. Bring the stack up. nginx publishes 80 + 443; web listens on
+# 3. Bring the stack up. nginx publishes 80 + 443; web listens on
 #    127.0.0.1 inside its container and is reachable only via the
 #    internal docker network.
 docker compose -f prod.yml up -d
@@ -404,7 +424,7 @@ import-flow test:
 uv run task db-reset
 # expected:
 #   profile=italo mode=reset classes=6 assets=48 positions=47
-#   profile=ana   mode=reset classes=6 assets=~40 positions=~43
+#   profile=ana   mode=reset classes=6 assets=52 positions=52
 ```
 
 ### Snapshot the wallet state
@@ -419,8 +439,8 @@ db-snapshot` exports the live DB to the CSV triplet under
 uv run task db-snapshot
 # expected:
 #   italo: 6 classes, 48 assets, 47 positions -> 3 files written
-#   ana:   6 classes, ~40 assets, ~43 positions -> 3 files written
-#   snapshot OK: 196 rows across 6 files written
+#   ana:   6 classes, 52 assets, 52 positions -> 3 files written
+#   snapshot OK: 201 rows across 6 files written
 ```
 
 Inspect the change with `git diff data/seed/` and commit it if the
@@ -440,14 +460,20 @@ Then in the browser:
 1. Run `URL=$(bash scripts/print_lan_url.sh)/login` and open `$URL` in
    the browser. Sign in as `Italo` or `Ana` with the `ADMIN_PASSWORD`
    from your `.env`. Login lands directly on the named user's own
-   dashboard — no intermediate picker page.
-2. The dashboard renders the polished distribution view: portfolio
+   patrimonio — no intermediate picker page.
+2. The patrimonio renders the polished distribution view: portfolio
    header (invested / current / gain, BRL + %, color-coded), per-class
    sections with color swatches and a target-vs-current compare bar,
    and per-asset rows with progress bars (qty, current value, % of
-   class). Switch profiles via the header chip — any logged-in user
-   can view any profile.
-3. Click **Importar CSV** in the sidebar to test the CSV importer:
+   class). Switch profiles via the header profile-switcher — the
+   three options are `Italo`, `Ana`, and `Família` (the read-only
+   cross-User aggregate introduced by F07). Any logged-in user can
+   view any profile; the Família option is read-only by design.
+3. The four-tab top-level nav (`Patrimônio`, `Rebalanceamento`,
+   `Rentabilidade`, `Proventos`) lives under the header. The
+   **Importar CSV** button is in the patrimônio body (top of the
+   page, post-F02 redistribution — the side panel was removed). To
+   test the CSV importer:
    - The fixture at `tests/fixtures/sample_broker.csv` is the same
      file the e2e tests use: 48 rows, 43 auto-match against the
      seeded assets, 5 require manual category selection in the
@@ -456,11 +482,11 @@ Then in the browser:
      works end-to-end too. Note: 7 CDB/RDB rows with qty=`-` are
      dropped (parser limitation, not a bug).
 4. Confirm the import. Positions appear under each asset on the
-   dashboard; the distribution view re-renders with the new totals.
+   patrimonio; the distribution view re-renders with the new totals.
 
-For **Ana Livia** the dashboard is empty — all CRUD is per-profile and
-isolated. Sign out from the top-right menu; `/` then redirects to
-`/login`.
+For **Ana Livia** the patrimonio is empty until you import a CSV —
+all CRUD is per-profile and isolated. Sign out from the top-right
+menu; `/` then redirects to `/login`.
 
 Health check: `curl "$(bash scripts/print_lan_url.sh)/healthz"` returns
 `{"status": "ok"}`.
@@ -491,42 +517,85 @@ deps).
 
 ```
 omaha/
-├── src/omaha/            # FastAPI app
-│   ├── routes/           # auth, classes, assets, imports, pages, health
-│   ├── templates/        # base, login, profiles, dashboard,
-│   │                     #   import, import_review, classes, assets
-│   │                     #   (import, import_review, classes, assets
-│   │                     #    are retained as historical artifacts;
-│   │                     #    their routes 302 → / and they are not
-│   │                     #    reachable from the UI)
-│   ├── static/app.css
-│   ├── auth.py           # password hashing + session helpers
-│   ├── config.py         # pydantic-settings (reads .env)
-│   ├── csv_import.py     # parser + matcher
-│   ├── db.py             # SQLAlchemy 2.0 Base + Session
-│   ├── main.py           # create_app + lifespan
-│   ├── models.py         # User, Profile, AssetClass, Asset, Position, ImportPreview
-│   └── seed.py           # idempotent family + profiles seed
-├── alembic/              # migrations (0001–0005)
-├── scripts/dev_reset.py  # canonical dev DB reset for manual import tests
-├── tests/                # pytest suite (unit + integration + e2e/)
-├── data/portfolio.db     # SQLite (gitignored, created at startup)
-├── .env.example          # template for .env (gitignored real .env)
-├── pyproject.toml        # uv-managed Python project
-├── uv.lock               # locked dep set
-└── prek.toml             # ruff hooks (format + check)
+├── src/omaha/                  # FastAPI app
+│   ├── routes/                 # auth, classes, assets, imports, pages,
+│   │                           #   health, quotes, rebalance
+│   ├── templates/              # base, login, patrimonio (+ six partials),
+│   │                           #   rebalance, rentabilidade, proventos,
+│   │                           #   import, import_review, classes, assets,
+│   │                           #   profiles, audit_report
+│   │                           #   `templates/_patrimonio_*.html` partials
+│   │                           #   (actions, add_asset_modal, class_section,
+│   │                           #    distribution, empty_states, portfolio_header)
+│   │                           #   introduced by R04. import_review + the
+│   │                           #   legacy classes/assets/profiles pages are
+│   │                           #   retained as historical artifacts; their
+│   │                           #   routes 302 → /patrimonio.
+│   ├── static/app.css          # tokens + components (OKLCH palette)
+│   ├── audit/                  # contrast-audit CLI (omaha.audit.cli)
+│   ├── quotes/                 # quote provider package (R03 refactor)
+│   │   ├── __init__.py
+│   │   ├── cache.py            # in-memory + disk LRU cache
+│   │   ├── service.py          # yfinance adapter + fallback
+│   │   └── provider.py         # retired — `quotes/provider.py` was split
+│   │                           #   into the `quotes/` package by R03
+│   ├── rebalance/              # CVXPY solver + validation pipeline
+│   ├── auth.py                 # password hashing + session helpers
+│   ├── config.py               # pydantic-settings (reads .env)
+│   ├── csv_import.py           # parser + matcher
+│   ├── db.py                   # SQLAlchemy 2.0 Base + Session
+│   ├── logging_config.py       # ISO-8601 UTC structured logging
+│   ├── main.py                 # create_app + lifespan
+│   ├── middleware.py           # request-id + access log
+│   ├── models.py               # User, Profile, AssetClass, Asset,
+│   │                           #   Position, ImportPreview
+│   ├── seed.py                 # idempotent family + profiles seed
+│   └── validators.py           # target-validation helpers
+├── alembic/                    # migrations
+├── nginx/                      # nginx.conf (TLS terminator)
+├── openspec/                   # source-of-truth for product contract
+│   ├── PRD.md                  # capabilities + 10 standing rules (§4)
+│   ├── roadmap.md              # F/R/T/D/I slice register
+│   ├── config.yaml             # OpenSpec + roadmap token budgets
+│   ├── specs/<capability>/     # 44 stable capability contracts
+│   └── changes/<change-id>/    # active OpenSpec changes
+├── scripts/
+│   ├── seed_from_csv/          # CSV-driven seed package (R02 refactor)
+│   ├── reset_both_profiles.py  # canonical dev DB reset (`task db-reset`)
+│   ├── snapshot_to_csv.py      # DB → CSV (`task db-snapshot`)
+│   ├── backup.py + backup_scheduler.py  # prod hot snapshot + loop
+│   ├── certbot_loop.sh         # TLS renewal scheduler (I02)
+│   ├── print_lan_url.sh        # LAN URL discovery
+│   ├── mutation_baseline.py + mutation_report.py  # T03 mutation
+│   └── generate_contrast_audit.py  # thin wrapper over omaha.audit.cli
+├── prod.yml                    # production Docker Compose stack
+├── docker-compose.yml          # dev Docker Compose stack
+├── tests/                      # pytest suite (unit + integration + e2e/ + bdd/)
+├── data/portfolio.db           # SQLite (gitignored, created at startup)
+├── data/seed/                  # CSV triplets per profile (italo + ana)
+├── .env.example                # template for .env (gitignored real .env)
+├── pyproject.toml              # uv-managed Python project + taskipy tasks
+├── uv.lock                     # locked dep set
+└── prek.toml                   # ruff hooks (format + check)
 ```
 
 ---
 
 ## Project specs
 
-Current state, decisions, slice plans, and lessons live in `.gsd/`:
+Source-of-truth for product contract and execution plan lives in
+[`openspec/`](openspec/):
 
-- `STATE.md` — active milestone / slice, recent decisions, blockers
-- `ROADMAP.md` — milestone + slice plan
-- `REQUIREMENTS.md` — capability contract
-- `DECISIONS.md` — append-only decision register (caveman mode,
-  delivery protocol, etc.)
-- `KNOWLEDGE.md` — rules + lessons learned
-- `milestones/M001/slices/S##/` — per-slice plan, summary, UAT
+- [`openspec/PRD.md`](openspec/PRD.md) — capabilities inventory + 10
+  standing rules (§4 — operational invariants).
+- [`openspec/roadmap.md`](openspec/roadmap.md) — F / R / T / D / I slice
+  register with lifecycle `Ready → Spec Proposed → Applying → Applied
+  → Archived` (+ `Blocked`).
+- [`openspec/specs/<capability>/spec.md`](openspec/specs/) — stable
+  capability contracts (one folder per `SHALL` capability).
+- [`openspec/changes/<change-id>/`](openspec/changes/) — active OpenSpec
+  changes (each slice in the roadmap maps 1:1 to a folder here).
+
+The agent routing table — how AI sessions decide what to read, what
+to write, and which skill to delegate — lives in
+[`AGENTS.md`](AGENTS.md).

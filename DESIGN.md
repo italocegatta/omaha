@@ -7,13 +7,25 @@ toward the targets below.
 
 ## Register
 
+**Status Invest maximal, sidebar não reintroduzida.** Decisão owner
+2026-07-07 (D02 archived; memorial em `PRD.md` §4.10). Referência
+primária: investidor.statusinvest.com.br — pacote maximal: dados
+densos, sticky/hover/total em tabelas, dividers hairlines, eyebrow
+labels, compare bar, accents vivos. Top nav F02 (4 tabs) permanece;
+o maximalismo se materializa dentro das superfícies, não em nova
+chrome lateral. Sem light/dark toggle (dark-only D-F05.10
+mantido). Body warmth mantido (hue 60 warm-neutral, chroma ≈ 0.012)
+— calor migra para accent/coral/amber/magenta, não para o body
+cinza.
+
 Product — family portfolio app. Design serves the function. The dashboard
 is the most important surface; the editors and import flow are functional
 back-of-house.
 
 ## Color strategy
 
-**Inverted to dark warm-neutral. Register unchanged.**
+**Inverted to dark warm-neutral. Target register: Status Invest
+maximal (D02).**
 
 The body surface is a dark warm-neutral (`oklch(L≈0.18 hue≈60 chroma≈0.01)`),
 NOT pure black (`oklch(0 0 0)`) and NOT cold blue-gray (the GitHub-dark
@@ -31,6 +43,40 @@ Inverting is not introducing ornamentation. No gradient, no glow, no
 glassmorphism, no transition between themes. F05 is the new default;
 no toggle, no `prefers-color-scheme` media query — those would belong
 to a future slice if the owner asks for a light-mode option.
+
+### Target register (D02) — to materialize in F08
+
+D02 elegeu **Status Invest maximal** como register a perseguir. F08 é
+a fatia que materializa em CSS os tokens correspondentes. Até o
+archive de F08, este doc mantém a tabela "Tokens (current — post F05)"
+como verdade operativa; valores finais chegam com F08 landa.
+
+Diretrizes (targets, não prescritivas — F08 deriva números exatos):
+
+- **Accent**: emerald `oklch(0.68 0.20 152)` — punch + chroma up vs
+  current `0.68 0.13 150`. Separa "marca" de "ganho".
+- **Positive**: fern-leaning `oklch(0.79 0.19 145)` — mais chroma
+  (signal legível em body escuro) vs current `0.70 0.16 145`.
+- **Negative**: coral `oklch(0.69 0.20 25)` — chroma up vs current
+  `0.70 0.18 25`; mantemos hue 25 (coral).
+- **Class-3 hue destino: 350 magenta-red.** Separa classe 3 de
+  `--negative` por hue gap de 325° (categoria de ativo ≠ sinal de
+  perda). Drift atual: class-3 está em hue 25 (mesmo de negative).
+- **Warning**: amber `oklch(0.78 0.16 75)` — substitui
+  `oklch(0.70 0.12 85)`. Hue shift leve + chroma up.
+- **Surface**: warm-neutral dark, hue 60, chroma ~0.012 mantido.
+- **Bugs a resolver em F08** (4 itens da sessão 2026-07-06):
+  1. colisão `--class-3` vs `--negative` (ambos hue 25 chroma 0.18).
+  2. `--positive` sem punch (L 0.70 → 0.74-0.78 para "data signal"
+     legível em body escuro).
+  3. `_CLASS_COLORS` Python hex drift vs CSS OKLCH
+     (swatch usa inline hex, CSS tem token OKLCH paralelo).
+  4. `--accent` vs `--positive` ambiguidade cromática (hue gap 5°
+     + chroma invertido — verde de marca vs verde de ganho
+     indistinguíveis).
+- Adiciona `--bg-secondary` se 3-tier surface (D02 ficou em aberto —
+  default é manter 2-tier; F08 decide com base em render).
+- Tokens de classe re-derivados em OKLCH (mata o hex drift).
 
 ### Tokens (current — post F05)
 
@@ -123,34 +169,46 @@ The 7th+ class cycles via the existing `nth-of-type(6n+N)` rules in
 
 ## Typography
 
-**One family, multiple weights, with one serif display exception on the
-dashboard heading only.**
+**Inter variable body + Red Hat Display 700+ nas superfícies
+proeminentes de dados.** Decisão D02 (archived 2026-07-07) substitui
+o display serif (Source Serif 4 / IBM Plex Serif) por **sans**
+display — register maximalista lê fintech-pro em sans, não em serif.
+F09 materializa; até lá, o current é serif.
 
-- **UI sans**: `Inter` (self-hosted, with system fallback). Currently the
-  app uses `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-  sans-serif`; Inter is a clean upgrade with consistent metrics and good
-  tabular figures. Fall back to system if the font file is not loaded.
-- **Display serif (dashboard only)**: `Source Serif 4` (or `IBM Plex
-  Serif`) for the portfolio-header values and the "Italo" / "Ana Livia"
-  profile name. Used at most twice on the dashboard. NOT used in the
-  editors, NOT used on login, NOT used on the import flow. Serif in a
-  product register must be surgical or it reads as luxury.
-- **Numerics**: tabular figures (`font-feature-settings: "tnum"`) on
-  every number, percentage, and currency value. Spreadsheet look.
+- **UI sans**: `Inter` (Google Fonts, com system fallback). Already
+  on the system; upgrade para variable + feature-settings completos:
+  - `tnum` — tabular figures (já tem).
+  - `cv01` — 1 com base serif (estilo humanist).
+  - `ss01` — open digits 6/9.
+  - `ss02` — zero/O disambiguation.
+  Defaults preservados se a variable não carregar.
+- **Display sans**: `Red Hat Display` 700+, sans. Aplicada em
+  portfolio header (Investido / Valor Atual / Ganho), hero numerals
+  de outras superfícies, totals de tabela. Substitui o Source Serif
+  4 do plano anterior — sans reads mais maximalista. Self-host é
+  owner-decided (default: Google Fonts, mesmo pattern atual).
+- **Numerics**: tabular figures (`font-feature-settings: "tnum"`) em
+  todos os números, percentuais, e currency values. Spreadsheet look
+  mantido.
+- **Display + tnum convive**: Red Hat Display 700+ tem `tnum` ativo
+  por padrão, então tnum em portfolio header funciona sem override
+  (verificar no F09 antes de shipping — se fraco, abrir `font-
+  feature-settings: "tnum"` adicional no `.portfolio-stat-value`).
 
 ### Scale
 
 Body 16px / 1.55 line-height. Body line length capped at 65ch where
 possible (the dashboard naturally stays under 60ch at 760px max-width).
+Display sizes preenchem mais superfície (per SI maximal).
 
 | Role                | Size  | Weight | Letter-spacing       | Notes                          |
 |---------------------|-------|--------|----------------------|--------------------------------|
-| Display (h1)        | clamp(1.75rem, 3vw, 2.5rem) | 600 | -0.02em | `text-wrap: balance`   |
+| Display (h1)        | clamp(1.75rem, 3vw, 2.5rem) | 700 | -0.02em | Red Hat Display; `text-wrap: balance` |
 | Section heading (h2)| 1.1rem | 600    | -0.005em             |                                |
-| Body                | 1rem  | 400    | 0                    |                                |
-| Label / caption     | 0.78rem | 500 | 0.04em uppercase     | Reserved for class labels      |
-| Numeric (display)   | 1.4rem | 600   | -0.01em, tnum        | Portfolio header values        |
-| Numeric (inline)    | 0.92rem | 500 | tnum                 | Asset rows                     |
+| Body                | 1rem  | 400    | 0                    | Inter variable                 |
+| Label / caption     | 0.78rem | 500 | 0.04em uppercase     | Reserved for class labels; eyebrow labels per component inventory |
+| Numeric (display)   | 1.4rem | 700   | -0.01em, tnum        | Red Hat Display; portfolio header values |
+| Numeric (inline)    | 0.92rem | 500 | tnum                 | Inter; asset rows              |
 
 Letter-spacing floor: nothing tighter than -0.04em on display. The current
 CSS has no display letter-spacing declared; the polish pass sets -0.02em
@@ -191,11 +249,37 @@ No element gets a 24-32-40px radius. The class editor's 8px cards and
 
 ## Iconography
 
-None required for the polish pass. The current app uses no icons
-(`x` and `−` are text characters, not icon font). The compare bar and
-the per-asset progress bar are pure CSS. If a future surface needs an
-icon, use stroke-based monochrome SVG at 1.5px stroke and 18-20px
-viewport; never filled / duotone / colored icons.
+**Material Symbols Outlined (Google Fonts), scoped.** Decisão D02
+(archived 2026-07-07) — register SI maximal inclui icons nas
+superfícies cobertas; stroke-based SVG ad-hoc do plano anterior fica
+deprecado.
+
+- **Font**: `Material Symbols Outlined` (Google Fonts;
+  `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined`).
+  Default weight 400, optical size 24px, fill 0.
+- **Tamanhos (CSS classes)**:
+  - `.icon--sm` 16px — inline com body label.
+  - `.icon--md` 20px — botão padrão.
+  - `.icon--lg` 24px — hero / empty states.
+- **Cor**: herda `currentColor`. Não pintar com `--accent` ou
+  palette — icon deve ler como texto. Hover transitions seguem
+  table state (cor herdada muda com o estado).
+- **Catalog (D02 §Gate 1)** — surface-cobertura inicial:
+  - `+ Classe` — `add` (em `_patrimonio_actions`).
+  - `+ Ativo` — `add_circle` (em `_patrimonio_actions`).
+  - `Importar` — `upload` (em `_patrimonio_actions`).
+  - `Sair` — `logout` (em `base.html`).
+  - Delete confirm — `close` (em `_patrimonio_class_section`).
+  - Warning — `warning` (em `_rebalance_plan`).
+  - Expand chevron — `expand_more` / `expand_less`
+    (em `_patrimonio_class_section`).
+  - Modal close — `close` (em `_patrimonio_add_asset_modal`).
+  - Import status — `check_circle` (matched) / `help` (unmatched).
+  - Theme toggle (se F13 um dia unblock) — `light_mode` / `dark_mode`.
+- Fora do catalog: characters textuais `×`, `−`, `▾`, `▶` continuam
+  válidos para controle puramente tipográfico.
+- Self-host vs Google Fonts é decisão de implementação (D-F12
+  default: Google Fonts, mesmo pattern atual).
 
 ## Motion
 
@@ -233,29 +317,87 @@ means the lifted card surface (lightness `+0.04` over `--bg` post-
 F05 — cards lift via claridade, no `box-shadow`); "text" means the
 foreground color paired with that surface.
 
+**Vocabulário de estado (5-state feedback) — decisão D02.** Todos os
+elementos interativos (inputs, buttons, tabs, table rows) declaram 5
+estados. Cada estado tem um par fg/bg documentado e uma affordance
+explícita. F10 materializa; até lá, F05 já entrega idle + hover +
+disabled implícitos; foco e erro parciais.
+
+| State    | fg                | bg            | Affordance                                              |
+|----------|-------------------|---------------|---------------------------------------------------------|
+| `idle`   | `--ink`           | `--surface`   | repouso                                                 |
+| `hover`  | `--ink`           | `--surface` lifted via `--bg-hover`            | bg lift +1 L step                       |
+| `focus`  | `--ink`           | `--surface`   | `outline: 2px solid var(--color-focus); outline-offset: 2px` |
+| `disabled` | `--ink-muted`   | `--surface`   | `cursor: not-allowed`; opacity 0.6                       |
+| `error`  | `--error-fg`      | `--error-bg`  | inline message below input                              |
+
+**Table pattern upgrade — decisão D02.**
+
+- **Sticky headers**: `<thead>` com `position: sticky; top: 0;
+  background: var(--surface-sunk); z-index: 1` — scrolla junto
+  com a página, header sempre visível.
+- **Hover row bg lift**: `tr:hover td { background: var(--bg-hover)
+  }` — feedback tátil sem hover transition agressivo.
+- **Total row emphasis**: `<tr class="table-total">` ganha
+  `font-weight: 600; border-top: 2px solid var(--border-strong)`.
+- **Action column só-on-hover**: `<td class="row-actions">` opacity
+  0 idle, `1` no `tr:hover` — sem poluir a tabela quando não está
+  em uso.
+- **Numerics**: `font-variant-numeric: tabular-nums` global em
+  `<td>`; right-align em colunas de moeda/percentual.
+
+**Extras — decisão D02.**
+
+- **Section dividers**: `<hr class="section-divider">` —
+  `border-top: 1px solid var(--border)`; margin `24px 0`;
+  usado entre blocos em `Patrimônio` (portfolio header / classes
+  summary / distribution).
+- **`::selection`**: `::selection { background: var(--accent);
+  color: var(--accent-ink) }` — copy-paste legitima.
+- **Form autofill override**: `:-webkit-autofill { -webkit-text-
+  fill-color: var(--ink); box-shadow: 0 0 0 1000px var(--surface)
+  inset }` — Chromium/WebKit fill sólido.
+- **Eyebrow labels**: `<div class="label-xs">` — uppercase, 0.04em
+  tracking, cor `--ink-muted`. Reservado para section labels
+  acima de totals/stats.
+- **Compare bar pattern**: target vs atual vs over-target — 3 fills
+  stacked. Target `--border-strong` (gray), atual `--accent`
+  (verde-feto), over-target `accent + mix(--positive)` (verde
+  emphasized). Larguras respeitam `current <= target` sem overflow.
+- **Rebalance warnings border-left**: `.warning-line { border-left:
+  4px solid var(--negative); padding-left: 12px }` — único local
+  onde border-left > 1px é permitido (anti-pattern de border-left
+  genérico continua valendo).
+- **Form R$ prefix**: `<span class="input-prefix">R$</span>` à
+  esquerda de inputs numéricos em `Rebalance form` (aporte) e
+  campos de moeda similares. CSS only (não input decoration nativo
+  por causa de browser quirks).
+
 | Component           | Where                  | Tokens (fg / bg)                                    | Notes                                  |
 |---------------------|------------------------|-----------------------------------------------------|----------------------------------------|
-| App header          | `base.html`            | `--ink` on `--surface`; tab ink `--ink-muted`; tab hover / active `--ink`; tab active underline `--accent` | Logo on the left, top tab nav center, profile chip + signout on the right. Flat. |
-| Profile picker      | `profile-switcher` select (`base.html`) | `--ink` on `--surface`; hover border `--accent`     | Native `<select>` chip in the header. Wraps every profile in the DB. |
-| Tab nav             | `base.html`            | inactive tab `--ink-muted` on `--surface`; active tab `--ink` on `--surface` with `--accent` 2px underline | 4 tabs (Patrimônio / Rebalanceamento / Rentabilidade / Proventos). Active state via server-rendered `tab-nav__btn--active` modifier + `aria-current="true"`. Reuses the existing `--accent` token (no new color). |
-| Login               | `login.html`           | `--ink` on `--surface`; error `--error-fg` on `--error-bg` | Single field, single button, error inline. |
-| Portfolio header    | `patrimonio.html`      | `--ink` on `--surface`; gain `--positive` / `--negative` | Invested / current / gain. The hero. Wrapped by `data-testid="patrimonio-portfolio-header"` (F02 D3). |
-| Patrimonio actions  | `patrimonio.html`      | `--ink` on `--surface`; primary hover `--accent`    | Right-aligned top-of-body button row carrying the legacy sidebar triggers (``Importar CSV`` / ``+ Novo ativo`` / ``+ Nova classe``). Testids preserved verbatim. |
-| Class section       | `patrimonio.html`      | `--ink` on `--surface`; swatch `--class-{1..6}`     | Swatch + name + compare bar + asset list. |
-| Compare bar         | `patrimonio.html`      | target `--border-strong`; current `--accent`       | Two stacked fills: target (gray) and current (accent). |
-| Asset row           | `patrimonio.html`      | `--ink` on `--surface`; pct `--muted`; progress `--accent` | Name + value + pct + progress bar.     |
-| Class table         | `classes.html`         | `--ink` on `--surface`; total `--positive` / `--negative` | Editable rows, percent total at bottom. |
-| Asset editor        | `assets.html`          | `--ink` on `--surface`; remove hover `--error-fg` on `--error-bg` | Per-class sections, inline add/remove. |
-| Class delete confirm | `patrimonio.html`     | `--negative-ink` on `--negative`                    | Inline confirm; cancel `--ink` on `--surface`. |
-| Asset delete confirm | `patrimonio.html`     | `--negative-ink` on `--negative`                    | Inline confirm; cancel `--ink` on `--surface`. |
-| Rebalance form      | `rebalance.html`       | `--ink` on `--surface`; submit `--accent-ink` on `--accent`; inline error `--error-fg` on `--error-bg` | In-body form (F02 D9 — no sidebar slot). Input + submit on a single row. |
-| Rebalance plan      | `_rebalance_plan.html` | `--ink` on `--surface`; per-metric typography `--muted` | Card grid + sortable asset table + category summary + warnings list (F02 D5: no chip — `<code>` + body). |
-| Stub page           | `rentabilidade.html` / `proventos.html` | `--ink` on `--surface`; secondary `--muted`; border `--border-strong` dashed | F02 stub card. Single heading + one body line. F03 / F04 replace. |
-| Import form         | `import.html`          | `--ink` on `--surface`; submit `--accent-ink` on `--accent` | File picker, single submit.            |
-| Review table        | `import_review.html`   | `--ink` on `--surface`; matched summary `--positive-ink` on `--positive` (tinted via color-mix) | Auto-matched summary + unmatched select. |
+| App header          | `base.html`            | `--ink` on `--surface`; tab ink `--ink-muted`; tab hover / active `--ink`; tab active underline `--accent` | Logo on the left, top tab nav center, profile chip + signout on the right. Flat. Tabs ganham 5-state feedback (F10). |
+| Profile picker      | `profile-switcher` select (`base.html`) | `--ink` on `--surface`; hover border `--accent`     | Native `<select>` chip in the header. Wraps every profile in the DB. Sentinel Família (F07) dentro de `<optgroup>`. |
+| Tab nav             | `base.html`            | inactive tab `--ink-muted` on `--surface`; active tab `--ink` on `--surface` with `--accent` 2px underline | 4 tabs (Patrimônio / Rebalanceamento / Rentabilidade / Proventos). Active state via server-rendered `tab-nav__btn--active` modifier + `aria-current="true"`. Reuses the existing `--accent` token. Estados idle/hover/focus per F10. |
+| Login               | `login.html`           | `--ink` on `--surface`; error `--error-fg` on `--error-bg` | Single field, single button, error inline. 5-state input feedback (F10). |
+| Portfolio header    | `patrimonio.html`      | `--ink` on `--surface`; gain `--positive` / `--negative` | Invested / current / gain. The hero. Wrapped by `data-testid="patrimonio-portfolio-header"` (F02 D3). Red Hat Display 700+ via `.portfolio-stat-value` (F09). tnum ativo. |
+| Patrimonio actions  | `patrimonio.html`      | `--ink` on `--surface`; primary hover `--accent`    | Right-aligned top-of-body button row carrying the legacy sidebar triggers (``Importar CSV`` / ``+ Novo ativo`` / ``+ Nova classe``). Testids preserved verbatim. Icons Material Symbols per catalog (F12). |
+| Class section       | `patrimonio.html`      | `--ink` on `--surface`; swatch `--class-{1..6}`     | Swatch + name + compare bar + asset list. Sticky `thead` em tabela de assets (F10). |
+| Compare bar         | `patrimonio.html`      | target `--border-strong`; current `--accent`; over-target accent + `--positive` | Três fills stacked (D02 §Gate 1). Animation 0→400ms on load. |
+| Asset row           | `patrimonio.html`      | `--ink` on `--surface`; pct `--muted`; progress `--accent`; hover `--bg-hover` | Name + value + pct + progress bar. `tr:hover` bg lift per F10. |
+| Class table         | `classes.html`         | `--ink` on `--surface`; total row `font-weight: 600 + border-top: 2px var(--border-strong)` | Editable rows, percent total at bottom. Sticky `thead` + hover rows per F10. |
+| Asset editor        | `assets.html`          | `--ink` on `--surface`; remove hover `--error-fg` on `--error-bg` | Per-class sections, inline add/remove. Action column só-on-hover (F10). |
+| Class delete confirm | `patrimonio.html`     | `--negative-ink` on `--negative`                    | Inline confirm; cancel `--ink` on `--surface`. Icon `close` (F12). |
+| Asset delete confirm | `patrimonio.html`     | `--negative-ink` on `--negative`                    | Inline confirm; cancel `--ink` on `--surface`. Icon `close` (F12). |
+| Rebalance form      | `rebalance.html`       | `--ink` on `--surface`; submit `--accent-ink` on `--accent`; inline error `--error-fg` on `--error-bg` | In-body form (F02 D9 — no sidebar slot). Input + submit on a single row. R$ prefix em aporte (D02 §Gate 1). |
+| Rebalance plan      | `_rebalance_plan.html` | `--ink` on `--surface`; per-metric typography `--muted`; warning `border-left: 4px var(--negative) + padding-left: 12px` | Card grid + sortable asset table + category summary + warnings list (F02 D5: no chip — `<code>` + body). Warnings com border-left 4px (único allow per D02). |
+| Stub page           | `rentabilidade.html` / `proventos.html` | `--ink` on `--surface`; secondary `--muted`; border `--border-strong` dashed | F02 stub card. Single heading + one body line. F03 / F04 substituem (defer). |
+| Import form         | `import.html`          | `--ink` on `--surface`; submit `--accent-ink` on `--accent` | File picker, single submit. Autofill override per F10. |
+| Review table        | `import_review.html`   | `--ink` on `--surface`; matched summary `--positive-ink` on `--positive` (tinted via color-mix) | Auto-matched summary + unmatched select. Icons `check_circle` (matched) / `help` (unmatched) per F12. Sticky `thead` per F10. |
 | Import error        | `import.html`          | `--error-fg` on `--error-bg`                        | Inline error block (reuses `.error`).  |
 | Empty state         | various                | `--ink` on `--surface`; secondary `--muted`         | Single line, a link if actionable.     |
 | Error message       | various                | `--error-fg` on `--error-bg`                        | Inline, top of form. No toast.         |
+| Section divider     | various (`<hr>`)       | `border-top: 1px solid var(--border)`               | Entre blocos de Patrimônio (F10).       |
+| Eyebrow label       | various (`.label-xs`)  | `--ink-muted`                                       | Uppercase 0.04em tracking. Section labels acima de totals. |
 
 ## Anti-patterns (this project, named)
 
@@ -263,7 +405,10 @@ When the polish pass encounters one of these, the right move is to
 rewrite the element, not patch it:
 
 - `border-left` or `border-right` > 1px on any list item, card, or
-  callout. The current CSS does not have this; preserve that.
+  callout. **Única exceção**: warnings de rebalance carregam
+  `border-left: 4px solid var(--negative)` (D02 §Gate 1) — sinal
+  deve ser visualmente proeminente, e a alternativa (side-stripe
+  alert cheia) é pior. Fora de `.warning-line`, a regra se mantém.
 - Gradient text via `background-clip: text`. None currently; preserve.
 - Ghost cards (`1px border + drop-shadow ≥ 16px blur`). The current
   shadow is `0 1px 3px` which is below the threshold; the polish
@@ -271,12 +416,61 @@ rewrite the element, not patch it:
 - Side-stripe alerts. The error and empty-state elements use full-
   width backgrounds, not left stripes.
 - Eyebrow labels (small uppercase tracked text above every section).
-  The dashboard h2 is the only section heading; no eyebrow above it.
-  Section labels on the class table are the only "small uppercase"
-  text, and they are table column headers (a real, semantic role),
-  not section eyebrows.
+  The dashboard h2 is the only section heading; no eyebrow acima de
+  todo heading. Eyebrow labels são reservados para section labels
+  acima de totals/stats (ex: "TOTAL DA CLASSE" em `class section`
+  total row) — uso cirúrgico, não ubiquitous.
+- **Reintroduzir sidebar.** Decisão D02 (archived 2026-07-07):
+  top nav com 4 tabs de F02 é permanente; nenhuma fatia pode
+  reintroduzir chrome lateral. F11 (sidebar reintroduce) está
+  Blocked no roadmap com nota formal.
+- **Adicionar light/dark toggle.** Decisão D02: dark-only é o
+  default deliberado (F05 D-F05.10). F13 (light/dark toggle) está
+  Blocked; só promove a Ready se owner pedir ativamente.
+- **Estado implícito silencioso.** Todo elemento interativo
+  precisa de feedback explícito nos 5 estados (idle/hover/focus/
+  disabled/error). Botão sem hover bg é silent-failure — reescrever
+  com `.btn:hover { background: var(--bg-hover) }` antes de mover.
+- **Action column sempre visível.** Coluna de ação em tabela só
+  renderiza em `:hover` da linha — tabelas sem poluição visual
+  default. Idem buttons destroy/confirm: `close` icon só após
+  hover.
 
 ## Migration path
+
+### D02 (design register decision) — gate resolvido 2026-07-07
+
+Decisão de register não toca código — materializa-se nas fatias da
+frente visual:
+
+- **F08** (palette overhaul v2) — re-deriva tokens per SI maximal
+  (4 bugs concretos: colisão `--class-3` vs `--negative`,
+  `--positive` sem punch, `_CLASS_COLORS` hex drift, ambiguidade
+  `--accent` vs `--positive`). Toca em `app.css :root` +
+  `routes/pages.py::_CLASS_COLORS` +
+  `tests/test_dark_mode_tokens.py` + `color-tokens` spec delta.
+- **F09** (typography refresh) — Red Hat Display 700+ portfolio
+  header + Inter variable `tnum, cv01, ss01, ss02`. Toca em
+  `base.html` Google Fonts URL + `app.css` font-family chain +
+  `DESIGN.md` §Typography já reescrita.
+- **F10** (component state language + table pattern) — 5-state
+  feedback (idle/hover/focus/disabled/error) + sticky `<thead>` +
+  hover row bg lift + total row emphasis + action column
+  só-on-hover + section dividers + `::selection` + autofill
+  override + eyebrow labels. 10 templates × 8 elementos × 5
+  estados = ~40 micro-decisões. Pode rodar em paralelo com F08/F09
+  (cap 2 Applying).
+- **F12** (Material Symbols icons) — catalog definido em D02
+  §Iconography acima. Toca em `base.html` Google Fonts URL +
+  `app.css` `.icon--sm/md/lg` + 5 templates parciais.
+- **F11 / F13** — Blocked por decisão D02 (sidebar reintroduce
+  bloqueada; light/dark toggle bloqueada). Permanecem no roadmap
+  como histórico com nota formal.
+
+Todas as 4 fatias materializam invariantes documentadas aqui
+(maior fatia em volume = F10). Tokens finais chegam com F08
+archive — tabela "Tokens (current — post F05)" desta doc
+permanece como verdade operativa até lá.
 
 ### F05 (dark mode palette swap) — current
 

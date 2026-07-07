@@ -1,9 +1,5 @@
-# color-tokens Specification
+## MODIFIED Requirements
 
-## Purpose
-CSS custom-property color tokens defined in `src/omaha/static/app.css :root`, paired with documented WCAG 2.1 AA contrast ratios. Tokens are dark warm-neutral (post-F05 inversion, hue 60 body warmth preserved), re-derived against the Status Invest maximal register per D02 (post-F08): emerald accent, fern-leaning positive, coral negative, magenta-red class-3 to disambiguate from negative, amber warning. Foreground/background pairs resolve four ambiguity invariants — hue gap, lightness hierarchy, chromatic separation, Python-vs-CSS tuple parity.
-
-## Requirements
 ### Requirement: Design tokens define unambiguous foreground/background pairs
 
 The system SHALL define a complete set of CSS custom properties in `app.css` `:root` block where every foreground token is paired with a background token and every pair meets WCAG 2.1 AA contrast on the dark surface (`--bg: oklch(L≈0.18 hue≈60 chroma≈0.01)` warm-neutral, NOT pure black, NOT cold blue-gray). Color tokens SHALL resolve four ambiguity invariants documented in the D02 redesign session: (a) `--class-3` and `--negative` SHALL differ by ≥ 320° hue so a red class swatch is chromatically distinguishable from a red loss number; (b) `--positive` SHALL sit at lightness ≥ 0.74 so the "data signal" reads as bright against the dark body; (c) the Python `_CLASS_COLORS` tuple SHALL mirror the `--class-N` tokens (one source of truth — no hex-vs-OKLCH drift); (d) `--accent` and `--positive` SHALL differ by ≥ 6° hue with positive lightness ≥ accent lightness, so the brand-mark-green and the gain-green are visually distinct.

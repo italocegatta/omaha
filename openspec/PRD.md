@@ -548,30 +548,62 @@ Se qualquer coluna estiver abaixo do esperado, o reset não rodou
 (ou rodou só para um perfil). O agente deve re-rodar
 ``task db-reset`` antes de declarar done.
 
-### 4.10 Register de produto — domestic, sem ornamento
+### 4.10 Register de produto — Status Invest maximal, sidebar não reintroduzida (memorial)
 
-Regras vinculantes, destiladas de `PRODUCT.md` §Brand Personality +
-§Anti-references (que é a fonte canônica de voz). Mudanças precisam de
-aprovação do owner.
+Resolvido pelo owner em **2026-07-07** durante a sessão de redesign
+visual (capturada em
+`openspec/.temp_assets/design-system-redesign-session-2026-07-06.md`).
+Este parágrafo é **memorial descritivo**, não prescrição de tokens —
+valores vivem em `DESIGN.md` §Color strategy + §Typography.
 
-- **Domestic, personal, lived-in.** Não premium (sem oxblood, sem dourado).
-  Não playful (sem ilustrações, sem mascot). Mais perto de um Moleskine
-  bem usado do que de fintech app.
-- Voz: terceira pessoa, matter-of-fact, PT-BR. Sem exclamação. Sem
-  "Welcome back!". Sem marketing copy em lugar nenhum.
-- Dashboard é vista doméstica, não portfolio dashboard. Quando Ana Livia
-  não tem posições, o empty state diz quietamente que a conta existe e
-  nada está nela.
-- Cor de body é **neutro escuro quente** (`oklch(L≈0.18 hue≈60
-  chroma≈0.01)`), não preto puro nem cinza frio. Hue 60 preservado da
-  paleta original; calor vive no accent (verde-feto, hue 150) e em
-  lifts sutis de lightness em surfaces — superfícies levantam por
-  claridade, não por sombra. Swatches de classe são versões clareadas
-  dos mesmos hues para manter contraste AA no fundo escuro. **Inverter
-  não é introduzir ornamentação**: mesma surface plana, sem gradient,
-  sem glow, sem glassmorphism, sem transition entre temas.
-- Sem ícones. Sem gradient text. Sem side-stripe alerts. Sem eyebrow acima
-  de todo heading. Cards são flat ou shadowed, nunca ambos.
+Decisões owner (7 gates, fontes canônicas: D02 archived):
+
+- **Register escolhido: Status Invest maximal.** Status Invest
+  (investidor.statusinvest.com.br) é referência primária de fintech
+  para-investidor brasileiro. O maximalismo significa adotar o pacote
+  completo: dados densos, separação clara de regiões,
+  sticky/hover/total em tabelas, dividers hairlines, eyebrow labels,
+  compare bar, accents vivos. Não é uma "página bonita" — é uma
+  página que ajuda a ler dados financeiros sem dúvida.
+- **Sidebar reintroduzida: NÃO.** Top nav com 4 tabs de F02 é
+  preservado. Direção maximal se materializa dentro das
+  superfícies top-nav existentes (Patrimônio / Rebalanceamento /
+  Rentabilidade / Proventos), não em nova chrome lateral.
+- **Class-3 hue destino: 350 magenta-red.** Separa classe 3 de
+  `--negative` (hue 25 coral) por hue gap de 325° — duas categorias
+  de leitura distintas (categoria de ativo vs. sinal de perda).
+- **Display face: Red Hat Display (sans, 700+).** Pair com Inter
+  variable body. Aplicada em portfolio header e outras superfícies
+  proeminentes de dados (hero numerals, totals). Remoção do
+  Source Serif 4 — sans reads mais fintech-pro que serif.
+- **Light/dark toggle: NÃO.** Dark-only permanece (F05 D-F05.10).
+  Sem `prefers-color-scheme` media query.
+- **Body warmth mantido: hue 60 warm-neutral (chroma ≈ 0.012).**
+  Mesma base do F05; o calor migra para accent/coral/amber/magenta,
+  não para o body cinza.
+- **Escopo de entrega: 3 fatias** + 2 conditionals.
+  - F08 palette overhaul v2 — re-deriva tokens per SI maximal,
+    resolve 4 bugs concretos identificados na sessão 2026-07-06.
+  - F09 typography refresh — Red Hat Display + Inter feature-
+    settings completos (`tnum, cv01, ss01, ss02`).
+  - F10 component state language + table pattern — 5 estados
+    (idle/hover/focus/disabled/error) + sticky headers + hover
+    row bg lift + total row emphasis + dividers + `::selection`.
+  - F12 Material Symbols icons (conditional: per SI maximal, icons
+    INCLUSOS — `+ Classe`, `+ Ativo`, `Importar`, `Sair`,
+    warning triangle, `close`, `expand_more`).
+  - F11 sidebar reintroduce (conditional: **efetivamente Blocked**
+    porque register ≠ A).
+  - F13 light/dark toggle (conditional: **efetivamente Blocked**
+    porque owner não pediu toggle; F05 D-F05.10 mantém-se).
+
+Invariantes PRD §4.1-§4.9 **inalteradas** (auth, network bind,
+seed via CSV, Alpine binding gotcha, import preview sync, test
+markers, BDD workflow extraction, taskipy, refresh-for-test).
+Apenas §4.10 foi reescrita como memorial.
+
+Token values, hex/OKLCH specifics, e refinos de tipografia/tabelas/
+estado vivem em `DESIGN.md` — esta seção não prescreve numbers.
 
 ---
 
@@ -702,6 +734,36 @@ indica o kind sugerido:
   `nginx/` mas renovação é manual.
 - **D — refresh do README para refletir surface atual.** Em particular,
   a seção "Network access" e o bloco de features.
+
+> **Gate D02 resolvido 2026-07-07** — owner escolheu o register
+> Status Invest maximal após sessão exploratória em
+> `openspec/.temp_assets/design-system-redesign-session-2026-07-06.md`.
+> §4.10 deste PRD foi reescrita como memorial descritivo do register
+> escolhido. Consequências para as fatias da frente visual:
+>
+> - **Unblocked** (gate D02 atendido; podem ser promovidas a `propose`
+>   via `next` em `openspec/roadmap.md`):
+>   - `f08-palette-overhaul-v2` — re-deriva tokens per SI maximal
+>     (resolve 4 bugs concretos: colisão `--class-3` vs `--negative`,
+>     `--positive` sem punch, drift hex→OKLCH, ambiguidade
+>     `--accent` vs `--positive`).
+>   - `f09-typography-refresh` — Red Hat Display 700+ + Inter
+>     feature-settings completos (`tnum, cv01, ss01, ss02`).
+>   - `f10-component-state-language-and-table-pattern` —
+>     5-state feedback + table pattern upgrade + dividers +
+>     `::selection` + autofill override.
+>   - `f12-material-symbols-icons` — icons nos pontos cobertos (add
+>     class, add asset, import, signout, warning triangle, close,
+>     expand chevron); catalog definido em D02 §Iconography.
+> - **Efetivamente Blocked** (gate D02 = NÃO para essas direções):
+>   - `f11-sidebar-reintroduce` — Blocked. Register ≠ A; top nav F02
+>     preservada. Slice vira histórico no roadmap com nota
+>     "register chose SI maximal without sidebar".
+>   - `f13-light-dark-toggle` — Blocked. Owner não pediu toggle;
+>     F05 D-F05.10 (dark-only deliberado) mantido.
+>
+> Próximo passo operacional: `next` em `openspec/roadmap.md` pega a
+> fatia Ready de maior prioridade (F08 esperado).
 
 ### 5.4 Ponteiro para o roadmap
 
