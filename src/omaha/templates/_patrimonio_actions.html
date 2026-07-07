@@ -4,19 +4,19 @@
             class="btn patrimonio-action-btn"
             data-testid="dashboard-import-btn"
             @click="$store.importModal.openModal()">
-      Importar CSV
+      <span class="icon icon--md" aria-hidden="true">upload</span> Importar CSV
     </button>
     <button type="button"
             class="btn patrimonio-action-btn"
             data-testid="dashboard-add-asset-open"
             @click="$store.addAssetModal.openModal()">
-Novo ativo
+      <span class="icon icon--md" aria-hidden="true">add_circle</span> Novo ativo
     </button>
     <button type="button"
             class="btn patrimonio-action-btn"
             data-testid="empty-state-create-class"
 @click="$store.newClassModal.openModal()">
-      Nova Classe
+      <span class="icon icon--md" aria-hidden="true">add_circle</span> Nova classe
     </button>
   </section>
   {% endif %}

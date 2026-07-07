@@ -18,6 +18,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&family=Red+Hat+Display:wght@700;800&display=swap">
+  {# F12 — Material Symbols Outlined icon font. Catalog scoped to 10
+     names (see DESIGN.md §Iconography + iconography-tokens spec).
+     Out-of-catalog requests require a new OpenSpec change. #}
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined">
   <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script>
     /* rebalance-page — the "Rebalancear" form component. Defined on
@@ -155,7 +159,7 @@
       {# Logout form: class renamed from profile-switcher so the
          new chip can honestly claim that class name. #}
       <form class="logout-form" method="post" action="/logout">
-        <button type="submit">Sair</button>
+        <button type="submit"><span class="icon icon--md" aria-hidden="true">logout</span> Sair</button>
       </form>
       {% endif %}
     </div>

@@ -260,7 +260,7 @@ superfícies cobertas; stroke-based SVG ad-hoc do plano anterior fica
 deprecado.
 
 - **Font**: `Material Symbols Outlined` (Google Fonts;
-  `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined`).
+  `https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined`).
   Default weight 400, optical size 24px, fill 0.
 - **Tamanhos (CSS classes)**:
   - `.icon--sm` 16px — inline com body label.
@@ -269,8 +269,8 @@ deprecado.
 - **Cor**: herda `currentColor`. Não pintar com `--accent` ou
   palette — icon deve ler como texto. Hover transitions seguem
   table state (cor herdada muda com o estado).
-- **Catalog (D02 §Gate 1)** — surface-cobertura inicial:
-  - `+ Classe` — `add` (em `_patrimonio_actions`).
+- **Catalog (D02 §Gate 1 + F12 D-F12.2)** — 10 nomes, scoped:
+  - `+ Classe` — `add_circle` (em `_patrimonio_actions`).
   - `+ Ativo` — `add_circle` (em `_patrimonio_actions`).
   - `Importar` — `upload` (em `_patrimonio_actions`).
   - `Sair` — `logout` (em `base.html`).
@@ -280,11 +280,21 @@ deprecado.
     (em `_patrimonio_class_section`).
   - Modal close — `close` (em `_patrimonio_add_asset_modal`).
   - Import status — `check_circle` (matched) / `help` (unmatched).
-  - Theme toggle (se F13 um dia unblock) — `light_mode` / `dark_mode`.
+  - Theme toggle (se F13 um dia unblock) — `light_mode` / `dark_mode`
+    ficam FORA do catalog F12 — entram se/somente se F13 for
+    restaurada.
 - Fora do catalog: characters textuais `×`, `−`, `▾`, `▶` continuam
   válidos para controle puramente tipográfico.
 - Self-host vs Google Fonts é decisão de implementação (D-F12
   default: Google Fonts, mesmo pattern atual).
+- **Extension path**: novos icons fora dos 10 nomes catalogados
+  requerem nova OpenSpec change (não editar F12 in-place). A nova
+  slice adiciona o nome ao catalog via delta spec em
+  `openspec/specs/iconography-tokens/spec.md` + entrada aqui em
+  DESIGN.md + assertion no `tests/test_iconography_tokens.py`.
+  Motivação: 10 cobre a surface atual; drift silencioso sem
+  guardrail de teste reintroduziria a fragilidade que o D02
+  tentou eliminar.
 
 ## Motion
 

@@ -48,7 +48,19 @@ def section_text(page: Page, name: str, text: str):
     # plain read immediately after the action would race the
     # response and produce a false negative.
     section.first.filter(has_text=text).wait_for(state="visible", timeout=10000)
-    inner = section.first.inner_text()
+    # F12 — Material Symbols icons render via ligature text inside
+    # ``<span class="icon ...">``. Playwright ``inner_text()`` includes
+    # ligature text (e.g. ``expand_more``, ``close``) in the read,
+    # which collides with substring assertions. Strip the icon
+    # subtree before reading so the assertion sees only the
+    # human-meaningful copy.
+    inner = section.first.evaluate(
+        """el => {
+            const clone = el.cloneNode(true);
+            clone.querySelectorAll('.icon, [class*="icon--"]').forEach(n => n.remove());
+            return clone.innerText;
+        }""",
+    )
     assert text in inner, f"esperava {text!r} na seção {name!r}, vi {inner!r}"
 
 

@@ -228,6 +228,7 @@ _UNIT_FILES = frozenset(
         "tests/test_quote_provider_stub.py",
         "tests/test_seed_from_csv_loaders.py",
         "tests/test_seed_from_csv_validation.py",
+        "tests/test_iconography_tokens.py",
     }
 )
 

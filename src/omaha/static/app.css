@@ -3000,3 +3000,37 @@ tr:focus-within .row-actions {
   border-left: 4px solid var(--negative);
   padding-left: 12px;
 }
+
+/* F12 — Material Symbols Outlined icon system. Catalog scoped to 10
+   names (add, add_circle, upload, logout, close, warning,
+   expand_more, expand_less, check_circle, help). Out-of-catalog
+   requests require a new OpenSpec change. See iconography-tokens
+   spec + DESIGN.md §Iconography. */
+.icon {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+  vertical-align: middle;
+}
+.icon--sm { font-size: 16px; }
+.icon--md { font-size: 20px; }
+.icon--lg { font-size: 24px; }
+/* Buttons hosting icons need a small horizontal gap so the glyph
+   sits visually centered against the label, not glued to it. */
+.btn > .icon,
+.patrimonio-action-btn > .icon,
+.class-delete-confirm-yes > .icon,
+.dashboard-asset-delete-confirm-yes > .icon,
+.logout-form button > .icon,
+.modal-close > .icon {
+  margin-right: 6px;
+}

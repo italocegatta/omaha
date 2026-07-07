@@ -25,6 +25,7 @@
       <ul class="auto-matched-list">
         {% for rp, asset_id in auto_matched %}
         <li data-testid="import-review-auto-row">
+          <span class="icon icon--sm" aria-hidden="true">check_circle</span>
           <span>{{ rp.name }} ({{ rp.broker_ticker }})</span>
           <input type="hidden" name="asset_id[]" value="{{ asset_id }}">
           <input type="hidden" name="auto_qty[]" value="{{ rp.qty }}">
@@ -55,6 +56,7 @@
           {% set suggested_id = class_suggestions.get(rp.broker_ticker) %}
           <tr data-testid="import-review-unmatched-row">
             <td>
+              <span class="icon icon--sm" aria-hidden="true">help</span>
               {{ rp.name }} ({{ rp.broker_ticker }})
               {% if rp.suggested_category %}
               <small

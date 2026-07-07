@@ -6,7 +6,7 @@
       <article class="class-section" data-testid="class-summary-row" data-class-id="{{ c.id }}" x-data='classSection({{ class_data | tojson }})'>
         <header class="class-section-header" data-testid="class-section-header" @click="isOpen = !isOpen">
           <div class="hdr-leading">
-            <span class="class-chevron" data-testid="class-chevron" :class="{'class-chevron--open': isOpen}">▸</span>
+            <span class="class-chevron icon icon--md" data-testid="class-chevron" :class="{'class-chevron--open': isOpen}" aria-hidden="true">expand_more</span>
             <span class="class-color-swatch" data-testid="class-color-swatch" style="background:{{ c.color }}"></span>
             <span class="class-section-name" data-testid="class-section-name">{{ c.name }}</span>
             {# F01 household mode: hide the per-class × delete affordance.
@@ -20,7 +20,7 @@
                     data-testid="class-delete-btn"
                     @click.stop="showDeleteConfirm = true"
                     x-show="!showDeleteConfirm && !deleting"
-                    title="Remover classe">×</button>
+                    title="Remover classe"><span class="icon icon--sm" aria-hidden="true">close</span></button>
             {% endif %}
           </div>
 
@@ -82,7 +82,7 @@
                     data-testid="class-delete-confirm-yes"
                     @click="confirmDelete()"
                     :disabled="deleting">
-              <span x-show="!deleting">Sim, remover</span>
+              <span x-show="!deleting"><span class="icon icon--sm" aria-hidden="true">close</span> Sim, remover</span>
               <span x-show="deleting">Removendo...</span>
             </button>
             <button type="button"
@@ -158,7 +158,7 @@
                           data-testid="dashboard-asset-delete-btn"
                           @click="askDeleteAsset(a.id, a.name)"
                           x-show="showDeleteAssetId !== a.id && !deletingAssetId && !readOnly"
-                          title="Remover ativo">×</button>
+                          title="Remover ativo"><span class="icon icon--sm" aria-hidden="true">close</span></button>
                 </td>
                 <td data-testid="asset-row-class" x-text="className"></td>
                 <td data-testid="asset-position-count" x-text="a.position_count"></td>
@@ -305,7 +305,7 @@
                               data-testid="dashboard-asset-delete-confirm-yes"
                               @click="confirmDeleteAsset()"
                               :disabled="deletingAssetId === a.id">
-                        <span x-show="deletingAssetId !== a.id">Sim, remover</span>
+                        <span x-show="deletingAssetId !== a.id"><span class="icon icon--sm" aria-hidden="true">close</span> Sim, remover</span>
                         <span x-show="deletingAssetId === a.id">Removendo...</span>
                       </button>
                       <button type="button"
