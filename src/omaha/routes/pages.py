@@ -678,20 +678,24 @@ __all__ = [
 ]
 
 
-# Eight visually-distinct hex colors assigned to classes in
+# Eight visually-distinct OKLCH colors assigned to classes in
 # insertion order (class index in the loop, not the DB id, so
 # reordering via display_order reshuffles colors predictably). More
 # than 8 classes wraps around. AssetClass has no ``color`` column;
 # this is the patrimonio's deterministic-per-position palette.
+#
+# F08: mirrors `--class-1..8` in :root (slots 1-6 exact mirror; slots
+# 7-8 extend the palette with warm-brown + slate for the 7th/8th
+# cycle positions). Previously hex literals — drift source killed.
 _CLASS_COLORS: tuple[str, ...] = (
-    "#0a66c2",  # blue
-    "#2e7d32",  # green
-    "#c62828",  # red
-    "#ef6c00",  # orange
-    "#6a1b9a",  # purple
-    "#00838f",  # teal
-    "#5d4037",  # brown
-    "#455a64",  # slate
+    "oklch(0.65 0.15 250)",  # blue          -- mirrors --class-1
+    "oklch(0.72 0.13 130)",  # leaf green    -- mirrors --class-2
+    "oklch(0.72 0.18 350)",  # magenta-red   -- mirrors --class-3 (F08 hue shift)
+    "oklch(0.75 0.13 50)",   # burnt orange  -- mirrors --class-4
+    "oklch(0.65 0.12 300)",  # plum          -- mirrors --class-5
+    "oklch(0.72 0.10 200)",  # teal          -- mirrors --class-6
+    "oklch(0.55 0.06 60)",   # warm-brown    -- 7th cycle slot
+    "oklch(0.60 0.02 250)",  # slate         -- 8th cycle slot
 )
 
 

@@ -208,12 +208,14 @@ class TestGetImportPreview:
         assert "current_price" in um
         assert "suggested_category" in um
 
-        # asset_classes carry color (hex string)
+        # asset_classes carry color (CSS color string — OKLCH post-F08)
         assert len(data["asset_classes"]) == 3
+        from coloraide import Color as _Color
+
         for ac in data["asset_classes"]:
             assert "color" in ac
             assert isinstance(ac["color"], str)
-            assert ac["color"].startswith("#")
+            _Color(ac["color"])  # parse-check via coloraide
 
     def test_get_preview_nonexistent_returns_404(self, client: TestClient) -> None:
         """Fetching a non-existent preview returns 404."""

@@ -44,49 +44,56 @@ glassmorphism, no transition between themes. F05 is the new default;
 no toggle, no `prefers-color-scheme` media query — those would belong
 to a future slice if the owner asks for a light-mode option.
 
-### Target register (D02) — to materialize in F08
+### Target register (D02) — historical
 
-D02 elegeu **Status Invest maximal** como register a perseguir. F08 é
-a fatia que materializa em CSS os tokens correspondentes. Até o
-archive de F08, este doc mantém a tabela "Tokens (current — post F05)"
-como verdade operativa; valores finais chegam com F08 landa.
+D02 elegeu **Status Invest maximal** como register a perseguir em
+2026-07-07. F08 (archived 2026-07-07) materializou em CSS os tokens
+correspondentes; targets abaixo viraram os valores da tabela
+"Tokens (current — post F08)". Mantido aqui como registro da decisão
+de design — referência histórica, não verdade operativa.
 
-Diretrizes (targets, não prescritivas — F08 deriva números exatos):
+Diretrizes originais (targets que F08 derivou em números exatos):
 
-- **Accent**: emerald `oklch(0.68 0.20 152)` — punch + chroma up vs
-  current `0.68 0.13 150`. Separa "marca" de "ganho".
-- **Positive**: fern-leaning `oklch(0.79 0.19 145)` — mais chroma
-  (signal legível em body escuro) vs current `0.70 0.16 145`.
-- **Negative**: coral `oklch(0.69 0.20 25)` — chroma up vs current
-  `0.70 0.18 25`; mantemos hue 25 (coral).
+- **Accent**: emerald `oklch(0.68 0.20 152)` — chroma up vs F05
+  `0.68 0.13 150`. Separa "marca" de "ganho" via hue gap + lightness
+  hierarchy. Materializado em `--accent` / `--accent-hover`.
+- **Positive**: fern-leaning `oklch(0.79 0.19 145)` — lightness lift
+  (L 0.70→0.79) + chroma up (0.16→0.19). Lê como "data signal"
+  brilhante em body escuro.
+- **Negative**: coral `oklch(0.69 0.20 25)` — chroma up vs F05
+  `0.70 0.18 25`; hue 25 preservado (universal "red = loss").
 - **Class-3 hue destino: 350 magenta-red.** Separa classe 3 de
-  `--negative` por hue gap de 325° (categoria de ativo ≠ sinal de
-  perda). Drift atual: class-3 está em hue 25 (mesmo de negative).
-- **Warning**: amber `oklch(0.78 0.16 75)` — substitui
-  `oklch(0.70 0.12 85)`. Hue shift leve + chroma up.
+  `--negative` (long-arc hue gap 325°). Materializado em `--class-3`.
+- **Warning**: amber `oklch(0.78 0.16 75)` — chroma up vs F05
+  `0.78 0.13 85`. Materializado em `--alert-warn`.
 - **Surface**: warm-neutral dark, hue 60, chroma ~0.012 mantido.
-- **Bugs a resolver em F08** (4 itens da sessão 2026-07-06):
-  1. colisão `--class-3` vs `--negative` (ambos hue 25 chroma 0.18).
-  2. `--positive` sem punch (L 0.70 → 0.74-0.78 para "data signal"
-     legível em body escuro).
-  3. `_CLASS_COLORS` Python hex drift vs CSS OKLCH
-     (swatch usa inline hex, CSS tem token OKLCH paralelo).
-  4. `--accent` vs `--positive` ambiguidade cromática (hue gap 5°
-     + chroma invertido — verde de marca vs verde de ganho
-     indistinguíveis).
-- Adiciona `--bg-secondary` se 3-tier surface (D02 ficou em aberto —
-  default é manter 2-tier; F08 decide com base em render).
-- Tokens de classe re-derivados em OKLCH (mata o hex drift).
+- **Bugs resolvidos em F08** (4 itens da sessão 2026-07-06):
+  1. ✅ colisão `--class-3` vs `--negative` (class-3 hue 25 → 350).
+  2. ✅ `--positive` sem punch (L 0.70 → 0.79).
+  3. ✅ `_CLASS_COLORS` Python hex drift vs CSS OKLCH (todos os
+     8 hex literals migrados pra OKLCH em `routes/pages.py:686`
+     + `audit/inventory.py:99`).
+  4. ✅ `--accent` vs `--positive` ambiguidade (hue gap 5°→7° +
+     lightness hierarchy pos L 0.79 > accent L 0.68).
+- `--bg-secondary` 3-tier surface: NÃO adicionado. F08 confirmou que
+  a paleta 2-tier (`--surface` +0.04 sobre `--bg` + `--surface-sunk`
+  -0.03 sob `--bg`) é suficiente para todas as 10 superfícies
+  atuais (D-F08.5).
+- Tokens de classe re-derivados em OKLCH (mata o hex drift — F08
+  D-F08.3).
 
-### Tokens (current — post F05)
+### Tokens (current — post F08)
 
 OKLCH throughout, calibrated against the dark `--bg`. Values match
 the current `app.css` `:root` block. F05 lifted every previous
 token's lightness (where required) to maintain WCAG 2.1 AA on the
-new background; hues are preserved for the warm family (60 / 150 /
-145 / 25) so the warmth reads consistently. Ratios in the "Contrast"
-column are measured against the noted "Pair" background and re-
-verified by `tests/test_dark_mode_tokens.py`.
+new background; F08 further re-derived 4 status/accent tokens per
+the D02 Status Invest maximal register (emerald accent, fern-leaning
+positive, coral negative, magenta-red class-3, amber warning) and
+killed the Python hex-vs-OKLCH drift in `_CLASS_COLORS`. Hue
+families preserved for warmth (60 / 145 / 152 / 25 / 75 / 350). Ratios
+in the "Contrast" column are measured against the noted "Pair"
+background and re-verified by `tests/test_dark_mode_tokens.py`.
 
 | Token              | Value (OKLCH)             | Pair (background) | Contrast | WCAG   | Role                                        |
 |--------------------|---------------------------|-------------------|----------|--------|---------------------------------------------|
@@ -97,18 +104,49 @@ verified by `tests/test_dark_mode_tokens.py`.
 | `--ink-muted`      | `oklch(0.65 0.01 60)`     | `--bg`            | 5.5:1    | AA     | Secondary text, labels, captions.           |
 | `--border`         | `oklch(0.30 0.008 60)`    | `--bg`            | n/a      | —      | Hairline borders (decorative).              |
 | `--border-strong`  | `oklch(0.38 0.01 60)`     | `--bg`            | n/a      | —      | Card outer (decorative).                    |
-| `--accent`         | `oklch(0.68 0.13 150)`    | `--bg`            | 5.3:1    | AA     | Single accent. Lightness-lifted.            |
-| `--accent-hover`   | `oklch(0.74 0.13 150)`    | `--bg`            | 6.6:1    | AAA    | Accent on hover (slightly lifted).          |
-| `--accent-ink`     | `oklch(0.18 0.01 60)`     | `--accent`        | 5.5:1    | AA     | Text on `--accent` fill.                    |
-| `--positive`       | `oklch(0.70 0.16 145)`    | `--bg`            | 7.6:1    | AAA    | Gain, valid total, success. Lightness-lifted. |
-| `--positive-ink`   | `oklch(0.18 0.01 60)`     | `--positive`      | 7.7:1    | AAA    | Text on `--positive` fill (dark on lifted). |
-| `--negative`       | `oklch(0.70 0.18 25)`     | `--bg`            | 5.4:1    | AA     | Loss, invalid total, error. Lightness-lifted. |
-| `--negative-ink`   | `oklch(0.18 0.01 60)`     | `--negative`      | 5.5:1    | AA     | Text on `--negative` fill (dark on lifted). |
+| `--accent`         | `oklch(0.68 0.20 152)`    | `--bg`            | 7.1:1    | AAA    | Single accent. F08: chroma 0.13→0.20 + hue 150→152 for gap to positive. |
+| `--accent-hover`   | `oklch(0.74 0.20 152)`    | `--bg`            | 8.8:1    | AAA    | Accent on hover (slightly lifted).          |
+| `--accent-ink`     | `oklch(0.18 0.01 60)`     | `--accent`        | 7.1:1    | AAA    | Text on `--accent` fill.                    |
+| `--positive`       | `oklch(0.79 0.19 145)`    | `--bg`            | 10.4:1   | AAA    | Gain, valid total, success. F08: L 0.70→0.79 — bright data signal. |
+| `--positive-ink`   | `oklch(0.18 0.01 60)`     | `--positive`      | 10.4:1   | AAA    | Text on `--positive` fill (dark on lifted). |
+| `--negative`       | `oklch(0.69 0.20 25)`     | `--bg`            | 6.2:1    | AA     | Loss, invalid total, error. F08: chroma 0.18→0.20. |
+| `--negative-ink`   | `oklch(0.18 0.01 60)`     | `--negative`      | 6.2:1    | AA     | Text on `--negative` fill (dark on lifted). |
 | `--error-bg`       | `oklch(0.30 0.04 25)`     | `--error-fg`      | 5.4:1    | AA     | Inline error feedback background (sunk red). |
 | `--error-fg`       | `oklch(0.80 0.10 25)`     | `--error-bg`      | 5.4:1    | AA     | Inline error feedback foreground (lifted). |
+| `--alert-warn`     | `oklch(0.78 0.16 75)`     | `--bg`            | 9.2:1    | AAA    | Amber warning. F08: hue 85→75, chroma 0.13→0.16. |
 | `--color-focus`    | `oklch(0.65 0.15 250)`    | `--bg`            | 3.2:1    | 3:1 UI | Focus ring (2px outline + 2px offset).      |
 | `--fg`             | `var(--ink)`              | —                 | alias    | —      | Legacy alias (D-05).                        |
 | `--muted`          | `var(--ink-muted)`        | —                 | alias    | —      | Legacy alias (D-05).                        |
+
+> **F08 corrections (over F05)**
+> * `--accent`: chroma `0.13` → `0.20`, hue `150` → `152`. Same
+>   lightness (L 0.68). Closes the F05 hue gap (accent 150 vs positive
+>   145 = 5°) to 7°. Contrast on `--bg` lifts from 5.3:1 to 7.1:1.
+> * `--accent-hover`: chroma `0.13` → `0.20`, hue `150` → `152`.
+>   Maintains the +0.06 lightness lift pattern.
+> * `--positive`: lightness `0.70` → `0.79`, chroma `0.16` → `0.19`.
+>   Pushes the gain signal above the body-warmth floor — reads as
+>   bright "data signal" instead of muted dark-green. Contrast on
+>   `--bg` lifts from 7.6:1 to 10.4:1 (AAA solid).
+> * `--negative`: chroma `0.18` → `0.20`. Same hue 25 (coral
+>   identity preserved). Contrast on `--bg` lifts from 5.4:1 to 6.2:1.
+> * `--class-3`: hue `25` → `350`. Magenta-red replaces red-orange
+>   so the categorical class swatch reads as distinct from the loss
+>   signal (long-arc hue gap 325° ≥ 320° invariant). Same lightness
+>   + chroma.
+> * `--alert-warn`: hue `85` → `75`, chroma `0.13` → `0.16`. Amber
+>   takes over from yellow-amber. Contrast on `--bg` = 9.2:1 (AAA).
+> * `_CLASS_COLORS` (Python tuple in `routes/pages.py:686` +
+>   `audit/inventory.py:99`): 8 hex literals replaced by OKLCH strings
+>   that mirror `--class-1..8` exactly. Kills the hex-vs-OKLCH drift
+>   documented as bug #3 in the D02 redesign session.
+> * `--bg`, `--surface`, `--surface-sunk`, `--ink`, `--ink-muted`,
+>   `--border`, `--border-strong`, `--color-focus`, `--error-bg`,
+>   `--error-fg`, `--positive-ink`, `--negative-ink`, `--accent-ink`,
+>   `--alert-ok`, `--alert-danger`, `--bg-hover`, `--col-*`: UNTOUCHED.
+>   Body warmth invariant (hue 60, chroma ≈ 0.01) preserved.
+> * `color-scheme: dark` + no `prefers-color-scheme` query: UNTOUCHED
+>   (D-F05.10 still holds; F13 light/dark toggle remains Blocked).
 
 > **F05 corrections (over Phase 2)**
 > * `--bg` inverted from `oklch(0.975 0.003 60)` (off-white) →
@@ -137,35 +175,49 @@ verified by `tests/test_dark_mode_tokens.py`.
 
 ### Accent rationale
 
-Fern green at lightness 0.68 (`oklch(0.68 0.13 150)`, hue 150) carries
-on dark warm-neutral without losing its brand voice. The hue stays the
-same as the previous Phase 2 accent (`hue 150`, not the positive's `hue
-145`) so the "garden, home, growth" reading survives the polarity flip.
-The lifted lightness means accent fills read as "the household's mark"
-against `--bg` rather than as a generic bright color swatch. The
-class-2 swatch is hue-shifted to 130 (D-F05.4) to keep visual distance
-from `--positive` at hue 145 — both are green but they sit on opposite
-sides of the spectrum so the data-color never reads as a gain-color.
+Emerald (`oklch(0.68 0.20 152)`, hue 152, chroma 0.20) carries on
+dark warm-neutral as the brand mark — sits below positive in
+lightness (L 0.68 vs L 0.79) and to the warm side of positive in hue
+(152 vs 145, gap 7°). F08 lifts the F05 chroma from 0.13 to 0.20 so
+the brand mark has presence on `--bg` (contrast lifts from 5.3:1 to
+7.1:1, solidly AAA). The hue shifts from 150 to 152 to close the
+F05 accent-vs-positive gap (was 5°, now 7°). The "garden, home,
+growth" reading survives the polarity flip — accent still reads as
+fern-family green, but the chroma jump separates it visually from
+`--positive` at the same lightness floor. `--positive` sits higher
+in lightness so it reads as the brighter "data signal", accent as
+the household's mark.
+
+The class-2 swatch is hue-shifted to 130 (D-F05.4) to keep visual
+distance from `--positive` at hue 145 — both are green but they sit
+on opposite sides of the spectrum so the data-color never reads as a
+gain-color.
 
 ### Class swatches (6-color data palette)
 
-Lightness-lifted variants of the previous swatch hex. Each slot is
-now OKLCH end-to-end (the hex migration sources are no longer used
-in `app.css`). Contrast is measured against the dark `--bg`; all
-six slots reach AA (≥ 4.5:1). Slot 2 carries the new hue-shift to 130
-(D-F05.4) — distinct from `--positive` at hue 145.
+Lightness-lifted OKLCH variants of the swatch palette. Each slot is
+OKLCH end-to-end in both `app.css` and the Python `_CLASS_COLORS`
+tuple (F08 D-F08.3 killed the hex drift). Contrast is measured
+against the dark `--bg`; all six slots reach AA (≥ 4.5:1). Slot 2
+carries the F05 hue-shift to 130 (D-F05.4) — distinct from
+`--positive` at hue 145. Slot 3 carries the F08 hue rotation
+25 → 350 (magenta-red, D-F08.2) — long-arc hue gap 325° from
+`--negative` so the categorical class label never reads as a
+financial loss signal.
 
 | Slot  | OKLCH (current `app.css`)            | Contrast vs `--bg` | Role                                    |
 |-------|---------------------------------------|--------------------|-----------------------------------------|
-| 1     | `oklch(0.65 0.15 250)`                | 5.1:1 (AA)         | Blue (lightness-lifted from `#0a66c2`)  |
+| 1     | `oklch(0.65 0.15 250)`                | 5.1:1 (AA)         | Blue. Lightness-lifted.                 |
 | 2     | `oklch(0.72 0.13 130)`                | 7.3:1 (AAA)        | Leaf green (hue-shifted away from `--positive`). D-F05.4. |
-| 3     | `oklch(0.72 0.18 25)`                 | 6.0:1 (AA)         | Red (lightness-lifted from `#c62828`)   |
+| 3     | `oklch(0.72 0.18 350)`                | 6.9:1 (AA)         | Magenta-red. F08 hue shift 25→350 (D-F08.2) — long-arc gap 325° from `--negative`. |
 | 4     | `oklch(0.75 0.13 50)`                 | 8.4:1 (AAA)        | Burnt orange (lightness-lifted)         |
-| 5     | `oklch(0.65 0.12 300)`                | 5.3:1 (AA)         | Plum (lightness-lifted from `#6a1b9a`)  |
+| 5     | `oklch(0.65 0.12 300)`                | 5.3:1 (AA)         | Plum (lightness-lifted)                 |
 | 6     | `oklch(0.72 0.10 200)`                | 8.9:1 (AAA)        | Teal (lightness-lifted)                  |
 
 The 7th+ class cycles via the existing `nth-of-type(6n+N)` rules in
-`app.css`. All six slots are OKLCH end-to-end after F05.
+`app.css`. All six slots are OKLCH end-to-end after F05; the
+matching `_CLASS_COLORS` tuple in Python is also OKLCH end-to-end
+after F08.
 
 ## Typography
 

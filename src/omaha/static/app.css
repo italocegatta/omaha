@@ -18,14 +18,16 @@
   --border: oklch(0.30 0.008 60);
   --border-strong: oklch(0.38 0.01 60);
 
-  /* Accent — fern-green, hue 150 preserved, lightness lifted to contrast on dark. */
-  --accent: oklch(0.68 0.13 150);
-  --accent-hover: oklch(0.74 0.13 150);
+  /* Accent — F08: emerald punch (chroma up + hue shift 150→152 for gap to --positive).
+     Same lightness; chroma 0.13 → 0.20 lifts the brand mark off the body. */
+  --accent: oklch(0.68 0.20 152);
+  --accent-hover: oklch(0.74 0.20 152);
   --accent-ink: oklch(0.18 0.01 60);
 
-  /* Status colors — hue preserved, lightness lifted for AA contrast on dark. */
-  --positive: oklch(0.70 0.16 145);
-  --negative: oklch(0.70 0.18 25);
+  /* Status colors — F08: positive lifted (L 0.70→0.79) to read as bright "data signal"
+     against the dark body; negative chroma up (0.18→0.20). Hue families preserved. */
+  --positive: oklch(0.79 0.19 145);
+  --negative: oklch(0.69 0.20 25);
 
   /* Legacy aliases — point to the new OKLCH tokens so existing rules
      (still using var(--fg), var(--muted)) resolve to the same values
@@ -46,7 +48,8 @@
      Must stay in sync with _CLASS_COLORS in src/omaha/routes/pages.py. */
   --class-1: oklch(0.65 0.15 250); /* blue   (hue 250 lifted to L=0.65) */
   --class-2: oklch(0.72 0.13 130); /* green  (hue shifted to 130 to disambiguate from --positive at 145, D-F05.4) */
-  --class-3: oklch(0.72 0.18 25);  /* red    */
+  --class-3: oklch(0.72 0.18 350); /* magenta-red — F08 hue shift from 25 to 350 to disambiguate
+                                      from --negative (also hue 25). Hue gap 325° ≥ 320° invariant. */
   --class-4: oklch(0.75 0.13 50);  /* orange */
   --class-5: oklch(0.65 0.12 300); /* purple */
   --class-6: oklch(0.72 0.10 200); /* teal   */
@@ -56,7 +59,7 @@
 
   /* Alert severity tokens (asset-table-view 5.2). */
   --alert-ok: var(--positive);
-  --alert-warn: oklch(0.78 0.13 85);
+  --alert-warn: oklch(0.78 0.16 75); /* amber — F08 hue 85→75, chroma 0.13→0.16. */
   --alert-danger: var(--negative);
 
   /* Hover surface for editable table cells (asset-table-view 5.3). */

@@ -314,12 +314,17 @@ class TestPostImportPreview:
         assert isinstance(ac["id"], int)
         assert isinstance(ac["name"], str)
         assert isinstance(ac["color"], str)
-        assert ac["color"].startswith("#") and len(ac["color"]) in (4, 7)
+        # F08: color is OKLCH (post-F08) — parses via coloraide.
+        # Pre-F08 contract was hex `#xxxxxx` / `#xxx`. Accept any
+        # CSS color string that coloraide can parse.
+        from coloraide import Color as _Color
+
+        _Color(ac["color"])  # raises ValueError if unparseable
 
         for item in data["asset_classes"]:
             assert "color" in item
             assert isinstance(item["color"], str)
-            assert item["color"].startswith("#")
+            _Color(item["color"])  # parse-check each
 
         # Verify all auto_matched have asset_id values
         for item in data["auto_matched"]:

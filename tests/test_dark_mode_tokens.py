@@ -358,3 +358,190 @@ def test_documented_pairs_pass() -> None:
             failures.append(f"{fg_token} on {bg_token}: {ratio:.2f}:1 (need >= {minimum}:1)")
 
     assert not failures, "Documented pairs failing: " + ", ".join(failures)
+
+
+# ---------------------------------------------------------------------------
+# F08 D-F08.6 — four ambiguity invariants from the D02 redesign session
+# ---------------------------------------------------------------------------
+
+
+def _angular_distance(h1: float, h2: float) -> float:
+    """Return the long-arc angular distance in [180, 360] between two hues in [0, 360).
+
+    The spec defines hue "gap" as the long-arc distance so that hues
+    near each other on the color wheel (e.g. 350 and 25, which are
+    35 deg apart short-arc) register as 325 deg apart — visually a
+    magenta-red and an orange-red are distinct even though their
+    hues are numerically close.
+    """
+    diff = abs(h1 - h2) % 360
+    return max(diff, 360 - diff)
+
+
+def test_class_3_hue_gap_from_negative_ge_320() -> None:
+    """``--class-3`` and ``--negative`` SHALL differ by >= 320 deg hue.
+
+    F08 D-F08.2 / spec ``color-tokens`` "Class swatch tokens meet body
+    text contrast on dark surface": the red class swatch and the red
+    loss number must be chromatically distinguishable. Post-F08:
+    class-3 hue 350, negative hue 25, gap 325 deg.
+    """
+    from coloraide import Color
+
+    sheet = parse_stylesheet(APP_CSS_PATH)
+    rows = color_token_inventory(sheet)
+    by_name = {r.token: r for r in rows}
+
+    class_3_hue = Color(by_name["--class-3"].computed_value).convert("oklch").coords()[2] % 360
+    negative_hue = Color(by_name["--negative"].computed_value).convert("oklch").coords()[2] % 360
+
+    gap = _angular_distance(class_3_hue, negative_hue)
+    assert gap >= 320, (
+        f"--class-3 hue {class_3_hue:.1f} deg vs --negative hue {negative_hue:.1f} deg "
+        f"= gap {gap:.1f} deg; must be >= 320 deg (F08 D-F08.2)"
+    )
+
+
+def test_positive_lightness_ge_074() -> None:
+    """``--positive`` SHALL sit at lightness >= 0.74 (data-signal floor).
+
+    F08 D-F08.1 lifts --positive from L 0.70 to L 0.79 so gain numbers
+    read as a bright "data signal" against the dark body, not as a
+    muted dark-green that blends into the dashboard.
+    """
+    from coloraide import Color
+
+    sheet = parse_stylesheet(APP_CSS_PATH)
+    rows = color_token_inventory(sheet)
+    by_name = {r.token: r for r in rows}
+
+    L = Color(by_name["--positive"].computed_value).convert("oklch").coords()[0]
+    assert L >= 0.74, f"--positive lightness {L:.3f} < 0.74 (F08 D-F08.1 signal floor)"
+
+
+def test_positive_lightness_above_accent() -> None:
+    """``lightness(--positive) > lightness(--accent)`` — positive is the brighter signal.
+
+    F08 D-F08.4 resolves the accent-vs-positive chromatic ambiguity by
+    lifting positive above accent in lightness (L 0.79 > L 0.68):
+    positive reads as the brighter signal, accent as the brand mark.
+    The chroma ordering stays accent (0.20) >= positive (0.19) so the
+    brand mark keeps its chromatic voice.
+    """
+    from coloraide import Color
+
+    sheet = parse_stylesheet(APP_CSS_PATH)
+    rows = color_token_inventory(sheet)
+    by_name = {r.token: r for r in rows}
+
+    pos_L = Color(by_name["--positive"].computed_value).convert("oklch").coords()[0]
+    accent_L = Color(by_name["--accent"].computed_value).convert("oklch").coords()[0]
+
+    assert pos_L > accent_L, (
+        f"lightness(--positive) {pos_L:.3f} must be > lightness(--accent) {accent_L:.3f} "
+        f"(F08 D-F08.4 signal hierarchy)"
+    )
+
+
+def test_positive_hue_gap_from_accent_ge_6() -> None:
+    """``hue(--positive) - hue(--accent)`` SHALL be >= 6 deg.
+
+    F08 D-F08.4 closes the F05 hue gap (5 deg) to 7 deg by shifting
+    accent hue 150 -> 152 (positive stays at 145). 6 deg is the
+    invariant floor.
+    """
+    from coloraide import Color
+
+    sheet = parse_stylesheet(APP_CSS_PATH)
+    rows = color_token_inventory(sheet)
+    by_name = {r.token: r for r in rows}
+
+    pos_hue = Color(by_name["--positive"].computed_value).convert("oklch").coords()[2] % 360
+    accent_hue = Color(by_name["--accent"].computed_value).convert("oklch").coords()[2] % 360
+
+    gap = _angular_distance(pos_hue, accent_hue)
+    assert gap >= 6, (
+        f"hue(--positive) {pos_hue:.1f} deg vs hue(--accent) {accent_hue:.1f} deg "
+        f"= gap {gap:.1f} deg; must be >= 6 deg (F08 D-F08.4 hue gap)"
+    )
+
+
+# ---------------------------------------------------------------------------
+# F08 D-F08.3 — _CLASS_COLORS Python tuple parity with --class-N CSS tokens
+# ---------------------------------------------------------------------------
+
+
+def _class_colors_tuple() -> tuple[str, ...]:
+    """Import the canonical _CLASS_COLORS tuple from the runtime module."""
+    from omaha.routes.pages import _CLASS_COLORS
+
+    return _CLASS_COLORS
+
+
+def _class_color_css_values() -> dict[int, str]:
+    """Return ``{slot_1_indexed: oklch_string}`` for ``--class-1..N`` from :root."""
+    sheet = parse_stylesheet(APP_CSS_PATH)
+    rows = color_token_inventory(sheet)
+    by_name = {r.token: r for r in rows}
+    out: dict[int, str] = {}
+    for i in range(1, 7):  # CSS defines --class-1..6
+        token = f"--class-{i}"
+        assert token in by_name, f"{token} missing from CSS inventory"
+        out[i] = by_name[token].computed_value
+    return out
+
+
+def test_class_colors_tuple_parity_with_class_3() -> None:
+    """``_CLASS_COLORS[2]`` SHALL parse to the same OKLCH as ``--class-3``.
+
+    F08 D-F08.3 kills the hex-vs-OKLCH drift. Post-F08, slot 3 is
+    magenta-red ``oklch(0.72 0.18 350)`` in both the CSS token and the
+    Python tuple.
+    """
+    from coloraide import Color
+
+    css_value = _class_color_css_values()[3]
+    py_value = _class_colors_tuple()[2]
+
+    css_color = Color(css_value).convert("oklch").coords()
+    py_color = Color(py_value).convert("oklch").coords()
+
+    # Compare L/C/H with small float tolerance (coloraide parsing may shift by 1e-3).
+    for axis, axis_name in enumerate(("L", "C", "H")):
+        delta = abs(css_color[axis] - py_color[axis])
+        # Hue is periodic; collapse to [0, 180] for comparison.
+        if axis_name == "H":
+            delta = min(delta, 360 - delta)
+            assert delta <= 0.5, (
+                f"--class-3 {axis_name}={css_color[axis]:.3f} vs "
+                f"_CLASS_COLORS[2] {axis_name}={py_color[axis]:.3f} "
+                f"(hue delta {delta:.1f} deg; F08 D-F08.3 parity)"
+            )
+        else:
+            assert delta <= 1e-3, (
+                f"--class-3 {axis_name}={css_color[axis]:.3f} vs "
+                f"_CLASS_COLORS[2] {axis_name}={py_color[axis]:.3f} "
+                f"(delta {delta:.4f}; F08 D-F08.3 parity)"
+            )
+
+
+def test_class_colors_tuple_all_oklch_no_hex() -> None:
+    """All 8 entries in ``_CLASS_COLORS`` SHALL parse as OKLCH; zero hex literals.
+
+    F08 D-F08.3 closes bug #3 from the D02 redesign session
+    (Python hex drift vs CSS OKLCH tokens). Tuple entries must parse
+    via coloraide as OKLCH; any ``#xxxxxx`` hex literal trips the
+    audit.
+    """
+    from coloraide import Color
+
+    py_tuple = _class_colors_tuple()
+    assert len(py_tuple) == 8, f"_CLASS_COLORS length {len(py_tuple)} (expected 8)"
+
+    for i, value in enumerate(py_tuple):
+        assert not value.startswith("#"), (
+            f"_CLASS_COLORS[{i}] = {value!r} is still a hex literal; "
+            f"must be OKLCH (F08 D-F08.3)"
+        )
+        # Parse must succeed.
+        Color(value).convert("oklch")
