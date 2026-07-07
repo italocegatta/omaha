@@ -28,6 +28,17 @@ running app, not the test report — a green test suite ≠ ready to test.
 - **Leaving the DB asset-free is a delivery failure** — user opens empty
   dashboard, concludes feature is broken.
 - **Kill prior uvicorn** so new code loads.
+- **Smoke test against prod is read-only** (PRD §4.11). The recipe below
+  uses GET endpoints (`/healthz`, `GET /` with cookie, `/admin/snapshots`,
+  `/admin/audit`) to verify state. It NEVER fires `POST /classes`,
+  `POST /api/import/commit`, `DELETE /api/...` against the live DB.
+  Verification of destructive routes happens in the test suite
+  (`test_db_mutations.py`, `test_admin_recovery.py`); the live DB is
+  what the user opens, not what the agent tests. Anti-pattern (lesson
+  learned 2026-07-07): a `POST /classes` ad-hoc smoke wiped the seed
+  from 6/48/47 to 3/0/0 because the gate threshold (10) was above the
+  seed's actual class count. Test the destructive path in the suite;
+  read-only-verify the live DB.
 
 ## Recipe
 

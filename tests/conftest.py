@@ -86,6 +86,12 @@ def _omaha_test_env(tmp_path_factory: pytest.TempPathFactory) -> dict[str, str]:
     # and the Starlette TestClient can still authenticate over plain
     # HTTP without the secure-cookie check rejecting the cookie.
     os.environ.setdefault("OMAHA_ENV", "development")
+    # R06: point the snapshot helper at the per-test SQLite file so
+    # the destructive-route snapshot step can find the source DB.
+    os.environ["SNAPSHOT_SOURCE"] = str(db_file)
+    snap_dir = db_dir / "snapshots"
+    snap_dir.mkdir(parents=True, exist_ok=True)
+    os.environ["SNAPSHOT_DEST_DIR"] = str(snap_dir)
 
     # Drop any cached omaha modules so the import below re-runs the
     # config + engine + session-factory wiring against the new env.

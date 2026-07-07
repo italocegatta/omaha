@@ -47,6 +47,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from omaha.config import settings
 from omaha.logging_config import configure_logging
 from omaha.middleware import AccessLogMiddleware, NoStoreHTMLMiddleware
+from omaha.routes import admin as admin_routes
 from omaha.routes import assets as assets_routes
 from omaha.routes import auth as auth_routes
 from omaha.routes import classes as classes_routes
@@ -82,6 +83,30 @@ def _run_startup_migrations_and_seed() -> None:
     from omaha.seed import seed
 
     seed()
+
+
+def _prune_snapshots_on_startup() -> None:
+    """FIFO-prune ``data/snapshots/`` to 50 files on every boot (R06).
+
+    Runs once per FastAPI lifespan startup. Tests that opt out of
+    the startup event (``OMAHA_SKIP_STARTUP=1``) skip the prune so
+    the per-test ``tmp_path`` database directories are not scanned.
+    The prune is best-effort: a missing directory is a no-op (the
+    first destructive operation creates the directory); other
+    errors propagate to the structured logger.
+    """
+    from scripts.snapshot_db import DEFAULT_RETENTION, prune_snapshots
+
+    dest_dir = Path("data/snapshots")
+    deleted = prune_snapshots(dest_dir, retention=DEFAULT_RETENTION)
+    if deleted:
+        from omaha.logging_config import get_logger
+
+        get_logger(__name__).info(
+            "snapshot prune: deleted %d old snapshot(s) from %s",
+            deleted,
+            dest_dir,
+        )
 
 
 def _start_quote_service(app: FastAPI) -> None:
@@ -203,6 +228,12 @@ def create_app() -> FastAPI:
     app.include_router(imports_routes.router)
     app.include_router(quotes_routes.router)
     app.include_router(rebalance_routes.router)
+    # R06 ``admin-recovery``: the snapshot listing / restore
+    # / audit endpoints live under ``/admin`` and are gated
+    # by ``X-Admin-Password`` (see ``omaha.routes.admin``).
+    # Mounted last so the prefix is unambiguous; the
+    # ``prefix="/admin"`` is on the router itself.
+    app.include_router(admin_routes.router)
 
     # ``/static`` is mounted at the package's static directory.
     # The directory must exist for the mount to succeed — the T03
@@ -215,6 +246,7 @@ def create_app() -> FastAPI:
         # it for the T03 plan contract. The deprecation warning is
         # benign here.
         app.on_event("startup")(_run_startup_migrations_and_seed)
+        app.on_event("startup")(_prune_snapshots_on_startup)
         app.on_event("startup")(lambda: _start_quote_service(app))
         app.on_event("shutdown")(lambda: _stop_quote_service(app))
 

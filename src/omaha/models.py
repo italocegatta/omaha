@@ -15,6 +15,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -455,6 +456,113 @@ class Quote(Base):
         )
 
 
+class DbSnapshot(Base):
+    """An auto-captured pre-mutation SQLite snapshot on disk.
+
+    R06 — DB mutation guards. Every destructive class/asset/import
+    route captures a copy of ``data/portfolio.db`` via
+    :func:`scripts.snapshot_db.snapshot_live_db` immediately before
+    the mutation commits, and writes one :class:`DbSnapshot` row to
+    track the file. The path is the absolute filesystem location
+    under ``data/snapshots/``; the size is captured at write time
+    so the admin ``/admin/snapshots`` listing can surface the on-
+    disk cost without a second ``stat()`` call.
+
+    ``mutation_id`` is nullable because the snapshot is captured
+    *before* the mutation commits: the row is inserted with
+    ``mutation_id=None`` and back-filled with the new
+    :class:`DbMutation.id` once the audit row is written. Snapshots
+    with ``mutation_id IS NULL`` are a transient state (a few
+    milliseconds) during a successful mutation; a snapshot that
+    stays ``NULL`` past the mutation commit means the audit insert
+    failed and the operator should consult the structured WARN log.
+
+    Snapshot files are FIFO-pruned to 50 by
+    :func:`scripts.snapshot_db.prune_snapshots`, which runs on
+    FastAPI lifespan boot. Rows in this table are NOT
+    automatically pruned; the admin ``/admin/snapshots`` endpoint
+    ignores rows whose underlying file is missing and surfaces the
+    row count as-is.
+    """
+
+    __tablename__ = "db_snapshots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    path: Mapped[str] = mapped_column(String(512), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False, index=True
+    )
+    mutation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("db_mutations.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return (
+            f"DbSnapshot(id={self.id!r}, path={self.path!r}, "
+            f"size_bytes={self.size_bytes!r}, created_at={self.created_at!r}, "
+            f"mutation_id={self.mutation_id!r})"
+        )
+
+
+class DbMutation(Base):
+    """An audit-trail row for one destructive DB mutation.
+
+    R06 — DB mutation guards. The destructive class/asset/import
+    routes insert one :class:`DbMutation` row after the mutation
+    commits, capturing the route (HTTP method + path template),
+    the actor (current user id, nullable for system-initiated
+    mutations), the affected profile (nullable for cross-profile
+    operations), the before/after counts of classes / assets /
+    positions as JSON-serialised dicts, and the absolute path to
+    the pre-mutation snapshot (nullable for mutations that did
+    not fire the gate — single-row edits skip the snapshot).
+
+    The audit row is best-effort: the mutation commits first, and
+    a failure to insert this row emits a structured WARN log
+    without rolling the mutation back. ``admin-recovery`` reads
+    this table via the ``GET /admin/audit`` endpoint, paginated by
+    ``created_at`` and clamped to a configurable limit.
+
+    JSON columns are stored as :class:`String` (not the
+    SQLAlchemy :class:`JSON` type) to match the
+    :class:`ImportPreview.raw_json` convention — the project
+    uses ``json.dumps`` / ``json.loads`` to keep the schema
+    portable between SQLite and PostgreSQL without surprise
+    type mapping (``Decimal`` and ``datetime`` would otherwise
+    need custom encoders).
+    """
+
+    __tablename__ = "db_mutations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False, index=True
+    )
+    route: Mapped[str] = mapped_column(String(128), nullable=False)
+    actor_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    profile_id: Mapped[int | None] = mapped_column(
+        ForeignKey("profiles.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    before_json: Mapped[str] = mapped_column(String, nullable=False)
+    after_json: Mapped[str] = mapped_column(String, nullable=False)
+    snapshot_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return (
+            f"DbMutation(id={self.id!r}, created_at={self.created_at!r}, "
+            f"route={self.route!r}, actor_user_id={self.actor_user_id!r}, "
+            f"profile_id={self.profile_id!r}, snapshot_path={self.snapshot_path!r})"
+        )
+
+
 __all__ = [
     "User",
     "Profile",
@@ -463,5 +571,7 @@ __all__ = [
     "Position",
     "ImportPreview",
     "Quote",
+    "DbSnapshot",
+    "DbMutation",
     "QuoteKind",
 ]

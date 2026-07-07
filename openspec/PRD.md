@@ -607,6 +607,106 @@ estado vivem em `DESIGN.md` — esta seção não prescreve numbers.
 
 ---
 
+### 4.11 DB mutation contract — toda alteração destrutiva é formalizada
+
+**Regra do owner (2026-07-07):** qualquer mudança que possa mutar
+linhas existentes em `data/portfolio.db` em produção precisa estar
+**documentada e formalizada** antes de aplicar. Sem surpresa.
+Sem "ah, era pra ser 2 classes mas veio 3". Sem "achei que era
+uma classe só". Toda mutação destrutiva é um evento explícito.
+
+**Escopo da regra.** Aplica-se a:
+
+- `POST /classes` (snapshot-replace: apaga todas as classes do
+  perfil e reinsere o submetido).
+- `POST /api/import/commit` (upsert positions em massa; pode
+  sobrescrever o estado de `qty`/`avg_price`/`current_price` em
+  até 100+ posições).
+- `POST /classes/{id}/delete`, `DELETE /api/classes/{id}`
+  (deleta uma classe; cascateia nos ativos e posições).
+- `POST /assets/{id}/delete`, `DELETE /api/assets/{id}`
+  (deleta um ativo; cascateia nas posições).
+- Qualquer rota futura que apague ou sobrescreva linhas
+  existentes (D-class destructive).
+
+Não se aplica a:
+
+- `POST /api/classes` (cria UMA classe; não destrói nada).
+- `POST /api/assets` (cria UM ativo; não destrói nada).
+- `PATCH /api/classes/{id}`, `PATCH /api/assets/{id}` (edita
+  campos, não deleta).
+- Alterações de schema (Alembic migration) — coberto pelo
+  processo OpenSpec padrão.
+
+**Contrato em 5 cláusulas.**
+
+1. **OpenSpec obrigatório.** Toda feature que toca rotas
+   destrutivas precisa de um change folder em
+   `openspec/changes/` (proposal + design + spec delta) ANTES
+   de qualquer código ser escrito. Sem change folder = sem
+   merge. O `openspec-roadmap` enforce isso via o gate
+   `propose` → `apply` → `archive`.
+
+2. **Spec delta em `db-mutation-safety` / equivalente.** O
+   change folder precisa declarar o que o `db-mutation-safety`
+   spec ganha: o gate threshold (ou a remoção dele), a
+   estratégia de diff antes do commit, e o que aparece na
+   UI para forçar o usuário a ver o que vai mudar. Spec sem
+   delta = reviewer recusa.
+
+3. **Server exige confirmação explícita.** Toda rota no
+   escopo acima exige `confirm=true` no payload (form field,
+   query param, ou JSON body) e rejeita sem ele com HTTP 400
+   `{"reason": "confirmation_required", ...}`. Sem threshold,
+   sem heurística de "perfil pequeno está OK". O server não
+   confia em smarts — confia em payload explícito.
+
+4. **UI mostra o diff antes do commit.** Para snapshot-replace
+   (`POST /classes`) e import commit (`POST /api/import/commit`):
+   o server computa `{will_remove: [...], will_add: [...]}` a
+   partir do estado atual + payload submetido e devolve junto
+   com o 400. A UI exibe um diff visual. O usuário lê o que vai
+   mudar antes de aplicar. Para deletes unitários
+   (`DELETE /api/classes/{id}`): UI exige `type-to-confirm` —
+   o usuário digita o nome exato da classe/ativo no campo
+   `confirm_name` antes do botão habilitar. Impossível deletar
+   por acidente de clique.
+
+5. **Smoke test contra prod é read-only.** A checklist
+   `refresh-for-test` verifica o estado via GET (`/healthz`,
+   `/admin/snapshots`, `/admin/audit`, `GET /` com cookie).
+   NUNCA dispara `POST /classes`, `POST /api/import/commit`,
+   `DELETE /api/...` contra o DB de prod para "verificar se
+   funciona". Verificação de rotas destrutivas acontece na
+   suite de teste (`test_db_mutations.py` +
+   `test_admin_recovery.py`); o DB de prod é o que o usuário
+   vai abrir, não o que o agente testa.
+
+**Audit trail obrigatório.** Toda mutação destrutiva grava
+uma linha em `db_mutations` (route, actor, profile, before,
+after, snapshot_path) e captura um snapshot em `data/snapshots/`
+antes do commit. Já implementado via R06 (DB mutation safety
++ admin recovery). Sem audit + snapshot, a feature não pode
+ser merged — a root cause de qualquer wipe acidental vira
+indetectável e a recovery vira `db-reset` do CSV (que apaga
+tudo, incluindo posições inseridas pelo import).
+
+**Exceção.** `task db-reset` (caminho CSV) é destrutivo por
+design e tem seu próprio gate: roda só quando explicitamente
+invocado (`db-reset`, `db-clear-assets`, `db-seed --mode=reset`).
+Não conta como mutação acidental — é o caminho canônico de
+re-seed. Coberto por PRD §4.3.
+
+**Por que essa regra existe.** O DB de prod é a única cópia
+dos dados da família. Sem audit + diff + type-to-confirm, um
+form submetido com 2 classes substitui 6 e cascateia 48
+ativos. O usuário abre a URL, vê 2 classes + 0 ativos, e
+não tem como saber se foi ele, um teste, ou um bug. Esta
+regra torna o wipe **impossível sem intenção explícita** e
+**recuperável** quando acontece.
+
+---
+
 ## 5. Trabalho em Curso e Horizonte
 
 ### 5.1 Estado atual (snapshot)

@@ -45,11 +45,24 @@ The success path sets ``display_order = (max + 1)`` for new rows
 in submission order, so the editor's stable iteration order
 (``Profile.asset_classes`` is ``order_by="AssetClass.display_order"``)
 matches the user's input order on the first save.
+
+DB mutation safety (R06)
+-------------------------
+The destructive paths (``POST /classes`` snapshot-replace,
+``POST /classes/{id}/delete``, ``DELETE /api/classes/{id}``)
+capture a pre-mutation snapshot via
+:func:`omaha.mutation_guards.snapshot_before_destructive` and
+write an audit row via
+:func:`omaha.mutation_guards.record_mutation_audit` after the
+destructive commit. The operator can roll back any wipe via
+``/admin/restore/{snapshot_id}`` (PRD §4.11 reactive layer).
 """
 
 from __future__ import annotations
 
+import logging
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
@@ -59,6 +72,13 @@ from sqlalchemy.orm import selectinload
 
 from omaha.auth import DbSession, require_active_profile, require_profile_writable, require_user
 from omaha.models import AssetClass, Profile, User
+from omaha.mutation_guards import (
+    record_mutation_audit,
+    snapshot_before_destructive,
+    snapshot_counts,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["classes"])
 
@@ -180,18 +200,40 @@ def post_classes(
     profile ends up with zero classes and the dashboard no
     longer shows the summary.
 
+    R06 (PRD §4.11): captures a pre-mutation snapshot before
+    the destructive delete and writes an audit row after the
+    commit. The operator can roll back via
+    ``/admin/restore/{snapshot_id}``.
+
     Returns
     -------
     - 303 → ``/`` on success.
     - 200 with the editor re-rendered and ``error`` in the body
       on validation failure.
+    - 500 if the snapshot fails (rollback path is broken; the
+      mutation is NOT applied).
     """
+    # R06: capture snapshot BEFORE the destructive delete. If
+    # this fails, abort — a snapshot failure means the rollback
+    # path is broken, so the mutation MUST NOT proceed.
+    snapshot_path, snapshot_id = _capture_or_abort(db, "POST /classes")
+    before_counts = snapshot_counts(db, profile.id)
+
     # Empty submission = clear all. The editor disables the save
     # button on zero rows, so this branch only fires for the
     # "wipe everything" use case (intentional or programmatic).
     if not name:
         db.query(AssetClass).filter(AssetClass.profile_id == profile.id).delete()
         db.commit()
+        _record_audit(
+            db,
+            route="POST /classes",
+            actor_user_id=user.id,
+            profile_id=profile.id,
+            before_counts=before_counts,
+            snapshot_path=snapshot_path,
+            snapshot_id=snapshot_id,
+        )
         return RedirectResponse("/", status_code=303)
 
     rows, error = _validate_rows(name, target_pct)
@@ -229,6 +271,15 @@ def post_classes(
             error="Já existe uma classe com o nome duplicado.",
         )
 
+    _record_audit(
+        db,
+        route="POST /classes",
+        actor_user_id=user.id,
+        profile_id=profile.id,
+        before_counts=before_counts,
+        snapshot_path=snapshot_path,
+        snapshot_id=snapshot_id,
+    )
     return RedirectResponse("/", status_code=303)
 
 
@@ -246,13 +297,36 @@ def delete_class(
     404 — the form template only renders delete buttons for the
     active profile's own rows, so this is the right response for
     a stale or hand-crafted URL.
+
+    R06: captures a pre-mutation snapshot and writes an audit
+    row after the commit (PRD §4.11 reactive layer).
     """
     cls = db.get(AssetClass, class_id)
     if cls is None or cls.profile_id != profile.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    snapshot_path, snapshot_id = _capture_or_abort(db, "POST /classes/{id}/delete")
+    before_counts = snapshot_counts(db, profile.id)
     db.delete(cls)
     db.commit()
+    _record_audit(
+        db,
+        route="POST /classes/{id}/delete",
+        actor_user_id=_current_user_id(request),
+        profile_id=profile.id,
+        before_counts=before_counts,
+        snapshot_path=snapshot_path,
+        snapshot_id=snapshot_id,
+    )
     return RedirectResponse("/", status_code=303)
+
+
+def _current_user_id(request: Request) -> int | None:
+    """Read the current user id from the session, or ``None``.
+
+    Mirrors :func:`omaha.auth.get_current_user` but returns
+    just the id without hitting the DB.
+    """
+    return request.session.get("user_id")
 
 
 @router.delete(
@@ -273,6 +347,9 @@ def delete_class_api(
     operator must delete or move the assets first. The cascade is
     deliberately blocked (409 instead of cascade) to preserve the
     operator's data.
+
+    R06: captures a pre-mutation snapshot and writes an audit
+    row after the commit (PRD §4.11 reactive layer).
 
     Returns
     -------
@@ -297,8 +374,19 @@ def delete_class_api(
             detail=f"Classe tem {count} ativo(s); remova-os antes.",
         )
 
+    snapshot_path, snapshot_id = _capture_or_abort(db, "DELETE /api/classes/{id}")
+    before_counts = snapshot_counts(db, profile.id)
     db.delete(cls)
     db.commit()
+    _record_audit(
+        db,
+        route="DELETE /api/classes/{id}",
+        actor_user_id=_current_user_id(request),
+        profile_id=profile.id,
+        before_counts=before_counts,
+        snapshot_path=snapshot_path,
+        snapshot_id=snapshot_id,
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -473,6 +561,66 @@ def _render_classes_with_error(
         {"user": user, "profile": profile, "error": error},
         status_code=200,
     )
+
+
+# ---------------------------------------------------------------------------
+# R06 — DB mutation safety helpers (PRD §4.11 reactive layer)
+# ---------------------------------------------------------------------------
+
+
+def _capture_or_abort(db: DbSession, route: str) -> tuple[Path | None, int | None]:
+    """Capture a pre-mutation snapshot; abort with HTTP 500 on failure.
+
+    Returns ``(snapshot_path, snapshot_id)`` on success. The
+    destructive route is expected to call this BEFORE the
+    destructive transaction; if the snapshot fails, the route
+    must NOT proceed (the rollback path is broken).
+
+    Failure modes: missing source DB (operator-visible typo
+    or wrong bind mount), permission denied, disk full, or
+    any sqlite3-level error during the copy. All propagate
+    as HTTP 500 with a structured log line.
+    """
+    try:
+        return snapshot_before_destructive(db)
+    except (FileNotFoundError, OSError, Exception) as exc:  # noqa: BLE001
+        logger.exception("snapshot_before_destructive failed for %s: %s", route, exc)
+        raise
+
+
+def _record_audit(
+    db: DbSession,
+    *,
+    route: str,
+    actor_user_id: int | None,
+    profile_id: int | None,
+    before_counts: dict,
+    snapshot_path: Path | None,
+    snapshot_id: int | None,
+) -> None:
+    """Write a :class:`DbMutation` audit row after a destructive commit.
+
+    Best-effort: a failed audit insert does NOT roll back the
+    destructive commit (the user-visible mutation has already
+    succeeded; the snapshot is the recovery path). A structured
+    WARN log line is emitted on failure.
+    """
+    after_counts = snapshot_counts(db, profile_id) if profile_id else {}
+    try:
+        record_mutation_audit(
+            db,
+            route=route,
+            actor_user_id=actor_user_id,
+            profile_id=profile_id,
+            before_counts=before_counts,
+            after_counts=after_counts,
+            snapshot_path=snapshot_path,
+            snapshot_id=snapshot_id,
+        )
+        db.commit()
+    except Exception as exc:  # pragma: no cover - best-effort
+        logger.warning("record_mutation_audit failed for %s: %s", route, exc)
+        db.rollback()
 
 
 __all__ = ["router"]

@@ -56,7 +56,9 @@ Failure modes
 
 from __future__ import annotations
 
+import logging
 from decimal import Decimal
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, Form, HTTPException, Request, Response, status
@@ -65,6 +67,11 @@ from sqlalchemy.exc import IntegrityError
 
 from omaha.auth import DbSession, require_active_profile, require_profile_writable, require_user
 from omaha.models import Asset, AssetClass, Profile, User
+from omaha.mutation_guards import (
+    record_mutation_audit,
+    snapshot_before_destructive,
+    snapshot_counts,
+)
 
 router = APIRouter(tags=["assets"])
 
@@ -564,15 +571,33 @@ def patch_asset(
 )
 def delete_api_asset(
     asset_id: int,
+    request: Request,
     db: DbSession,
     profile: Profile = Depends(require_active_profile),
     _writable: None = Depends(require_profile_writable),
 ) -> Response:
+    """Delete one asset.
+
+    R06 (PRD §4.11): captures a pre-mutation snapshot and
+    writes an audit row after the commit. The operator can
+    roll back any wipe via ``/admin/restore/{snapshot_id}``.
+    """
     asset = db.get(Asset, asset_id)
     if asset is None or asset.asset_class.profile_id != profile.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    snapshot_path, snapshot_id = _capture_or_abort(db, "DELETE /api/assets/{id}")
+    before_counts = snapshot_counts(db, profile.id)
     db.delete(asset)
     db.commit()
+    _record_audit(
+        db,
+        route="DELETE /api/assets/{id}",
+        actor_user_id=_current_user_id(request),
+        profile_id=profile.id,
+        before_counts=before_counts,
+        snapshot_path=snapshot_path,
+        snapshot_id=snapshot_id,
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -650,12 +675,26 @@ def delete_asset(
     class to the profile — a hand-crafted id from another
     profile is a 404, not a silent delete. Same convention as
     the S02 ``/classes/{id}/delete`` route.
+
+    R06: captures a pre-mutation snapshot and writes an audit
+    row after the commit (PRD §4.11 reactive layer).
     """
     asset = db.get(Asset, asset_id)
     if asset is None or asset.asset_class.profile_id != profile.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    snapshot_path, snapshot_id = _capture_or_abort(db, "POST /assets/{id}/delete")
+    before_counts = snapshot_counts(db, profile.id)
     db.delete(asset)
     db.commit()
+    _record_audit(
+        db,
+        route="POST /assets/{id}/delete",
+        actor_user_id=_current_user_id(request),
+        profile_id=profile.id,
+        before_counts=before_counts,
+        snapshot_path=snapshot_path,
+        snapshot_id=snapshot_id,
+    )
     return RedirectResponse("/assets", status_code=303)
 
 
@@ -686,6 +725,56 @@ def _render_assets_with_error(
         },
         status_code=200,
     )
+
+
+# ---------------------------------------------------------------------------
+# R06 — DB mutation safety helpers (PRD §4.11 reactive layer)
+# ---------------------------------------------------------------------------
+
+logger = logging.getLogger(__name__)
+
+
+def _current_user_id(request: Request) -> int | None:
+    """Read the current user id from the session, or ``None``."""
+    return request.session.get("user_id")
+
+
+def _capture_or_abort(db: DbSession, route: str) -> tuple[Path | None, int | None]:
+    """Capture a pre-mutation snapshot; abort with HTTP 500 on failure."""
+    try:
+        return snapshot_before_destructive(db)
+    except (FileNotFoundError, OSError, Exception) as exc:  # noqa: BLE001
+        logger.exception("snapshot_before_destructive failed for %s: %s", route, exc)
+        raise
+
+
+def _record_audit(
+    db: DbSession,
+    *,
+    route: str,
+    actor_user_id: int | None,
+    profile_id: int | None,
+    before_counts: dict,
+    snapshot_path: Path | None,
+    snapshot_id: int | None,
+) -> None:
+    """Write a :class:`DbMutation` audit row after a destructive commit (best-effort)."""
+    after_counts = snapshot_counts(db, profile_id) if profile_id else {}
+    try:
+        record_mutation_audit(
+            db,
+            route=route,
+            actor_user_id=actor_user_id,
+            profile_id=profile_id,
+            before_counts=before_counts,
+            after_counts=after_counts,
+            snapshot_path=snapshot_path,
+            snapshot_id=snapshot_id,
+        )
+        db.commit()
+    except Exception as exc:  # pragma: no cover - best-effort
+        logger.warning("record_mutation_audit failed for %s: %s", route, exc)
+        db.rollback()
 
 
 __all__ = ["router"]

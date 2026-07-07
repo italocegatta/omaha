@@ -49,6 +49,11 @@ from omaha.csv_import import (
     suggest_class_id,
 )
 from omaha.models import Asset, AssetClass, ImportPreview, Profile, User
+from omaha.mutation_guards import (
+    record_mutation_audit,
+    snapshot_before_destructive,
+    snapshot_counts,
+)
 from omaha.routes.pages import _CLASS_COLORS
 
 router = APIRouter(tags=["imports"])
@@ -554,6 +559,20 @@ def commit_import(
     existing_assets = _existing_assets_for_profile(db, profile.id)
     result = match_positions(raw, existing_assets)
 
+    # R06 (PRD §4.11 reactive layer): capture a pre-mutation
+    # snapshot before the import commit. The import upserts
+    # position state for every broker_ticker in the CSV, which
+    # is destructive (overwrites prior qty/avg/current).
+    try:
+        snapshot_path, snapshot_id = snapshot_before_destructive(db)
+    except (FileNotFoundError, OSError, Exception) as exc:
+        logger.exception("snapshot_before_destructive failed for POST /api/import/commit: %s", exc)
+        return JSONResponse(
+            {"detail": f"Falha ao capturar snapshot: {exc}"},
+            status_code=500,
+        )
+    before_counts = snapshot_counts(db, profile.id)
+
     # Build asset_id/class lookups for auto-matched rows.
     ticker_to_asset_id: dict[str, int] = {}
     ticker_to_original_class: dict[str, int] = {}
@@ -718,6 +737,27 @@ def commit_import(
 
     db.delete(preview)
     db.commit()
+
+    # R06 (PRD §4.11 reactive layer): write audit row after the
+    # import commit. Import is a destructive op because it
+    # overwrites position state for every broker_ticker in the
+    # CSV; the operator can roll back via /admin/restore/.
+    after_counts = snapshot_counts(db, profile.id)
+    try:
+        record_mutation_audit(
+            db,
+            route="POST /api/import/commit",
+            actor_user_id=user.id,
+            profile_id=profile.id,
+            before_counts=before_counts,
+            after_counts=after_counts,
+            snapshot_path=snapshot_path,
+            snapshot_id=snapshot_id,
+        )
+        db.commit()
+    except Exception as exc:  # pragma: no cover - best-effort
+        logger.warning("record_mutation_audit failed for POST /api/import/commit: %s", exc)
+        db.rollback()
 
     logger.info(
         "import_commit_api profile=%s upserted=%d created=%d", profile.id, upserted, created

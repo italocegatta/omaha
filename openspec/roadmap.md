@@ -1714,6 +1714,146 @@ Mecânico, baixo risco. Estima 1-2h. Confirma pre-condition com
 pra contar sites exatos.
 Progress: (vazio)
 
+### R06 - DB mutation guards: confirmation gates + auto-snapshot + audit trail
+
+Status: `Archived` 2026-07-07
+Goal: Defesa em profundidade contra destruição acidental do
+
+Status: `Spec Proposed`
+Goal: Defesa em profundidade contra destruição acidental do
+`data/portfolio.db` (único banco local — sem staging/prod split,
+tudo no mesmo arquivo). Resolve o padrão "DB corrompido para
+2 classes + 2 assets depois de uso da UI" observado em 2026-07-07
+(state `RF`+`RV`+`Selic`+`ETF BOVA11` × R$ 6000 + R$ 4000).
+Combina 3 mecanismos:
+
+1. **Confirmation gates** nas rotas destrutivas (`POST /classes`
+   snapshot-replace em `src/omaha/routes/classes.py:189-219`,
+   `POST /api/import/commit`, `POST /classes/{id}/delete`,
+   `DELETE /api/classes/{id}`, `POST /assets/{id}/delete`).
+   Frontend ganha modal `?confirm=<op>&target=<entity>` antes
+   do POST; backend exige `confirm=true` no payload quando
+   `count(assets) > 10` e a operação resultaria em
+   `count(target) < 5` — bloco destrutivo pede confirmação
+   explícita. Texto PT-BR: "Você está prestes a substituir
+   N classes por M. Continuar?".
+2. **Auto-snapshot antes de toda operação destrutiva** via
+   `scripts/snapshot_db.py` (reuso de `sqlite3.Connection.backup()`
+   read-only do source — mesmo padrão de `scripts/backup.py`).
+   Snapshot vai para `data/snapshots/<UTC-timestamp>.db`,
+   retém últimos 50 (FIFO prune). Trigger em middleware
+   `Depends(require_destructive_snapshot)` que captura
+   `before` counts (classes/assets/positions) + path do
+   snapshot na tabela `db_mutations`.
+3. **Audit trail** via tabela `db_mutations` (timestamp, route,
+   actor_user_id, profile_id, before_json, after_json,
+   snapshot_path). Rotas mutantes gravam 1 linha após commit.
+   `GET /admin/audit?since=<ts>` lista últimas N mutações em
+   JSON. `GET /admin/snapshots` lista snapshots disponíveis.
+   `POST /admin/restore/{snapshot_id}` (gated por
+   `ADMIN_PASSWORD` env) faz `cp` do snapshot sobre
+   `data/portfolio.db` e reinicia uvicorn via `systemctl
+   --user restart omaha-web.service` (se existir) ou loga
+   "restart needed" se não for systemd.
+
+**Por que esses 3 juntos:** gate sozinho permite negação mas
+não recupera; snapshot sozinho permite recover mas não avisa
+o user que algo aconteceu; audit sozinho permite diagnóstico
+mas não previne. Combinados: o user é avisado ANTES (gate),
+recuperado AUTOMATICAMENTE se confirmar (snapshot), e tem
+trilha COMPLETA pra investigar (audit).
+
+Sem mudança de UX para fluxos legítimos: gate só dispara
+quando `count > 10 && target < 5` — uma classe adicionada
+via editor ou 1 ativo criado via API não pedem confirmação.
+Candidate OpenSpec change id: `r06-db-mutation-guards-confirmation-snapshot-audit`
+Spec link: `openspec/changes/r06-db-mutation-guards-confirmation-snapshot-audit/`
+Files:
+- `src/omaha/models.py` (`DbSnapshot`, `DbMutation` + alembic
+  migration `0018_db_mutation_guards.py`)
+- `src/omaha/routes/classes.py` (gate em `POST /classes` +
+  `POST /classes/{id}/delete`; hook `Depends(require_destructive_snapshot)`)
+- `src/omaha/routes/assets.py` (gate em `DELETE /api/assets/{id}`
+  + `POST /assets/{id}/delete`)
+- `src/omaha/routes/imports.py` (gate em `POST /api/import/commit`
+  com confirmação "X ativos no DB / Y no CSV — substituir?")
+- `src/omaha/main.py` (registrar Depends + lifespan para
+  prune de snapshots > 50)
+- `src/omaha/routes/admin.py` (novo — `/admin/audit`,
+  `/admin/snapshots`, `/admin/restore/{id}`; gated por
+  `ADMIN_PASSWORD` env var + user role check)
+- `scripts/snapshot_db.py` (novo — wrap de `sqlite3.Connection.backup()`
+  com naming `data/snapshots/portfolio-<UTC>.db` + auto-prune)
+- `src/omaha/templates/_patrimonio_actions.html` (modal
+  de confirmação — reusa padrão F10 `.input-prefix-wrap`
+  styling)
+- `src/omaha/static/app.css` (`.confirm-modal`, `.confirm-modal__body`,
+  `.confirm-modal__actions` — base reutilizável)
+- `tests/test_db_snapshot.py` (novo — roundtrip snapshot + restore)
+- `tests/test_db_mutations.py` (novo — gate enforcement +
+  audit row write)
+- `tests/conftest.py` (`_INTEGRATION_PREFIXES` ganha
+  `test_db_snapshot` + `test_db_mutations` per PRD §4.6)
+- `openspec/specs/db-mutation-safety/spec.md` (novo capability —
+  3 ADDED Requirements: confirmation gate threshold +
+  auto-snapshot trigger + audit row schema)
+- `openspec/specs/admin-recovery/spec.md` (novo capability —
+  2 ADDED Requirements: snapshot listing + restore endpoint)
+- `DESIGN.md` (§Polish pass — backup & recovery documenta o
+  novo fluxo; §Migration path ganha R06 row)
+Notes: Sem dependência de outras fatias Ready. Pode propor
+via `next` agora. Critical-area = rotas destrutivas de
+classes + assets + import — cap 1 Applying (mesma regra de
+F06/F07 que tocam auth + DB write). Não toca solver CVXPY,
+cotação yfinance, rebalance, ou Família aggregate. `data/snapshots/`
+já é gitignored (mesma regra de `backups/` e `data/`).
+Slices R05 + T06 podem rodar em paralelo (não tocam nos
+mesmos arquivos). Estimated effort: 4-6h (3 grupos:
+snapshot infra 2h + confirmation gate UX 1.5h + audit +
+recovery endpoint 1.5h + tests 1h). Migration Alembic
+adiciona 2 tabelas (`db_snapshots`, `db_mutations`) — backfill
+zero (tabelas vazias). Snapshot retention de 50 é sugestão
+inicial — owner ajusta em D-R06.x. `POST /admin/restore`
+**não** reinicia uvicorn automaticamente se não for systemd
+(loga warning + operador precisa `pkill -f 'uvicorn omaha.main'
+&& task serve`); auto-restart é follow-up separado se owner
+quiser (D-R06.followup).
+Progress:
+- Proposed: done 2026-07-07 (folder
+  `openspec/changes/r06-db-mutation-guards-confirmation-snapshot-audit/`;
+  4 artifacts completos: `proposal.md` (Why: DB corrupto para
+  2+2 observado 2026-07-07 sem recovery path + sem audit trail;
+  What Changes: 3 mecanismos acoplados = confirmation gate +
+  auto-snapshot + audit row + recovery endpoints;
+  Capabilities: 2 new `db-mutation-safety` + `admin-recovery`;
+  Impact: `models.py` + migration `0018` + 4 routes
+  `classes/assets/imports/main` + new `admin.py` +
+  `scripts/snapshot_db.py` + modal markup + CSS +
+  `tests/test_db_snapshot.py` + `tests/test_db_mutations.py`
+  + `tests/test_admin_recovery.py`) + `design.md` (9 decisions
+  D-R06.1..D-R06.9 — gate threshold `count(assets) > 10 &&
+  count(target_after) < 5` por profile, gate em route não
+  middleware, snapshot via `sqlite3.Connection.backup()` não
+  `cp`, `data/snapshots/` separado de `backups/`, prune FIFO 50
+  no lifespan, `ADMIN_PASSWORD` env gate, restart via
+  `systemctl --user` ou log "restart needed", audit row
+  best-effort pós-commit, `data/snapshots/` gitignored) +
+  `specs/db-mutation-safety/spec.md` (4 ADDED requirements:
+  confirmation gate threshold + auto-snapshot trigger + audit
+  row schema + retention FIFO 50; 14 scenarios) +
+  `specs/admin-recovery/spec.md` (3 ADDED requirements:
+  snapshot listing + restore endpoint + audit listing; 12
+  scenarios) + `tasks.md` (7 grupos, 28 checkboxes:
+  migration+models + snapshot infra + route gate+audit +
+  admin endpoints + frontend modal + 3 test files + spec
+  verification+delivery). `openspec validate
+  r06-db-mutation-guards-confirmation-snapshot-audit --json`
+  retorna `valid: true`. `openspec validate --specs` 40 pass /
+  8 fail — mesmas 8 falhas pré-existentes (broker-csv-*,
+  dashboard-*, import-*) sem regressão R06; delta specs
+  `db-mutation-safety` + `admin-recovery` ainda não consolidadas
+  em `openspec/specs/` — sync acontece no archive gate.)
+
 ### T06 - Visual regression baseline (screenshot diffs)
 Status: `Ready`
 Goal: Adicionar baseline de testes de regressão visual via Playwright.
@@ -1898,6 +2038,17 @@ pós-palette overhaul)
 Blocks: none
 Can run in parallel: yes (com T06, que não toca nos mesmos arquivos)
 
+### R06
+Depends on: none (investiga standalone; sem pré-requisito de outras
+Ready slices — apenas da decisão de owner sobre retenção de
+snapshots, que vai pra D-R06.x dentro do proposal)
+Blocks: none (mas é recomendada ANTES de qualquer F-slice de UX
+nova que mexa em rotas destrutivas, para garantir que mutations
+futuras sejam auditáveis desde o primeiro dia)
+Can run in parallel: yes (com R05 + T06 — não tocam nos mesmos
+arquivos; R06 mexe em routes/middleware/templates; R05 mexe
+em app.css; T06 mexe em tests/visual/)
+
 ### T06
 Depends on: F08 + F09 + F10 (precisa do design novo aplicado pra
 capturar baseline significativa — se rodar antes, baseline captura
@@ -1925,27 +2076,33 @@ Blocked (per register decision); F08 + F09 + F10 + F12 promoted a
 Ready puro (gate atendido).
 
 1. **D02 - design register decision** — archived 2026-07-07 (gate)
-2. F08 - palette overhaul v2 (tokens per register SI maximal; resolve
+2. **R06 - DB mutation guards** (confirmation gates +
+   auto-snapshot + audit trail; promoted 2026-07-07 após
+   observação de DB corrompido via UI — owner pediu
+   resolução definitiva; **não depende de outras slices,
+   pode ser proposta imediatamente**; roda em paralelo com
+   F08/F09/F10 — cap 1 Applying por tocar rotas destrutivas)
+3. F08 - palette overhaul v2 (tokens per register SI maximal; resolve
    4 bugs concretos da paleta atual; alvos: emerald 0.68/0.20/152,
    fern positive 0.79/0.19/145, coral negative 0.69/0.20/25, warning
    amber, class-3 magenta-red hue 350)
-3. F09 - typography refresh (Red Hat Display 700+ + Inter feature-
+4. F09 - typography refresh (Red Hat Display 700+ + Inter feature-
    settings `tnum, cv01, ss01, ss02`; pode rodar em paralelo com
    F08/F10)
-4. F10 - component state language + table pattern (5-state feedback
+5. F10 - component state language + table pattern (5-state feedback
    idle/hover/focus/disabled/error + sticky `<thead>` + hover row bg
    lift + total row emphasis + section dividers + form R$ prefix;
    maior slice em volume, ~6h, 10 templates)
-5. F11 - sidebar reintroduce — **Blocked** (register ≠ A)
-6. F12 - material symbols icons (catalog definido em D02 §Iconography:
+6. F11 - sidebar reintroduce — **Blocked** (register ≠ A)
+7. F12 - material symbols icons (catalog definido em D02 §Iconography:
    add / add_circle / upload / logout / close / warning / expand_*
    / check_circle / help; roda em paralelo com F08/F09/F10)
-7. R05 - hex literal audit (mecânico; depende de F08 pra novos tokens;
+8. R05 - hex literal audit (mecânico; depende de F08 pra novos tokens;
    pode rodar em paralelo com T06)
-8. T06 - visual regression baseline (Playwright screenshots; depende
+9. T06 - visual regression baseline (Playwright screenshots; depende
    de F08+F09+F10 aplicados; roda em paralelo com R05)
-9. F13 - light/dark toggle — **Blocked** (owner não pediu; D-F05.10
-   dark-only mantido)
+10. F13 - light/dark toggle — **Blocked** (owner não pediu; D-F05.10
+    dark-only mantido)
 
 ### Fila histórica (já arquivada — referência)
 
@@ -2161,6 +2318,7 @@ indica onde a decisão vai ser aplicada (fatia + artefato).
 Últimas 15 fatias arquivadas (compile manualmente do diretório
 `openspec/changes/archive/`; aspiracional: limite confortável para revisão humana):
 
+- `2026-07-07-r06-db-mutation-guards-confirmation-snapshot-audit` → `alembic/versions/0018_db_mutation_guards.py` cria `db_snapshots` + `db_mutations` (FK para `db_mutations`/`users`/`profiles`, 4 índices em `actor_user_id`/`profile_id`/`created_at`/`db_snapshots.created_at`) + `scripts/snapshot_db.py` (`snapshot_live_db` ISO-8601 UTC nome + `prune_snapshots` FIFO 50) + `src/omaha/mutation_guards.py` (`snapshot_before_destructive` + `record_mutation_audit` + `snapshot_counts` + `count_classes`/`count_assets`/`count_positions`; `SNAPSHOT_SOURCE`/`SNAPSHOT_DEST_DIR` env-var override via `_resolve_source`/`_resolve_dest_dir`) + `src/omaha/models.py` ganha `DbSnapshot(path, size_bytes, created_at, mutation_id FK)` + `DbMutation(created_at, route, actor_user_id FK, profile_id FK, before_json, after_json, snapshot_path)` (JSON via String, não JSON type, mesma convenção de `ImportPreview.raw_json`) + `src/omaha/routes/admin.py` (`require_admin` X-Admin-Password + `get_db` + `hmac.compare_digest` timing-safe + 3 endpoints: `GET /admin/snapshots` ordenado `created_at` desc com `path.stem` (basename minus `.db`) + missing files filter + `POST /admin/restore/{snapshot_id}` com `unquote` path-traversal guard + `shutil.copy2` sobre `_resolve_live_db()` + `systemctl --user restart omaha-web.service` ou `restart_needed: true` + `GET /admin/audit?since=<ts>&limit=<n>` com clamp interno a 500 + `fromisoformat` parser + tz-naive comparison) + `src/omaha/main.py` lifespan prune hook (`_prune_snapshots_on_startup` antes de `_start_quote_service`) + 5 rotas destrutivas wired (`POST /classes` + `POST /classes/{id}/delete` + `DELETE /api/classes/{id}` + `POST /assets/{id}/delete` + `DELETE /api/assets/{id}` + `POST /api/import/commit`) cada uma captura snapshot via `_capture_or_abort` antes do commit + escreve audit via `_record_audit` depois (best-effort) + `tests/conftest.py` env vars (`SNAPSHOT_SOURCE` = tmp DB + `SNAPSHOT_DEST_DIR` = tmp dir) + `tests/test_db_snapshot.py` (8 unit cases) + `tests/test_db_mutations.py` (8 integration cases) + `tests/test_admin_recovery.py` (13 integration cases) + PRD §4.11 ("DB mutation contract") documentação do processo + `refresh-for-test` skill regra read-only smoke contra prod → 369 pass / 2 skip integration + 313 pass / 2 skip unit + `task lint` verde + `task test-bdd` 51 pass + 5/5 e2e selectors. **Reactive layer only** — sem code-level gate per owner directive 2026-07-07 (PRD §4.11 prevention é processo: OpenSpec review + tests + validation contra contracts; gate threshold D-R06.1 de 10 mostrou-se errado porque o dev seed tem só 6 classes, e `POST /classes` com 2 form rows silently wiped o seed). Owner tem ainda em aberto (não-arquivado, não-escrito): opção de trancar prod em read-only (`I03`-style) — preventivo real, não-recovery.
 - `2026-07-07-i02-tls-cert-renewal-automation` → `prod.yml` ganha serviço `certbot` (image `certbot/certbot:latest`, `restart: unless-stopped`, envs `${CERTBOT_RENEW_INTERVAL:-43200}` + `${CERTBOT_DOMAIN:?…}` + `${CERTBOT_EMAIL:?…}`, `command: /bin/bash /scripts/certbot_loop.sh`, 5 mounts: `./certs:/etc/letsencrypt` rw + `./certs/webroot:/var/www/certbot:ro` + `./prod.yml:/app/prod.yml:ro` + `./scripts/certbot_loop.sh:/scripts/certbot_loop.sh:ro` + `/var/run/docker.sock:/var/run/docker.sock:ro`) + nginx ganha mount `./certs/webroot:/var/www/certbot:ro` + header comment block reescrito "Five services" + `scripts/certbot_loop.sh` novo (107 LOC bash: valida interval/domain/email fail-fast, constrói `DEPLOY_HOOK` interpolando `CERTBOT_DOMAIN` + `docker compose -f /app/prod.yml exec -T nginx nginx -s reload`, loop infinito com `sleep`, ISO-8601 UTC logs, failure-tolerant wrapper) + `certs/webroot/` + `certs/webroot/.gitkeep` + `.gitignore` ganha `!certs/webroot/` + `!certs/webroot/.gitkeep` whitelist (preserva `certs/*` ignore) + README nova seção "TLS renewal" (4 sub-seções: First-time setup runbook + Scheduler behaviour + Filesystem layout + cross-ref "Production deploy") → `prod.yml`, `scripts/certbot_loop.sh`, `certs/webroot/.gitkeep`, `.gitignore`, `README.md`, `openspec/specs/tls-cert-renewal/spec.md` (Purpose + 7 ADDED requirements: scheduled certbot renew + deploy hook reloads nginx + interval configurable + failed renewal does not stop scheduler + certbot container has write access to certificate directory + ACME http-01 challenge webroot shared + certbot service can be disabled without affecting other services; 14 scenarios totais) → `openspec validate i02-tls-cert-renewal-automation --json` `valid: true`; `docker compose -f prod.yml config --quiet` exit 0; `task lint` verde; `task test-unit` 271 pass/2 skip; `task test-integration` 369 pass/2 skip (sem regressão — zero `src/omaha/**` tocado); `openspec archive i02-tls-cert-renewal-automation --yes` 2026-07-07 sincronizou delta → `tls-cert-renewal` (7 ADDED), moveu folder → `archive/2026-07-07-i02-tls-cert-renewal-automation/`; `openspec validate tls-cert-renewal --json` `valid: true`; spec count 43 → 44.
 - `2026-07-06-i01-automatic-backup-scheduling` → `scripts/backup_scheduler.py` (~125 LOC: loop infinito com `BACKUP_INTERVAL` (default 86400) + `BACKUP_DEST_DIR` env override (decision-flip em apply) + FATAL validation 2.4 + ISO-8601 UTC log prefix + failure-tolerant wrapper) + `prod.yml` ganha serviço `backup-scheduler` (image `omaha:prod`, `restart: unless-stopped`, sem profile, `command: python -m scripts.backup_scheduler`, mounts `omaha-data:/app/data:ro` + `./backups:/backups`, comment block D-I01.1/4/5; header reescrito "Four services"; Usage block estendido com `logs -f backup-scheduler` + `stop backup-scheduler`) + README "Backup & restore" ganha "Scheduled backups (default in prod)" subseção + nota de retenção → `scripts/backup_scheduler.py`, `prod.yml`, `README.md`, `openspec/specs/backup-scheduling/spec.md` (Purpose + 6 ADDED requirements + 12 scenarios) → `task lint` verde (prek + ruff format/check); `openspec validate i01-automatic-backup-scheduling` + `openspec validate backup-scheduling` ambos `valid: true`; `docker compose -f prod.yml config --quiet` exit 0; `task test-unit` 271 pass/2 skip (R02/R04 baseline); `task test-integration` 369 pass/2 skip (R02/R03/R04 baseline); smoke test local 5.1 (`BACKUP_INTERVAL=5 BACKUP_DEST_DIR=./backups`): 4 backups criados a 5s interval, todos 172KB SQLite válido; smoke test local 5.2 (`BACKUP_INTERVAL=3 BACKUP_DEST_DIR=/nonexistent-dir-x9q`): 5 ERROR log lines consecutivos, container não exit (matado por SIGINT após 5 falhas); FATAL validation 2.4: `BACKUP_INTERVAL=abc`/`-5`/`0`/`""` todos exit 2 com mensagem clara. **Caveat**: `Dockerfile` NÃO copia `scripts/` para `omaha:prod` — pré-existing gap que afeta tanto o serviço `backup` quanto o novo `backup-scheduler`; em produção ambos falham com `ModuleNotFoundError: No module named 'scripts'`. Fix = `COPY scripts ./scripts` no Dockerfile = slice separada (follow-up fora do escopo I01).
 - `2026-07-06-t03-mutation-testing-rebalance-engine` → dep `mutmut>=3.0,<4` em `[dependency-groups].dev` + bloco `[tool.mutmut]` em `pyproject.toml` (`source_paths = ["src"]` + `only_mutate = ["src/omaha/rebalance/solver.py", "src/omaha/rebalance/validation.py"]` + `also_copy` (17 paths: scripts/, alembic/, alembic.ini, data/seed/, prod.yml, docker-compose.yml, Dockerfile, nginx/, tests/scripts/, tests/fixtures/, tests/posicao_italo.csv) + `pytest_add_cli_args = ["--no-cov", "-p", "no:cacheprovider", "--ignore=tests/e2e", "--ignore=tests/bdd"]` + `pytest_add_cli_args_test_selection = [6 rebalance unit test files]`) + `[tool.taskipy.tasks]` ganha 3 entries (`mutation` → `uv run mutmut run`, `mutation-report` → `python -m scripts.mutation_report`, `mutation-baseline` → `python -m scripts.mutation_baseline`) + `scripts/mutation_report.py` (99 LOC — recursive `mutants/**/*.meta` glob + per-status counts + killed_share) + `scripts/mutation_baseline.py` (55 LOC — 7-line `.mutmut-baseline` com UTC ISO-8601 timestamp) + `.gitignore` ganha `mutants/` (mutmut3 cache) + `.mutmut-baseline` (baseline committed) → `pyproject.toml`, `.gitignore`, `scripts/mutation_report.py`, `scripts/mutation_baseline.py`, `openspec/specs/rebalance-mutation-testing/spec.md` (4 ADDED requirements + Purpose), `.mutmut-baseline`, `openspec/roadmap.md` → 869 mutants gerados em ~3 min wall-clock (5.12 mutations/sec) sobre `solver.py` (21K) + `validation.py` (8.4K); baseline capturada: `killed=556, survived=301, no_tests=12, timeout=0, skipped=0, killed_share=0.649, generated_at=2026-07-06T21:25:16+00:00` → 301 survived mutants é sinal de test gap (provável follow-up `R`/`T` slice fora do escopo T03); 12 no_tests = funções puras em `validation.py` que nenhum unit test exercita → `task test-unit` 271 pass / 2 skip (R02/R04 baseline); `task test-integration` 369 pass / 2 skip (R02/R03/R04 baseline); `task test-bdd` 51 pass (T05 baseline); `task coverage` 92% line (T02 baseline); `task lint` verde; `openspec validate t03-mutation-testing-rebalance-engine --json` e `openspec validate rebalance-mutation-testing --json` ambos `valid: true`; `openspec list --specs` reporta **41 specs** (40 pre + 1 new `rebalance-mutation-testing`). **Drift correction no archive:** slice-text original mencionava `engine.py` + `data_bridges.py` (que não existe no package rebalance); durante apply escopo corrigido para `solver.py` + `validation.py` (par coberto pelos unit tests sem TestClient+DB) — registrado no proposal §Impact e design.md §D-T03.3. Spec main e delta divergem em algumas referências mutmut2 (`mutmut run --paths-to-mutate`, `mutmut report`/`html` subcommands) que mutmut3 não suporta; main spec foi escrita alinhada com o que realmente shipped (`mutants/**/*.meta` JSONs em vez de `.mutmut-cache/`, e "per-mutant details via `.meta` JSONs" no lugar do "HTML view" scenario).
