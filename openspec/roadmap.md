@@ -195,7 +195,8 @@ Progress:
   descartada — capability não implementada)
 
 ### F04 - Página Proventos
-Status: `Ready` (deferido — owner 2026-07-05; ver D-F03-defer)
+Status: `Deprecated` 2026-07-06 (owner: "F03 e F04 só iremos fazer no
+futuro, ainda incerto. então não quero eles no roadmap")
 Goal: Página top-level `/proventos` com dividendos/JCP recebidos por ativo,
 classe e perfil. Substitui o stub "Em construção" criado por F02.
 Nova spec a ser definida na fatia
@@ -216,6 +217,16 @@ Proventos depende de escolha de fonte de dados ainda em aberto
 (provider de cotação yfinance não cobre eventos); sem decisão do
 owner sobre a fonte, F04 não pode ser proposta sem ambiguidade
 significativa. Reativar via `start f04` quando o tema voltar.
+
+**DEPRECATED 2026-07-06** — owner pediu para remover do roadmap
+ativo. Razão: incerto se/ quando o tema Rentabilidade/Proventos
+volta a ser prioridade; enquanto incerto, F03+F04 ficam fora do
+queue. **Reactivation path**: `restore f04` quando owner retomar o
+tema. Slice preservada para auditoria; folder
+`openspec/changes/f04-proventos-page/` permanece vazio (proposal
+draft nunca foi criado — `start f04` abre `openspec-propose`
+quando reativar). Stub `/proventos` em `templates/proventos.html`
+permanece intocado por enquanto.
 Progress:
 - Proposed: pending
 - Applying: pending
@@ -1038,12 +1049,12 @@ Progress:
 - Archived: done (2026-07-06; folder `openspec/changes/t05-bdd-step-def-drift-after-f02/` → `openspec/changes/archive/2026-07-06-t05-bdd-step-def-drift-after-f02/`; spec `bdd-step-def-aliases` já consolidada em `openspec/specs/bdd-step-def-aliases/spec.md` antes do archive — delta file vs. main spec byte-identical confirmado via `diff`; nenhum sync adicional necessário; `openspec validate bdd-step-def-aliases --json` `valid: true`; 15/15 tasks marcadas; 0 incomplete artifacts)
 
 ### I01 - Agendamento automático de backup
-Status: `Ready`
+Status: `Archived` (archive gate done 2026-07-06 — `next` call; sync + move + spec gate passed)
 Goal: `task backup` existe (`scripts/backup.py` → SQLite snapshot em
 `./backups/`); nenhum timer está cabeado. Adicionar timer systemd ou
 cron para execução periódica no host.
 Candidate OpenSpec change id: `i01-automatic-backup-scheduling`
-Spec link: `openspec/changes/i01-automatic-backup-scheduling/`
+Spec link: `openspec/changes/archive/2026-07-06-i01-automatic-backup-scheduling/`
 Files:
 - `prod.yml` (serviço de backup)
 - `scripts/backup.py`
@@ -1051,32 +1062,34 @@ Files:
 Notes: Em Docker compose, equivalente a um serviço `backup` com schedule.
 PRD §3.4 lista modos; este slice adiciona o modo "scheduled".
 Progress:
-- Proposed: pending
-- Applying: pending
-- Applied: pending
-- Archived: pending
+- Proposed: done (2026-07-06; folder + proposal.md + design.md + tasks.md + spec delta; `openspec validate` `valid: true`)
+- Applying: done (2026-07-06; §1-§5 implementation landed — `scripts/backup_scheduler.py` (~125 LOC, loop infinito com `BACKUP_INTERVAL`/`BACKUP_DEST_DIR` env override + FATAL validation + ISO-8601 UTC log prefix + failure-tolerant wrapper) + `prod.yml` ganha serviço `backup-scheduler` (~45 LOC: image `omaha:prod`, `restart: unless-stopped`, no profile, `BACKUP_INTERVAL: ${BACKUP_INTERVAL:-86400}`, `command: python -m scripts.backup_scheduler`, `omaha-data:/app/data:ro` + `./backups:/backups` mounts, comment block com D-I01.1/4/5) + README.md "Backup & restore" ganha "Scheduled backups (default in prod)" subseção com tail/stop/override commands + nota de retenção; header comment block do prod.yml reescrito de "Three services" para "Four services" + Usage block estendido com `logs -f backup-scheduler` e `stop backup-scheduler`. Decision-flip em apply: tasks 1.4 → 3.1 originalmente previam "command = backup one-shot" como placeholder → rewire para scheduler; implementei com `command = scripts.backup_scheduler` direto no §1 (sem placeholder) — diff mínimo, mesma spec coverage, comportamento equivalente. Adicionei `BACKUP_DEST_DIR` env override (não estava no proposal) para permitir smoke test local apontando para `./backups/` sem root — decisão registrada em smoke test §5.1.)
+- Applied: done (2026-07-06; `task lint` verde (prek + ruff format/check); `openspec validate i01-automatic-backup-scheduling --json` `valid: true`; `docker compose -f prod.yml config --quiet` exit 0 (substitui tarefa 5.3 — não precisa `--dry-run`); `task test-unit` 271 pass / 2 skip (sem regressão vs baseline T05); `task test-integration` 369 pass / 2 skip (sem regressão vs baseline R04; `test_dockerfile.py` continua verde — `prod.yml` ainda tem `web`+`nginx`+`backup` + novo `backup-scheduler`, profiles preservados); smoke test local 5.1 (`BACKUP_INTERVAL=5 BACKUP_DEST_DIR=./backups`): 4 backups criados a 5s interval, todos 172KB SQLite válido; smoke test local 5.2 (`BACKUP_INTERVAL=3 BACKUP_DEST_DIR=/nonexistent-dir-x9q`): 5 ERROR log lines consecutivos, container não exit (matado por SIGINT após 5 falhas); FATAL validation 2.4: `BACKUP_INTERVAL=abc`/`-5`/`0`/`""` todos exit 2 com mensagem clara. **Caveat**: `Dockerfile` NÃO copia `scripts/` para `omaha:prod` — pré-existing gap que afeta tanto o serviço `backup` (one-shot, profile-gated) quanto o novo `backup-scheduler`. Em produção ambos falham com `ModuleNotFoundError: No module named 'scripts'`. D-I01.2 ("reuse verbatim") mantém consistência com o bug latente; fix = `COPY scripts ./scripts` no Dockerfile = slice separada (fora do escopo I01, registrado como follow-up).)
+- Archived: done (2026-07-06; spec delta synced → `openspec/specs/backup-scheduling/spec.md` (Purpose + 6 ADDED requirements, 12 scenarios, `openspec validate backup-scheduling --json` `valid: true`); `mv openspec/changes/i01-automatic-backup-scheduling/ openspec/changes/archive/2026-07-06-i01-automatic-backup-scheduling/`; `openspec validate i01-automatic-backup-scheduling --json` `valid: true` pós-archive; `openspec list --specs` agora inclui `backup-scheduling` (40 → 41))
 
 ### I02 - Automação de renovação do cert TLS
-Status: `Ready`
+Status: `Archived`
 Goal: `nginx/` já está configurado com certbot; renovação ainda é manual.
 Cabar `--deploy-hook` para que `certbot renew` rode unattended e recarregue
 nginx.
 Candidate OpenSpec change id: `i02-tls-cert-renewal-automation`
-Spec link: `openspec/changes/i02-tls-cert-renewal-automation/`
+Spec link: `openspec/changes/archive/2026-07-07-i02-tls-cert-renewal-automation/`
 Files:
-- `prod.yml`
-- `nginx/`
-- `scripts/` (deploy hook se faltar)
+- `prod.yml` (novo serviço `certbot` + nginx ganha mount `./certs/webroot:/var/www/certbot:ro` + header comment block reescrito de "Four services" para "Five services" + Usage block estendido)
+- `scripts/certbot_loop.sh` (novo — bash wrapper: loop infinito `certbot renew --deploy-hook "..."`, validar `CERTBOT_RENEW_INTERVAL` + `CERTBOT_DOMAIN` + `CERTBOT_EMAIL` fail-fast, log ISO-8601 UTC, failure-tolerant)
+- `certs/webroot/.gitkeep` (novo — bind mount precisa de diretório mesmo vazio)
+- `.gitignore` (whitelist `certs/webroot/` + `certs/webroot/.gitkeep` ao lado do `certs/.gitkeep` existente)
+- `README.md` (nova seção "TLS renewal" com runbook de bootstrap + scheduler behaviour + filesystem layout; pequeno tweak no parágrafo "Production deploy" para cross-ref a nova seção)
 Notes: Depende de I01 apenas se ambos usarem timer compartilhado. Sem
 deps obrigatórias entre si.
 Progress:
-- Proposed: pending
-- Applying: pending
-- Applied: pending
-- Archived: pending
+- Proposed: done (2026-07-06; folder + proposal.md + design.md + tasks.md + spec delta; `openspec validate` `valid: true`)
+- Applying: done 2026-07-06; §1-§6 implementation landed — `prod.yml` ganha serviço `certbot` (image `certbot/certbot:latest`, `entrypoint: []`, `restart: unless-stopped`, envs `${CERTBOT_RENEW_INTERVAL:-43200}` + `${CERTBOT_DOMAIN:?…}` + `${CERTBOT_EMAIL:?…}`, `command: /bin/bash /scripts/certbot_loop.sh`, 5 mounts: `./certs:/etc/letsencrypt` rw + `./certs/webroot:/var/www/certbot:ro` + `./prod.yml:/app/prod.yml:ro` + `./scripts/certbot_loop.sh:/scripts/certbot_loop.sh:ro` + `/var/run/docker.sock:/var/run/docker.sock:ro`; nginx ganha mount `./certs/webroot:/var/www/certbot:ro`; comment block do header reescrito de "Four services" para "Five services" com 5ª sub-bullet documentando o certbot) + `scripts/certbot_loop.sh` novo (107 LOC bash: log helper, valida interval — fail-fast exit 2 em non-int/non-positive, valida CERTBOT_DOMAIN e CERTBOT_EMAIL via `${VAR:?…}`, constrói `DEPLOY_HOOK` interpolando `CERTBOT_DOMAIN` em três `cp` + `docker compose -f /app/prod.yml exec -T nginx nginx -s reload` — `--deploy-hook` só corre quando o cert foi mesmo renovado; loop infinito com `sleep "$CERTBOT_RENEW_INTERVAL"` após cada run; logs timestamped `ISO-8601 UTC + level + message`; captura exit code via `set +e; certbot renew …; rc=$?; set -e` + log OK/ERROR sem matar o loop) + `certs/webroot/` criado + `certs/webroot/.gitkeep` empty file + `.gitignore` ganha `!certs/webroot/` + `!certs/webroot/.gitkeep` whitelist (preserva `certs/*` ignore; só `certs/.gitkeep` continua na whitelist original) + README §TLS renewal com 4 sub-seções (First-time setup com 6 passos numerados incluindo `mkdir -p ./certs/webroot` + one-shot certonly + cp manual na primeira vez + reload; Scheduler behaviour com `docker compose logs -f certbot` + override interval + stop/start; Filesystem layout com árvore `.git` + bind-mount map)
+- Applied: done 2026-07-06; §6 spec gate + lint + tests — `openspec validate i02-tls-cert-renewal-automation --json` `valid: true`; `docker compose -f prod.yml config --quiet` exit 0 (com `CERTBOT_DOMAIN` + `CERTBOT_EMAIL` exportados; sem eles, falha-fast conforme design — `${CERTBOT_DOMAIN:?CERTBOT_DOMAIN must be set in the environment}` enforced pelo compose antes do container subir); `task lint` verde (prek check-merge-conflict + check-yaml + check-toml + check-json + check-added-large-files + pytest-unit stub + detect-private-key + validate-pyproject + detect-hardcoded-secrets); `task test-unit` 271 pass / 2 skip (R02/R04 baseline match; sem regressão — zero `src/omaha/**` tocado); `task test-integration` 369 pass / 2 skip (R02/R03/R04 baseline match; warning `Solution may be inaccurate` em `solver.py:511` é pré-existente, fora do escopo I02). 6.2 (sync + archive) deferred to next manual `next` → archive gate.
+- Archived: done 2026-07-07; `openspec archive i02-tls-cert-renewal-automation --yes` moveu folder para `openspec/changes/archive/2026-07-07-i02-tls-cert-renewal-automation/` e sincronizou delta → `openspec/specs/tls-cert-renewal/spec.md` (7 ADDED requirements: scheduled certbot renew + deploy hook reloads nginx + interval configurable + failed renewal does not stop scheduler + certbot container has write access to certificate directory + ACME http-01 challenge webroot shared + certbot service can be disabled without affecting other services; 14 scenarios totais); `openspec validate tls-cert-renewal --json` `valid: true`; `openspec validate --specs` confirma só as 8 falhas pre-existentes (broker-csv-*, dashboard-*, import-*) sem regressão; `openspec list --specs` 43 → 44 specs.
 
 ### D01 - Refresh do README
-Status: `Ready`
+Status: `Spec Proposed` (synced 2026-07-06 — folder exists with valid proposal)
 Goal: Atualizar README para refletir a surface atual. Em particular a
 seção "Network access" (PRD §4.2) e o bloco de features (já fechado após
 F01-F05). Garantir `bash scripts/print_lan_url.sh` referenciado.
@@ -1087,7 +1100,7 @@ Files:
 Notes: Doc-only — sem teste runtime, sem `src/omaha/`. Rodar por último
 para refletir o estado pós-F-slice.
 Progress:
-- Proposed: pending
+- Proposed: done (2026-07-06; folder + proposal.md + design.md + tasks.md + spec delta; `openspec validate` `valid: true`)
 - Applying: pending
 - Applied: pending
 - Archived: pending
@@ -1180,9 +1193,11 @@ Can run in parallel: yes
 Depends on: none
 Blocks: none
 Can run in parallel: yes (com I01)
+Status: archived 2026-07-07 (`i02-tls-cert-renewal-automation`)
 
 ### D01
-Depends on: F01, F02, F03, F04, F05 (reflete surface pós-slice)
+Depends on: F01, F02, F05 (reflete surface pós-slice entregue; F03/F04
+deprecated 2026-07-06 saem do gate)
 Blocks: none
 Can run in parallel: yes
 
@@ -1205,10 +1220,13 @@ Prioridade presume que o owner quer atacar mudanças estruturais primeiro
 11. T01 - BDD + e2e 100% green — archived
 12. **T02 - coverage in CI — archived 2026-07-06 (GH Actions deferred per owner; workflow file dormente no repo)**
 13. T03 - mutation testing rebalance
-14. I01 - backup scheduling
-15. I02 - TLS cert renewal automation
+14. I01 - backup scheduling — archived 2026-07-06
+15. I02 - TLS cert renewal automation — archived 2026-07-07
 16. D01 - README refresh (último — reflete tudo acima)
-17. **F04 - proventos page** (deferida; final do queue — owner 2026-07-05)
+
+**Removidos da fila ativa 2026-07-06:**
+- F03 - rentabilidade page (Closed 2026-07-06 — D-F03-defer permanente)
+- F04 - proventos page (Deprecated 2026-07-06 — incerto)
 
 Notas de reordenamento:
 - **F02 vem antes de F01** porque a tab nav + side panel removal é
@@ -1379,9 +1397,11 @@ indica onde a decisão vai ser aplicada (fatia + artefato).
 
 ## Compacted history
 
-Últimas 8 fatias arquivadas (compile manualmente do diretório
-`openspec/changes/archive/`):
+Últimas 15 fatias arquivadas (compile manualmente do diretório
+`openspec/changes/archive/`; aspiracional: limite confortável para revisão humana):
 
+- `2026-07-07-i02-tls-cert-renewal-automation` → `prod.yml` ganha serviço `certbot` (image `certbot/certbot:latest`, `restart: unless-stopped`, envs `${CERTBOT_RENEW_INTERVAL:-43200}` + `${CERTBOT_DOMAIN:?…}` + `${CERTBOT_EMAIL:?…}`, `command: /bin/bash /scripts/certbot_loop.sh`, 5 mounts: `./certs:/etc/letsencrypt` rw + `./certs/webroot:/var/www/certbot:ro` + `./prod.yml:/app/prod.yml:ro` + `./scripts/certbot_loop.sh:/scripts/certbot_loop.sh:ro` + `/var/run/docker.sock:/var/run/docker.sock:ro`) + nginx ganha mount `./certs/webroot:/var/www/certbot:ro` + header comment block reescrito "Five services" + `scripts/certbot_loop.sh` novo (107 LOC bash: valida interval/domain/email fail-fast, constrói `DEPLOY_HOOK` interpolando `CERTBOT_DOMAIN` + `docker compose -f /app/prod.yml exec -T nginx nginx -s reload`, loop infinito com `sleep`, ISO-8601 UTC logs, failure-tolerant wrapper) + `certs/webroot/` + `certs/webroot/.gitkeep` + `.gitignore` ganha `!certs/webroot/` + `!certs/webroot/.gitkeep` whitelist (preserva `certs/*` ignore) + README nova seção "TLS renewal" (4 sub-seções: First-time setup runbook + Scheduler behaviour + Filesystem layout + cross-ref "Production deploy") → `prod.yml`, `scripts/certbot_loop.sh`, `certs/webroot/.gitkeep`, `.gitignore`, `README.md`, `openspec/specs/tls-cert-renewal/spec.md` (Purpose + 7 ADDED requirements: scheduled certbot renew + deploy hook reloads nginx + interval configurable + failed renewal does not stop scheduler + certbot container has write access to certificate directory + ACME http-01 challenge webroot shared + certbot service can be disabled without affecting other services; 14 scenarios totais) → `openspec validate i02-tls-cert-renewal-automation --json` `valid: true`; `docker compose -f prod.yml config --quiet` exit 0; `task lint` verde; `task test-unit` 271 pass/2 skip; `task test-integration` 369 pass/2 skip (sem regressão — zero `src/omaha/**` tocado); `openspec archive i02-tls-cert-renewal-automation --yes` 2026-07-07 sincronizou delta → `tls-cert-renewal` (7 ADDED), moveu folder → `archive/2026-07-07-i02-tls-cert-renewal-automation/`; `openspec validate tls-cert-renewal --json` `valid: true`; spec count 43 → 44.
+- `2026-07-06-i01-automatic-backup-scheduling` → `scripts/backup_scheduler.py` (~125 LOC: loop infinito com `BACKUP_INTERVAL` (default 86400) + `BACKUP_DEST_DIR` env override (decision-flip em apply) + FATAL validation 2.4 + ISO-8601 UTC log prefix + failure-tolerant wrapper) + `prod.yml` ganha serviço `backup-scheduler` (image `omaha:prod`, `restart: unless-stopped`, sem profile, `command: python -m scripts.backup_scheduler`, mounts `omaha-data:/app/data:ro` + `./backups:/backups`, comment block D-I01.1/4/5; header reescrito "Four services"; Usage block estendido com `logs -f backup-scheduler` + `stop backup-scheduler`) + README "Backup & restore" ganha "Scheduled backups (default in prod)" subseção + nota de retenção → `scripts/backup_scheduler.py`, `prod.yml`, `README.md`, `openspec/specs/backup-scheduling/spec.md` (Purpose + 6 ADDED requirements + 12 scenarios) → `task lint` verde (prek + ruff format/check); `openspec validate i01-automatic-backup-scheduling` + `openspec validate backup-scheduling` ambos `valid: true`; `docker compose -f prod.yml config --quiet` exit 0; `task test-unit` 271 pass/2 skip (R02/R04 baseline); `task test-integration` 369 pass/2 skip (R02/R03/R04 baseline); smoke test local 5.1 (`BACKUP_INTERVAL=5 BACKUP_DEST_DIR=./backups`): 4 backups criados a 5s interval, todos 172KB SQLite válido; smoke test local 5.2 (`BACKUP_INTERVAL=3 BACKUP_DEST_DIR=/nonexistent-dir-x9q`): 5 ERROR log lines consecutivos, container não exit (matado por SIGINT após 5 falhas); FATAL validation 2.4: `BACKUP_INTERVAL=abc`/`-5`/`0`/`""` todos exit 2 com mensagem clara. **Caveat**: `Dockerfile` NÃO copia `scripts/` para `omaha:prod` — pré-existing gap que afeta tanto o serviço `backup` quanto o novo `backup-scheduler`; em produção ambos falham com `ModuleNotFoundError: No module named 'scripts'`. Fix = `COPY scripts ./scripts` no Dockerfile = slice separada (follow-up fora do escopo I01).
 - `2026-07-06-t03-mutation-testing-rebalance-engine` → dep `mutmut>=3.0,<4` em `[dependency-groups].dev` + bloco `[tool.mutmut]` em `pyproject.toml` (`source_paths = ["src"]` + `only_mutate = ["src/omaha/rebalance/solver.py", "src/omaha/rebalance/validation.py"]` + `also_copy` (17 paths: scripts/, alembic/, alembic.ini, data/seed/, prod.yml, docker-compose.yml, Dockerfile, nginx/, tests/scripts/, tests/fixtures/, tests/posicao_italo.csv) + `pytest_add_cli_args = ["--no-cov", "-p", "no:cacheprovider", "--ignore=tests/e2e", "--ignore=tests/bdd"]` + `pytest_add_cli_args_test_selection = [6 rebalance unit test files]`) + `[tool.taskipy.tasks]` ganha 3 entries (`mutation` → `uv run mutmut run`, `mutation-report` → `python -m scripts.mutation_report`, `mutation-baseline` → `python -m scripts.mutation_baseline`) + `scripts/mutation_report.py` (99 LOC — recursive `mutants/**/*.meta` glob + per-status counts + killed_share) + `scripts/mutation_baseline.py` (55 LOC — 7-line `.mutmut-baseline` com UTC ISO-8601 timestamp) + `.gitignore` ganha `mutants/` (mutmut3 cache) + `.mutmut-baseline` (baseline committed) → `pyproject.toml`, `.gitignore`, `scripts/mutation_report.py`, `scripts/mutation_baseline.py`, `openspec/specs/rebalance-mutation-testing/spec.md` (4 ADDED requirements + Purpose), `.mutmut-baseline`, `openspec/roadmap.md` → 869 mutants gerados em ~3 min wall-clock (5.12 mutations/sec) sobre `solver.py` (21K) + `validation.py` (8.4K); baseline capturada: `killed=556, survived=301, no_tests=12, timeout=0, skipped=0, killed_share=0.649, generated_at=2026-07-06T21:25:16+00:00` → 301 survived mutants é sinal de test gap (provável follow-up `R`/`T` slice fora do escopo T03); 12 no_tests = funções puras em `validation.py` que nenhum unit test exercita → `task test-unit` 271 pass / 2 skip (R02/R04 baseline); `task test-integration` 369 pass / 2 skip (R02/R03/R04 baseline); `task test-bdd` 51 pass (T05 baseline); `task coverage` 92% line (T02 baseline); `task lint` verde; `openspec validate t03-mutation-testing-rebalance-engine --json` e `openspec validate rebalance-mutation-testing --json` ambos `valid: true`; `openspec list --specs` reporta **41 specs** (40 pre + 1 new `rebalance-mutation-testing`). **Drift correction no archive:** slice-text original mencionava `engine.py` + `data_bridges.py` (que não existe no package rebalance); durante apply escopo corrigido para `solver.py` + `validation.py` (par coberto pelos unit tests sem TestClient+DB) — registrado no proposal §Impact e design.md §D-T03.3. Spec main e delta divergem em algumas referências mutmut2 (`mutmut run --paths-to-mutate`, `mutmut report`/`html` subcommands) que mutmut3 não suporta; main spec foi escrita alinhada com o que realmente shipped (`mutants/**/*.meta` JSONs em vez de `.mutmut-cache/`, e "per-mutant details via `.meta` JSONs" no lugar do "HTML view" scenario).
 - `2026-07-06-t02-coverage-report-in-ci` → **GH Actions deferred per owner 2026-07-06** (desenvolvimento local, CI não exercitado). Implementação local landou: `pyproject.toml` ganha `[tool.coverage.run]` (source=`["src/omaha"]`, branch=false, omit `__main__.py`) + `[tool.coverage.report]` (exclude_lines para 4 padrões; sem fail_under) + `addopts` em `[tool.pytest.ini_options]` estendido para `--cov=src/omaha --cov-report=xml:reports/coverage.xml` + `task coverage` reescrito para `-m "unit or integration" --cov=src/omaha --cov-report=term-missing --cov-report=xml:reports/coverage.xml` (BDD/e2e excluídos — passa de 10+ min timeout para 3 min); `.gitignore` ganha `reports/coverage.xml` + `reports/.coverage`; `.github/workflows/ci.yml` criado com 5 jobs (lint standalone + test-unit/integration/bdd com `needs: lint` + coverage com `needs: [test-unit, test-integration]`), triggers `push`/`pull_request` em `[main]`, `astral-sh/setup-uv@v4` com `python-version: "3.12"` + `actions/cache@v4` keyed em `hashFiles('uv.lock')`, `actions/upload-artifact@v4` para `coverage-report`, test-integration/test-bdd/coverage ganham step `Reset database` (`uv run task db-reset`) com `env: SECRET_KEY + ADMIN_PASSWORD` injetados → `src/omaha/static/app.css` (não tocado), `pyproject.toml`, `.gitignore`, `.github/workflows/ci.yml`, `openspec/specs/ci-coverage-pipeline/spec.md` (nova, 10 ADDED requirements + Purpose), `openspec/roadmap.md` → 5 Actions runs tentadas: (1) `setup-python@v5 cache:"uv"` inválido, (2) `setup-uv@v4 python-version-file` inválido, (3) `uv sync --extra dev` inválido (dev em `[dependency-groups]`), (4) **lint + test-unit verdes** + test-integration/bdd falhas por DB ausente, (5) db-reset falha por `SECRET_KEY` ausente (fix aplicado); última versão do workflow (commit `bac8b47`) tem os 5 fixes acumulados mas não foi exercitada end-to-end → `task test-unit` 271 pass/2 skip (R04 match); `task test-integration` 369 pass/2 skip (R02/R03/R04 match); `task test-bdd` 51 pass (T05 match); `task coverage` 640 pass/4 skip + **92% line coverage** com `reports/coverage.xml` Cobertura-compatible (`<coverage version=... line-rate="0.9163" ...>` + `<package name=...>` structure); `ruff check` + `ruff format --check` verdes em `src tests alembic`; `openspec validate t02-coverage-report-in-ci --json` `valid: true`; `openspec list --specs` 40 → 41 (nova spec `ci-coverage-pipeline`); GH Actions runner **não exercitado** end-to-end por decisão do owner; workflow file fica commitado como infra dormente ("útil no futuro" per owner); reactivation path explícito em `archive/2026-07-06-t02-coverage-report-in-ci/tasks.md` §5
 - `2026-07-06-t05-bdd-step-def-drift-after-f02` → `STEP_CLICK_ALIASES` dict adicionada em `tests/bdd/step_defs/common_steps.py` (topo, acima de `click_button`, com 2 entries: `+ Nova classe` → `('empty-state-create-class', 'new-class-modal-submit')` + `+ Novo ativo` → `'dashboard-add-asset-open'`) + `click_button` body estendido para consultar alias chain antes dos 3 default candidates (mesmo two-phase visibility filter) + Gherkin rewrites: `class_crud.feature:65` + `profile_sharing.feature:17,21,37` (4 step calls trocadas de `+ Nova classe` para `Nova Classe`) + nova spec `bdd-step-def-aliases` consolidada (Purpose + 1 ADDED requirement + 3 scenarios) → `tests/bdd/step_defs/common_steps.py`, `tests/bdd/features/class_crud.feature`, `tests/bdd/features/profile_sharing.feature`, `openspec/specs/bdd-step-def-aliases/spec.md` → `task test-bdd` 51 pass (vs 47+4 pre-T05; fechou as 4 falhas pre-existentes T01-follow-up) / 0 skip; `task test-unit` 271 pass / 2 skip (sem regressão); `task test-integration` 369 pass / 2 skip (sem regressão); `task test-e2e` 43 pass / 4 fail (mesmas chromium stalls pre-existentes do T01, fora escopo); `task lint` verde; `openspec validate t05-...` + `openspec validate bdd-step-def-aliases` ambos `valid: true`; delta spec == main spec byte-identical pré-archive (sync already done no apply)
@@ -1395,7 +1415,7 @@ indica onde a decisão vai ser aplicada (fatia + artefato).
 - `2026-07-04-t04-e2e-class-section-alignment-baselines` → `.class-section-header` grid 8→11 cols (mirror `<colgroup>`) → `src/omaha/static/app.css` → `task test-e2e`
 - `2026-07-04-t01-bdd-e2e-suite-100-green` → selector centralisation + 12 e2e red fixes + 1 CSS bug + 1 regression test → `tests/e2e/selectors.py`, `tests/e2e/test_selector_inventory.py`, `src/omaha/static/app.css` → `task test-e2e`
 - `2026-07-04-f02-top-level-tab-nav-and-patrimonio` → 4 tabs top-level + sidebar removal + rename `/`→`/patrimonio` + new stubs + new spec `patrimonio-portfolio-header` → `templates/base.html`, `templates/patrimonio.html`, `templates/rebalance.html`, `templates/rentabilidade.html`, `templates/proventos.html`, `static/app.css`, `routes/pages.py` → `task test-e2e`
-- `2026-07-03-r01-clean-orphaned-files-and-snapshots` → purge debug artefacts → `backups/`, `data/portfolio.db`, `tmp/` → no test
+
 - `2026-06-29-rebalance-engine` → solver CVXPY estável → `src/omaha/rebalance/engine.py`, `src/omaha/rebalance/data_bridges.py` → `task test-integration`
 - `2026-06-29-dashboard-inline-edit-friction` → melhorias de UX na edição inline → `src/omaha/static/app.css`, `templates/dashboard.html` → `task test-e2e`
 - `2026-06-29-add-db-snapshot` → adiciona `task db-snapshot` (DB → CSV) → `scripts/snapshot_to_csv.py`, `pyproject.toml` → `task db-snapshot`
@@ -1645,6 +1665,12 @@ Para cada fatia `Applied`, anexar antes de mover para `Archived`:
 - **Unexpected issues:** (a) The first round of partials used the original source indentation (2 spaces inside the partial content), but `{% include %}` does not modify leading whitespace — the shell's indentation before the include directive adds to the partial's content. The first draft produced visible-DOM whitespace bloat (extra 2 spaces of indent per line). Fixed by adjusting shell indentation at each include site and accepting the partial-content-as-written indent (the byte-equivalence requirement is "modulo whitespace inside Jinja control tags", so the diff is whitespace-only and acceptable). (b) The `_patrimonio_add_asset_modal.html` partial is 1682 lines — about 80% of the original file size. It is dominated by the 1247-line Alpine `<script>` block (sort comparator + `classSection` factory + 3 Alpine stores). Splitting this block into its own file would break the rendering-context coupling (`{% for c in class_aggregates %}` inside the script needs the same Jinja context the modals use) and create an artificial boundary inside one Alpine init event. The design pattern from `_rebalance_plan.html` (one partial per section, no further splits) supports keeping the script inline. (c) The render-diff comparison used `grep -v '^[[:space:]]*$'` to filter blank lines first — that returned 0 differences for all three variants (Italo default / family / Ana), proving the refactor is semantically byte-equivalent at the rendered HTML level. The full diff (with blank lines) shows ~6500 lines of whitespace-only changes, which is within the "modulo whitespace inside Jinja control tags" tolerance the task explicitly allows.
 
 - **Follow-up needed:** (a) `_patrimonio_class_section.html` (331 lines) is the largest "real" partial — if a future slice needs to add substantial logic (e.g. a chart per class, multi-asset bulk edit), split it further into `_patrimonio_class_section_header.html` + `_patrimonio_class_section_table.html` + `_patrimonio_class_section_modals.html`. Out of scope for R04; future R-slice follow-up. (b) The 4 BDD failures (`+ Nova classe` selector drift) and 5 e2e chromium stalls remain unchanged post-R04 — confirmed via `git stash` baseline diff. They are T05 and T01 follow-ups respectively, not R04 regressions. (c) `openspec/specs/patrimonio-template-partials/spec.md` was added via sync — 4 ADDED requirements (shell + partials layout, per-section verbatim rendering, underscore-prefix naming, rendered-HTML byte-equivalence). Spec count went from 39 → 40.
+
+### I01 (archived 2026-07-06)
+
+- **What changed from original plan:** Slice landed with one decision-flip in the apply gate. Tasks 1.4 + 3.1 originally assumed a one-shot `backup` command as a placeholder to be replaced by the scheduler — I rewired the `prod.yml` `backup-scheduler.command` to `python -m scripts.backup_scheduler` directly in §1 (skipped the placeholder) to avoid a two-step cutover that would have left a non-functional service between the apply and the rewire. Diff cost: zero, spec coverage unchanged. Also added `BACKUP_DEST_DIR` env override (not in the original proposal) to enable the local smoke test (5.1) — without it the scheduler would write to `/backups` and need root in dev; with it, the smoke test writes to `./backups` matching the manual `task backup` convention.
+- **Unexpected issues:** (a) **`Dockerfile` does not copy `scripts/` into `omaha:prod`** — pre-existing gap. Both the manual `backup` service (profile `backup`, one-shot) and the new `backup-scheduler` (default up) fail in production with `ModuleNotFoundError: No module named 'scripts'`. This was out of scope for I01 (the spec does not require touching the Dockerfile) but it materially blocks the slice's primary value (scheduled backups). Recorded in caveat on `Applied` progress + follow-up needed below. (b) The validation 2.4 case `BACKUP_INTERVAL=""` initially allowed an empty string through because `int("")` raises `ValueError` (caught by the generic handler) but I wanted a clear "must be a positive integer" message; rewrote to check `not s.isdigit()` first. (c) Smoke test 5.2 (`/nonexistent-dir-x9q`) confirmed the failure-tolerant loop works as designed — 5 ERROR log lines, container does not exit, killed by SIGINT after 5 failures. Side note: subprocess output from `scripts/backup.py` is not captured to the log (only the exit code is), so the operator sees the exit code but not the failure reason — registered as a future enhancement (could pipe `stderr` to the log line).
+- **Follow-up needed:** (a) **`Dockerfile COPY scripts ./scripts`** — required to make both `backup` and `backup-scheduler` actually function in production. Slice candidate `I03 - Copy scripts/ into prod image` (or merge with I02 if both touch the Dockerfile). (b) Pipe `scripts/backup.py` stderr to the scheduler log line so operators see the failure reason, not just the exit code. Trivial change in `backup_scheduler.py` (capture `subprocess.run(..., capture_output=True)` and prepend `stderr.decode()` to the ERROR log). (c) Schedule jitter — `sleep BACKUP_INTERVAL` blocks a strict 86400s cadence; a backup that takes 30s shifts every run by 30s. Not a correctness issue today (no exact-time expectations) but worth a future note if cadence guarantees tighten. (d) `openspec/specs/backup-scheduling/spec.md` created from delta at archive — 6 ADDED requirements (scheduled service, configurable interval, failure tolerance, timestamped filename, disable without touching other services, restart policy). Spec count: 40 → 41. (e) Pre-existing `backup` service (one-shot, profile `backup`) retains its `command: python -m scripts.backup` — I01 did not touch it; if a future slice retires the profile-based manual backup in favour of the always-on scheduler, that retirement is a separate decision (D-F01.1-style).
 
 - [x] PRD link no topo (`openspec/PRD.md`).
 - [x] Como usar + status model + WIP + spec verification gate.

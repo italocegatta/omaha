@@ -67,6 +67,10 @@ openspec/.temp_assets/
 #   generated.
 # - certs/ holds the TLS cert chain (fullchain.pem + privkey.pem) that
 #   nginx serves. The .gitkeep keeps the directory tracked.
+#   certs/webroot/ is the ACME http-01 challenge webroot: the certbot
+#   sidecar (prod.yml certbot service) writes challenge tokens here
+#   and nginx serves them on port 80. Only the directory + .gitkeep
+#   are tracked; the challenge tokens themselves are ephemeral.
 # - nginx/ holds the nginx.conf that gets bind-mounted into the nginx
 #   container. The .gitkeep is defensive: the actual conf is committed
 #   alongside, but if someone deletes it locally the .gitkeep stops
@@ -76,6 +80,8 @@ backups/*
 !backups/.gitkeep
 certs/*
 !certs/.gitkeep
+!certs/webroot/
+!certs/webroot/.gitkeep
 nginx/*
 !nginx/.gitkeep
 !nginx/nginx.conf

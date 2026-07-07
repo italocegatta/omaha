@@ -1,6 +1,6 @@
 # Omaha production deploy (S06/T04).
 #
-# Three services + one named volume:
+# Five services + one named volume:
 # - web:    FastAPI behind a non-root container, listens on 127.0.0.1
 #           inside the container's own namespace. No host port
 #           publish \u2014 the operator reaches the app through nginx
@@ -14,6 +14,27 @@
 #           `docker compose -f prod.yml run --rm backup`. Writes a
 #           timestamped SQLite snapshot to the bind-mounted
 #           ./backups directory.
+# - backup-scheduler: periodic scheduler. No profile \u2014 starts with
+#           `up -d` alongside web and nginx. Loops `python -m
+#           scripts.backup_scheduler`, which itself shells out to
+#           `scripts.backup` every `BACKUP_INTERVAL` seconds (default
+#           86400 = 24h). Failure-tolerant (D-I01.5): non-zero exits
+#           are logged and the loop continues, so the container stays
+#           in `running` state across individual run failures.
+#           Override `BACKUP_INTERVAL` to shorten the cadence for
+#           testing or relax it for low-write portfolios.
+# - certbot: periodic Let's Encrypt cert renewal. No profile \u2014
+#           starts with `up -d` alongside web and nginx. Loops
+#           `certbot renew` every `CERTBOT_RENEW_INTERVAL` seconds
+#           (default 43200 = 12h). The ACME http-01 challenge is
+#           served by nginx from `./certs/webroot` (shared bind
+#           mount); renewed certs land in `./certs/live/<domain>/`
+#           and a `--deploy-hook` reloads nginx in-place via the
+#           Docker socket (D-I02.4-r2). The scheduler runs as
+#           `certbot/certbot` (official image, D-I02.1) to keep the
+#           footprint separate from the `omaha:prod` Python venv.
+#           Initial cert bootstrap is still one-shot manual
+#           (`run --rm certbot certonly ...`, D-I02.7).
 #
 # Top-level `volumes: omaha-data` is a NAMED volume (not a bind
 # mount) so `docker compose -f prod.yml down` does not wipe the
@@ -22,8 +43,12 @@
 #
 # Usage:
 #   docker compose -f prod.yml build         # one-off, or first deploy
-#   docker compose -f prod.yml up -d         # start web + nginx
-#   docker compose -f prod.yml run --rm backup  # one-off backup
+#   docker compose -f prod.yml up -d         # start web + nginx + schedulers
+#   docker compose -f prod.yml run --rm backup  # one-off backup (profile-gated)
+#   docker compose -f prod.yml logs -f backup-scheduler  # tail scheduler logs
+#   docker compose -f prod.yml stop backup-scheduler    # disable scheduling
+#   docker compose -f prod.yml logs -f certbot          # tail cert renewal log
+#   docker compose -f prod.yml stop certbot            # disable auto-renewal
 #   docker compose -f prod.yml logs -f web   # tail JSON logs
 #
 # The web image must already exist locally as `omaha:prod`. Build
@@ -70,11 +95,14 @@ services:
       - "80:80"
     volumes:
       # Operator-supplied TLS cert chain. Mounted read-only;
-      # the operator is responsible for keeping the files
-      # up-to-date (certbot run from a sidecar is the recommended
-      # renewal path, not an in-container certbot container
-      # that would need write access to the certs).
+      # the certbot sidecar writes renewed certs here at renewal
+      # time (see the `certbot` service below + D-I02.5).
       - ./certs:/etc/nginx/certs:ro
+      # ACME http-01 challenge webroot. The certbot sidecar
+      # writes the challenge token into ./certs/webroot and nginx
+      # serves it on port 80. Operator must `mkdir -p ./certs/webroot`
+      # before the first deploy (D-I02 risk in design.md).
+      - ./certs/webroot:/var/www/certbot:ro
       # The nginx config committed alongside this file.
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
@@ -123,6 +151,127 @@ services:
     # exits with the script's exit code and `run --rm` removes
     # it. A non-zero exit code surfaces as a failed backup in
     # the operator's monitoring.
+
+  backup-scheduler:
+    # Same image as `web` + `backup` so the scheduler and the
+    # one-shot share the same Python venv + alembic env on PATH.
+    #
+    # D-I01.1 \u2014 scheduler is an in-container `while True` loop, not
+    #   host cron nor systemd timer. Containers are ephemeral;
+    #   dev/prod parity wins, and PRD \u00a74.8 mandates taskipy for
+    #   in-repo automation. The loop survives host reboots via
+    #   `restart: unless-stopped`.
+    #
+    # D-I01.4 \u2014 no `profiles:` here, so `up -d` brings the scheduler
+    #   up alongside web + nginx. Operators who want it off for a
+    #   debug session use `stop backup-scheduler` (no profile
+    #   gymnastics), or an override file that omits this service.
+    #
+    # D-I01.5 \u2014 failure-tolerant. `scripts/backup_scheduler.py` is
+    #   an infinite loop that captures each run's exit code, logs
+    #   it, and continues. A non-zero from `scripts.backup` (DB
+    #   locked, disk full) does NOT take the container down \u2014 the
+    #   operator sees the failure in `docker compose logs
+    #   backup-scheduler` and the next run is still attempted.
+    image: omaha:prod
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Default cadence: 24h. Override via env override or
+      # compose override file. Read once at start-up; mid-run
+      # changes require a container restart.
+      BACKUP_INTERVAL: "${BACKUP_INTERVAL:-86400}"
+    command:
+      - python
+      - -m
+      - scripts.backup_scheduler
+    volumes:
+      # Same read-only data mount as the manual `backup` service \u2014
+      # a scheduler bug cannot corrupt the live database.
+      - omaha-data:/app/data:ro
+      # Same bind mount so snapshots land in the host's
+      # ./backups directory. Same retention policy applies:
+      # operator responsibility (rsync-off-host / logrotate).
+      - ./backups:/backups
+    # No `healthcheck:` \u2014 the scheduler is a single Python process
+    # that does not serve HTTP. Docker's container-level
+    # `running` state IS the liveness signal; a crash takes the
+    # container down and `restart: unless-stopped` brings it back
+    # up. The output of each backup run lands in `docker compose
+    # logs backup-scheduler` for the operator.
+
+  certbot:
+    # D-I02.1 \u2014 `certbot/certbot` (official image, Debian-slim +
+    # certbot), NOT `omaha:prod`. Keeps the certbot footprint
+    # separate from the Python venv so a certbot version bump
+    # does not require a prod-image rebuild.
+    #
+    # D-I02.4-r2 \u2014 `--deploy-hook` calls `docker compose -f
+    # /app/prod.yml exec -T nginx nginx -s reload` via the Docker
+    # socket mounted read-only below. Trade-off: docker.sock in a
+    # container is a soft privilege escalation; accepted for this
+    # single-tenant portfolio deploy (see Risks/Trade-offs in
+    # design.md).
+    #
+    # D-I02.5 \u2014 `./certs` is bind-mounted at `/etc/letsencrypt` so
+    # certbot's `live/`, `archive/`, `renewal/` directories land on
+    # the host. The mirror `./certs:/etc/nginx/certs:ro` on the
+    # nginx service keeps nginx reading from the same host path;
+    # the deploy-hook copies the renewed files into nginx's
+    # expected location (`/etc/nginx/certs/fullchain.pem`) so the
+    # existing nginx.conf requires no changes.
+    #
+    # D-I02.6 \u2014 interval default 43200s = 12h, overridable per
+    # deploy via `CERTBOT_RENEW_INTERVAL` in the shell. Read
+    # once at start-up in `scripts/certbot_loop.sh`.
+    #
+    # D-I02.7 \u2014 initial cert bootstrap is one-shot manual
+    # (`docker compose -f prod.yml run --rm certbot certonly
+    # --webroot ...`); the scheduler only renews existing certs.
+    image: certbot/certbot:latest
+    restart: unless-stopped
+    # Override the image's `ENTRYPOINT ["certbot"]` so the
+    # `command:` below can run a shell script instead of being
+    # passed as certbot args.
+    entrypoint: []
+    environment:
+      # Frequencies + identity. `CERTBOT_DOMAIN` and `CERTBOT_EMAIL`
+      # are operator-supplied (no default) so a missing value is
+      # loud: the wrapper script fails fast on an empty domain.
+      CERTBOT_RENEW_INTERVAL: "${CERTBOT_RENEW_INTERVAL:-43200}"
+      CERTBOT_DOMAIN: "${CERTBOT_DOMAIN:?CERTBOT_DOMAIN must be set in the environment}"
+      CERTBOT_EMAIL: "${CERTBOT_EMAIL:?CERTBOT_EMAIL must be set in the environment}"
+    command:
+      - /bin/bash
+      - /scripts/certbot_loop.sh
+    volumes:
+      # Certbot writes renewed certs here (live/, archive/,
+      # renewal/). nginx reads from the same host path via a
+      # DIFFERENT in-container mount (`:ro` at /etc/nginx/certs);
+      # the deploy-hook in certbot_loop.sh does the cp from
+      # /etc/letsencrypt/live/<domain>/ to /etc/nginx/certs/.
+      - ./certs:/etc/letsencrypt
+      # ACME http-01 challenge. Certbot writes the token file
+      # here; nginx serves it from /var/www/certbot (mount on the
+      # nginx service above).
+      - ./certs/webroot:/var/www/certbot:ro
+      # prod.yml mounted into the container so the deploy-hook
+      # can resolve `nginx` as a service and run `nginx -s reload`
+      # against it.
+      - ./prod.yml:/app/prod.yml:ro
+      # The wrapper script itself. Mounted read-only; the
+      # certbot image's filesystem is unchanged.
+      - ./scripts/certbot_loop.sh:/scripts/certbot_loop.sh:ro
+      # Docker socket for the deploy-hook to exec into the nginx
+      # container. Read-only mount: certbot can ask the daemon to
+      # run a command, but cannot mutate the host's container
+      # state. Trade-off accepted per D-I02.4-r2.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # No `healthcheck:` \u2014 the scheduler is a single bash loop that
+    # does not serve HTTP. Same liveness signal as backup-scheduler:
+    # Docker's container-level `running` state IS the liveness
+    # signal. `docker compose logs certbot` is the operator-facing
+    # observability surface for each renewal attempt.
 
 volumes:
   omaha-data:

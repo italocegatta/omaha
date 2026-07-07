@@ -103,7 +103,10 @@ The production stack is `docker compose -f prod.yml`: a FastAPI
 container behind an nginx TLS terminator, with a SQLite database
 that lives in a **named volume** so a `docker compose down` does not
 wipe it. A one-shot `backup` service (on a profile, not started by
-`up`) is the documented snapshot path.
+`up`) is the manual snapshot path; a `backup-scheduler` service
+runs `scripts/backup_scheduler.py` periodically (default 24h,
+overridable via `BACKUP_INTERVAL`) and is the default-in-prod
+automatic path.
 
 ```bash
 # 1. Build the prod image once. The T03 Dockerfile is multi-stage
@@ -151,7 +154,9 @@ A certbot sidecar is the recommended renewal path (not an in-container
 certbot that would need write access to `./certs/`). The nginx config
 serves `/.well-known/acme-challenge/` from `/var/www/certbot` so a
 sidecar can answer the http-01 challenge without touching the running
-nginx.
+nginx. The `certbot` service in `prod.yml` provides that sidecar out of
+the box — see [TLS renewal](#tls-renewal) below for the automated
+scheduler.
 
 ---
 
@@ -169,13 +174,44 @@ docker compose -f prod.yml run --rm backup
 #   backup OK: /app/data/portfolio.db -> /backups/portfolio-YYYYMMDDTHHMMSSZ.db (complete)
 ```
 
-**Schedule it with host cron** (the container does not run cron
-itself; the prod image is a one-process model):
+### Scheduled backups (default in prod)
 
-```cron
-# /etc/cron.d/omaha-backup — nightly at 03:00 host time.
-0 3 * * * www-data cd /srv/omaha && /usr/bin/docker compose -f prod.yml run --rm backup >> /var/log/omaha-backup.log 2>&1
+The `backup-scheduler` service in `prod.yml` has no profile, so it
+starts with `docker compose -f prod.yml up -d` alongside `web` and
+`nginx`. It runs `scripts/backup_scheduler.py`, an in-container loop
+that shells out to `scripts.backup` every `BACKUP_INTERVAL` seconds
+(default `86400` = 24h) and logs each run with an ISO-8601 UTC
+timestamp. The loop is failure-tolerant: a non-zero exit from a single
+run is logged and the loop continues — the container stays in
+`running` state across transient errors (DB locked by migration, disk
+full).
+
+```bash
+# Tail the scheduler log to see each run (start, outcome, next sleep).
+docker compose -f prod.yml logs -f backup-scheduler
+# expected:
+#   2026-07-06T03:14:15Z INFO backup_scheduler started interval=86400s
+#   2026-07-06T03:14:15Z INFO backup started dest=/backups/portfolio-20260706T031415Z.db
+#   2026-07-06T03:14:15Z INFO backup OK: backup OK: /app/data/portfolio.db -> /backups/portfolio-20260706T031415Z.db (complete)
+
+# Disable scheduling without touching web or nginx. The container
+# exits and `restart: unless-stopped` does NOT bring it back up after
+# a subsequent reboot — the operator has to re-enable it explicitly.
+docker compose -f prod.yml stop backup-scheduler
+
+# Re-enable (the same `up` pattern, scoped to the scheduler service).
+docker compose -f prod.yml up -d backup-scheduler
+
+# Override the cadence (e.g. 1h) before bringing the stack up.
+BACKUP_INTERVAL=3600 docker compose -f prod.yml up -d
 ```
+
+**Operator responsibility — retention and rotation.** The slice writes
+each snapshot to `./backups/portfolio-YYYYMMDDTHHMMSSZ.db` and never
+deletes anything. Move the directory off-host (rsync, restic, b2,
+whatever you trust) and prune old files on your own schedule. The
+slice is intentionally small: "generate snapshot" is the boundary;
+"keep the snapshot disk under control" is yours.
 
 **Restore (prod, named volume):**
 
@@ -199,6 +235,137 @@ docker compose -f prod.yml up -d
 `docker-compose.yml` bind-mounts the host directory into the web
 container. Stop the dev server first, then `cp ./backups/<file>.db
 ./data/portfolio.db`, then `uv run uvicorn ...` again.
+
+---
+
+## TLS renewal
+
+Let's Encrypt certificates expire every 90 days. The `certbot` service
+in `prod.yml` automates the renewal loop so the operator does not run
+`certbot renew` by hand: it loops `certbot renew` every
+`CERTBOT_RENEW_INTERVAL` seconds (default 43200 = 12h), which is
+idempotent — `certbot renew` only acts when a cert is within 30 days
+of expiry. On successful renewal, a `--deploy-hook` copies the renewed
+`fullchain.pem` and `privkey.pem` into nginx's expected path
+(`/etc/nginx/certs/`) and reloads nginx in-place so the new cert takes
+effect on the next request.
+
+The certbot service uses the official `certbot/certbot` image, runs as
+a long-lived bash loop (`scripts/certbot_loop.sh`), and shares the host
+network with nginx + web. It also bind-mounts the Docker socket
+`/var/run/docker.sock` (read-only) so the deploy hook can `docker
+compose exec` into nginx. This is a soft privilege escalation but is
+acceptable for a single-tenant portfolio deploy; the deploy-hook only
+runs on actual renewal.
+
+### First-time setup
+
+Before the scheduler can run, the operator must obtain the **initial**
+certificate once (`certbot renew` does not bootstrap the first cert).
+Then the scheduler takes over indefinitely.
+
+```bash
+# 1. Create the webroot directory that nginx and certbot share for
+#    ACME http-01 challenges. Skipping this step makes nginx fail to
+#    start because the bind mount cannot resolve.
+mkdir -p ./certs/webroot
+
+# 2. Set the operator-supplied env vars for the certbot service.
+#    These are picked up by prod.yml's ${CERTBOT_DOMAIN:-...} /
+#    ${CERTBOT_EMAIL:-...} substitutions; they have no default.
+export CERTBOT_DOMAIN=omaha.example.com
+export CERTBOT_EMAIL=ops@example.com
+
+# 3. One-shot certbot run to obtain the initial cert. The web
+#    service does not need to be up for this command; nginx does
+#    (it serves the challenge over port 80).
+docker compose -f prod.yml run --rm certbot certonly \
+    --webroot -w /var/www/certbot \
+    -d "$CERTBOT_DOMAIN" \
+    --email "$CERTBOT_EMAIL" \
+    --agree-tos --no-eff-email
+
+# 4. Bring the stack up. The certbot service starts alongside
+#    web + nginx + backup-scheduler.
+docker compose -f prod.yml up -d
+
+# 5. Verify the initial cert was copied into nginx's expected
+#    path (the deploy-hook runs only on subsequent renewals, so
+#    step 3 writes to /etc/letsencrypt/live/<domain>/ but nginx
+#    reads /etc/nginx/certs/ — operator must copy manually the
+#    first time).
+sudo cp ./certs/live/$CERTBOT_DOMAIN/fullchain.pem ./certs/fullchain.pem
+sudo cp ./certs/live/$CERTBOT_DOMAIN/privkey.pem   ./certs/privkey.pem
+sudo chown $USER:$USER ./certs/*.pem
+chmod 600 ./certs/privkey.pem
+
+# 6. Reload nginx to pick up the certs.
+docker compose -f prod.yml exec nginx nginx -s reload
+```
+
+After step 4, renewals are automatic. Step 5–6 are one-time bootstrap
+glue; the deploy-hook handles the same `cp + reload` from then on.
+
+### Scheduler behaviour
+
+```bash
+# Tail the renewal log to see each renewal attempt (start, outcome,
+# next sleep). Renewals only act when the cert is within 30 days of
+# expiry, so most invocations are no-ops logged as "INFO certbot
+# renew OK".
+docker compose -f prod.yml logs -f certbot
+# expected:
+#   2026-07-06T15:00:00Z INFO certbot_loop started interval=43200s domain=omaha.example.com
+#   2026-07-06T15:00:00Z INFO certbot renew started
+#   2026-07-06T15:00:02Z INFO certbot renew OK
+```
+
+```bash
+# Override the renewal cadence (e.g. 1h for testing) before bringing
+# the stack up. Read once at start-up; mid-run changes require a
+# container restart.
+CERTBOT_RENEW_INTERVAL=3600 docker compose -f prod.yml up -d certbot
+```
+
+```bash
+# Stop the scheduler without touching web or nginx. The container
+# exits; `restart: unless-stopped` does NOT bring it back up after
+# a subsequent reboot — the operator has to re-enable it explicitly.
+docker compose -f prod.yml stop certbot
+docker compose -f prod.yml up -d certbot    # re-enable
+```
+
+The scheduler is **failure-tolerant**: a non-zero exit from
+`certbot renew` (CA unreachable, rate-limit) is logged at ERROR and the
+loop continues — the container stays in `running` state across
+transient errors and tries again `CERTBOT_RENEW_INTERVAL` seconds later.
+
+### Filesystem layout
+
+```text
+./certs/                            # bind mount → certbot:rw, nginx:ro
+├── .gitkeep                        # keeps the dir tracked
+├── fullchain.pem                   # nginx reads these (existing)
+├── privkey.pem                     #   ^ (existing; initial bootstrap copy)
+├── live/<domain>/                  # certbot writes here at renewal time
+│   ├── fullchain.pem               #   ↑
+│   └── privkey.pem                 #   ↑
+├── archive/<domain>/               # certbot's per-archive history
+└── webroot/                        # ACME challenge webroot (both share)
+    └── .gitkeep                    # keeps the dir tracked
+
+./prod.yml                          # bind-mounted into certbot container
+                                    #   at /app/prod.yml:ro so the
+                                    #   deploy-hook can `docker compose
+                                    #   -f /app/prod.yml exec nginx …`
+
+./scripts/certbot_loop.sh           # bind-mounted into certbot container
+                                    #   at /scripts/certbot_loop.sh:ro
+```
+
+nginx's `nginx.conf` is unchanged — it keeps reading
+`/etc/nginx/certs/fullchain.pem` and `/etc/nginx/certs/privkey.pem`,
+which is exactly the path the deploy-hook populates.
 
 ---
 
