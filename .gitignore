@@ -92,3 +92,14 @@ nginx/*
 # a side-effect of the first run). See
 # `openspec/specs/rebalance-mutation-testing/spec.md`.
 mutants/
+
+# Visual regression generated artifacts. Baseline PNGs under
+# tests/visual/baselines/ are source artifacts and stay tracked.
+tests/visual/results/
+tests/visual/diffs/
+tests/visual/test-results/
+tests/visual/**/*.actual.png
+tests/visual/**/*.diff.png
+!tests/visual/baselines/
+!tests/visual/baselines/**/*.png
+!tests/visual/baselines/.gitkeep

@@ -31,7 +31,7 @@ hooks = [
     { id = "check-yaml",               stages = ["pre-commit"] },
     { id = "check-toml",               stages = ["pre-commit"] },
     { id = "check-json",               stages = ["pre-commit"] },
-    { id = "check-added-large-files",  stages = ["pre-commit"] },
+    { id = "check-added-large-files",  stages = ["pre-commit"], args = ["--maxkb=1024"] },
     { id = "detect-private-key",       stages = ["pre-commit"] },
 ]
 

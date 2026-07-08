@@ -199,6 +199,8 @@ def client(_omaha_test_env: dict[str, str]) -> TestClient:
 #
 # * tests/e2e/*.py                       → no marker (Playwright, run via
 #                                          ``task test-e2e``)
+# * tests/visual/*.py                    → no marker (Playwright, run via
+#                                          ``task test-visual``)
 # * tests/audit_integration/*            → @pytest.mark.integration
 # * explicit integration prefix list     → @pytest.mark.integration
 # * everything else in tests/*.py        → @pytest.mark.unit
@@ -308,8 +310,8 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     tests that genuinely depend on production files opt out of the
     unit subset without renaming or moving files.
 
-    Files in ``tests/e2e/`` are left un-marker'd (Playwright tests
-    are filtered separately by path). Files in
+    Files in ``tests/e2e/`` and ``tests/visual/`` are left un-marker'd
+    (Playwright tests are filtered separately by path). Files in
     ``tests/audit_integration/`` and any path matching
     ``_INTEGRATION_PREFIXES`` are tagged ``integration``. Everything
     else in ``tests/*.py`` is tagged ``unit`` — and if it does not
@@ -322,7 +324,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         if "unit" in existing or "integration" in existing:
             continue
         path = str(item.fspath)
-        if "/tests/e2e/" in path:
+        if "/tests/e2e/" in path or "/tests/visual/" in path:
             continue
         if "/tests/bdd/" in path:
             item.add_marker(pytest.mark.bdd)

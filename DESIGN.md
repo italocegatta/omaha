@@ -523,6 +523,32 @@ rewrite the element, not patch it:
   `opacity: 0` idle → `1` em `tr:hover` (mobile `@media
   (max-width: 768px)` sempre visível).
 
+## Visual Regression
+
+Run `task test-visual` when a change intentionally or accidentally touches
+browser-visible UI: templates, `src/omaha/static/app.css`, icon/font loading,
+or page-level interaction state. The task runs Playwright screenshots in
+`tests/visual/` only; `task test-e2e` remains behavior-focused and does not
+collect visual baselines.
+
+Canonical baseline PNGs live in `tests/visual/baselines/` and are committed.
+Generated review artifacts live in `tests/visual/results/` and are ignored by
+git. Snapshot names encode page/state and viewport (`*-desktop.png`,
+`*-mobile.png`) for the `1440x900` and `375x667` matrix.
+
+Every screenshot test asserts structural content first: route markers,
+seeded class/table rows, BRL text, modal review tables, or stub markers. This
+prevents login redirects, empty DB state, or blank pages from becoming valid
+baselines. The comparison threshold is `0.5%` pixel difference in
+`tests/visual/conftest.py`.
+
+Intentional visual changes update affected baselines in the same change:
+
+1. Run `UPDATE_VISUAL_BASELINES=1 task test-visual` to rewrite PNGs.
+2. Review changed files under `tests/visual/baselines/`.
+3. Run `task test-visual` again without the env var to prove committed
+   baselines pass.
+
 ## Migration path
 
 ### D02 (design register decision) — gate resolvido 2026-07-07

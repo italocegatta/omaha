@@ -1551,13 +1551,12 @@ Progress:
   `component-state-language`); `openspec list` zero active changes.
   Consequências: T06 (visual regression baseline) promoted a Ready
   puro (gate F08+F09+F10 atendido — F08 archived proposal-only, F09
-  applied, F10 applied); F11/F13 permanecem Blocked (D02 §Gate 4/5).
+  applied, F10 applied); F11/F13 foram retiradas da fila ativa por
+  decisão do owner (2026-07-07).
 
 ### F11 - Sidebar reintroduce (conditional on register A)
-Status: `Blocked` 2026-07-07 (register D02 = SI maximal; register ≠ A
-→ effectively blocked per dependency. Slice preservada para
-auditoria; reactivate via `restore f11` apenas se owner ativamente
-pedir outra direção de design.)
+Status: `Deprecated` 2026-07-07 (owner: "não fazem sentido nenhum";
+retirada da fila ativa. Preservada apenas para auditoria.)
 Goal: Reverter F02 — reintroduzir sidebar fixa 272px com logo SVG no
 topo + nav vertical (4 itens: Patrimônio / Rebalanceamento /
 Rentabilidade / Proventos) + ações (+ Classe, + Ativo, Importar) +
@@ -1582,19 +1581,16 @@ Files:
   + `import_review.html` + `login.html` (ajustar)
 - `static/logo.svg` (novo — wordmark, opcional)
 - `openspec/specs/dashboard-sidebar/spec.md` (delta reverter REMOVED)
-Notes: **Bloqueada por decisão D02 archived 2026-07-07** — owner
-escolheu register SI maximal sem sidebar (gate D02 §Gate 4 = NÃO).
+Notes: **Deprecated por decisão do owner 2026-07-07** — owner
+confirmou que reintroduzir sidebar não faz sentido. D02 já havia
+escolhido register SI maximal sem sidebar (gate D02 §Gate 4 = NÃO).
 Top nav com 4 tabs de F02 é permanente. PRD §4.10 reescrito como
 memorial registrando a decisão; DESIGN.md §Anti-patterns ganhou
-"Reintroduzir sidebar" como entry formal. Slice preservada no
-roadmap como histórico/auditoria. Reactivation path: owner pedir
-explicitamente reverter o register → `restore f11` promove a Ready →
-propose/apply/archive. Critical-area = layout = cap 1 Applying se
-um dia voltar. Reverte decisão D7 do grill 2026-07-03 quando landa.
-Quebra alias `_sidebar.html` — verificar tests que importam o partial
-no apply. Estima 3-4h.
+"Reintroduzir sidebar" como entry formal. Slice preservada só como
+histórico/auditoria; não reativar por default.
 Progress:
 - 2026-07-07: Blocked formal per D02 gate. Sem progress de execução.
+- 2026-07-07: Deprecated por pedido do owner; removida da fila ativa.
 
 ### F12 - Material Symbols icon system (conditional on register A/B)
 Status: `Archived` 2026-07-07
@@ -1699,9 +1695,8 @@ Progress:
   "RF Din" classes seeded. Zero `src/omaha/**` runtime regressions.
 
 ### F13 - Light/dark toggle (conditional on owner request)
-Status: `Blocked` 2026-07-07 (D02 archived sem light/dark toggle —
-gate = NÃO; owner não pediu). Slice preservada para auditoria;
-reactivate via `restore f13` apenas se owner ativamente pedir.
+Status: `Deprecated` 2026-07-07 (owner: "não fazem sentido nenhum";
+retirada da fila ativa. Preservada apenas para auditoria.)
 Goal: Reintroduzir light mode. Re-derivar TODOS os tokens em variante
 light (body off-white warm, surface lift via claridade inversa, ink
 dark warm-neutral, accent fern chroma-down para AA em light). Adicionar
@@ -1725,19 +1720,16 @@ Files:
 - `openspec/specs/color-tokens/spec.md` (delta ADDED — light variant
   requirements)
 - `DESIGN.md` (§Color strategy estendido com light + dark)
-Notes: **Bloqueada por decisão D02 archived 2026-07-07** — owner
-escolheu register SI maximal sem light/dark toggle (gate D02 §Gate
+Notes: **Deprecated por decisão do owner 2026-07-07** — owner
+confirmou que light/dark toggle não faz sentido. D02 já havia
+escolhido register SI maximal sem light/dark toggle (gate D02 §Gate
 5 = NÃO). Dark-only D-F05.10 mantido. PRD §4.10 reescrito como
 memorial registrando a decisão; DESIGN.md §Anti-patterns ganhou
-"Adicionar light/dark toggle" como entry formal. Slice preservada
-no roadmap como histórico/auditoria. Reactivation path: owner pedir
-explicitamente toggle → `restore f13` promove a Ready → propose/apply
-/archive. Critical-area = visual surface = cap 1 Applying se um dia
-voltar. Maior slice em custo (4-6h estimadas) porque re-deriva TODOS
-os 17+ tokens em duas variantes + adiciona JS de persistência.
-**Não-default**: nunca promove automaticamente.
+"Adicionar light/dark toggle" como entry formal. Slice preservada só
+como histórico/auditoria; não reativar por default.
 Progress:
 - 2026-07-07: Blocked formal per D02 gate. Sem progress de execução.
+- 2026-07-07: Deprecated por pedido do owner; removida da fila ativa.
 
 ### R05 - Audit + migração de literais hex legados (residual F05)
 Status: `Archived` 2026-07-07
@@ -1779,7 +1771,7 @@ Progress:
 - Archived: done (2026-07-07; archive `2026-07-07-r05-hex-literal-audit-and-migration/`; delta spec consolidada em `openspec/specs/color-tokens/spec.md` com 1 ADDED requirement sobre `--class-N-tint` + import-preview tint usage; `openspec list --specs` passou pós-sync)
 
 ### T06 - Visual regression baseline (screenshot diffs)
-Status: `Ready`
+Status: `Archived`
 Goal: Adicionar baseline de testes de regressão visual via Playwright.
 Captura snapshot de 10 páginas em viewport padrão (1440×900) e
 viewport mobile (375×667). Baseline commitado em
@@ -1791,7 +1783,7 @@ rentabilidade, proventos, audit_report. Pre-requisito: F08 + F09 + F10
 já aplicados (captura baseline do design NOVO, não do atual — se rodar
 antes, baseline captura o velho e perde utilidade).
 Candidate OpenSpec change id: `t06-visual-regression-baseline`
-Spec link: `openspec/changes/t06-visual-regression-baseline/` (criada no propose)
+Spec link: `openspec/changes/t06-visual-regression-baseline/`
 Files:
 - `tests/visual/` (novo diretório)
 - `tests/visual/conftest.py` (Playwright fixture + viewport config +
@@ -1807,7 +1799,34 @@ significativa — se rodar antes, baseline captura o velho e perde
 utilidade). Rodar DEPOIS das 3 F-slice. Threshold 0.5% é sugestão
 inicial — owner ajusta conforme sensibilidade desejada. Custo 3-4h.
 Pode rodar em paralelo com R05 (não tocam nos mesmos arquivos).
-Progress: (vazio)
+Progress:
+- Proposed: done 2026-07-07 (folder
+  `openspec/changes/t06-visual-regression-baseline/`; 4 artifacts
+  completos: `proposal.md` + `design.md` + `tasks.md` +
+  `specs/visual-regression-baseline/spec.md`. New capability
+  `visual-regression-baseline` cobre suite Playwright visual,
+  baseline PNGs commitados, diff/output ignorado, matrix desktop +
+  mobile, pre-assertions estruturais, threshold 0.5%, `task
+  test-visual`, e policy em `DESIGN.md`. `openspec validate
+  t06-visual-regression-baseline --json` retorna `valid: true`.
+  Repo spec gate `openspec validate --specs --json`: 51/51 valid,
+  apenas INFO pre-existentes sobre requirement text longo.)
+- Applying: pending
+- Applying: in progress 2026-07-07. Implementation uses `tests/visual/`
+  with isolated SQLite DB `data/test_visual.db`, Alembic + canonical CSV
+  seed (`scripts.reset_both_profiles`), Playwright desktop/mobile matrix,
+  and committed baselines. Page-list deviations from proposal reality:
+  `/classes` and `/assets` GET routes are retired/redirecting, so coverage
+  snapshots current class sections and expanded asset tables on
+  `/patrimonio`; `audit_report.html` is CLI/report output and no stable app
+  route exists, so no audit-report page baseline is captured.
+- Applied: done 2026-07-07. `task test-visual` passes with 20 PNG
+  baselines (10 page/states x desktop/mobile). `task lint`,
+  `task test-unit`, `task test-integration`, `openspec validate
+  t06-visual-regression-baseline --json`, and `openspec validate
+  --specs --json` passed. Runtime/browser-visible app files were not
+  changed,   so `refresh-for-test` was not required by T06 task 6.6.
+- Archived: done 2026-07-07; archive `2026-07-07-t06-visual-regression-baseline/`; spec synced to `openspec/specs/visual-regression-baseline/spec.md`
 
 ## Dependencies
 
@@ -1938,9 +1957,9 @@ Can run in parallel: yes (com F08, F09 em Applying — cap 2)
 
 ### F11
 Depends on: D02 archived + register = A (sidebar só faz sentido em A)
-Blocks: T06
-Can run in parallel: yes (Blocked 2026-07-07 — register D02 = SI maximal,
-≠ A; slice preservada no roadmap como histórico)
+Blocks: none
+Can run in parallel: no (Deprecated 2026-07-07 — owner retirou da fila
+ativa; preservada apenas como histórico)
 
 ### F12
 Depends on: D02 archived (gate resolvido 2026-07-07; catalog Material
@@ -1952,9 +1971,9 @@ Can run in parallel: yes (com F08/F09/F10 — cap 2)
 
 ### F13
 Depends on: D02 archived + owner explícito pedir light/dark toggle
-Blocks: T06
-Can run in parallel: yes (Blocked 2026-07-07 — owner não pediu toggle,
-D-F05.10 mantido; slice preservada como histórico)
+Blocks: none
+Can run in parallel: no (Deprecated 2026-07-07 — owner retirou da fila
+ativa; preservada apenas como histórico)
 
 ### R05
 Depends on: D02 archived (gate OK) + F08 (precisa dos novos tokens
@@ -1962,7 +1981,7 @@ OKLCH pra derivar `--class-N-tint` corretamente; hex sweep só funciona
 pós-palette overhaul)
 Blocks: none
 Can run in parallel: yes (com T06, que não toca nos mesmos arquivos)
-Status: Ready (F08 applied 2026-07-07 → desbloqueado)
+Status: archived 2026-07-07 (`r05-hex-literal-audit-and-migration`)
 
 ### R06
 Depends on: none (investiga standalone; sem pré-requisito de outras
@@ -1981,8 +2000,8 @@ Depends on: F08 + F09 + F10 (precisa do design novo aplicado pra
 capturar baseline significativa — se rodar antes, baseline captura
 o velho e perde utilidade)
 Blocks: none
-Can run in parallel: yes (com R05)
-Status: Ready (F08+F09+F10 all applied → desbloqueado)
+Can run in parallel: yes
+Status: Spec Proposed 2026-07-07 (`t06-visual-regression-baseline`)
 
 ## Recommended Execution Order
 
@@ -1995,18 +2014,17 @@ Prioridade presume que o owner quer atacar mudanças estruturais primeiro
 Owner abriu frente visual 2026-07-06 (sessão exploratória capturada
 em `openspec/.temp_assets/design-system-redesign-session-2026-07-06.md`).
 D02 archived 2026-07-07 — gate resolvido; owner escolheu register
-SI maximal. F08+F09+F10+F12 all Archived. F11+F13 Deprecated per
-owner instruction 2026-07-07. R05+T06 now Ready (F08 applied).
+SI maximal. F08+F09+F10+F12 all Archived. F11+F13 retiradas da fila
+ativa/deprecated per owner instruction 2026-07-07. R05 archived;
+T06 now Ready.
 
 1. **D02 - design register decision** — archived 2026-07-07 (gate)
 2. **F08 - palette overhaul v2** — archived 2026-07-07 (implemented)
 3. **F09 - typography refresh** — archived 2026-07-07
 4. **F10 - component state language + table pattern** — archived 2026-07-07
 5. **F12 - Material Symbols icons** — archived 2026-07-07
-6. **F11 - sidebar reintroduce** — **Deprecated** 2026-07-07 (owner: "não fazem sentido")
-7. **F13 - light/dark toggle** — **Deprecated** 2026-07-07 (owner: "não fazem sentido")
-8. **R05 - hex literal audit** (Ready; F08 applied → unblocked; depende de F08 pra novos tokens OKLCH)
-9. **T06 - visual regression baseline** (Ready; F08+F09+F10 all applied → unblocked; Playwright screenshots)
+6. **R05 - hex literal audit** — archived 2026-07-07
+7. **T06 - visual regression baseline** — Spec Proposed 2026-07-07 (`t06-visual-regression-baseline`)
 
 ### Fila histórica (já arquivada — referência)
 
@@ -2039,8 +2057,9 @@ owner instruction 2026-07-07. R05+T06 now Ready (F08 applied).
   `openspec/.temp_assets/design-system-redesign-session-2026-07-06.md`
   (matriz Roubar/Rejeitar/Reframear, opções A/B/C/D com mockups
   ASCII, 4 bugs concretos, 7 gates abertos). D02 é gate absoluto: sem
-  decisão de register, F08+ não podem propor. F11/F12/F13 são
-  conditional (dependem da direção D02 escolher). F08/F09/F10
+  decisão de register, F08+ não podem propor. F12 era conditional e
+  foi executada; F11/F13 foram retiradas da fila ativa por decisão do
+  owner. F08/F09/F10
   podem correr em paralelo (cap 2). R05 é mecânico e roda em paralelo
   com T06. T06 captura baseline visual do design NOVO, por isso
   depende de F08+F09+F10 aplicados. D01 (README) deferido atrás da
@@ -2049,6 +2068,10 @@ owner instruction 2026-07-07. R05+T06 now Ready (F08 applied).
 **Removidos da fila ativa 2026-07-06:**
 - F03 - rentabilidade page (Closed 2026-07-06 — D-F03-defer permanente)
 - F04 - proventos page (Deprecated 2026-07-06 — incerto)
+
+**Removidos da fila ativa 2026-07-07:**
+- F11 - sidebar reintroduce (Deprecated — owner: "não fazem sentido nenhum")
+- F13 - light/dark toggle (Deprecated — owner: "não fazem sentido nenhum")
 
 Notas de reordenamento:
 - **F02 vem antes de F01** porque a tab nav + side panel removal é
