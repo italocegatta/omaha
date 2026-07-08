@@ -1122,7 +1122,7 @@ p.error, .error {
 .dashboard-distribution .class-section:nth-of-type(6n+4) .class-section-name { color: var(--class-4); }
 .dashboard-distribution .class-section:nth-of-type(6n+5) .class-section-name { color: var(--class-5); }
 .dashboard-distribution .class-section:nth-of-type(6n+6) .class-section-name { color: var(--class-6); }
-.class-section-name { font-weight: 700; font-size: 0.95rem; flex: 0 0 auto; min-width: 0; }
+.class-section-name { font-weight: 700; font-size: 1.4rem; flex: 0 0 auto; min-width: 0; }
 
 /* Class section body collapse animation (S05 T01). Uses
    max-height transition with a generous upper bound so the
@@ -1686,6 +1686,303 @@ td.editing {
 }
 
 [x-cloak] { display: none !important; }
+
+/* =============================================================
+   F15 — patrimonio table redesign
+   ============================================================= */
+
+:root {
+  --col-ativo: 340px;
+  --col-qtd: 50px;
+  --col-avg-price: 90px;
+  --col-gain-value: 100px;
+  --col-gain-pct: 90px;
+  --col-position: 90px;
+  --col-position-deviation: 100px;
+  --col-class-current: 90px;
+  --col-class-target: 90px;
+  --col-class-deviation: 90px;
+  --col-portfolio-current: 90px;
+  --col-portfolio-target: 90px;
+  --col-portfolio-deviation: 90px;
+  --col-buy: 85px;
+  --col-sell: 85px;
+  --col-currency: 70px;
+}
+
+.patrimonio-portfolio-header {
+  margin-bottom: 1.5rem;
+}
+
+.portfolio-stat--gain .portfolio-stat-value,
+.portfolio-stat--gain .portfolio-stat-gain-pct,
+.portfolio-stat--gain .portfolio-stat-gain-icon {
+  color: var(--ink);
+}
+
+.portfolio-stat-gain {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.portfolio-stat-gain-pct {
+  font-family: "Red Hat Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.portfolio-stat--positive .portfolio-stat-value,
+.portfolio-stat--positive .portfolio-stat-gain-pct,
+.portfolio-stat--positive .portfolio-stat-gain-icon {
+  color: var(--positive);
+}
+
+.portfolio-stat--negative .portfolio-stat-value,
+.portfolio-stat--negative .portfolio-stat-gain-pct,
+.portfolio-stat--negative .portfolio-stat-gain-icon {
+  color: var(--negative);
+}
+
+.class-section {
+  padding: 0.85rem 0.95rem 1rem;
+  overflow-x: auto;
+}
+
+.class-section-header {
+  display: block;
+  margin-bottom: 0.65rem;
+  padding: 0.15rem 0;
+  border-bottom: none;
+}
+
+.hdr-leading {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.class-section-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.asset-table {
+  min-width: 1650px
+  font-size: 0.84rem;
+  background: var(--surface-sunk);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.asset-table col:nth-child(1) { width: var(--col-ativo); }
+.asset-table col:nth-child(2) { width: var(--col-qtd); }
+.asset-table col:nth-child(3) { width: var(--col-avg-price); }
+.asset-table col:nth-child(4) { width: var(--col-gain-value); }
+.asset-table col:nth-child(5) { width: var(--col-gain-pct); }
+.asset-table col:nth-child(6) { width: var(--col-position); }
+.asset-table col:nth-child(7) { width: var(--col-position-deviation); }
+.asset-table col:nth-child(8) { width: var(--col-class-current); }
+.asset-table col:nth-child(9) { width: var(--col-class-target); }
+.asset-table col:nth-child(10) { width: var(--col-class-deviation); }
+.asset-table col:nth-child(11) { width: var(--col-portfolio-current); }
+.asset-table col:nth-child(12) { width: var(--col-portfolio-target); }
+.asset-table col:nth-child(13) { width: var(--col-portfolio-deviation); }
+.asset-table col:nth-child(14) { width: var(--col-buy); }
+.asset-table col:nth-child(15) { width: var(--col-sell); }
+.asset-table col:nth-child(16) { width: var(--col-currency); }
+
+.asset-table thead {
+  background: var(--surface-elevated);
+}
+
+.asset-table th,
+.asset-table td {
+  padding: 0.28rem 0.45rem;
+  vertical-align: middle;
+  overflow-wrap: break-word;
+}
+
+.asset-table th {
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ink) 94%, white);
+  text-align: center;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.15;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
+.asset-table-group-row th {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-elevated);
+}
+
+.asset-table th > span[data-testid^="asset-table-th-"] {
+  display: block;
+  width: 100%;
+}
+
+.asset-table-group-row th[data-testid="asset-table-th-gain"],
+.asset-table-group-row th[colspan="3"] {
+  text-align: center;
+}
+
+.asset-table-subhead-row th {
+  background: color-mix(in srgb, var(--surface-elevated) 82%, var(--surface-sunk));
+  border-bottom: 2px solid var(--border-strong);
+}
+
+.asset-table-subhead--ghost {
+  padding: 0;
+  border-bottom: 2px solid var(--border-strong);
+}
+
+.class-totals-row td {
+  background: color-mix(in srgb, var(--surface-elevated) 72%, var(--surface));
+  border-bottom: 1px solid var(--border-strong);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.class-totals-label {
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.72rem;
+}
+
+.asset-table th:first-child,
+.asset-table td:first-child,
+.asset-table th:nth-child(2),
+.asset-table td:nth-child(2),
+.asset-table th:nth-child(3),
+.asset-table td:nth-child(3) {
+  padding-left: 0.3rem;
+  padding-right: 0.3rem;
+}
+
+.asset-name-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.asset-row-name,
+.class-totals-label {
+  overflow-wrap: break-word;
+}
+
+.asset-row-name {
+  line-height: 1.25;
+}
+
+.gain-cell {
+  font-size: inherit;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.gain-cell--pct {
+  border-left: none;
+  padding-left: 0.15rem;
+  font-size: inherit;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-stack {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.metric-stack--gain {
+  white-space: nowrap;
+}
+
+.asset-table td[data-testid="asset-avg-price"],
+.asset-table td[data-testid="asset-current-value"],
+.asset-table td[data-testid="asset-position-deviation"],
+.asset-table td[data-testid="class-total-current-value"],
+.asset-table td[data-testid="class-total-gain-value"] {
+  white-space: nowrap;
+}
+
+.metric-sign {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.metric-positive,
+.metric-positive .metric-sign {
+  color: var(--positive);
+}
+
+.metric-negative,
+.metric-negative .metric-sign {
+  color: var(--negative);
+}
+
+.metric-neutral,
+.metric-neutral .metric-sign,
+.metric-placeholder {
+  color: var(--ink-muted);
+}
+
+.asset-pct-cell--inline {
+  width: 100%;
+  min-height: 2rem;
+  padding: 0.18rem 0.3rem;
+  justify-content: center;
+}
+
+.asset-inline-edit-hint,
+.asset-inline-edit-error,
+.class-inline-edit-error {
+  display: block;
+  margin-top: 0.2rem;
+  margin-left: 0;
+}
+
+.class-section-body {
+  transition: none;
+}
+
+.class-section-body.class-section-body--collapsed {
+  display: none;
+}
+
+.trade-toggle,
+.currency-badge {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .class-section {
+    padding: 0.7rem;
+  }
+
+  .asset-table {
+    min-width: 1650px
+  }
+}
 
 @media (max-width: 480px) {
   /* F02: no sidebar / drawer / hamburger. The single-column

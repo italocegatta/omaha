@@ -447,51 +447,65 @@
   // (user-driven resort). Extracted so the two call sites stay
   // byte-for-byte identical — a drift here would be a silent
   // bug (different initial vs user-click order).
+  function sortValue(asset, key) {
+    switch (key) {
+      case 'name':
+        return String(asset.name || '');
+      case 'qty':
+        return asset.qty || 0;
+      case 'avg-price':
+        return asset.avg_price;
+      case 'gain':
+        return asset.gain_value;
+      case 'position':
+        return asset.current_value;
+      case 'position-deviation':
+        return asset.position_deviation_value;
+      case 'class-current':
+        return asset.current_pct_class;
+      case 'class-target':
+        return asset.target_pct;
+      case 'class-deviation':
+        return asset.class_deviation_pct;
+      case 'portfolio-current':
+        return asset.current_pct_total;
+      case 'portfolio-target':
+        return asset.target_pct_total;
+      case 'portfolio-deviation':
+        return asset.portfolio_deviation_pct;
+      case 'buy':
+        return asset.buy_enabled ? 1 : 0;
+      case 'sell':
+        return asset.sell_enabled ? 1 : 0;
+      case 'currency':
+        return String(asset.currency_code || '');
+      default:
+        return null;
+    }
+  }
+
   function sortFn(key, dir) {
     return function (a, b) {
+      var av = sortValue(a, key);
+      var bv = sortValue(b, key);
       var cmp = 0;
-      if (key === 'class') {
-        cmp = (a.target_pct || 0) - (b.target_pct || 0);
-        if (cmp === 0) {
-          cmp = String(a.name).localeCompare(String(b.name));
-        }
-      } else if (key === 'name') {
-        cmp = String(a.name).localeCompare(String(b.name));
+      if (key === 'name' || key === 'currency') {
+        cmp = String(av || '').localeCompare(String(bv || ''));
       } else {
-        var av, bv;
-        switch (key) {
-          case 'qty':
-            av = a.position_count || 0;
-            bv = b.position_count || 0;
-            break;
-          case 'current-value':
-            av = a.current_value || 0;
-            bv = b.current_value || 0;
-            break;
-          case 'target-pct-class':
-            av = a.target_pct || 0;
-            bv = b.target_pct || 0;
-            break;
-          case 'current-pct-class':
-            av = a.current_pct_class || 0;
-            bv = b.current_pct_class || 0;
-            break;
-          case 'target-pct-total':
-            av = a.target_pct_total || 0;
-            bv = b.target_pct_total || 0;
-            break;
-          case 'current-pct-total':
-            av = a.current_pct_total || 0;
-            bv = b.current_pct_total || 0;
-            break;
-          default:
-            av = 0;
-            bv = 0;
+        var aMissing = av === null || av === undefined;
+        var bMissing = bv === null || bv === undefined;
+        if (aMissing && bMissing) {
+          cmp = 0;
+        } else if (aMissing) {
+          cmp = 1;
+        } else if (bMissing) {
+          cmp = -1;
+        } else {
+          cmp = av - bv;
         }
-        cmp = av - bv;
-        if (cmp === 0) {
-          cmp = String(a.name).localeCompare(String(b.name));
-        }
+      }
+      if (cmp === 0) {
+        cmp = String(a.name || '').localeCompare(String(b.name || ''));
       }
       return dir === 'asc' ? cmp : -cmp;
     };
@@ -510,16 +524,14 @@
       classId: initial.id,
       className: initial.name,
       classTargetPct: initial.target_pct,
-      // ``classColor`` powers the swatch dot at the start of the
-      // asset-group header row (line 178) and ``classCurrentPct``
-      // powers the "Atual NN%" pill beside the target (line 181).
-      // Both come from the same ``class_data`` blob the section
-      // header reads (``c.color`` / ``c.current_pct`` from the
-      // Jinja context at line 80) — only the per-class
-      // ``classTargetPct`` was being copied before this change.
       classColor: initial.color,
       classCurrentPct: initial.current_pct,
       classCurrentValue: initial.current_value,
+      classInvested: initial.invested,
+      classGainValue: initial.gain_value,
+      classGainPct: initial.gain_pct,
+      initialPortfolioTargetPct: initial.portfolio_target_pct,
+      initialPortfolioDeviationPct: initial.portfolio_deviation_pct,
 
       // F01: read-only mode flag for the household aggregate view.
       // When true, every mutation affordance (delete buttons, inline
@@ -529,19 +541,9 @@
       // is set once from the server-rendered class_data blob.
       readOnly: initial.read_only === true,
 
-      // Register with the class allocation sum store on init so the
-      // Distribution header shows the live total across all classes.
-      // 3.3: also push the per-class asset-sum so the store's
-      // ``classDeltas[this.classId]`` is populated on the first
-      // reactive tick (the sticky alert card reads it).
-      // fix-asset-table-ui-bugs: also build the ``displayAssets``
-      // snapshot from ``assets`` using the default sort key. The
-      // snapshot is the array the table renders; PATCH handlers
-      // mutate the row object in place so the order stays frozen
-      // between explicit ``sortBy`` clicks.
       init: function () {
-        this.displayAssets = this.assets.slice().sort(sortFn(this.sortKey, this.sortDir));
-        if (Alpine.store('classSum')) {
+        this.displayAssets = this.assets.slice();
+        if (Alpine.store('classSum') && this.classTargetPct !== null && this.classTargetPct !== undefined) {
           var store = Alpine.store('classSum');
           store.register(this.classId, this.classTargetPct);
           store.setClassSum(this.classId, this.classSum, this.className);
@@ -552,11 +554,18 @@
           id: a.id,
           name: a.name,
           target_pct: a.target_pct,
+          qty: a.qty,
+          avg_price: a.avg_price,
+          gain_value: a.gain_value,
+          gain_pct: a.gain_pct,
           current_pct_class: a.current_pct_class,
+          class_deviation_pct: a.class_deviation_pct,
           current_pct_total: a.current_pct_total,
           target_pct_total: a.target_pct_total,
+          portfolio_deviation_pct: a.portfolio_deviation_pct,
           position_count: a.position_count,
           current_value: a.current_value,
+          position_deviation_value: a.position_deviation_value,
           // asset-trade-flags: per-asset trade-control state copied
           // from the server-rendered ``class_data.assets`` dict. The
           // toggle UI mutates these in place after a successful
@@ -576,8 +585,6 @@
       savingTotal: false,
       errorTotal: '',
 
-      // asset-table-view 8.1: class groups are always visible; the
-      // chevron toggle was removed in 4.4.
       isOpen: true,
 
       // Delete button state — confirm dialog visibility, in-flight
@@ -661,13 +668,22 @@
         return Math.round((100 - this.classSum) * 100) / 100;
       },
       get classCurrentStatus() {
-        // Drives the ``Atual`` pill modifier class. Within 1-cent
-        // tolerance of the target → 'ok' (green), otherwise 'off'
-        // (red). Tolerance matches ``SUM_TOLERANCE = 0.01`` in
-        // ``omaha.validators``.
         return Math.abs(this.classCurrentPct - this.classTargetPct) <= 0.01
           ? 'ok'
           : 'off';
+      },
+      get classCurrentPctClass() {
+        return this.displayAssets.length > 0 ? 100 : 0;
+      },
+      get classTargetPctClass() {
+        return this.displayAssets.length > 0 ? 100 : 0;
+      },
+      get classDeviationPctClass() {
+        return this.classCurrentPctClass - this.classTargetPctClass;
+      },
+      get classPortfolioDeviationPct() {
+        if (this.classTargetPct === null || this.classTargetPct === undefined) return null;
+        return this.classCurrentPct - this.classTargetPct;
       },
       get classDeltaMessage() {
         var delta = this.classDelta;
@@ -685,30 +701,40 @@
       },
 
       formatPct: function (value) {
-        // Format 0 as '—' so the operator notices the migration
-        // gap (D015: visual affordance). Non-zero renders as
-        // "X.XX%".
-        if (!value || Math.abs(value) < 0.005) return '—';
-        return Number(value).toFixed(2) + '%';
+        if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+        return Number(value).toFixed(1) + '%';
       },
-      formatBRL: function (value) {
-        // BRL formatter reused by the asset-table rows after the
-        // per-class iteration moved to the assetTable component.
-        var n = Number(value) || 0;
-        return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-      },
-      formatBRLCompact: function (value) {
-        // BRL with zero fraction digits — class-section "Valor" cell.
-        // The template gates on classCurrentValue > 0 and swaps in an
-        // em-dash for empty classes, so this is always called with
-        // a positive value.
-        var n = Number(value) || 0;
-        return n.toLocaleString('pt-BR', {
+      formatMoney: function (value, currency) {
+        if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+        var code = currency || 'BRL';
+        return Number(value).toLocaleString('pt-BR', {
           style: 'currency',
-          currency: 'BRL',
+          currency: code,
+          currencyDisplay: 'narrowSymbol',
           minimumFractionDigits: 0,
           maximumFractionDigits: 0,
         });
+      },
+      formatBRL: function (value) {
+        return this.formatMoney(value, 'BRL');
+      },
+      formatBRLCompact: function (value) {
+        return this.formatMoney(value, 'BRL');
+      },
+      formatQty: function (value) {
+        if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+        return Number(value).toLocaleString('pt-BR', {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 1,
+        });
+      },
+      signClass: function (value) {
+        if (value === null || value === undefined || Math.abs(Number(value)) < 0.0001) return 'metric-neutral';
+        return Number(value) > 0 ? 'metric-positive' : 'metric-negative';
+      },
+      signIcon: function (value) {
+        if (value === null || value === undefined || Math.abs(Number(value)) < 0.0001) return 'remove';
+        return Number(value) > 0 ? 'arrow_upward' : 'arrow_downward';
       },
 
       // asset-table-view 6.x/7.x: sortable asset table state. Lives
@@ -724,7 +750,7 @@
       // mutation, which (combined with a splice-based pin) caused
       // the other rows in the class to visibly shift on PATCH.
       displayAssets: [],
-      sortKey: 'class',
+      sortKey: '',
       sortDir: 'asc',
       sortBy: function (key) {
         if (this.sortKey === key) {

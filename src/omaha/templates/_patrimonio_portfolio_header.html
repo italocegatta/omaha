@@ -1,21 +1,31 @@
-{% if portfolio.current_value %}
-    <section class="patrimonio-portfolio-header"
-             data-testid="patrimonio-portfolio-header">
-      <section class="portfolio-header" data-testid="portfolio-header">
-        <div class="portfolio-stat" data-testid="portfolio-invested">
-          <span class="portfolio-stat-label">Investido</span>
-          <span class="portfolio-stat-value">{{ portfolio.total_invested | brl }}</span>
-        </div>
-        <div class="portfolio-stat" data-testid="portfolio-total">
-          <span class="portfolio-stat-label">Valor atual</span>
-          <span class="portfolio-stat-value">{{ portfolio.current_value | brl }}</span>
-        </div>
-        <div class="portfolio-stat {% if portfolio.gain >= 0 %}portfolio-gain-positive{% else %}portfolio-gain-negative{% endif %}"
-             data-testid="portfolio-gain"
-             data-gain-sign="{% if portfolio.gain >= 0 %}positive{% else %}negative{% endif %}">
-          <span class="portfolio-stat-label">Ganho</span>
-          <span class="portfolio-stat-value">{{ portfolio.gain | brl }} ({{ portfolio.gain_pct | round(2) }}%)</span>
-        </div>
-      </section>
-    </section>
-    {% endif %}
+{% set gain_sign = 'neutral' %}
+{% if portfolio.gain > 0 %}
+  {% set gain_sign = 'positive' %}
+{% elif portfolio.gain < 0 %}
+  {% set gain_sign = 'negative' %}
+{% endif %}
+<section class="patrimonio-portfolio-header"
+         data-testid="patrimonio-portfolio-header">
+  <section class="portfolio-header" data-testid="portfolio-header">
+    <div class="portfolio-stat" data-testid="portfolio-invested">
+      <span class="portfolio-stat-label">Investido</span>
+      <span class="portfolio-stat-value">{{ portfolio.total_invested | brl }}</span>
+    </div>
+    <div class="portfolio-stat" data-testid="portfolio-total">
+      <span class="portfolio-stat-label">Valor atual</span>
+      <span class="portfolio-stat-value">{{ portfolio.current_value | brl }}</span>
+    </div>
+    <div class="portfolio-stat portfolio-stat--gain portfolio-stat--{{ gain_sign }}"
+         data-testid="portfolio-gain"
+         data-gain-sign="{{ gain_sign }}">
+      <span class="portfolio-stat-label">Ganho</span>
+      <div class="portfolio-stat-gain">
+        <span class="portfolio-stat-gain-icon icon icon--sm" aria-hidden="true">
+          {% if gain_sign == 'positive' %}arrow_upward{% elif gain_sign == 'negative' %}arrow_downward{% else %}remove{% endif %}
+        </span>
+        <span class="portfolio-stat-value">{{ portfolio.gain | brl }}</span>
+        <span class="portfolio-stat-gain-pct">{{ (portfolio.gain_pct if portfolio.gain_pct is not none else 0) | round(1) }}%</span>
+      </div>
+    </div>
+  </section>
+</section>

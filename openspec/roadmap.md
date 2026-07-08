@@ -44,7 +44,7 @@ verificação for específica por comando) entre gates.
 
 ## Slices
 
-All previous slices archived or closed. F14 is the active slice.
+All previous slices archived or closed. F15 is next active slice.
 
 ### F01 - Consolidação cross-profile (visão household agregada)
 Status: `Archived` (superseded by F06) — 2026-07-04
@@ -209,12 +209,93 @@ Progress:
     http://192.168.1.6:8000. DB: 12 classes, 100 assets, 99 positions.
     Dashboard renders correctly. Delivery receipt emitted.
 
+### F15 - Patrimônio table redesign for class and asset metrics
+Status: `Archived` — 2026-07-08
+Goal: Rebuild class totals row + asset table on `/patrimonio` to match
+  new operator layout: ordered columns as mockup, nested `Classe`
+  (`Atual` / `Alvo` / `Desvio`) and `Carteira` (`Atual` / `Alvo` /
+  `Desvio`) groups, class totals row aligned to asset columns, split
+  internal `Ganho` subcolumns (absolute + percentual) with single-column
+  visual appearance, sortable columns across text and numeric fields,
+  per-column formatting rules, positive/negative icon+color signaling for
+  `Desvio` and `Ganho`, keep `Compra` / `Venda` / `Moeda` unchanged, and
+  remove legacy asset-row `Classe` column.
+Candidate OpenSpec change id: `f15-patrimonio-table-redesign-for-class-and-asset-metrics`
+Archive: `openspec/changes/archive/2026-07-08-f15-patrimonio-table-redesign-for-class-and-asset-metrics/`
+Spec: `openspec/specs/class-section-totals/spec.md` (update),
+  `openspec/specs/patrimonio-portfolio-header/spec.md` (update),
+  `openspec/specs/dashboard-inline-editing/spec.md` (update),
+  `openspec/specs/asset-trade-flags/spec.md` (confirm unchanged `Compra` /
+  `Venda` / `Moeda` behavior)
+Files: `src/omaha/templates/_patrimonio_class_section.html`,
+  `src/omaha/templates/_patrimonio_portfolio_header.html`,
+  `src/omaha/templates/_patrimonio_add_asset_modal.html`,
+  `src/omaha/routes/pages.py`, `src/omaha/static/app.css`,
+  `tests/e2e/`, `tests/integration/`, `tests/bdd/`
+Scope:
+  1. Reorder asset-table columns to match approved mockup.
+  2. Replace flat class metrics/header alignment contract with grouped
+     `Classe` and `Carteira` subheaders and aligned class totals row.
+  3. Add asset columns for aggregated quantity, average price, gain value,
+     gain %, position/current value, class current/target/deviation, and
+     portfolio current/target/deviation while preserving `Compra`,
+     `Venda`, and `Moeda`.
+  4. Make every visible column sortable (alphabetical for `Ativo`, numeric
+     asc/desc for metrics).
+  5. Define per-column formatting contract: currency prefix (`R$` / `US$`),
+     percent suffix, thousands separator, absolute-value rounding, and one
+     decimal for percentual/decimal cells.
+  6. Render signed visual state for `Desvio` and `Ganho` with directional
+     iconography and positive/negative color semantics.
+  7. Keep `Ganho` as two internal cells for alignment/formatting while
+     preserving one-column visual presentation for operator.
+  8. Remove legacy asset-row `Classe` column and migrate existing tests,
+     selectors, and alignment assertions to new contract.
+Notes: Schema check 2026-07-08: no DB slice needed right now. Current
+  models/import path already persist required source data via
+  `Position.qty`, `Position.avg_price`, `Position.total_invested`,
+  `Position.total_current`, `Asset.target_pct`, `Asset.buy_enabled`,
+  `Asset.sell_enabled`, `Asset.currency_code`, and `AssetClass.target_pct`.
+  New layout is primarily aggregation/rendering/spec work. If exact asset-level
+  broker cost basis semantics prove impossible from existing rows during
+  propose/apply, open follow-up slice instead of mutating F15 scope.
+Progress:
+  - 2026-07-08: Added from owner mockup + requirements. Positioned as next
+    feature slice after F14 archive. DB/schema review complete; no missing
+    persisted field identified for requested columns.
+  - 2026-07-08: Propose complete. Created proposal, design, tasks, and delta
+    specs under `openspec/changes/f15-patrimonio-table-redesign-for-class-and-asset-metrics/`.
+    Spec health gate passed via `openspec list --specs` (`opsx` alias not
+    present in this shell). Status -> Spec Proposed.
+  - 2026-07-08: Apply complete. Rebuilt `/patrimonio` class table into
+    16-column grouped layout (`Classe` / `Carteira`), split `Ganho`
+    into aligned absolute/% subcells, moved class totals into always-visible
+    totals row, added sign-state icons/colors for gain/deviation, removed
+    legacy asset-row `Classe` column, preserved inline target edits +
+    trade flags, and shaped new aggregate payload/placeholder behavior in
+    `src/omaha/routes/pages.py`.
+  - 2026-07-08: Verification complete. Commands: `uv run task lint`,
+    `uv run pytest tests/test_pages_routes.py tests/test_audit_inventory.py tests/e2e/test_class_section_alignment.py -q`,
+    `openspec list --specs`. Full `uv run task test-integration` still has
+    unrelated pre-existing failures in `tests/test_real_csv_flow.py`
+    because fixture file `tests/posicao_italo.csv` is absent in this
+    workspace.
+  - 2026-07-08: Refresh-for-test complete. Server restarted on LAN URL,
+    `/healthz` OK, DB unchanged (`12` classes / `100` assets / `99`
+    positions), authenticated dashboard smoke returned populated
+    patrimônio markup. Status -> Applied.
+  - 2026-07-08: Archive complete. Main specs synced, change moved to
+    `openspec/changes/archive/2026-07-08-f15-patrimonio-table-redesign-for-class-and-asset-metrics/`.
+    Status -> Archived.
+
 ---
 
 ## Recommended Execution Order
 
 **Active queue:**
-(empty — F14 archived, no new slices pending)
+- none
+
+Order note: F15 archived; pick next `Ready` slice when one appears.
 
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed, reactivation path documented above.

@@ -165,59 +165,91 @@ collapse/expand is animated, not instant.
 
 ### Requirement: Asset table with sortable columns
 
-The dashboard MUST render all assets as rows in a single `<table>`
-inside the "Ativos" section. Each row MUST carry the same data as
-the previous card layout: name, class, position count, current value,
-alvo % classe, atual % classe, alvo % total, atual % total. Each
-column MUST be sortable by clicking its `<th>`. The first click
-sorts ascending, the second descending, the third re-asserts the
-default. The default sort MUST be class asc then alvo % classe asc.
-The sort state MUST NOT persist across page reloads. The asset
-table MUST NOT include any per-asset horizontal progress bar — the
-class section's `Atual` pill in the header is the single source of
-truth for class-level deviation; per-row bars would be visual noise.
-The asset table MUST NOT include any per-class group header row
-inside the table — the class section header above the table is the
-single source of truth for class name, Alvo, Atual, and per-class
-delta.
+The dashboard MUST render each class section's assets in a single
+redesigned `<table>` inside the `Ativos` section. Each row MUST carry
+the financial fields needed by the approved mockup: asset name,
+quantity, average price, gain value, gain percentage, current
+position value, position deviation, class current/target/deviation,
+portfolio current/target/deviation, and the unchanged `Compra`,
+`Venda`, and `Moeda` controls.
 
-#### Scenario: Click on a column header sorts the table
+The legacy asset-row `Classe` column is removed. `Ganho` MUST behave as
+one operator-facing column even if the implementation uses separate
+internal absolute and percentual subcells.
 
-- **WHEN** the user clicks the `<th>` for column "Valor" (data-testid="asset-table-th-current-value")
-- **THEN** all asset rows are sorted by current value ascending
-- **AND** the sort indicator (data-testid="asset-table-sort-current-value") shows the ascending glyph
+Every visible data column MUST be sortable by clicking its `<th>`:
 
-#### Scenario: Second click toggles sort direction
+- text columns (`Ativo`, `Moeda`) sort alphabetically
+- numeric/percentage/currency columns sort numerically
+- first click sorts ascending, second click descending
+- sort state MUST NOT persist across page reloads
 
-- **WHEN** the user clicks the same `<th>` again
-- **THEN** the rows are sorted by current value descending
-- **AND** the sort indicator shows the descending glyph
+Sorting remains local to each class section: rows MUST stay attached to
+their owning class section and only reorder within that section.
 
-#### Scenario: Sort groups stay attached to their class
+#### Scenario: Click on asset name sorts alphabetically
 
-- **WHEN** the active sort key is anything other than class
-- **THEN** each class's assets remain visually grouped under the
-  class section that owns them (the class section header above the
-  asset table)
-- **AND** only the rows within each class's slice of the table are
-  reordered
-- **AND** no per-class group header row (`data-testid="asset-group-header"`)
-  is rendered inside the asset table
+- **WHEN** the user clicks the `Ativo` header (`data-testid="asset-table-th-name"`)
+- **THEN** asset rows in that class section are sorted alphabetically ascending
+- **AND** a second click sorts them descending
 
-#### Scenario: Default sort applies on every load
+#### Scenario: Click on numeric metric sorts numerically
 
-- **WHEN** the dashboard loads or is reloaded
-- **THEN** the sort key is class asc and the secondary key is
-  alvo % classe asc
-- **AND** no previous user-chosen sort is restored
+- **WHEN** the user clicks the `Posição` header (`data-testid="asset-table-th-position"`)
+- **THEN** asset rows in that class section are sorted by current position value ascending
+- **AND** a second click sorts them descending
 
-#### Scenario: No per-asset progress bar in the table
+#### Scenario: Gain remains one visible column while sorting by its numeric components
 
-- **WHEN** the dashboard renders the asset table
-- **THEN** no element with `data-testid="asset-progress-bar"` is in
-  the DOM
-- **AND** each asset row consists of exactly one `<tr>` (no
-  sibling `<tr>` wrapping a progress bar)
+- **WHEN** the dashboard renders the redesigned table
+- **THEN** the operator sees one visible `Ganho` column label
+- **AND** the row cells still align absolute and percentual gain values independently
+- **AND** sorting by `Ganho` uses the declared numeric key for that column
+
+#### Scenario: Legacy class column is not rendered
+
+- **WHEN** the dashboard renders the redesigned asset table
+- **THEN** no asset-row column labeled `Classe` is present
+- **AND** each row still remains visually scoped to the class section that owns it
+
+### Requirement: Asset table column proportions live in CSS variables
+
+The redesigned asset table column widths SHALL be defined as CSS custom
+properties at `:root`, one variable per rendered column/subcolumn,
+including the two internal `Ganho` subcolumns. The table MUST consume
+these variables via a `<colgroup>` and MUST use `table-layout: fixed`
+and `width: 100%`.
+
+The `.class-section-header` / class totals surface MUST consume the same
+variables so grouped labels, totals, and rows re-align automatically
+when any `--col-*` value changes.
+
+Long asset names MUST wrap inside their `<td>` via `overflow-wrap:
+break-word` rather than overflow horizontally or force the column to grow.
+
+#### Scenario: Column widths are CSS-variable-driven for redesigned table
+
+- **WHEN** the dashboard renders the redesigned asset table
+- **THEN** the `<table class="asset-table">` contains a `<colgroup>` whose `<col>` widths
+  resolve from the corresponding `--col-*` custom properties
+- **AND** the table's computed `table-layout` is `fixed`
+
+#### Scenario: Grouped headers and rows share the same column template
+
+- **WHEN** both the grouped header surface and the asset rows are rendered
+- **THEN** their computed column widths match the same `--col-*` template
+- **AND** mutating any `--col-*` value re-aligns them on the next layout
+
+#### Scenario: Stable header testids exist for redesigned columns
+
+- **WHEN** the dashboard renders the redesigned asset table
+- **THEN** the sortable headers expose stable `data-testid` values for the new column set,
+  including at least `asset-table-th-name`, `asset-table-th-qty`,
+  `asset-table-th-avg-price`, `asset-table-th-gain`, `asset-table-th-position`,
+  `asset-table-th-position-deviation`, `asset-table-th-class-current`,
+  `asset-table-th-class-target`, `asset-table-th-class-deviation`,
+  `asset-table-th-portfolio-current`, `asset-table-th-portfolio-target`,
+  and `asset-table-th-portfolio-deviation`
 
 ### Requirement: Inline edit of alvo % total
 
@@ -689,97 +721,42 @@ pill) shows broken state.
 
 ### Requirement: Asset table column proportions live in CSS variables
 
-The asset table column widths SHALL be defined as CSS custom
-properties at `:root` (one per column, `--col-ativo`
-through `--col-atual-total`). The table MUST consume these
-variables via a `<colgroup>` with `<col class="col-N">`
-elements whose `width` is set via the corresponding variable
-in `src/omaha/static/app.css`. The table MUST use
-`table-layout: fixed` and `width: 100%` so the
-`<colgroup>` widths are authoritative.
+The redesigned asset table column widths SHALL be defined as CSS custom
+properties at `:root`, one variable per rendered column/subcolumn,
+including the two internal `Ganho` subcolumns. The table MUST consume
+these variables via a `<colgroup>` and MUST use `table-layout: fixed`
+and `width: 100%`.
 
-The proportions (in `fr` units, expressed as percentages for
-both grid and `<col>` compatibility) are:
+The `.class-section-header` / class totals surface MUST consume the same
+variables so grouped labels, totals, and rows re-align automatically
+when any `--col-*` value changes.
 
-| Column | CSS variable     | Width |
-|--------|------------------|-------|
-| Ativo | `--col-ativo`    | 25.5% |
-| Classe | `--col-classe`  | 15.3% |
-| Qtd | `--col-qtd`       | 6.2% |
-| Valor | `--col-valor`   | 12.2% |
-| Alvo % classe | `--col-alvo-classe` | 10.2% |
-| Atual % classe | `--col-atual-classe` | 10.2% |
-| Alvo % total | `--col-alvo-total`   | 10.2% |
-| Atual % total | `--col-atual-total` | 10.2% |
+Long asset names MUST wrap inside their `<td>` via `overflow-wrap:
+break-word` rather than overflow horizontally or force the column to grow.
 
-The previous hard-coded percentage widths (24% / 18% / 6% /
-14% / 11% / 11% / 9% / 7%) are superseded. The `fr`-equivalent
-percentages distribute the table's 100% width across the
-available container width (wider screens give more room to
-text columns).
+#### Scenario: Column widths are CSS-variable-driven for redesigned table
 
-Long asset names MUST wrap inside their `<td>` via
-`overflow-wrap: break-word` rather than overflow horizontally
-or force the column to grow.
-
-The `.class-section-header` MUST consume the same variables
-via `grid-template-columns: var(--col-ativo) var(--col-classe)
-... var(--col-atual-total)` so the header and the table
-re-align automatically when any variable changes.
-
-#### Scenario: Column widths are CSS-variable-driven
-
-- **WHEN** the dashboard renders an asset table
-- **THEN** the `<table class="asset-table">` element contains
-  a `<colgroup>` with 8 `<col>` elements (one per column)
-- **AND** the `width` of each `<col>` resolves to the
-  corresponding `--col-*` CSS custom property's value
+- **WHEN** the dashboard renders the redesigned asset table
+- **THEN** the `<table class="asset-table">` contains a `<colgroup>` whose `<col>` widths
+  resolve from the corresponding `--col-*` custom properties
 - **AND** the table's computed `table-layout` is `fixed`
 
-#### Scenario: Header and table share the same column template
+#### Scenario: Grouped headers and rows share the same column template
 
-- **WHEN** both the class section header and the asset table
-  are rendered
-- **THEN** the computed `grid-template-columns` of
-  `.class-section-header` matches the computed `width` per
-  column on `.asset-table col` (8 columns, same proportions)
-- **AND** mutating any `--col-*` value in DevTools
-  re-aligns both header and table on the next layout
+- **WHEN** both the grouped header surface and the asset rows are rendered
+- **THEN** their computed column widths match the same `--col-*` template
+- **AND** mutating any `--col-*` value re-aligns them on the next layout
 
-#### Scenario: Long asset names wrap, columns stay fixed
+#### Scenario: Stable header testids exist for redesigned columns
 
-- **GIVEN** an asset with a name longer than the Ativo
-  column can fit on one line (e.g. `"Tesouro Selic 2029 -
-  LFT Prefixado com Juros Semestrais"`)
-- **WHEN** the dashboard renders the asset table
-- **THEN** the `<td>` wrapping the name contains line
-  breaks (`overflow-wrap: break-word`)
-- **AND** the `<th>` width stays at the CSS-variable value
-  (the table does not grow to fit the name)
-
-#### Scenario: Sum of column widths equals the table width
-
-- **WHEN** the dashboard renders the asset table
-- **THEN** the sum of the 8 `<col>` computed `width` values
-  equals the table's `clientWidth` (no overflow, no
-  underflow)
-
-#### Scenario: Testids on table headers remain stable
-
-- **WHEN** the dashboard renders an asset table
-- **THEN** every `<th>` carries the existing
-  `data-testid` from `dashboard-inline-editing`:
-  - `asset-table-th-name`
-  - `asset-table-th-class`
-  - `asset-table-th-qty`
-  - `asset-table-th-current-value`
-  - `asset-table-th-target-pct-class`
-  - `asset-table-th-current-pct-class`
-  - `asset-table-th-target-pct-total`
-  - `asset-table-th-current-pct-total`
-- **AND** the sort click handlers (`@click="sortBy('name')"`
-  etc.) and the sort indicator spans
-  (`asset-table-sort-*`) are unchanged
+- **WHEN** the dashboard renders the redesigned asset table
+- **THEN** the sortable headers expose stable `data-testid` values for the new column set,
+  including at least `asset-table-th-name`, `asset-table-th-qty`,
+  `asset-table-th-avg-price`, `asset-table-th-gain`, `asset-table-th-position`,
+  `asset-table-th-position-deviation`, `asset-table-th-class-current`,
+  `asset-table-th-class-target`, `asset-table-th-class-deviation`,
+  `asset-table-th-portfolio-current`, `asset-table-th-portfolio-target`,
+  and `asset-table-th-portfolio-deviation`
 
 ### Requirement: Inline edit auto-focuses the input on the same click
 
@@ -901,3 +878,4 @@ modal forms, not inline pill editors.
 - **THEN** no `▲` / `▼` stepper is rendered on either
   `data-testid="asset-inline-edit-input"` or
   `data-testid="asset-target-pct-total-edit-input"`
+

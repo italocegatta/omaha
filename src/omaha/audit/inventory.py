@@ -108,9 +108,18 @@ class AuditContextFactory:
 
     def _base_context(self) -> dict[str, Any]:
         """Return a context that satisfies ``base.html`` variables."""
+        user = SimpleNamespace(id=1, username="italo")
+        profile = SimpleNamespace(id=1, name="Italo")
         return {
-            "user": SimpleNamespace(id=1, username="italo"),
-            "profile": SimpleNamespace(id=1, name="Italo"),
+            "user": user,
+            "viewer": user,
+            "profile": profile,
+            "owner": profile,
+            "profiles": [profile],
+            "real_profiles": [profile],
+            "familia_sentinel": None,
+            "request": SimpleNamespace(url=SimpleNamespace(path="/patrimonio")),
+            "view": "profile",
         }
 
     def _dashboard_context(self) -> dict[str, Any]:
@@ -184,6 +193,14 @@ class AuditContextFactory:
                     "color": klass.color,
                     "invested": class_invested,
                     "current_value": class_current,
+                    "gain_value": class_current - class_invested,
+                    "gain_pct": (
+                        (class_current - class_invested) / class_invested * 100
+                        if class_invested
+                        else None
+                    ),
+                    "portfolio_target_pct": klass.target_pct,
+                    "portfolio_deviation_pct": 0.0,
                     "current_pct": (class_current / portfolio_current * 100)
                     if portfolio_current
                     else 0.0,
@@ -193,13 +210,19 @@ class AuditContextFactory:
                             "name": a.name,
                             "position_count": 1,
                             "qty": 100,
+                            "avg_price": 10.0,
                             "invested": 1000.0,
                             "current_value": 1200.0,
+                            "gain_value": 200.0,
+                            "gain_pct": 20.0,
+                            "position_deviation_value": 0.0,
                             "target_pct_class": 50,
+                            "class_deviation_pct": 0.0,
                             "target_pct_total": 25.0,
                             "asset_pct": 50.0,
                             "current_pct_class": 50.0,
                             "current_pct_total": 25.0,
+                            "portfolio_deviation_pct": 0.0,
                             # asset-trade-flags: the dashboard's
                             # ``class_data.assets.append(...)`` reads
                             # these three fields off every asset.
@@ -225,6 +248,8 @@ class AuditContextFactory:
         }
         ctx["class_aggregates"] = class_aggregates
         ctx["_class_colors"] = self._CLASS_COLORS
+        ctx["read_only"] = False
+        ctx["view"] = "profile"
         return ctx
 
     def _login_context(self) -> dict[str, Any]:

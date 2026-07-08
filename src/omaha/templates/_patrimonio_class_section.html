@@ -1,18 +1,46 @@
 {% for c in class_aggregates %}
-      {% set class_data = {"id": c.id, "name": c.name, "target_pct": (c.target_pct | float), "color": c.color, "current_pct": (c.current_pct | float), "current_value": (c.current_value | float), "read_only": read_only, "assets": []} %}
+      {% set class_data = {
+        "id": c.id,
+        "name": c.name,
+        "target_pct": (c.target_pct | float) if c.target_pct is not none else none,
+        "color": c.color,
+        "current_pct": (c.current_pct | float),
+        "current_value": (c.current_value | float),
+        "invested": (c.invested | float),
+        "gain_value": (c.gain_value | float),
+        "gain_pct": (c.gain_pct | float) if c.gain_pct is not none else none,
+        "portfolio_target_pct": (c.portfolio_target_pct | float) if c.portfolio_target_pct is not none else none,
+        "portfolio_deviation_pct": (c.portfolio_deviation_pct | float) if c.portfolio_deviation_pct is not none else none,
+        "read_only": read_only,
+        "assets": []
+      } %}
       {% for a in c.assets %}
-      {% set _ = class_data.assets.append({"id": a.id, "name": a.name, "target_pct": (a.target_pct_class | float), "current_pct_class": (a.current_pct_class | float), "current_pct_total": (a.current_pct_total | float), "target_pct_total": (a.target_pct_total | float), "position_count": a.position_count, "current_value": (a.current_value | float), "buy_enabled": a.buy_enabled, "sell_enabled": a.sell_enabled, "currency_code": a.currency_code}) %}
+      {% set _ = class_data.assets.append({
+        "id": a.id,
+        "name": a.name,
+        "target_pct": (a.target_pct_class | float) if a.target_pct_class is not none else none,
+        "qty": (a.qty | float),
+        "position_count": a.position_count,
+        "avg_price": (a.avg_price | float) if a.avg_price is not none else none,
+        "gain_value": (a.gain_value | float),
+        "gain_pct": (a.gain_pct | float) if a.gain_pct is not none else none,
+        "current_value": (a.current_value | float),
+        "position_deviation_value": (a.position_deviation_value | float) if a.position_deviation_value is not none else none,
+        "current_pct_class": (a.current_pct_class | float),
+        "class_deviation_pct": (a.class_deviation_pct | float) if a.class_deviation_pct is not none else none,
+        "current_pct_total": (a.current_pct_total | float),
+        "target_pct_total": (a.target_pct_total | float) if a.target_pct_total is not none else none,
+        "portfolio_deviation_pct": (a.portfolio_deviation_pct | float) if a.portfolio_deviation_pct is not none else none,
+        "buy_enabled": a.buy_enabled,
+        "sell_enabled": a.sell_enabled,
+        "currency_code": a.currency_code
+      }) %}
       {% endfor %}
       <article class="class-section" data-testid="class-summary-row" data-class-id="{{ c.id }}" x-data='classSection({{ class_data | tojson }})'>
         <header class="class-section-header" data-testid="class-section-header" @click="isOpen = !isOpen">
           <div class="hdr-leading">
             <span class="class-chevron icon icon--md" data-testid="class-chevron" :class="{'class-chevron--open': isOpen}" aria-hidden="true">expand_more</span>
             <span class="class-section-name" data-testid="class-section-name">{{ c.name }}</span>
-            {# F01 household mode: hide the per-class × delete affordance.
-               The button is server-rendered (not Alpine-driven), so a
-               Jinja conditional is sufficient. The deletion API path is
-               also gated by ``require_profile_writable`` as a second
-               line of defence. #}
             {% if view == 'profile' %}
             <button type="button"
                     class="class-section-delete-btn"
@@ -22,54 +50,8 @@
                     title="Remover classe"><span class="icon icon--sm" aria-hidden="true">close</span></button>
             {% endif %}
           </div>
-
-          <span class="hdr-valor"
-                data-testid="class-total-value"
-                x-text="classCurrentValue > 0 ? formatBRLCompact(classCurrentValue) : '—'"></span>
-
-          <span class="hdr-delta">
-            <span class="pct-delta-pill" :class="classDelta > 0 ? 'pct-delta-pill--short' : 'pct-delta-pill--long'" data-testid="class-delta-badge" x-show="classDeltaMessage" x-text="classDeltaMessage"></span>
-          </span>
-
-          <span class="hdr-alvo">
-            {# F01: the inline edit affordance on the class Alvo pill is
-               hidden in household mode (the household aggregate is
-               read-only). Same Jinja-level gate as the × button. #}
-            {% if view == 'profile' %}
-            <span class="pct-target-pill" data-testid="class-target-pct-view" x-show="!editingClassPct" @click.stop="startEditClassPct()" title="Clique para editar">Alvo <span x-text="classTargetPct"></span>%</span>
-            <span class="pct-target-pill" data-testid="class-target-pct-edit" x-show="editingClassPct" x-cloak>
-              Alvo
-              <input type="number"
-                     step="0.01"
-                     min="0"
-                     max="100"
-                     class="class-inline-edit-input"
-                     data-testid="class-inline-edit-input"
-                     x-ref="classPctInput"
-                     x-model="editClassPctValue"
-                     @keyup.enter="commitEditClassPct()"
-                     @keyup.escape.window="cancelEditClassPct()"
-                     @blur="commitEditClassPct()"
-                     :disabled="savingClassPct"
-                     @click.stop>
-              <span class="class-inline-edit-error"
-                    data-testid="class-inline-edit-error"
-                    x-show="editClassPctError"
-                    x-text="editClassPctError"
-                    x-cloak></span>
-            </span>
-            {% endif %}
-            {# F06 family mode: the column is omitted entirely (no
-               Alvo pill, no placeholder). The aggregated class
-               carries no well-defined target_pct — profiles may
-               diverge, so the F01 "read-only Alvo" fallback is
-               replaced by a hard suppression in D-F06.3. #}
-          </span>
-
-          <span class="hdr-atual">
-            <span class="pct-current-pill" :class="'pct-current-pill--' + classCurrentStatus" data-testid="class-current-pct">Atual <span x-text="Number(classCurrentPct).toFixed(2)"></span>%</span>
-          </span>
         </header>
+
         <div class="class-delete-confirm"
              data-testid="class-delete-confirm"
              x-show="showDeleteConfirm"
@@ -96,240 +78,320 @@
              x-text="deleteError"
              x-cloak></p>
         </div>
-        <div class="class-section-body" :class="{'class-section-body--collapsed': !isOpen}" x-show="isOpen">
-        {% if c.assets %}
-        {# asset-table-view 4.2-4.4 — group header + proper <tr> rows.
-           The <thead> with eight sortable columns came from 4.1; the
-           <tbody> now carries one group header per class followed by
-           one <tr> per asset with one <td> per column. The legacy
-           per-class `+ Ativo` button/form, the chevron toggle, and the
-           `class-section-body--collapsed` hook are removed in 4.4. #}
-        {# F10 D-F10.2: sticky <thead> on top-level page tables. The
-           asset table is rendered outside any modal so the sticky
-           header is safe. The F10 CSS rule for `.asset-table thead
-           th` activates here. #}
+
         <table class="asset-table" data-testid="asset-table">
           <colgroup>
             <col class="col-ativo">
-            <col class="col-classe">
             <col class="col-qtd">
-            <col class="col-valor">
-            <col class="col-alvo-classe">
-            <col class="col-atual-classe">
-            <col class="col-alvo-total">
-            <col class="col-atual-total">
+            <col class="col-avg-price">
+            <col class="col-gain-value">
+            <col class="col-gain-pct">
+            <col class="col-position">
+            <col class="col-position-deviation">
+            <col class="col-class-current">
+            <col class="col-class-target">
+            <col class="col-class-deviation">
+            <col class="col-portfolio-current">
+            <col class="col-portfolio-target">
+            <col class="col-portfolio-deviation">
             <col class="col-buy">
             <col class="col-sell">
             <col class="col-currency">
           </colgroup>
           <thead>
-            <tr>
-              <th data-testid="asset-table-th-name" @click="sortBy('name')">Ativo <span data-testid="asset-table-sort-name" x-text="sortIndicator('name')"></span></th>
-              <th data-testid="asset-table-th-class" @click="sortBy('class')">Classe <span data-testid="asset-table-sort-class" x-text="sortIndicator('class')"></span></th>
-              <th data-testid="asset-table-th-qty" @click="sortBy('qty')">Qtd <span data-testid="asset-table-sort-qty" x-text="sortIndicator('qty')"></span></th>
-              <th data-testid="asset-table-th-current-value" @click="sortBy('current-value')">Valor <span data-testid="asset-table-sort-current-value" x-text="sortIndicator('current-value')"></span></th>
-              <th data-testid="asset-table-th-target-pct-class" @click="sortBy('target-pct-class')">Alvo % classe <span data-testid="asset-table-sort-target-pct-class" x-text="sortIndicator('target-pct-class')"></span></th>
-              <th data-testid="asset-table-th-current-pct-class" @click="sortBy('current-pct-class')">Atual % classe <span data-testid="asset-table-sort-current-pct-class" x-text="sortIndicator('current-pct-class')"></span></th>
-              <th data-testid="asset-table-th-target-pct-total" @click="sortBy('target-pct-total')">Alvo % total <span data-testid="asset-table-sort-target-pct-total" x-text="sortIndicator('target-pct-total')"></span></th>
-              <th data-testid="asset-table-th-current-pct-total" @click="sortBy('current-pct-total')">Atual % total <span data-testid="asset-table-sort-current-pct-total" x-text="sortIndicator('current-pct-total')"></span></th>
-              {# asset-trade-flags: per-asset trade-control columns.
-                 Compra / Venda toggle to flip ``buy_enabled`` /
-                 ``sell_enabled`` via PATCH ``/api/assets/{id}``.
-                 Moeda is read-only (currency change requires a
-                 dedicated row + DB CHECK update). #}
-              <th data-testid="asset-table-th-buy">Compra</th>
-              <th data-testid="asset-table-th-sell">Venda</th>
-              <th data-testid="asset-table-th-currency">Moeda</th>
+            <tr class="asset-table-group-row">
+              <th rowspan="2" data-testid="asset-table-th-name" @click.stop="sortBy('name')">Ativo <span data-testid="asset-table-sort-name" x-text="sortIndicator('name')"></span></th>
+              <th rowspan="2" data-testid="asset-table-th-qty" @click.stop="sortBy('qty')">Qtd <span data-testid="asset-table-sort-qty" x-text="sortIndicator('qty')"></span></th>
+              <th rowspan="2" data-testid="asset-table-th-avg-price" @click.stop="sortBy('avg-price')">Preço médio <span data-testid="asset-table-sort-avg-price" x-text="sortIndicator('avg-price')"></span></th>
+              <th colspan="2" data-testid="asset-table-th-gain" @click.stop="sortBy('gain')">Ganho <span data-testid="asset-table-sort-gain" x-text="sortIndicator('gain')"></span></th>
+              <th rowspan="2" data-testid="asset-table-th-position" @click.stop="sortBy('position')"><span data-testid="asset-table-th-current-value">Posição</span> <span data-testid="asset-table-sort-position" x-text="sortIndicator('position')"></span></th>
+              <th rowspan="2" data-testid="asset-table-th-position-deviation" @click.stop="sortBy('position-deviation')">Desvio <span data-testid="asset-table-sort-position-deviation" x-text="sortIndicator('position-deviation')"></span></th>
+              <th colspan="3">Classe</th>
+              <th colspan="3">Carteira</th>
+              <th rowspan="2" data-testid="asset-table-th-buy" @click.stop="sortBy('buy')">Compra <span data-testid="asset-table-sort-buy" x-text="sortIndicator('buy')"></span></th>
+              <th rowspan="2" data-testid="asset-table-th-sell" @click.stop="sortBy('sell')">Venda <span data-testid="asset-table-sort-sell" x-text="sortIndicator('sell')"></span></th>
+              <th rowspan="2" data-testid="asset-table-th-currency" @click.stop="sortBy('currency')">Moeda <span data-testid="asset-table-sort-currency" x-text="sortIndicator('currency')"></span></th>
+            </tr>
+            <tr class="asset-table-subhead-row">
+              <th class="asset-table-subhead asset-table-subhead--ghost"></th>
+              <th class="asset-table-subhead asset-table-subhead--ghost"></th>
+              <th data-testid="asset-table-th-class-current" @click.stop="sortBy('class-current')">Atual <span data-testid="asset-table-sort-class-current" x-text="sortIndicator('class-current')"></span></th>
+              <th data-testid="asset-table-th-class-target" @click.stop="sortBy('class-target')"><span data-testid="asset-table-th-target-pct-class">Alvo</span> <span data-testid="asset-table-sort-class-target" x-text="sortIndicator('class-target')"></span></th>
+              <th data-testid="asset-table-th-class-deviation" @click.stop="sortBy('class-deviation')">Desvio <span data-testid="asset-table-sort-class-deviation" x-text="sortIndicator('class-deviation')"></span></th>
+              <th data-testid="asset-table-th-portfolio-current" @click.stop="sortBy('portfolio-current')"><span data-testid="asset-table-th-current-pct-total">Atual</span> <span data-testid="asset-table-sort-portfolio-current" x-text="sortIndicator('portfolio-current')"></span></th>
+              <th data-testid="asset-table-th-portfolio-target" @click.stop="sortBy('portfolio-target')"><span data-testid="asset-table-th-target-pct-total">Alvo</span> <span data-testid="asset-table-sort-portfolio-target" x-text="sortIndicator('portfolio-target')"></span></th>
+              <th data-testid="asset-table-th-portfolio-deviation" @click.stop="sortBy('portfolio-deviation')">Desvio <span data-testid="asset-table-sort-portfolio-deviation" x-text="sortIndicator('portfolio-deviation')"></span></th>
             </tr>
           </thead>
           <tbody>
+            <tr class="class-totals-row" data-testid="class-totals-row">
+              <td class="class-totals-label" data-testid="class-totals-label">Total da classe</td>
+              <td></td>
+              <td></td>
+              <td class="gain-cell" :class="signClass(classGainValue)">
+                <div class="metric-stack metric-stack--gain">
+                  <span class="icon icon--sm metric-sign" x-text="signIcon(classGainValue)" aria-hidden="true"></span>
+                  <span data-testid="class-total-gain-value" x-text="formatMoney(classGainValue)"></span>
+                </div>
+              </td>
+              <td class="gain-cell gain-cell--pct" :class="signClass(classGainValue)" x-text="formatPct(classGainPct)"></td>
+              <td data-testid="class-total-current-value"><span class="hdr-valor" data-testid="class-total-value" x-text="formatMoney(classCurrentValue)"></span></td>
+              <td></td>
+              <td data-testid="class-total-current-pct-class" x-text="formatPct(classCurrentPctClass)"></td>
+              <td data-testid="class-total-target-pct-class" x-text="formatPct(classTargetPctClass)"></td>
+              <td data-testid="class-total-deviation-class" :class="signClass(classDeviationPctClass)">
+                <span class="pct-delta-pill pct-delta-pill--long" data-testid="class-delta-badge" x-show="classDeltaMessage" x-text="classDeltaMessage"></span>
+                <span class="metric-stack" x-show="!classDeltaMessage">
+                  <span class="icon icon--sm metric-sign" x-text="signIcon(classDeviationPctClass)" aria-hidden="true"></span>
+                  <span x-text="formatPct(classDeviationPctClass)"></span>
+                </span>
+              </td>
+              <td data-testid="class-total-current-pct-portfolio">
+                <span class="pct-current-pill" data-testid="class-current-pct" x-text="formatPct(classCurrentPct)"></span>
+              </td>
+              <td data-testid="class-total-target-pct-portfolio">
+                {% if view == 'profile' %}
+                <button type="button"
+                        class="asset-pct-cell asset-pct-cell--editable asset-pct-cell--inline"
+                        data-testid="class-target-pct-view"
+                        x-show="!editingClassPct"
+                        @click.stop="startEditClassPct()"
+                        title="Clique para editar">
+                  <span x-text="formatPct(classTargetPct)"></span>
+                </button>
+                <span class="asset-pct-cell asset-pct-cell--editing asset-pct-cell--inline"
+                      data-testid="class-target-pct-edit"
+                      x-show="editingClassPct"
+                      x-cloak>
+                  <input type="number"
+                         step="0.01"
+                         min="0"
+                         max="100"
+                         class="class-inline-edit-input"
+                         data-testid="class-inline-edit-input"
+                         x-ref="classPctInput"
+                         x-model="editClassPctValue"
+                         @keyup.enter="commitEditClassPct()"
+                         @keyup.escape.window="cancelEditClassPct()"
+                         @blur="commitEditClassPct()"
+                         :disabled="savingClassPct"
+                         @click.stop>
+                  <span class="class-inline-edit-error"
+                        data-testid="class-inline-edit-error"
+                        x-show="editClassPctError"
+                        x-text="editClassPctError"
+                        x-cloak></span>
+                </span>
+                {% else %}
+                <span class="metric-placeholder">—</span>
+                {% endif %}
+              </td>
+              <td data-testid="class-total-deviation-portfolio" :class="signClass(classPortfolioDeviationPct)">
+                <span class="metric-stack">
+                  <span class="icon icon--sm metric-sign" x-text="signIcon(classPortfolioDeviationPct)" aria-hidden="true"></span>
+                  <span x-text="formatPct(classPortfolioDeviationPct)"></span>
+                </span>
+              </td>
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
           </tbody>
-          <template x-for="(a, idx) in displayAssets" :key="a.id">
-            <tbody>
-              <tr data-testid="dashboard-asset-row" :data-asset-id="a.id" :data-position-count="a.position_count">
-                <td data-testid="asset-row-name">
-                  <span data-testid="asset-row-name-text" x-text="a.name"></span>
-                  {# F01: per-asset × delete button is hidden in
-                     household mode (the row still renders the name
-                     so the asset list remains visible). #}
-                  <button type="button"
-                          class="dashboard-asset-delete-btn"
-                          data-testid="dashboard-asset-delete-btn"
-                          @click="askDeleteAsset(a.id, a.name)"
-                          x-show="showDeleteAssetId !== a.id && !deletingAssetId && !readOnly"
-                          title="Remover ativo"><span class="icon icon--sm" aria-hidden="true">close</span></button>
-                </td>
-                <td data-testid="asset-row-class" x-text="className"></td>
-                <td data-testid="asset-position-count" x-text="a.position_count"></td>
-                <td data-testid="asset-current-value" x-text="formatBRL(a.current_value)"></td>
-                <td data-testid="asset-target-pct-class">
-                  {# F01: gate the editable cell behind ``!readOnly`` —
-                     the static span renders in both modes so the
-                     column keeps its width, but in household mode
-                     the clickable affordance is hidden. #}
-                  <button type="button"
-                          class="asset-pct-cell asset-pct-cell--editable"
-                          @click="startEdit(a.id)"
-                          x-show="editingAssetId !== a.id && !readOnly"
-                          title="Clique para editar">
-                    <span x-text="formatPct(a.target_pct)"></span>
-                  </button>
-                  <span class="asset-pct-cell"
-                        data-testid="asset-target-pct-class-static"
-                        x-show="editingAssetId !== a.id && readOnly"
-                        x-cloak><span x-text="formatPct(a.target_pct)"></span></span>
-                  <div class="asset-pct-cell asset-pct-cell--editing"
-                       data-testid="asset-target-pct-class-editing"
-                       x-show="editingAssetId === a.id"
-                       x-cloak>
-                    <input type="number"
-                           step="0.01"
-                           min="0"
-                           max="100"
-                           class="asset-inline-edit-input"
-                           data-testid="asset-inline-edit-input"
-                           x-ref="assetClassPctInput"
-                           :data-asset-id="a.id"
-                           x-model="editingValue"
-                           @keyup.enter="commitEdit()"
-                           @keyup.escape.window="cancelEdit()"
-                           @blur="commitEdit()"
-                           :class="{'asset-inline-edit-input--error': error}"
-                           :disabled="saving"
-                           @click.stop>
-                  </div>
-                </td>
-                <td data-testid="asset-current-pct-class">
-                  <span data-testid="asset-pct" hidden x-text="a.current_pct_class"></span>
-                  <span x-text="formatPct(a.current_pct_class)"></span>
-                </td>
-                <td data-testid="asset-target-pct-total">
-                  {# F01: same pattern as the per-class pct cell above. #}
-                  <button type="button"
-                          class="asset-pct-cell asset-pct-cell--editable"
-                          @click="startEditTotal(a.id)"
-                          x-show="editingTotalAssetId !== a.id && !readOnly"
-                          title="Clique para editar">
-                    <span x-text="formatPct(a.target_pct_total)"></span>
-                  </button>
-                  <span class="asset-pct-cell"
-                        data-testid="asset-target-pct-total-static"
-                        x-show="editingTotalAssetId !== a.id && readOnly"
-                        x-cloak><span x-text="formatPct(a.target_pct_total)"></span></span>
-                  <div class="asset-pct-cell asset-pct-cell--editing"
-                       data-testid="asset-target-pct-total-editing"
-                       x-show="editingTotalAssetId === a.id"
-                       x-cloak>
-                    <input type="number"
-                           step="0.01"
-                           min="0"
-                           max="100"
-                           class="asset-inline-edit-input"
-                           data-testid="asset-target-pct-total-edit-input"
-                           x-ref="totalPctInput"
-                           :data-asset-id="a.id"
-                           x-model="editingTotalValue"
-                           @keyup.enter="commitEditTotal()"
-                           @keyup.escape.window="cancelEditTotal()"
-                           @blur="commitEditTotal()"
-                           :class="{'asset-inline-edit-input--error': errorTotal}"
-                           :disabled="savingTotal"
-                           @click.stop>
-                    <span class="asset-inline-edit-hint"
-                          data-testid="asset-target-pct-total-edit-hint"
-                          x-show="editingTotalValue !== '' && !isNaN(parseFloat(editingTotalValue))">
-                      Isso ajusta o alvo desta classe para <span x-text="Number((parseFloat(editingTotalValue) * 100) / classTargetPct).toFixed(2)"></span>%
-                    </span>
-                    <span class="asset-inline-edit-error"
-                          data-testid="asset-target-pct-total-edit-error"
-                          x-show="errorTotal"
-                          x-text="errorTotal"
-                          x-cloak></span>
-                  </div>
-                </td>
-                <td data-testid="asset-current-pct-total" x-text="formatPct(a.current_pct_total)"></td>
-                {# asset-trade-flags: per-asset trade-control cells.
-                     The toggles send PATCH /api/assets/{id} with the
-                     single flipped field and disable themselves while
-                     the request is in flight (no optimistic update).
-                     ``currencyBadge`` is a read-only visual; currency
-                     changes go through the import modal flow. #}
-                <td data-testid="asset-buy-cell">
-                  {# F01: trade toggles are visually inert in household
-                     mode — the button still renders (so the column
-                     keeps its width) but is disabled. #}
-                  <button type="button"
-                          class="trade-toggle trade-toggle--buy"
-                          :class="a.buy_enabled ? 'trade-toggle--on' : 'trade-toggle--off'"
-                          data-testid="asset-buy-toggle"
-                          :data-asset-id="a.id"
-                          :data-buy-enabled="a.buy_enabled ? 'true' : 'false'"
-                          :disabled="readOnly || (savingTrade !== null && savingTrade.assetId === a.id && savingTrade.field === 'buy_enabled')"
-                          @click="toggleTradeFlag(a.id, 'buy_enabled', !a.buy_enabled)"
-                          title="Permitir compra pelo solver">
-                    <span x-text="a.buy_enabled ? 'Liberado' : 'Bloqueado'"></span>
-                  </button>
-                </td>
-                <td data-testid="asset-sell-cell">
-                  <button type="button"
-                          class="trade-toggle trade-toggle--sell"
-                          :class="a.sell_enabled ? 'trade-toggle--on' : 'trade-toggle--off'"
-                          data-testid="asset-sell-toggle"
-                          :data-asset-id="a.id"
-                          :data-sell-enabled="a.sell_enabled ? 'true' : 'false'"
-                          :disabled="readOnly || (savingTrade !== null && savingTrade.assetId === a.id && savingTrade.field === 'sell_enabled')"
-                          @click="toggleTradeFlag(a.id, 'sell_enabled', !a.sell_enabled)"
-                          title="Permitir venda pelo solver">
-                    <span x-text="a.sell_enabled ? 'Liberado' : 'Bloqueado'"></span>
-                  </button>
-                </td>
-                <td data-testid="asset-currency-cell">
-                  <span class="currency-badge"
-                        data-testid="asset-currency-badge"
-                        :data-currency="a.currency_code"
-                        x-text="a.currency_code"></span>
-                </td>
-              </tr>
+          <template x-if="isOpen && displayAssets.length === 0">
+            <tbody class="class-section-body" :class="{'class-section-body--collapsed': !isOpen}">
               <tr>
-                <td colspan="11">
-                  <div class="dashboard-asset-delete-confirm"
-                       data-testid="dashboard-asset-delete-confirm"
-                       :data-asset-id="a.id"
-                       x-show="showDeleteAssetId === a.id"
-                       x-cloak>
-                    <p class="dashboard-asset-delete-confirm-text">Remover ativo <strong x-text="a.name"></strong>?</p>
-                    <div class="dashboard-asset-delete-confirm-actions">
-                      <button type="button"
-                              class="btn dashboard-asset-delete-confirm-yes"
-                              data-testid="dashboard-asset-delete-confirm-yes"
-                              @click="confirmDeleteAsset()"
-                              :disabled="deletingAssetId === a.id">
-                        <span x-show="deletingAssetId !== a.id"><span class="icon icon--sm" aria-hidden="true">close</span> Sim, remover</span>
-                        <span x-show="deletingAssetId === a.id">Removendo...</span>
-                      </button>
-                      <button type="button"
-                              class="btn dashboard-asset-delete-confirm-no"
-                              data-testid="dashboard-asset-delete-confirm-no"
-                              @click="cancelDeleteAsset()"
-                              :disabled="deletingAssetId === a.id">Cancelar</button>
-                    </div>
-                    <p class="dashboard-asset-delete-confirm-error"
-                       data-testid="dashboard-asset-delete-confirm-error"
-                       x-show="deleteAssetError"
-                       x-text="deleteAssetError"
-                       x-cloak></p>
+                <td colspan="16">
+                  <div class="empty-state empty-state--inline" data-testid="empty-assets">
+                    <p>Nenhum ativo nesta classe.</p>
                   </div>
                 </td>
               </tr>
             </tbody>
           </template>
+            <template x-for="a in displayAssets" :key="a.id">
+              <tbody class="class-section-body" :class="{'class-section-body--collapsed': !isOpen}" x-show="isOpen">
+                <tr data-testid="dashboard-asset-row" :data-asset-id="a.id" :data-position-count="a.position_count">
+                  <td data-testid="asset-row-name">
+                    <div class="asset-name-cell">
+                      <span data-testid="asset-row-name-text" x-text="a.name"></span>
+                      <button type="button"
+                              class="dashboard-asset-delete-btn"
+                              data-testid="dashboard-asset-delete-btn"
+                              @click="askDeleteAsset(a.id, a.name)"
+                              x-show="showDeleteAssetId !== a.id && !deletingAssetId && !readOnly"
+                              title="Remover ativo"><span class="icon icon--sm" aria-hidden="true">close</span></button>
+                    </div>
+                  </td>
+                  <td data-testid="asset-position-count" x-text="formatQty(a.qty)"></td>
+                  <td data-testid="asset-avg-price" x-text="formatMoney(a.avg_price, a.currency_code)"></td>
+                  <td class="gain-cell" data-testid="asset-row-gain" :class="signClass(a.gain_value)">
+                    <div class="metric-stack metric-stack--gain">
+                      <span class="icon icon--sm metric-sign" x-text="signIcon(a.gain_value)" aria-hidden="true"></span>
+                      <span x-text="formatMoney(a.gain_value, a.currency_code)"></span>
+                    </div>
+                  </td>
+                  <td class="gain-cell gain-cell--pct" :class="signClass(a.gain_value)" x-text="formatPct(a.gain_pct)"></td>
+                  <td data-testid="asset-current-value" x-text="formatMoney(a.current_value, a.currency_code)"></td>
+                  <td data-testid="asset-position-deviation" :class="signClass(a.position_deviation_value)">
+                    <span class="metric-stack">
+                      <span class="icon icon--sm metric-sign" x-text="signIcon(a.position_deviation_value)" aria-hidden="true"></span>
+                      <span x-text="formatMoney(a.position_deviation_value, a.currency_code)"></span>
+                    </span>
+                  </td>
+                  <td data-testid="asset-current-pct-class"><span data-testid="asset-pct" hidden x-text="a.current_pct_class"></span><span x-text="formatPct(a.current_pct_class)"></span></td>
+                  <td data-testid="asset-target-pct-class">
+                    <button type="button"
+                            class="asset-pct-cell asset-pct-cell--editable asset-pct-cell--inline"
+                            @click="startEdit(a.id)"
+                            x-show="editingAssetId !== a.id && !readOnly"
+                            title="Clique para editar">
+                      <span x-text="formatPct(a.target_pct)"></span>
+                    </button>
+                    <span class="asset-pct-cell asset-pct-cell--inline"
+                          data-testid="asset-target-pct-class-static"
+                          x-show="editingAssetId !== a.id && readOnly"
+                          x-cloak><span x-text="formatPct(a.target_pct)"></span></span>
+                    <div class="asset-pct-cell asset-pct-cell--editing asset-pct-cell--inline"
+                         data-testid="asset-target-pct-class-editing"
+                         x-show="editingAssetId === a.id"
+                         x-cloak>
+                      <input type="number"
+                             step="0.01"
+                             min="0"
+                             max="100"
+                             class="asset-inline-edit-input"
+                             data-testid="asset-inline-edit-input"
+                             x-ref="assetClassPctInput"
+                             :data-asset-id="a.id"
+                             x-model="editingValue"
+                             @keyup.enter="commitEdit()"
+                             @keyup.escape.window="cancelEdit()"
+                             @blur="commitEdit()"
+                             :class="{'asset-inline-edit-input--error': error}"
+                             :disabled="saving"
+                             @click.stop>
+                    </div>
+                  </td>
+                  <td data-testid="asset-class-deviation" :class="signClass(a.class_deviation_pct)">
+                    <span class="metric-stack">
+                      <span class="icon icon--sm metric-sign" x-text="signIcon(a.class_deviation_pct)" aria-hidden="true"></span>
+                      <span x-text="formatPct(a.class_deviation_pct)"></span>
+                    </span>
+                  </td>
+                  <td data-testid="asset-current-pct-total" x-text="formatPct(a.current_pct_total)"></td>
+                  <td data-testid="asset-target-pct-total">
+                    <button type="button"
+                            class="asset-pct-cell asset-pct-cell--editable asset-pct-cell--inline"
+                            @click="startEditTotal(a.id)"
+                            x-show="editingTotalAssetId !== a.id && !readOnly"
+                            title="Clique para editar">
+                      <span x-text="formatPct(a.target_pct_total)"></span>
+                    </button>
+                    <span class="asset-pct-cell asset-pct-cell--inline"
+                          data-testid="asset-target-pct-total-static"
+                          x-show="editingTotalAssetId !== a.id && readOnly"
+                          x-cloak><span x-text="formatPct(a.target_pct_total)"></span></span>
+                    <div class="asset-pct-cell asset-pct-cell--editing asset-pct-cell--inline"
+                         data-testid="asset-target-pct-total-editing"
+                         x-show="editingTotalAssetId === a.id"
+                         x-cloak>
+                      <input type="number"
+                             step="0.01"
+                             min="0"
+                             max="100"
+                             class="asset-inline-edit-input"
+                             data-testid="asset-target-pct-total-edit-input"
+                             x-ref="totalPctInput"
+                             :data-asset-id="a.id"
+                             x-model="editingTotalValue"
+                             @keyup.enter="commitEditTotal()"
+                             @keyup.escape.window="cancelEditTotal()"
+                             @blur="commitEditTotal()"
+                             :class="{'asset-inline-edit-input--error': errorTotal}"
+                             :disabled="savingTotal"
+                             @click.stop>
+                      <span class="asset-inline-edit-hint"
+                            data-testid="asset-target-pct-total-edit-hint"
+                            x-show="editingTotalValue !== '' && !isNaN(parseFloat(editingTotalValue)) && classTargetPct > 0">
+                        Isso ajusta o alvo desta classe para <span x-text="Number((parseFloat(editingTotalValue) * 100) / classTargetPct).toFixed(2)"></span>%
+                      </span>
+                      <span class="asset-inline-edit-error"
+                            data-testid="asset-target-pct-total-edit-error"
+                            x-show="errorTotal"
+                            x-text="errorTotal"
+                            x-cloak></span>
+                    </div>
+                  </td>
+                  <td data-testid="asset-portfolio-deviation" :class="signClass(a.portfolio_deviation_pct)">
+                    <span class="metric-stack">
+                      <span class="icon icon--sm metric-sign" x-text="signIcon(a.portfolio_deviation_pct)" aria-hidden="true"></span>
+                      <span x-text="formatPct(a.portfolio_deviation_pct)"></span>
+                    </span>
+                  </td>
+                  <td data-testid="asset-buy-cell">
+                    <button type="button"
+                            class="trade-toggle trade-toggle--buy"
+                            :class="a.buy_enabled ? 'trade-toggle--on' : 'trade-toggle--off'"
+                            data-testid="asset-buy-toggle"
+                            :data-asset-id="a.id"
+                            :data-buy-enabled="a.buy_enabled ? 'true' : 'false'"
+                            :disabled="readOnly || (savingTrade !== null && savingTrade.assetId === a.id && savingTrade.field === 'buy_enabled')"
+                            @click="toggleTradeFlag(a.id, 'buy_enabled', !a.buy_enabled)"
+                            title="Permitir compra pelo solver">
+                      <span x-text="a.buy_enabled ? 'Liberado' : 'Bloqueado'"></span>
+                    </button>
+                  </td>
+                  <td data-testid="asset-sell-cell">
+                    <button type="button"
+                            class="trade-toggle trade-toggle--sell"
+                            :class="a.sell_enabled ? 'trade-toggle--on' : 'trade-toggle--off'"
+                            data-testid="asset-sell-toggle"
+                            :data-asset-id="a.id"
+                            :data-sell-enabled="a.sell_enabled ? 'true' : 'false'"
+                            :disabled="readOnly || (savingTrade !== null && savingTrade.assetId === a.id && savingTrade.field === 'sell_enabled')"
+                            @click="toggleTradeFlag(a.id, 'sell_enabled', !a.sell_enabled)"
+                            title="Permitir venda pelo solver">
+                      <span x-text="a.sell_enabled ? 'Liberado' : 'Bloqueado'"></span>
+                    </button>
+                  </td>
+                  <td data-testid="asset-currency-cell">
+                    <span class="currency-badge"
+                          data-testid="asset-currency-badge"
+                          :data-currency="a.currency_code"
+                          x-text="a.currency_code"></span>
+                  </td>
+                </tr>
+                <tr x-show="showDeleteAssetId === a.id" x-cloak>
+                  <td colspan="16">
+                    <div class="dashboard-asset-delete-confirm"
+                         data-testid="dashboard-asset-delete-confirm"
+                         :data-asset-id="a.id">
+                      <p class="dashboard-asset-delete-confirm-text">Remover ativo <strong x-text="a.name"></strong>?</p>
+                      <div class="dashboard-asset-delete-confirm-actions">
+                        <button type="button"
+                                class="btn dashboard-asset-delete-confirm-yes"
+                                data-testid="dashboard-asset-delete-confirm-yes"
+                                @click="confirmDeleteAsset()"
+                                :disabled="deletingAssetId === a.id">
+                          <span x-show="deletingAssetId !== a.id"><span class="icon icon--sm" aria-hidden="true">close</span> Sim, remover</span>
+                          <span x-show="deletingAssetId === a.id">Removendo...</span>
+                        </button>
+                        <button type="button"
+                                class="btn dashboard-asset-delete-confirm-no"
+                                data-testid="dashboard-asset-delete-confirm-no"
+                                @click="cancelDeleteAsset()"
+                                :disabled="deletingAssetId === a.id">Cancelar</button>
+                      </div>
+                      <p class="dashboard-asset-delete-confirm-error"
+                         data-testid="dashboard-asset-delete-confirm-error"
+                         x-show="deleteAssetError"
+                         x-text="deleteAssetError"
+                         x-cloak></p>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </template>
         </table>
-        {% else %}
-        <div class="empty-state empty-state--inline" data-testid="empty-assets">
-          <p>Nenhum ativo nesta classe.</p>
-        </div>
-        {% endif %}
-
-        </div><!-- /.class-section-body -->
       </article>
       {% endfor %}

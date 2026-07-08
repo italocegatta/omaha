@@ -696,6 +696,27 @@ _CLASS_COLORS: tuple[str, ...] = (
     "oklch(0.70 0.03 274)",  # slate          -- 8th cycle slot
 )
 
+_ZERO = Decimal("0")
+_HUNDRED = Decimal("100")
+
+
+def _pct_or_zero(numerator: Decimal, denominator: Decimal) -> Decimal:
+    if denominator <= _ZERO:
+        return _ZERO
+    return (numerator / denominator) * _HUNDRED
+
+
+def _pct_or_none(numerator: Decimal, denominator: Decimal) -> Decimal | None:
+    if denominator <= _ZERO:
+        return None
+    return (numerator / denominator) * _HUNDRED
+
+
+def _target_value(total: Decimal, pct: Decimal | None) -> Decimal | None:
+    if pct is None:
+        return None
+    return (total * pct) / _HUNDRED
+
 
 def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
     """Compute portfolio-level + per-class + per-asset aggregates for the patrimonio.
@@ -727,13 +748,10 @@ def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
     All percentages are stored as ``Decimal`` values in the 0-100
     range so the template can format them with Jinja's ``|round(2)``.
     """
-    ZERO = Decimal("0")
-    HUNDRED = Decimal("100")
-
     # First pass: per-class totals via the shared helper, in one walk.
     class_rows: list[dict[str, Any]] = []
-    portfolio_invested = ZERO
-    portfolio_current = ZERO
+    portfolio_invested = _ZERO
+    portfolio_current = _ZERO
 
     for index, klass in enumerate(asset_classes):
         # ``_compute_class_totals`` owns the per-asset qty/invested/
@@ -762,31 +780,27 @@ def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
         )
 
     portfolio_gain = portfolio_current - portfolio_invested
-    if portfolio_invested == ZERO:
+    if portfolio_invested == _ZERO:
         # Empty portfolio: surface a neutral None for gain_pct so the
         # template renders a dash, and force current_pcts to 0.0 so
         # the progress bars are empty (not 100% from div-by-zero).
         portfolio_gain_pct: Decimal | None = None
         for row in class_rows:
-            row["current_pct"] = ZERO
+            row["current_pct"] = _ZERO
             for asset in row["_assets"]:
-                asset["asset_pct"] = ZERO
+                asset["asset_pct"] = _ZERO
                 # ``current_pct_class`` mirrors ``asset_pct`` (the
                 # share of the class's current_value) — when the
                 # class has no current_value, both are 0.
-                asset["current_pct_class"] = ZERO
+                asset["current_pct_class"] = _ZERO
                 # ``current_pct_total`` is the share of the
                 # portfolio's current_value — 0 when the portfolio
                 # is empty (matches the S05 "empty bars" rule).
-                asset["current_pct_total"] = ZERO
+                asset["current_pct_total"] = _ZERO
     else:
-        portfolio_gain_pct = (portfolio_gain / portfolio_invested) * HUNDRED
+        portfolio_gain_pct = (portfolio_gain / portfolio_invested) * _HUNDRED
         for row in class_rows:
-            row["current_pct"] = (
-                (row["current_value"] / portfolio_current) * HUNDRED
-                if portfolio_current > ZERO
-                else ZERO
-            )
+            row["current_pct"] = _pct_or_zero(row["current_value"], portfolio_current)
             class_current = row["current_value"]
             for asset in row["_assets"]:
                 # ``asset_pct`` (legacy S05 field) and
@@ -798,18 +812,40 @@ def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
                 # still asserts ``asset_pct`` so we keep both in
                 # sync. ``current_pct_total`` is the share of the
                 # whole portfolio.
-                asset_pct = (
-                    (asset["current_value"] / class_current) * HUNDRED
-                    if class_current > ZERO
-                    else ZERO
-                )
+                asset_pct = _pct_or_zero(asset["current_value"], class_current)
                 asset["asset_pct"] = asset_pct
                 asset["current_pct_class"] = asset_pct
-                asset["current_pct_total"] = (
-                    (asset["current_value"] / portfolio_current) * HUNDRED
-                    if portfolio_current > ZERO
-                    else ZERO
-                )
+                asset["current_pct_total"] = _pct_or_zero(asset["current_value"], portfolio_current)
+
+    for row in class_rows:
+        row["gain_value"] = row["current_value"] - row["invested"]
+        row["gain_pct"] = _pct_or_none(row["gain_value"], row["invested"])
+        row["class_current_pct_class"] = _HUNDRED if row["current_value"] > _ZERO else _ZERO
+        row["class_target_pct_class"] = _HUNDRED if row["current_value"] > _ZERO else _ZERO
+        row["class_deviation_pct_class"] = row["class_current_pct_class"] - row["class_target_pct_class"]
+        row["portfolio_target_pct"] = row["target_pct"] or _ZERO
+        row["portfolio_deviation_pct"] = row["current_pct"] - row["portfolio_target_pct"]
+        row["position_target_value"] = _target_value(portfolio_current, row["portfolio_target_pct"])
+        row["position_deviation_value"] = (
+            row["current_value"] - row["position_target_value"]
+            if row["position_target_value"] is not None
+            else None
+        )
+        for asset in row["_assets"]:
+            asset["class_deviation_pct"] = asset["current_pct_class"] - asset["target_pct_class"]
+            asset["portfolio_target_pct"] = asset["target_pct_total"]
+            asset["portfolio_deviation_pct"] = (
+                asset["current_pct_total"] - asset["portfolio_target_pct"]
+            )
+            asset["position_target_value"] = _target_value(
+                portfolio_current,
+                asset["portfolio_target_pct"],
+            )
+            asset["position_deviation_value"] = (
+                asset["current_value"] - asset["position_target_value"]
+                if asset["position_target_value"] is not None
+                else None
+            )
 
     # Flatten: drop the temporary ``_assets`` underscore and move
     # ``assets`` to the final position, in the order expected by the
@@ -867,18 +903,15 @@ def _compute_class_totals(klass: AssetClass) -> dict[str, Any]:
       ``current_value``, ``target_pct_class``, ``target_pct_total``,
       ``buy_enabled``, ``sell_enabled``, ``currency_code``).
     """
-    ZERO = Decimal("0")
-    HUNDRED = Decimal("100")
-
-    class_invested = ZERO
-    class_current = ZERO
+    class_invested = _ZERO
+    class_current = _ZERO
     asset_rows: list[dict[str, Any]] = []
     for asset in klass.assets:
-        asset_invested = ZERO
-        asset_current = ZERO
-        asset_qty = ZERO
+        asset_invested = _ZERO
+        asset_current = _ZERO
+        asset_qty = _ZERO
         for pos in asset.positions:
-            qty = pos.qty or ZERO
+            qty = pos.qty or _ZERO
             asset_qty += qty
             # broker-csv-import-totals: sum the broker-published
             # per-row totals directly. ``NULL`` (legacy position
@@ -886,8 +919,8 @@ def _compute_class_totals(klass: AssetClass) -> dict[str, Any]:
             # ``Decimal('0')`` — never recompute ``qty * price``;
             # that arithmetic is the exact drift source this
             # change eliminates.
-            asset_invested += pos.total_invested or ZERO
-            asset_current += pos.total_current or ZERO
+            asset_invested += pos.total_invested or _ZERO
+            asset_current += pos.total_current or _ZERO
         class_invested += asset_invested
         class_current += asset_current
         # ``target_pct_total`` only depends on the asset's stored
@@ -897,16 +930,20 @@ def _compute_class_totals(klass: AssetClass) -> dict[str, Any]:
         # have to re-walk the loop. The Alpine inline editor in
         # the patrimonio template uses this field as the
         # ``target % total`` column.
-        target_pct_total = (asset.target_pct or ZERO) * (klass.target_pct or ZERO) / HUNDRED
+        target_pct_total = (asset.target_pct or _ZERO) * (klass.target_pct or _ZERO) / _HUNDRED
+        gain_value = asset_current - asset_invested
         asset_rows.append(
             {
                 "id": asset.id,
                 "name": asset.name,
                 "position_count": len(asset.positions),
                 "qty": asset_qty,
+                "avg_price": (asset_invested / asset_qty) if asset_qty > _ZERO else None,
                 "invested": asset_invested,
                 "current_value": asset_current,
-                "target_pct_class": asset.target_pct or ZERO,
+                "gain_value": gain_value,
+                "gain_pct": _pct_or_none(gain_value, asset_invested),
+                "target_pct_class": asset.target_pct or _ZERO,
                 "target_pct_total": target_pct_total,
                 # asset-trade-flags: propagate the three per-asset
                 # trade-control attributes so the patrimonio's
@@ -1067,32 +1104,35 @@ def _aggregate_assets_by_name(classes: list[AssetClass]) -> list[dict[str, Any]]
             grouped.setdefault(asset.name, []).append(asset)
 
     rows: list[dict[str, Any]] = []
-    ZERO = Decimal("0")
     for name, members in grouped.items():
-        invested = ZERO
-        current = ZERO
-        qty = ZERO
+        invested = _ZERO
+        current = _ZERO
+        qty = _ZERO
         position_count = 0
         for asset in members:
             for pos in asset.positions:
                 position_count += 1
-                qty += pos.qty or ZERO
-                invested += pos.total_invested or ZERO
-                current += pos.total_current or ZERO
+                qty += pos.qty or _ZERO
+                invested += pos.total_invested or _ZERO
+                current += pos.total_current or _ZERO
         buy = members[0].buy_enabled
         sell = members[0].sell_enabled
         any_buy_divergent = any(a.buy_enabled != buy for a in members)
         any_sell_divergent = any(a.sell_enabled != sell for a in members)
+        gain_value = current - invested
         rows.append(
             {
                 "id": members[0].id,
                 "name": name,
                 "position_count": position_count,
                 "qty": qty,
+                "avg_price": (invested / qty) if qty > _ZERO else None,
                 "invested": invested,
                 "current_value": current,
-                "target_pct_class": members[0].target_pct or ZERO,
-                "target_pct_total": ZERO,
+                "gain_value": gain_value,
+                "gain_pct": _pct_or_none(gain_value, invested),
+                "target_pct_class": None,
+                "target_pct_total": None,
                 "buy_enabled": buy,
                 "sell_enabled": sell,
                 "currency_code": members[0].currency_code,
@@ -1123,13 +1163,10 @@ def family_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
       the allocation-target pill. ``current_pct`` and
       ``current_value`` stay meaningful (sum is well-defined).
     """
-    ZERO = Decimal("0")
-    HUNDRED = Decimal("100")
-
     class_rows = _aggregate_classes_by_name(asset_classes)
 
-    portfolio_invested = ZERO
-    portfolio_current = ZERO
+    portfolio_invested = _ZERO
+    portfolio_current = _ZERO
     for row in class_rows:
         portfolio_invested += row["invested"]
         portfolio_current += row["current_value"]
@@ -1142,36 +1179,41 @@ def family_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
         row.pop("_members")
 
     portfolio_gain = portfolio_current - portfolio_invested
-    if portfolio_invested == ZERO:
+    if portfolio_invested == _ZERO:
         portfolio_gain_pct: Decimal | None = None
         for row in class_rows:
-            row["current_pct"] = ZERO
+            row["current_pct"] = _ZERO
             for asset in row["_assets"]:
-                asset["asset_pct"] = ZERO
-                asset["current_pct_class"] = ZERO
-                asset["current_pct_total"] = ZERO
+                asset["asset_pct"] = _ZERO
+                asset["current_pct_class"] = _ZERO
+                asset["current_pct_total"] = _ZERO
     else:
-        portfolio_gain_pct = (portfolio_gain / portfolio_invested) * HUNDRED
+        portfolio_gain_pct = (portfolio_gain / portfolio_invested) * _HUNDRED
         for row in class_rows:
-            row["current_pct"] = (
-                (row["current_value"] / portfolio_current) * HUNDRED
-                if portfolio_current > ZERO
-                else ZERO
-            )
+            row["current_pct"] = _pct_or_zero(row["current_value"], portfolio_current)
             class_current = row["current_value"]
             for asset in row["_assets"]:
-                asset_pct = (
-                    (asset["current_value"] / class_current) * HUNDRED
-                    if class_current > ZERO
-                    else ZERO
-                )
+                asset_pct = _pct_or_zero(asset["current_value"], class_current)
                 asset["asset_pct"] = asset_pct
                 asset["current_pct_class"] = asset_pct
-                asset["current_pct_total"] = (
-                    (asset["current_value"] / portfolio_current) * HUNDRED
-                    if portfolio_current > ZERO
-                    else ZERO
-                )
+                asset["current_pct_total"] = _pct_or_zero(asset["current_value"], portfolio_current)
+
+    for row in class_rows:
+        row["gain_value"] = row["current_value"] - row["invested"]
+        row["gain_pct"] = _pct_or_none(row["gain_value"], row["invested"])
+        row["class_current_pct_class"] = _HUNDRED if row["current_value"] > _ZERO else _ZERO
+        row["class_target_pct_class"] = _HUNDRED if row["current_value"] > _ZERO else _ZERO
+        row["class_deviation_pct_class"] = row["class_current_pct_class"] - row["class_target_pct_class"]
+        row["portfolio_target_pct"] = None
+        row["portfolio_deviation_pct"] = None
+        row["position_target_value"] = None
+        row["position_deviation_value"] = None
+        for asset in row["_assets"]:
+            asset["class_deviation_pct"] = None
+            asset["portfolio_target_pct"] = None
+            asset["portfolio_deviation_pct"] = None
+            asset["position_target_value"] = None
+            asset["position_deviation_value"] = None
 
     classes_out: list[dict[str, Any]] = []
     for row in class_rows:

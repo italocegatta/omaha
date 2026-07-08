@@ -114,15 +114,15 @@ class TestClassSectionAlignment:
         _wait_for_alpine(page)
 
         # For each class section, compare the left x-coordinate of
-        # the header cell vs the matching <th>.
+        # the totals-row cell vs the matching <th>.
         coords = page.evaluate(
             """() => {
-                const headers = Array.from(
-                    document.querySelectorAll('[data-testid="class-section-header"]')
+                const sections = Array.from(
+                    document.querySelectorAll('[data-testid="class-summary-row"]')
                 );
-                return headers.map((h) => {
-                    const total = h.querySelector('[data-testid="class-total-value"]');
-                    const table = h.parentElement.querySelector('[data-testid="asset-table"]');
+                return sections.map((section) => {
+                    const total = section.querySelector('[data-testid="class-total-value"]');
+                    const table = section.querySelector('[data-testid="asset-table"]');
                     const th = table
                         ? table.querySelector('[data-testid="asset-table-th-current-value"]')
                         : null;
@@ -160,12 +160,12 @@ class TestClassSectionAlignment:
 
         coords = page.evaluate(
             """() => {
-                const headers = Array.from(
-                    document.querySelectorAll('[data-testid="class-section-header"]')
+                const sections = Array.from(
+                    document.querySelectorAll('[data-testid="class-summary-row"]')
                 );
-                return headers.map((h) => {
-                    const pill = h.querySelector('[data-testid="class-target-pct-view"]');
-                    const table = h.parentElement.querySelector('[data-testid="asset-table"]');
+                return sections.map((section) => {
+                    const pill = section.querySelector('[data-testid="class-target-pct-view"]');
+                    const table = section.querySelector('[data-testid="asset-table"]');
                     const th = table
                         ? table.querySelector('[data-testid="asset-table-th-target-pct-total"]')
                         : null;
@@ -203,12 +203,12 @@ class TestClassSectionAlignment:
 
         coords = page.evaluate(
             """() => {
-                const headers = Array.from(
-                    document.querySelectorAll('[data-testid="class-section-header"]')
+                const sections = Array.from(
+                    document.querySelectorAll('[data-testid="class-summary-row"]')
                 );
-                return headers.map((h) => {
-                    const pill = h.querySelector('[data-testid="class-current-pct"]');
-                    const table = h.parentElement.querySelector('[data-testid="asset-table"]');
+                return sections.map((section) => {
+                    const pill = section.querySelector('[data-testid="class-current-pct"]');
+                    const table = section.querySelector('[data-testid="asset-table"]');
                     const th = table
                         ? table.querySelector('[data-testid="asset-table-th-current-pct-total"]')
                         : null;
@@ -229,10 +229,10 @@ class TestClassSectionAlignment:
                 f"th left={row['thLeft']}, Δ={row['pillLeft'] - row['thLeft']}"
             )
 
-    def test_class_delta_pill_aligned_with_alvo_classe_th(self, page: Page, live_url: str) -> None:
+    def test_class_delta_pill_aligned_with_desvio_classe_th(self, page: Page, live_url: str) -> None:
         """When the ``Sobra/Falta`` pill renders (per-class asset sum
-        off 100), it sits in col 5 of the header grid, aligned with
-        ``asset-table-th-target-pct-class`` (col 5).
+        off 100), it sits in the class deviation totals cell, aligned with
+        ``asset-table-th-class-deviation``.
 
         We seed a class with one asset whose ``target_pct_class`` is
         60% of the class — class sum is 60, so ``classDelta = 40``
@@ -257,14 +257,14 @@ class TestClassSectionAlignment:
 
         coords = page.evaluate(
             """() => {
-                const headers = Array.from(
-                    document.querySelectorAll('[data-testid="class-section-header"]')
+                const sections = Array.from(
+                    document.querySelectorAll('[data-testid="class-summary-row"]')
                 );
-                return headers.map((h) => {
-                    const badge = h.querySelector('[data-testid="class-delta-badge"]');
-                    const table = h.parentElement.querySelector('[data-testid="asset-table"]');
+                return sections.map((section) => {
+                    const badge = section.querySelector('[data-testid="class-total-deviation-class"]');
+                    const table = section.querySelector('[data-testid="asset-table"]');
                     const th = table
-                        ? table.querySelector('[data-testid="asset-table-th-target-pct-class"]')
+                        ? table.querySelector('[data-testid="asset-table-th-class-deviation"]')
                         : null;
                     return {
                         badgeLeft: badge ? badge.getBoundingClientRect().left : null,
@@ -276,8 +276,8 @@ class TestClassSectionAlignment:
 
         assert coords, "no class sections rendered"
         for row in coords:
-            assert row["badgeLeft"] is not None, "class-delta-badge not found"
-            assert row["thLeft"] is not None, "asset-table-th-target-pct-class not found"
+            assert row["badgeLeft"] is not None, "class-total-deviation-class not found"
+            assert row["thLeft"] is not None, "asset-table-th-class-deviation not found"
             assert abs(row["badgeLeft"] - row["thLeft"]) <= 1.0, (
                 f"Sobra/Falta not aligned: badge left={row['badgeLeft']}, "
                 f"th left={row['thLeft']}, Δ={row['badgeLeft'] - row['thLeft']}"
@@ -314,15 +314,14 @@ class TestClassSectionAlignment:
             timeout=5000,
         )
 
-        # The header stats are still rendered (they live in the header
-        # row, not the body).
+        # The totals row is still rendered (only asset rows collapse).
         visibility = page.evaluate(
             """() => {
-                const header = document.querySelector('[data-testid="class-section-header"]');
-                if (!header) return null;
-                const total = header.querySelector('[data-testid="class-total-value"]');
-                const alvo = header.querySelector('[data-testid="class-target-pct-view"]');
-                const atual = header.querySelector('[data-testid="class-current-pct"]');
+                const section = document.querySelector('[data-testid="class-summary-row"]');
+                if (!section) return null;
+                const total = section.querySelector('[data-testid="class-total-value"]');
+                const alvo = section.querySelector('[data-testid="class-target-pct-view"]');
+                const atual = section.querySelector('[data-testid="class-current-pct"]');
                 const isVisible = (el) => el && el.offsetWidth > 0 && el.offsetHeight > 0;
                 return {
                     totalVisible: isVisible(total),
@@ -333,7 +332,7 @@ class TestClassSectionAlignment:
             }"""
         )
 
-        assert visibility is not None, "class-section-header not found"
+        assert visibility is not None, "class-summary-row not found"
         assert visibility["totalVisible"], (
             f"class-total-value must stay visible when collapsed, got visibility={visibility}"
         )

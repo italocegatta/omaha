@@ -454,8 +454,9 @@ def test_dashboard_renders_class_summary_with_no_positions(client: TestClient) -
     assert 'data-testid="class-summary"' in body, body
     assert 'data-testid="class-summary-row"' in body, body
     assert "Renda Fixa" in body, body
-    # The portfolio header is hidden when current_value is 0.
-    assert 'data-testid="portfolio-header"' not in body, body
+    # F15: the portfolio header stays visible even for an empty profile.
+    assert 'data-testid="portfolio-header"' in body, body
+    assert "R$ 0,00" in body, body
 
 
 def test_dashboard_sends_no_store_cache_control(client: TestClient) -> None:
@@ -576,12 +577,9 @@ def test_class_section_renders_consolidated_value(client: TestClient) -> None:
     )
     assert match is not None, f"class-total-value x-text not found in {block[:500]!r}"
     expr = match.group(1)
-    # Contract: positive value → formatBRLCompact; zero/empty → em-dash.
-    assert "formatBRLCompact" in expr, f"expected formatBRLCompact in x-text, got {expr!r}"
+    # F15 totals row reuses centralized money formatting.
+    assert "formatMoney" in expr, f"expected formatMoney in x-text, got {expr!r}"
     assert "classCurrentValue" in expr, f"expected classCurrentValue in x-text, got {expr!r}"
-    assert "'—'" in expr, f"expected em-dash sentinel in x-text, got {expr!r}"
-    # The header value MUST NOT carry any pill class — it is plain text.
-    assert "pct-target-pill" not in block.split("class-total-value")[0].split("hdr-valor")[1], block
 
 
 def test_class_section_renders_em_dash_when_empty(client: TestClient) -> None:
@@ -620,22 +618,13 @@ def test_class_section_renders_em_dash_when_empty(client: TestClient) -> None:
     )
     assert match is not None, f"class-total-value x-text not found in {block[:500]!r}"
     expr = match.group(1)
-    # The em-dash sentinel branch is the negative-side of the
-    # conditional; it MUST exist (the gate on classCurrentValue > 0
-    # is the contract).
-    assert "classCurrentValue > 0" in expr, (
-        f"empty-class sentinel requires classCurrentValue > 0 gate, got {expr!r}"
+    assert expr == "formatMoney(classCurrentValue)", (
+        f"empty-class totals row should use centralized formatter, got {expr!r}"
     )
-    assert "'—'" in expr, f"expected em-dash sentinel in x-text, got {expr!r}"
-    assert "R$ 0" not in expr, f"empty-class x-text must not mention 'R$ 0', got {expr!r}"
 
 
-def test_class_section_renders_pct_with_two_decimals_when_empty(client: TestClient) -> None:
-    """class-section-consolidated-totals 4.3: an empty class still
-    renders ``Atual`` with the two-decimal format. The label "Atual"
-    is the static text rendered server-side; the numeric value
-    comes from Alpine ``x-text`` after hydration.
-    """
+def test_class_section_renders_pct_with_one_decimal_when_empty(client: TestClient) -> None:
+    """F15: totals-row portfolio current cell keeps one-decimal pct formatting."""
     profile_id = _login_and_select(client, profile_name="Italo")
     from omaha.db import SessionLocal
 
@@ -661,21 +650,12 @@ def test_class_section_renders_pct_with_two_decimals_when_empty(client: TestClie
     assert blocks, "no class-section article found in body"
     block = blocks[0]
     match = _re.search(
-        r'<span class="pct-current-pill"[^>]*data-testid="class-current-pct"[^>]*>(.*?)</span>',
+        r'<span class="pct-current-pill"[^>]*data-testid="class-current-pct"[^>]*x-text="([^"]+)"',
         block,
     )
-    assert match is not None, f"class-current-pill span not found in {block[:500]!r}"
-    inner = match.group(1)
-    # The literal "Atual" label is in the static template; the value
-    # is hydrated by Alpine via x-text on the inner <span>.
-    assert "Atual" in inner, f"expected 'Atual' label in pill, got {inner!r}"
-    inner_match = _re.search(r'x-text="([^"]+)"', inner)
-    assert inner_match is not None, f"x-text not found inside pill: {inner!r}"
-    expr = inner_match.group(1)
-    # Contract: toFixed(2) — the slot exists with 0% of the portfolio
-    # for empty classes, that is itself meaningful.
-    assert "toFixed(2)" in expr, f"expected toFixed(2) in x-text, got {expr!r}"
-    assert "classCurrentPct" in expr, f"expected classCurrentPct in x-text, got {expr!r}"
+    assert match is not None, f"class-current-pct x-text not found in {block[:500]!r}"
+    expr = match.group(1)
+    assert expr == "formatPct(classCurrentPct)", f"unexpected class-current-pct x-text: {expr!r}"
 
 
 def test_class_section_delete_btn_precedes_stats(client: TestClient) -> None:
@@ -718,11 +698,11 @@ def test_class_section_delete_btn_precedes_stats(client: TestClient) -> None:
     assert delete_idx < total_idx, (
         f"class-delete-btn (idx {delete_idx}) must precede class-total-value (idx {total_idx})"
     )
-    assert total_idx < alvo_idx, (
-        f"class-total-value (idx {total_idx}) must precede class-target-pct-view (idx {alvo_idx})"
+    assert total_idx < atual_idx, (
+        f"class-total-value (idx {total_idx}) must precede class-current-pct (idx {atual_idx})"
     )
-    assert alvo_idx < atual_idx, (
-        f"class-target-pct-view (idx {alvo_idx}) must precede class-current-pct (idx {atual_idx})"
+    assert atual_idx < alvo_idx, (
+        f"class-current-pct (idx {atual_idx}) must precede class-target-pct-view (idx {alvo_idx})"
     )
 
 
@@ -764,10 +744,7 @@ def test_asset_table_has_colgroup(client: TestClient) -> None:
     )
 
     cols = _re.findall(r"<col\b", tables_with_colgroup[0])
-    # asset-trade-flags: 3 new trade-control columns added (Compra,
-    # Venda, Moeda), so the colgroup now has 11 <col> elements
-    # instead of 8.
-    assert len(cols) == 11, f"expected 11 <col> elements, found {len(cols)}"
+    assert len(cols) == 16, f"expected 16 <col> elements, found {len(cols)}"
 
 
 def test_class_data_blob_exposes_current_value(client: TestClient) -> None:
