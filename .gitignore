@@ -48,16 +48,11 @@ reports/*.log
 screenshots/
 tmp/
 
-# Project: SQLite database lives under data/. Keep the directory tracked
-# (so docker compose volume mount works) but ignore the actual DB file.
-# The CSV seed triplet under data/seed/ IS tracked — it's the source of
-# truth for the CSV-driven seed (`scripts/seed_from_csv.py`).
-data/
-!data/.gitkeep
-data/*
-!data/seed/
-!data/seed/*.csv
-!data/seed/*.md
+# Project: keep data/ tracked. Ignore only generated DB artifacts.
+# The CSV seed triplet under data/seed/ is source of truth for the
+# CSV-driven seed (`scripts/seed_from_csv.py`).
+data/*.db
+data/snapshots/
 
 # OpenSpec roadmap ephemeral working artifacts (audit notes, scratch
 # checklists). The canonical register lives at openspec/roadmap.md;
