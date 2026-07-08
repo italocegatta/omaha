@@ -372,7 +372,8 @@ def test_dashboard_renders_distribution_layout(client: TestClient) -> None:
 
     # Per-class section markers
     assert 'data-testid="class-section-header"' in body, body
-    assert 'data-testid="class-color-swatch"' in body, body
+    # F14: swatch square removed — class name text carries the color
+    assert 'data-testid="class-color-swatch"' not in body, body
     assert 'data-testid="class-section-name"' in body, body
     assert 'data-testid="class-target-pct-view"' in body, body
     assert 'data-testid="class-current-pct"' in body, body

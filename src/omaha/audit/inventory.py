@@ -96,14 +96,14 @@ class AuditContextFactory:
     data that makes each template render its interactive markup.
     """
 
-    # F08: mirror --class-1..6 from app.css :root (OKLCH, no hex drift).
+    # F14: Catppuccin Frappe-derived palette. Mirrors --class-1..6 from app.css :root.
     _CLASS_COLORS = (
-        "oklch(0.65 0.15 250)",  # blue          -- mirrors --class-1
-        "oklch(0.72 0.13 130)",  # leaf green    -- mirrors --class-2
-        "oklch(0.72 0.18 350)",  # magenta-red   -- mirrors --class-3 (F08 hue shift)
-        "oklch(0.75 0.13 50)",  # burnt orange  -- mirrors --class-4
-        "oklch(0.65 0.12 300)",  # plum          -- mirrors --class-5
-        "oklch(0.72 0.10 200)",  # teal          -- mirrors --class-6
+        "oklch(0.742 0.104 265.7)",  # blue          -- mirrors --class-1
+        "oklch(0.765 0.111 311.7)",  # lavender       -- mirrors --class-2
+        "oklch(0.783 0.073 184.6)",  # teal           -- mirrors --class-3
+        "oklch(0.812 0.107 133.4)",  # green          -- mirrors --class-4
+        "oklch(0.844 0.08 83.5)",    # amber          -- mirrors --class-5
+        "oklch(0.717 0.124 19.4)",   # red            -- mirrors --class-6
     )
 
     def _base_context(self) -> dict[str, Any]:

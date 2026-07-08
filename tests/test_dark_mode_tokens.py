@@ -1,10 +1,10 @@
-"""Tests for F05 — dark mode palette swap.
+"""Tests for F14 — Catppuccin Frappe theme swap.
 
-Replaces ``tests/test_tokens.py`` (formerly "Phase 2 — PALT-01 /
-PALT-02 palette contrast verification") with the dark-mode contract.
-Same parsers (``omaha.audit.css_parser``, ``omaha.audit.color_resolver``);
-new token values calibrated against the dark warm-neutral surface
-(``--bg: oklch(0.18 0.01 60)``, hue 60, D-F05.1).
+Replaces the F05 warm-neutral (hue 60) tests with the F14 Catppuccin
+Frappe cool blue-gray (hue ~274) contract. Same parsers
+(``omaha.audit.css_parser``, ``omaha.audit.color_resolver``); new
+token values calibrated against the Catppuccin Frappe dark surface
+(``--bg: oklch(0.329 0.032 274.8)``, D-F14).
 
 Each test reads the live ``src/omaha/static/app.css`` so the test
 suite is the contract — any regression lands as a failing
@@ -40,17 +40,15 @@ def _resolved_value(sheet: Stylesheet, name: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# F05 D-F05.1 — body background renders as dark warm-neutral
+# F14 — body background renders as Catppuccin Frappe cool blue-gray
 # ---------------------------------------------------------------------------
 
 
-def test_body_bg_is_dark_warm_neutral() -> None:
-    """``--bg`` SHALL resolve to dark warm-neutral (NOT pure black, NOT cold).
+def test_body_bg_is_catppuccin_frappe() -> None:
+    """``--bg`` SHALL resolve to Catppuccin Frappe cool blue-gray (NOT warm brown).
 
-    Scenario from ``color-tokens`` spec: "Body background renders as
-    dark warm-neutral". F05 D-F05.1 sets the target to
-    ``oklch(L≈0.18 hue≈60 chroma≈0.01)``. Tolerance: lightness in
-    [0.14, 0.22], hue in [40, 80], chroma ≤ 0.02.
+    F14: ``oklch(L≈0.329 hue≈274.8 chroma≈0.032)``. Tolerance:
+    lightness in [0.28, 0.38], hue in [255, 295], chroma in [0.02, 0.05].
     """
     from coloraide import Color
 
@@ -58,14 +56,12 @@ def test_body_bg_is_dark_warm_neutral() -> None:
     color = Color(bg).convert("oklch")
     coords = color.coords()
     L, C, H = coords[0], coords[1], coords[2]
-    assert 0.14 <= L <= 0.22, f"--bg lightness {L:.3f} not in [0.14, 0.22]"
-    assert C <= 0.02, f"--bg chroma {C:.3f} > 0.02 (must stay neutral)"
-    # hue is undefined when chroma == 0; treat that as passing the warmth constraint
+    assert 0.28 <= L <= 0.38, f"--bg lightness {L:.3f} not in [0.28, 0.38]"
+    assert 0.02 <= C <= 0.05, f"--bg chroma {C:.3f} not in [0.02, 0.05]"
+    # hue is undefined when chroma == 0; treat that as passing
     if C > 0:
-        # coloraide returns hue in [0, 360); collapse to nearest equivalent
         hue = H % 360
-        warm = min(hue, 360 - hue) if abs(hue - 60) > 180 else abs(hue - 60)
-        assert warm <= 20, f"--bg hue {hue:.1f} not within 20° of 60 (warm-neutral)"
+        assert 255 <= hue <= 295, f"--bg hue {hue:.1f} not in [255, 295] (Catppuccin Frappe)"
 
 
 # ---------------------------------------------------------------------------
@@ -114,12 +110,11 @@ def test_class_swatches_against_bg(slot: int) -> None:
 
 
 def test_class_2_hue_disambiguated_from_positive() -> None:
-    """``--class-2`` SHALL be hue-shifted (≤ 135) to disambiguate from ``--positive`` (hue 145).
+    """``--class-2`` SHALL be hue-shifted to disambiguate from ``--positive``.
 
-    Scenario from ``color-tokens`` spec: "Class swatch tokens meet
-    body text contrast on dark surface". F05 D-F05.4 shifts
-    ``--class-2`` from hue 145 to hue 130 so it doesn't collide
-    visually with the gain indicator.
+    F14: class-2 is lavender (hue 311.7), positive is green (hue 133.4).
+    Angular distance must be >= 30° so the class swatch never reads
+    as a gain indicator.
     """
     from coloraide import Color
 
@@ -134,8 +129,10 @@ def test_class_2_hue_disambiguated_from_positive() -> None:
     class_2_hue = class_2_color.coords()[2] % 360
     positive_hue = positive_color.coords()[2] % 360
 
-    assert class_2_hue <= 135, (
-        f"--class-2 hue {class_2_hue:.1f}° must be ≤ 135° (positive is {positive_hue:.1f}°)"
+    gap = _angular_distance(class_2_hue, positive_hue)
+    assert gap >= 30, (
+        f"--class-2 hue {class_2_hue:.1f}° vs --positive hue {positive_hue:.1f}° "
+        f"= gap {gap:.1f}°; must be >= 30°"
     )
 
 
@@ -378,13 +375,12 @@ def _angular_distance(h1: float, h2: float) -> float:
     return max(diff, 360 - diff)
 
 
-def test_class_3_hue_gap_from_negative_ge_320() -> None:
-    """``--class-3`` and ``--negative`` SHALL differ by >= 320 deg hue.
+def test_class_3_hue_gap_from_negative_ge_90() -> None:
+    """``--class-3`` and ``--negative`` SHALL differ by >= 90 deg hue.
 
-    F08 D-F08.2 / spec ``color-tokens`` "Class swatch tokens meet body
-    text contrast on dark surface": the red class swatch and the red
-    loss number must be chromatically distinguishable. Post-F08:
-    class-3 hue 350, negative hue 25, gap 325 deg.
+    F14: class-3 is teal (hue 184.6), negative is red (hue 19.4).
+    Angular distance ~195° — well above the 90° minimum for
+    chromatic distinguishability.
     """
     from coloraide import Color
 
@@ -396,9 +392,9 @@ def test_class_3_hue_gap_from_negative_ge_320() -> None:
     negative_hue = Color(by_name["--negative"].computed_value).convert("oklch").coords()[2] % 360
 
     gap = _angular_distance(class_3_hue, negative_hue)
-    assert gap >= 320, (
+    assert gap >= 90, (
         f"--class-3 hue {class_3_hue:.1f} deg vs --negative hue {negative_hue:.1f} deg "
-        f"= gap {gap:.1f} deg; must be >= 320 deg (F08 D-F08.2)"
+        f"= gap {gap:.1f} deg; must be >= 90 deg (F14 chromatic distinguishability)"
     )
 
 
@@ -484,7 +480,7 @@ def _class_color_css_values() -> dict[int, str]:
     rows = color_token_inventory(sheet)
     by_name = {r.token: r for r in rows}
     out: dict[int, str] = {}
-    for i in range(1, 7):  # CSS defines --class-1..6
+    for i in range(1, 9):  # CSS defines --class-1..8
         token = f"--class-{i}"
         assert token in by_name, f"{token} missing from CSS inventory"
         out[i] = by_name[token].computed_value
@@ -494,9 +490,7 @@ def _class_color_css_values() -> dict[int, str]:
 def test_class_colors_tuple_parity_with_class_3() -> None:
     """``_CLASS_COLORS[2]`` SHALL parse to the same OKLCH as ``--class-3``.
 
-    F08 D-F08.3 kills the hex-vs-OKLCH drift. Post-F08, slot 3 is
-    magenta-red ``oklch(0.72 0.18 350)`` in both the CSS token and the
-    Python tuple.
+    F14: slot 3 is teal ``oklch(0.783 0.073 184.6)`` in both CSS and Python.
     """
     from coloraide import Color
 
@@ -506,32 +500,27 @@ def test_class_colors_tuple_parity_with_class_3() -> None:
     css_color = Color(css_value).convert("oklch").coords()
     py_color = Color(py_value).convert("oklch").coords()
 
-    # Compare L/C/H with small float tolerance (coloraide parsing may shift by 1e-3).
     for axis, axis_name in enumerate(("L", "C", "H")):
         delta = abs(css_color[axis] - py_color[axis])
-        # Hue is periodic; collapse to [0, 180] for comparison.
         if axis_name == "H":
             delta = min(delta, 360 - delta)
             assert delta <= 0.5, (
                 f"--class-3 {axis_name}={css_color[axis]:.3f} vs "
                 f"_CLASS_COLORS[2] {axis_name}={py_color[axis]:.3f} "
-                f"(hue delta {delta:.1f} deg; F08 D-F08.3 parity)"
+                f"(hue delta {delta:.1f} deg; F14 parity)"
             )
         else:
             assert delta <= 1e-3, (
                 f"--class-3 {axis_name}={css_color[axis]:.3f} vs "
                 f"_CLASS_COLORS[2] {axis_name}={py_color[axis]:.3f} "
-                f"(delta {delta:.4f}; F08 D-F08.3 parity)"
+                f"(delta {delta:.4f}; F14 parity)"
             )
 
 
 def test_class_colors_tuple_all_oklch_no_hex() -> None:
     """All 8 entries in ``_CLASS_COLORS`` SHALL parse as OKLCH; zero hex literals.
 
-    F08 D-F08.3 closes bug #3 from the D02 redesign session
-    (Python hex drift vs CSS OKLCH tokens). Tuple entries must parse
-    via coloraide as OKLCH; any ``#xxxxxx`` hex literal trips the
-    audit.
+    F14: all 8 slots are OKLCH end-to-end matching --class-1..8 in CSS.
     """
     from coloraide import Color
 
@@ -540,14 +529,14 @@ def test_class_colors_tuple_all_oklch_no_hex() -> None:
 
     for i, value in enumerate(py_tuple):
         assert not value.startswith("#"), (
-            f"_CLASS_COLORS[{i}] = {value!r} is still a hex literal; must be OKLCH (F08 D-F08.3)"
+            f"_CLASS_COLORS[{i}] = {value!r} is still a hex literal; must be OKLCH (F14)"
         )
         # Parse must succeed.
         Color(value).convert("oklch")
 
 
 def test_class_tint_tokens_exist_for_all_runtime_slots() -> None:
-    """R05 — import preview tints SHALL exist for all 8 runtime class slots."""
+    """F14 — import preview tints SHALL exist for all 8 runtime class slots."""
     css = APP_CSS_PATH.read_text(encoding="utf-8")
 
     for i in range(1, 9):

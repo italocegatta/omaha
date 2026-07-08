@@ -1,9 +1,5 @@
-# color-tokens Specification
+## MODIFIED Requirements
 
-## Purpose
-CSS custom-property color tokens defined in `src/omaha/static/app.css :root`, paired with documented WCAG 2.1 AA contrast ratios. Tokens are Catppuccin Frappe cool blue-gray (post-F14 hue shift from warm brown 60 to cool 274), with teal accent, bright green positive, coral negative, and class hues mirrored in Python tuples. Foreground/background pairs resolve four ambiguity invariants — hue gap, lightness hierarchy, chromatic separation, Python-vs-CSS tuple parity.
-
-## Requirements
 ### Requirement: Design tokens define unambiguous foreground/background pairs
 
 The system SHALL define a complete set of CSS custom properties in `app.css` `:root` block where every foreground token is paired with a background token and every pair meets WCAG 2.1 AA contrast on the dark surface (`--bg: oklch(0.329 0.032 274.8)` Catppuccin Frappe cool blue-gray, NOT warm brown hue 60). Color tokens SHALL resolve four ambiguity invariants: (a) `--class-3` and `--negative` SHALL differ by sufficient hue gap so a class swatch is chromatically distinguishable from a loss number; (b) `--positive` SHALL sit at lightness ≥ 0.74 so the "data signal" reads as bright against the dark body; (c) the Python `_CLASS_COLORS` tuple SHALL mirror the `--class-N` tokens (one source of truth — no hex-vs-OKLCH drift); (d) `--accent` and `--positive` SHALL differ by ≥ 6° hue with positive lightness ≥ accent lightness, so the brand-mark and the gain-green are visually distinct.
@@ -49,7 +45,7 @@ The system SHALL define a complete set of CSS custom properties in `app.css` `:r
 - **THEN** `--surface-elevated` SHALL be lightness ≥ +0.03 over `--bg` (portfolio header and class sections lift)
 - **AND** `--surface` SHALL be lightness ≥ +0.10 over `--bg` (page shell cards lift)
 - **AND** `--surface-sunk` SHALL be lightness ≤ -0.04 under `--bg` (asset tables sink)
-- **AND** no card SHALL reintroduce `box-shadow` to compensate for the new lightness gradient
+- **AND** no card SHALL reintroduce `box-shadow` to compensate for the lightness gradient
 
 ### Requirement: Each token pair has documented minimum contrast ratio
 
@@ -62,7 +58,6 @@ The system SHALL document minimum WCAG 2.1 AA contrast ratios for every foregrou
 #### Scenario: Every `--class-*` token documents its contrast on dark surface
 - **WHEN** a reader views the token table in DESIGN.md
 - **THEN** each `--class-*` row SHALL include its documented contrast ratio against `--bg` (dark surface)
-
 
 ### Requirement: DESIGN.md reflects Catppuccin Frappe token values with rationale
 

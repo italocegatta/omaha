@@ -3,31 +3,31 @@
 :root {
   color-scheme: dark;
 
-  /* Surface tokens — dark warm-neutral, NOT pure black, NOT cold blue-gray.
-     F05 inversion: body sinks to --bg (~0.18), cards lift to --surface (~0.22)
-     via claridade (no box-shadow). Form wells sink to --surface-sunk (~0.15). */
-  --bg: oklch(0.18 0.01 60);            /* dark warm-neutral body */
-  --surface: oklch(0.22 0.012 60);      /* cards, modals, popovers (lift via claridade) */
-  --surface-sunk: oklch(0.15 0.01 60);  /* form wells, input strips */
+  /* Surface tokens — Catppuccin Frappe cool blue-gray (hue ~274).
+     F14 swap: body --bg, cards --surface, form wells --surface-sunk,
+     portfolio header --surface-elevated. Elevation via lightness. */
+  --bg: oklch(0.329 0.032 274.8);            /* body — Catppuccin Frappe base */
+  --surface: oklch(0.46 0.037 273.0);        /* cards, modals, popovers */
+  --surface-sunk: oklch(0.286 0.028 274.4);  /* form wells, input strips, table header */
+  --surface-elevated: oklch(0.395 0.034 275.9); /* portfolio header (lifted) */
 
-  /* Ink tokens. --ink is warm-neutral light; --ink-muted is for secondary text. */
-  --ink: oklch(0.94 0.005 60);
-  --ink-muted: oklch(0.65 0.01 60);
+  /* Ink tokens — Catppuccin Frappe. --ink for primary text; --ink-muted for secondary. */
+  --ink: oklch(0.92 0.04 273.3);
+  --ink-muted: oklch(0.80 0.04 274.5);
 
-  /* Border tokens — hairline, "present without competing". */
-  --border: oklch(0.30 0.008 60);
-  --border-strong: oklch(0.38 0.01 60);
+  /* Border tokens — Catppuccin Frappe. Hairline, "present without competing". */
+  --border: oklch(0.521 0.039 274.0);
+  --border-strong: oklch(0.58 0.04 274.0);
 
-  /* Accent — F08: emerald punch (chroma up + hue shift 150→152 for gap to --positive).
-     Same lightness; chroma 0.13 → 0.20 lifts the brand mark off the body. */
-  --accent: oklch(0.68 0.20 152);
-  --accent-hover: oklch(0.74 0.20 152);
-  --accent-ink: oklch(0.18 0.01 60);
+  /* Accent — F14: teal (Catppuccin Frappe accent, hue 184.6).
+     Replaces emerald hue 152. Chroma 0.073 matches Frappe accent. */
+  --accent: oklch(0.783 0.073 184.6);
+  --accent-hover: oklch(0.84 0.073 184.6);
+  --accent-ink: oklch(0.20 0.02 274);
 
-  /* Status colors — F08: positive lifted (L 0.70→0.79) to read as bright "data signal"
-     against the dark body; negative chroma up (0.18→0.20). Hue families preserved. */
-  --positive: oklch(0.79 0.19 145);
-  --negative: oklch(0.69 0.20 25);
+  /* Status colors — F14: Catppuccin Frappe green (positive) and red (negative). */
+  --positive: oklch(0.812 0.107 133.4);
+  --negative: oklch(0.717 0.124 19.4);
 
   /* Legacy aliases — point to the new OKLCH tokens so existing rules
      (still using var(--fg), var(--muted)) resolve to the same values
@@ -36,25 +36,24 @@
   --fg: var(--ink);
   --muted: var(--ink-muted);
 
-  /* App-specific error feedback — sunken red surface, lightness-lifted red foreground. */
-  --error-bg: oklch(0.30 0.04 25);
-  --error-fg: oklch(0.80 0.10 25);
+  /* App-specific error feedback — Catppuccin Frappe red family. */
+  --error-bg: oklch(0.35 0.06 19.4);
+  --error-fg: oklch(0.80 0.10 19.4);
 
-  /* Status ink tokens — dark on lifted fills (AAA contrast over --positive / --negative). */
-  --negative-ink: oklch(0.18 0.01 60);
-  --positive-ink: oklch(0.18 0.01 60);
+  /* Status ink tokens — dark on lifted fills (contrast over --positive / --negative). */
+  --negative-ink: oklch(0.20 0.02 274);
+  --positive-ink: oklch(0.20 0.02 274);
 
-  /* Class color tokens — lightness-lifted variants of the swatch palette.
+  /* Class color tokens — F14 Catppuccin Frappe-derived palette.
      Must stay in sync with _CLASS_COLORS in src/omaha/routes/pages.py. */
-  --class-1: oklch(0.65 0.15 250); /* blue   (hue 250 lifted to L=0.65) */
-  --class-2: oklch(0.72 0.13 130); /* green  (hue shifted to 130 to disambiguate from --positive at 145, D-F05.4) */
-  --class-3: oklch(0.72 0.18 350); /* magenta-red — F08 hue shift from 25 to 350 to disambiguate
-                                      from --negative (also hue 25). Hue gap 325° ≥ 320° invariant. */
-  --class-4: oklch(0.75 0.13 50);  /* orange */
-  --class-5: oklch(0.65 0.12 300); /* purple */
-  --class-6: oklch(0.72 0.10 200); /* teal   */
-  --class-7: oklch(0.55 0.06 60);  /* warm-brown */
-  --class-8: oklch(0.60 0.02 250); /* slate */
+  --class-1: oklch(0.742 0.104 265.7); /* blue   */
+  --class-2: oklch(0.765 0.111 311.7); /* lavender */
+  --class-3: oklch(0.783 0.073 184.6); /* teal   */
+  --class-4: oklch(0.812 0.107 133.4); /* green  */
+  --class-5: oklch(0.844 0.08 83.5);   /* amber  */
+  --class-6: oklch(0.717 0.124 19.4);  /* red    */
+  --class-7: oklch(0.65 0.04 274);     /* muted blue-gray */
+  --class-8: oklch(0.70 0.03 274);     /* slate  */
 
   /* Derived import-preview tints — keep formula tokenized so class-chip
      surfaces follow live class palette on dark --surface. */
@@ -67,16 +66,16 @@
   --class-7-tint: color-mix(in srgb, var(--class-7) 38%, var(--surface));
   --class-8-tint: color-mix(in srgb, var(--class-8) 38%, var(--surface));
 
-  /* Focus ring color (S05 T04) — blue-foco with lightness adjusted for dark. */
-  --color-focus: oklch(0.65 0.15 250);
+  /* Focus ring color — F14: matches new --class-1 (Catppuccin Frappe blue). */
+  --color-focus: oklch(0.742 0.104 265.7);
 
-  /* Alert severity tokens (asset-table-view 5.2). */
+  /* Alert severity tokens — F14 Catppuccin Frappe amber. */
   --alert-ok: var(--positive);
-  --alert-warn: oklch(0.78 0.16 75); /* amber — F08 hue 85→75, chroma 0.13→0.16. */
+  --alert-warn: oklch(0.844 0.08 83.5); /* amber — Catppuccin Frappe */
   --alert-danger: var(--negative);
 
-  /* Hover surface for editable table cells (asset-table-view 5.3). */
-  --bg-hover: oklch(0.28 0.01 60);
+  /* Hover surface for editable table cells — F14: matches surface-elevated. */
+  --bg-hover: oklch(0.395 0.034 275.9);
 
   /* Single source of truth for asset table column proportions
      (class-section-consolidated-totals). Read by both the
@@ -1007,7 +1006,7 @@ p.error, .error {
 .portfolio-header {
   display: grid; grid-template-columns: repeat(3, 1fr);
   gap: 1rem; margin: 1.5rem 0; padding: 1.25rem;
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--surface-elevated); border: 1px solid var(--border);
   border-radius: 8px;
 }
 .portfolio-stat { display: flex; flex-direction: column; gap: 0.25rem; }
@@ -1025,7 +1024,7 @@ p.error, .error {
 .dashboard-distribution h2 { font-size: 1.1rem; margin-bottom: 1rem; }
 .class-section {
   margin-bottom: 1.25rem; padding: 1rem;
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--surface-elevated); border: 1px solid var(--border);
   border-radius: 8px;
 }
 .class-section-header {
@@ -1045,7 +1044,10 @@ p.error, .error {
      Valor / Alvo / Atual / Sobra|Falta land under their matching
      <th> (cols 4 / 7 / 8 / 9). The remaining two cols (Venda /
      Moeda) carry no header content — the empty cells complete
-     the grid. */
+     the grid.
+
+     F14: tinted bg via color-mix 30% class-color + 2px solid
+     class-color border-bottom. Swatch square removed. */
   display: grid;
   grid-template-columns:
     var(--col-ativo) var(--col-classe) var(--col-qtd)
@@ -1056,6 +1058,36 @@ p.error, .error {
   margin-bottom: 0.5rem;
   cursor: pointer;
   user-select: none;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0.25rem;
+  border-radius: 8px 8px 0 0;
+}
+/* F14: class-colored header — tinted bg (30% class-color over --bg)
+   + 2px solid class-color border-bottom. Swatch square removed;
+   name text carries the color. */
+.dashboard-distribution .class-section:nth-of-type(6n+1) .class-section-header {
+  background: color-mix(in srgb, var(--class-1) 30%, var(--bg));
+  border-bottom-color: var(--class-1);
+}
+.dashboard-distribution .class-section:nth-of-type(6n+2) .class-section-header {
+  background: color-mix(in srgb, var(--class-2) 30%, var(--bg));
+  border-bottom-color: var(--class-2);
+}
+.dashboard-distribution .class-section:nth-of-type(6n+3) .class-section-header {
+  background: color-mix(in srgb, var(--class-3) 30%, var(--bg));
+  border-bottom-color: var(--class-3);
+}
+.dashboard-distribution .class-section:nth-of-type(6n+4) .class-section-header {
+  background: color-mix(in srgb, var(--class-4) 30%, var(--bg));
+  border-bottom-color: var(--class-4);
+}
+.dashboard-distribution .class-section:nth-of-type(6n+5) .class-section-header {
+  background: color-mix(in srgb, var(--class-5) 30%, var(--bg));
+  border-bottom-color: var(--class-5);
+}
+.dashboard-distribution .class-section:nth-of-type(6n+6) .class-section-header {
+  background: color-mix(in srgb, var(--class-6) 30%, var(--bg));
+  border-bottom-color: var(--class-6);
 }
 .hdr-leading {
   grid-column: 1 / span 3;
@@ -1068,7 +1100,8 @@ p.error, .error {
      col 4 / col 5 boundary and reads as "between columns"). */
   text-align: left;
   font-variant-numeric: tabular-nums;
-  font-weight: 500;
+  font-weight: 600;
+  color: var(--ink);
 }
 .hdr-delta { grid-column: 5; justify-self: start; }
 .hdr-alvo { grid-column: 7; justify-self: start; }
@@ -1082,7 +1115,14 @@ p.error, .error {
    pushed × to the right edge of the leading grid slot). min-width
    0 keeps long names from overflowing the cols 1-3 area; they wrap
    instead. */
-.class-section-name { font-weight: 600; font-size: 0.95rem; flex: 0 0 auto; min-width: 0; }
+/* F14: class name text carries the class color at weight 700. */
+.dashboard-distribution .class-section:nth-of-type(6n+1) .class-section-name { color: var(--class-1); }
+.dashboard-distribution .class-section:nth-of-type(6n+2) .class-section-name { color: var(--class-2); }
+.dashboard-distribution .class-section:nth-of-type(6n+3) .class-section-name { color: var(--class-3); }
+.dashboard-distribution .class-section:nth-of-type(6n+4) .class-section-name { color: var(--class-4); }
+.dashboard-distribution .class-section:nth-of-type(6n+5) .class-section-name { color: var(--class-5); }
+.dashboard-distribution .class-section:nth-of-type(6n+6) .class-section-name { color: var(--class-6); }
+.class-section-name { font-weight: 700; font-size: 0.95rem; flex: 0 0 auto; min-width: 0; }
 
 /* Class section body collapse animation (S05 T01). Uses
    max-height transition with a generous upper bound so the
@@ -1123,7 +1163,7 @@ p.error, .error {
   font-feature-settings: "tnum";
 }
 .pct-target { color: var(--muted); }
-.pct-current { color: var(--fg); font-weight: 500; }
+.pct-current { color: var(--fg); font-weight: 600; }
 
 /* Per-asset rows (S05 T02) */
 .dashboard-asset-list { list-style: none; padding: 0; margin: 0; }
@@ -1146,8 +1186,8 @@ p.error, .error {
 }
 .asset-row-name { font-size: 0.92rem; flex: 1; min-width: 6rem; }
 .asset-row-positions { color: var(--muted); font-size: 0.72rem; }
-.asset-row-value { font-size: 0.88rem; font-weight: 500; font-feature-settings: "tnum"; }
-.asset-row-pct { font-size: 0.78rem; color: var(--muted); min-width: 3.5rem; text-align: right; font-feature-settings: "tnum"; }
+.asset-row-value { font-size: 0.88rem; font-weight: 600; font-feature-settings: "tnum"; color: var(--ink); }
+.asset-row-pct { font-size: 0.78rem; color: var(--ink); min-width: 3.5rem; text-align: right; font-feature-settings: "tnum"; font-weight: 600; }
 
 /* Dashboard load animations per DESIGN.md motion section.
    The fills carry their final width as --final-width (set inline from
@@ -1264,6 +1304,7 @@ p.error, .error {
   table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.9rem;
+  background: var(--surface-sunk);
 }
 
 .asset-table thead {
@@ -1301,7 +1342,7 @@ p.error, .error {
 .asset-table col:nth-child(11) { width: var(--col-currency); }
 
 .asset-table td {
-  padding: 0.4rem;
+  padding: 0.05rem 0.4rem;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
   /* class-section-consolidated-totals: long asset names wrap inside
@@ -1480,7 +1521,7 @@ td.editing {
   font-size: 0.7rem;
   font-weight: 600;
   padding: 0.15rem 0.5rem;
-  border-radius: 999px;
+  border-radius: 4px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--fg-muted);
@@ -1490,14 +1531,14 @@ td.editing {
   text-align: center;
 }
 .trade-toggle--on {
-  background: color-mix(in srgb, var(--positive) 14%, var(--surface));
-  border-color: color-mix(in srgb, var(--positive) 60%, var(--border));
+  background: color-mix(in srgb, var(--positive) 15%, var(--surface));
+  border-color: color-mix(in srgb, var(--positive) 50%, var(--border));
   color: var(--positive);
 }
 .trade-toggle--off {
-  background: color-mix(in srgb, var(--fg-muted) 8%, var(--surface));
-  border-color: var(--border);
-  color: var(--fg-muted);
+  background: color-mix(in srgb, var(--negative) 12%, var(--surface));
+  border-color: color-mix(in srgb, var(--negative) 40%, transparent);
+  color: var(--negative);
 }
 .trade-toggle:disabled {
   opacity: 0.55;
@@ -1586,7 +1627,7 @@ td.editing {
   font-variant-numeric: tabular-nums;
   padding: 0.15rem 0.5rem;
   border: 1px dashed var(--border-strong);
-  border-radius: 999px;
+  border-radius: 4px;
   background: var(--surface);
   color: var(--fg);
   cursor: pointer;
@@ -1610,7 +1651,7 @@ td.editing {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   padding: 0.15rem 0.5rem;
-  border-radius: 999px;
+  border-radius: 4px;
   background: var(--surface);
   color: var(--fg);
 }
@@ -1631,7 +1672,7 @@ td.editing {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   padding: 0.15rem 0.5rem;
-  border-radius: 999px;
+  border-radius: 4px;
 }
 .pct-delta-pill--short {
   background: color-mix(in srgb, var(--negative) 10%, var(--surface));
@@ -2888,11 +2929,18 @@ select:-webkit-autofill {
 .class-table thead th {
   position: sticky;
   top: 0;
-  background: var(--surface-sunk);
   z-index: 1;
-  /* Thead border-bottom adds a hairline that survives scroll
-     (otherwise the sticky edge looks naked against the rows). */
+}
+
+.table-sticky-header thead th,
+.class-table thead th {
+  background: var(--surface-sunk);
   border-bottom: 1px solid var(--border);
+}
+
+.asset-table thead th {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border-bottom: 2.5px solid var(--border-strong);
 }
 
 /* Row hover lift — feedback tátil sem transition agressivo
@@ -2956,6 +3004,8 @@ tr:focus-within .row-actions {
 .is-numeric {
   text-align: right;
   font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--ink);
 }
 
 /* Form R$ prefix — visual wrapper for currency inputs (D-F10.11).

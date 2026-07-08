@@ -7,7 +7,6 @@
         <header class="class-section-header" data-testid="class-section-header" @click="isOpen = !isOpen">
           <div class="hdr-leading">
             <span class="class-chevron icon icon--md" data-testid="class-chevron" :class="{'class-chevron--open': isOpen}" aria-hidden="true">expand_more</span>
-            <span class="class-color-swatch" data-testid="class-color-swatch" style="background:{{ c.color }}"></span>
             <span class="class-section-name" data-testid="class-section-name">{{ c.name }}</span>
             {# F01 household mode: hide the per-class × delete affordance.
                The button is server-rendered (not Alpine-driven), so a

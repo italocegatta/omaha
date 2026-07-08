@@ -684,18 +684,16 @@ __all__ = [
 # than 8 classes wraps around. AssetClass has no ``color`` column;
 # this is the patrimonio's deterministic-per-position palette.
 #
-# F08: mirrors `--class-1..8` in :root (slots 1-6 exact mirror; slots
-# 7-8 extend the palette with warm-brown + slate for the 7th/8th
-# cycle positions). Previously hex literals — drift source killed.
+# F14: Catppuccin Frappe-derived palette. Mirrors --class-1..8 in :root.
 _CLASS_COLORS: tuple[str, ...] = (
-    "oklch(0.65 0.15 250)",  # blue          -- mirrors --class-1
-    "oklch(0.72 0.13 130)",  # leaf green    -- mirrors --class-2
-    "oklch(0.72 0.18 350)",  # magenta-red   -- mirrors --class-3 (F08 hue shift)
-    "oklch(0.75 0.13 50)",  # burnt orange  -- mirrors --class-4
-    "oklch(0.65 0.12 300)",  # plum          -- mirrors --class-5
-    "oklch(0.72 0.10 200)",  # teal          -- mirrors --class-6
-    "oklch(0.55 0.06 60)",  # warm-brown    -- 7th cycle slot
-    "oklch(0.60 0.02 250)",  # slate         -- 8th cycle slot
+    "oklch(0.742 0.104 265.7)",  # blue          -- mirrors --class-1
+    "oklch(0.765 0.111 311.7)",  # lavender       -- mirrors --class-2
+    "oklch(0.783 0.073 184.6)",  # teal           -- mirrors --class-3
+    "oklch(0.812 0.107 133.4)",  # green          -- mirrors --class-4
+    "oklch(0.844 0.08 83.5)",    # amber          -- mirrors --class-5
+    "oklch(0.717 0.124 19.4)",   # red            -- mirrors --class-6
+    "oklch(0.65 0.04 274)",      # muted blue-gray -- 7th cycle slot
+    "oklch(0.70 0.03 274)",      # slate          -- 8th cycle slot
 )
 
 

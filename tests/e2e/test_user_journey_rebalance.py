@@ -197,7 +197,8 @@ class TestS05DashboardJourney:
             assert section.locator(S05_SELECTORS["class_current_pct"]).count() >= 1
             # Compare-bar is gone; the section header carries the three
             # pills as the single source of truth for class metrics.
-            assert section.locator(S05_SELECTORS["class_color_swatch"]).count() >= 1
+            # F14: swatch square removed — class name text carries the color
+            # via nth-of-type CSS selectors on the tinted header.
             # class_delta_badge is in the DOM via x-show; visible only when off.
             assert section.locator(S05_SELECTORS["class_delta_badge"]).count() == 1
 
@@ -207,18 +208,6 @@ class TestS05DashboardJourney:
             assert "%" in target_text, f"target line missing %: {target_text!r}"
             assert "Atual" in current_text, f"current line missing 'Atual': {current_text!r}"
             assert "%" in current_text, f"current line missing %: {current_text!r}"
-
-            # Color swatch has a non-empty inline background.
-            swatch_style = section.locator(S05_SELECTORS["class_color_swatch"]).first.get_attribute(
-                "style"
-            )
-            assert swatch_style, f"class {i} swatch has no inline style"
-            assert "background" in swatch_style, (
-                f"class {i} swatch missing background: {swatch_style!r}"
-            )
-            assert "transparent" not in swatch_style, (
-                f"class {i} swatch transparent: {swatch_style!r}"
-            )
 
         # --- 3. 48 asset rows each with name, position count, BRL value,
         # pct. The per-asset progress bar is gone.

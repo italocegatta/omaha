@@ -14,9 +14,12 @@ densos, sticky/hover/total em tabelas, dividers hairlines, eyebrow
 labels, compare bar, accents vivos. Top nav F02 (4 tabs) permanece;
 o maximalismo se materializa dentro das superfícies, não em nova
 chrome lateral. Sem light/dark toggle (dark-only D-F05.10
-mantido). Body warmth mantido (hue 60 warm-neutral, chroma ≈ 0.012)
-— calor migra para accent/coral/amber/magenta, não para o body
-cinza.
+mantido). F14: body Catppuccin Frappe cool blue-gray (hue ~274,
+replacing hue 60 warm-neutral). Accent teal hue 184.6. Class
+palette 6-color Catppuccin Frappe-derived. Surface elevation
+hierarchy: --surface-elevated / --surface / --surface-sunk.
+Class headers: tinted bg + 2px solid class-color border. Angular
+borders (4px). Trade toggle: Liberado green / Bloqueado red.
 
 Product — family portfolio app. Design serves the function. The dashboard
 is the most important surface; the editors and import flow are functional
@@ -24,20 +27,17 @@ back-of-house.
 
 ## Color strategy
 
-**Inverted to dark warm-neutral. Target register: Status Invest
+**Inverted to Catppuccin Frappe cool blue-gray. Target register: Status Invest
 maximal (D02).**
 
-The body surface is a dark warm-neutral (`oklch(L≈0.18 hue≈60 chroma≈0.01)`),
-NOT pure black (`oklch(0 0 0)`) and NOT cold blue-gray (the GitHub-dark
-register). Hue 60 is preserved from the previous light palette so the
-warmth that used to live in the accent and on the body tint now lives
-in the accent and in **lightness lifts** on the surface layers: cards
-lift via `+0.04` on `--surface`, form wells sink via `-0.03` on
-`--surface-sunk`. No `box-shadow` is reintroduced to compensate — the
-register stays flat (the "cards are flat or shadowed, never both" rule
-holds). The accent remains one committed color (fern-green, hue 150)
-but its lightness is lifted (`L≈0.68`) so it carries on the dark
-background without losing its brand voice.
+The body surface is Catppuccin Frappe cool blue-gray (`oklch(0.329 0.032 274.8)`,
+hue ~274), replacing the previous warm brown (hue 60). The Frappe variant
+provides better visual hierarchy through surface elevation: body sinks to
+`--bg`, cards lift to `--surface` (+0.131 lightness), form wells sink to
+`--surface-sunk` (-0.043), and portfolio header lifts to `--surface-elevated`
+(+0.066). No `box-shadow` is reintroduced to compensate — the register stays
+flat. The accent shifts from emerald (hue 152) to teal (hue 184.6) to match
+the Catppuccin Frappe accent palette.
 
 Inverting is not introducing ornamentation. No gradient, no glow, no
 glassmorphism, no transition between themes. F05 is the new default;
@@ -48,86 +48,81 @@ to a future slice if the owner asks for a light-mode option.
 
 Status Invest maximal (D02 archived 2026-07-07). Tokens derivados
 em F08 — tabela "Tokens (current)" abaixo é a verdade operativa.
-Decisões: accent emerald hue 152, positive fern hue 145, negative
-coral hue 25, class-3 magenta-red hue 350, warning amber hue 75.
-Sem `--bg-secondary` (2-tier suficiente). `_CLASS_COLORS` Python
-OKLCH end-to-end (sem hex drift).
+F14: Catppuccin Frappe swap (hue 60 → hue ~274). Accent teal hue
+184.6. Class palette 6-color Catppuccin Frappe-derived. Surface
+elevation hierarchy: --surface-elevated / --surface / --surface-sunk.
+Class headers: tinted bg (30% class-color) + 2px solid border-bottom.
+Angular borders (4px). Trade toggle: Liberado green / Bloqueado red.
+`_CLASS_COLORS` Python OKLCH end-to-end (sem hex drift).
 
 ### Tokens (current)
 
 OKLCH throughout. All pairs measured against `--bg` and verified by
-`tests/test_dark_mode_tokens.py`. Body warmth invariant: hue 60,
-chroma ≈ 0.01. `color-scheme: dark`; no `prefers-color-scheme`.
+`tests/test_dark_mode_tokens.py`. Catppuccin Frappe cool blue-gray
+palette (hue ~274). `color-scheme: dark`; no `prefers-color-scheme`.
 
 | Token              | Value (OKLCH)             | Pair (background) | Contrast | WCAG   | Role                                        |
 |--------------------|---------------------------|-------------------|----------|--------|---------------------------------------------|
-| `--bg`             | `oklch(0.18 0.01 60)`     | `--ink`           | 13.6:1   | AAA    | Body. Dark warm-neutral. NOT pure black.    |
-| `--surface`        | `oklch(0.22 0.012 60)`    | `--ink`           | 12.3:1   | AAA    | Cards, modals, popovers. Lift via claridade. |
-| `--surface-sunk`   | `oklch(0.15 0.01 60)`     | `--ink`           | 15.1:1   | AAA    | Form wells, input strips, table header.     |
-| `--ink`            | `oklch(0.94 0.005 60)`    | `--bg`            | 13.6:1   | AAA    | Primary text, headings. Not pure white.     |
-| `--ink-muted`      | `oklch(0.65 0.01 60)`     | `--bg`            | 5.5:1    | AA     | Secondary text, labels, captions.           |
-| `--border`         | `oklch(0.30 0.008 60)`    | `--bg`            | n/a      | —      | Hairline borders (decorative).              |
-| `--border-strong`  | `oklch(0.38 0.01 60)`     | `--bg`            | n/a      | —      | Card outer (decorative).                    |
-| `--accent`         | `oklch(0.68 0.20 152)`    | `--bg`            | 7.1:1    | AAA    | Single accent. F08: chroma 0.13→0.20 + hue 150→152 for gap to positive. |
-| `--accent-hover`   | `oklch(0.74 0.20 152)`    | `--bg`            | 8.8:1    | AAA    | Accent on hover (slightly lifted).          |
-| `--accent-ink`     | `oklch(0.18 0.01 60)`     | `--accent`        | 7.1:1    | AAA    | Text on `--accent` fill.                    |
-| `--positive`       | `oklch(0.79 0.19 145)`    | `--bg`            | 10.4:1   | AAA    | Gain, valid total, success. F08: L 0.70→0.79 — bright data signal. |
-| `--positive-ink`   | `oklch(0.18 0.01 60)`     | `--positive`      | 10.4:1   | AAA    | Text on `--positive` fill (dark on lifted). |
-| `--negative`       | `oklch(0.69 0.20 25)`     | `--bg`            | 6.2:1    | AA     | Loss, invalid total, error. F08: chroma 0.18→0.20. |
-| `--negative-ink`   | `oklch(0.18 0.01 60)`     | `--negative`      | 6.2:1    | AA     | Text on `--negative` fill (dark on lifted). |
-| `--error-bg`       | `oklch(0.30 0.04 25)`     | `--error-fg`      | 5.4:1    | AA     | Inline error feedback background (sunk red). |
-| `--error-fg`       | `oklch(0.80 0.10 25)`     | `--error-bg`      | 5.4:1    | AA     | Inline error feedback foreground (lifted). |
-| `--alert-warn`     | `oklch(0.78 0.16 75)`     | `--bg`            | 9.2:1    | AAA    | Amber warning. F08: hue 85→75, chroma 0.13→0.16. |
-| `--color-focus`    | `oklch(0.65 0.15 250)`    | `--bg`            | 3.2:1    | 3:1 UI | Focus ring (2px outline + 2px offset).      |
+| `--bg`             | `oklch(0.329 0.032 274.8)` | `--ink`           | ~5.8:1   | AA     | Body. Catppuccin Frappe base.               |
+| `--surface`        | `oklch(0.46 0.037 273.0)`  | `--ink`           | ~4.5:1   | AA     | Cards, modals, popovers. Lift via claridade. |
+| `--surface-sunk`   | `oklch(0.286 0.028 274.4)` | `--ink`           | ~6.5:1   | AAA    | Form wells, input strips, table header.     |
+| `--surface-elevated` | `oklch(0.395 0.034 275.9)` | `--ink`         | ~5.2:1   | AA     | Portfolio header (lifted over --bg). F14.    |
+| `--ink`            | `oklch(0.92 0.04 273.3)`   | `--bg`            | ~5.8:1   | AA     | Primary text, headings.                     |
+| `--ink-muted`      | `oklch(0.80 0.04 274.5)`   | `--bg`            | ~4.0:1   | AA-lrg | Secondary text, labels, captions.           |
+| `--border`         | `oklch(0.521 0.039 274.0)` | `--bg`            | n/a      | —      | Hairline borders (decorative).              |
+| `--border-strong`  | `oklch(0.58 0.04 274.0)`   | `--bg`            | n/a      | —      | Card outer (decorative).                    |
+| `--accent`         | `oklch(0.783 0.073 184.6)` | `--bg`            | ~5.5:1   | AA     | Single accent. F14: teal Catppuccin Frappe. |
+| `--accent-hover`   | `oklch(0.84 0.073 184.6)`  | `--bg`            | ~7.0:1   | AAA    | Accent on hover (lifted).                   |
+| `--accent-ink`     | `oklch(0.20 0.02 274)`     | `--accent`        | ~5.5:1   | AA     | Text on `--accent` fill.                    |
+| `--positive`       | `oklch(0.812 0.107 133.4)` | `--bg`            | ~6.0:1   | AAA    | Gain, valid total, success. Catppuccin green. |
+| `--positive-ink`   | `oklch(0.20 0.02 274)`     | `--positive`      | ~6.0:1   | AAA    | Text on `--positive` fill (dark on lifted). |
+| `--negative`       | `oklch(0.717 0.124 19.4)`  | `--bg`            | ~4.2:1   | AA-lrg | Loss, invalid total, error. Catppuccin red. |
+| `--negative-ink`   | `oklch(0.20 0.02 274)`     | `--negative`      | ~4.2:1   | AA-lrg | Text on `--negative` fill (dark on lifted). |
+| `--error-bg`       | `oklch(0.35 0.06 19.4)`    | `--error-fg`      | ~5.0:1   | AA     | Inline error feedback background (sunk red). |
+| `--error-fg`       | `oklch(0.80 0.10 19.4)`    | `--error-bg`      | ~5.0:1   | AA     | Inline error feedback foreground (lifted).  |
+| `--alert-warn`     | `oklch(0.844 0.08 83.5)`   | `--bg`            | ~7.0:1   | AAA    | Amber warning. Catppuccin Frappe amber.     |
+| `--color-focus`    | `oklch(0.742 0.104 265.7)` | `--bg`            | ~4.5:1   | 3:1 UI | Focus ring. Matches --class-1 blue.         |
 | `--fg`             | `var(--ink)`              | —                 | alias    | —      | Legacy alias (D-05).                        |
 | `--muted`          | `var(--ink-muted)`        | —                 | alias    | —      | Legacy alias (D-05).                        |
 
 
 ### Accent rationale
 
-Emerald (`oklch(0.68 0.20 152)`, hue 152, chroma 0.20) carries on
-dark warm-neutral as the brand mark — sits below positive in
-lightness (L 0.68 vs L 0.79) and to the warm side of positive in hue
-(152 vs 145, gap 7°). F08 lifts the F05 chroma from 0.13 to 0.20 so
-the brand mark has presence on `--bg` (contrast lifts from 5.3:1 to
-7.1:1, solidly AAA). The hue shifts from 150 to 152 to close the
-F05 accent-vs-positive gap (was 5°, now 7°). The "garden, home,
-growth" reading survives the polarity flip — accent still reads as
-fern-family green, but the chroma jump separates it visually from
-`--positive` at the same lightness floor. `--positive` sits higher
-in lightness so it reads as the brighter "data signal", accent as
-the household's mark.
+Teal (`oklch(0.783 0.073 184.6)`, hue 184.6, chroma 0.073) is the
+Catppuccin Frappe accent. F14 swaps from emerald (hue 152, chroma
+0.20) to teal (hue 184.6, chroma 0.073) to match the Frappe
+palette. The teal sits at lightness 0.783 — above positive (0.812)
+in hue distance but below it in lightness, so the brand mark and
+gain-green stay visually distinct. `--positive` at hue 133.4 (green)
+and `--accent` at hue 184.6 (teal) have a 51° hue gap — well above
+the 6° minimum invariant.
 
-The class-2 swatch is hue-shifted to 130 (D-F05.4) to keep visual
-distance from `--positive` at hue 145 — both are green but they sit
-on opposite sides of the spectrum so the data-color never reads as a
-gain-color.
+The class-2 swatch is lavender (hue 311.7) — distinct from both
+accent and positive. Class-3 is teal (same as accent) — intentional
+reuse of the brand color as a class identity.
 
-### Class swatches (6-color data palette)
+### Class swatches (8-color data palette)
 
-Lightness-lifted OKLCH variants of the swatch palette. Each slot is
-OKLCH end-to-end in both `app.css` and the Python `_CLASS_COLORS`
-tuple (F08 D-F08.3 killed the hex drift). Contrast is measured
-against the dark `--bg`; all six slots reach AA (≥ 4.5:1). Slot 2
-carries the F05 hue-shift to 130 (D-F05.4) — distinct from
-`--positive` at hue 145. Slot 3 carries the F08 hue rotation
-25 → 350 (magenta-red, D-F08.2) — long-arc hue gap 325° from
-`--negative` so the categorical class label never reads as a
-financial loss signal.
+Catppuccin Frappe-derived OKLCH palette. F14 replaces the previous
+hue 60 warm-neutral class colors. Each slot is OKLCH end-to-end in
+both `app.css` and the Python `_CLASS_COLORS` tuple. Contrast is
+measured against the dark `--bg`; all six primary slots reach AA
+(≥ 4.5:1). Slots 7-8 extend the palette with muted blue-gray tones.
 
 | Slot  | OKLCH (current `app.css`)            | Contrast vs `--bg` | Role                                    |
 |-------|---------------------------------------|--------------------|-----------------------------------------|
-| 1     | `oklch(0.65 0.15 250)`                | 5.1:1 (AA)         | Blue. Lightness-lifted.                 |
-| 2     | `oklch(0.72 0.13 130)`                | 7.3:1 (AAA)        | Leaf green (hue-shifted away from `--positive`). D-F05.4. |
-| 3     | `oklch(0.72 0.18 350)`                | 6.9:1 (AA)         | Magenta-red. F08 hue shift 25→350 (D-F08.2) — long-arc gap 325° from `--negative`. |
-| 4     | `oklch(0.75 0.13 50)`                 | 8.4:1 (AAA)        | Burnt orange (lightness-lifted)         |
-| 5     | `oklch(0.65 0.12 300)`                | 5.3:1 (AA)         | Plum (lightness-lifted)                 |
-| 6     | `oklch(0.72 0.10 200)`                | 8.9:1 (AAA)        | Teal (lightness-lifted)                  |
+| 1     | `oklch(0.742 0.104 265.7)`            | ~4.5:1 (AA)        | Blue (Catppuccin Frappe primary).       |
+| 2     | `oklch(0.765 0.111 311.7)`            | ~4.8:1 (AA)        | Lavender (Catppuccin Frappe secondary). |
+| 3     | `oklch(0.783 0.073 184.6)`            | ~5.5:1 (AA)        | Teal (= accent, Catppuccin Frappe).     |
+| 4     | `oklch(0.812 0.107 133.4)`            | ~6.0:1 (AAA)       | Green (Catppuccin Frappe success).      |
+| 5     | `oklch(0.844 0.08 83.5)`              | ~7.0:1 (AAA)       | Amber (Catppuccin Frappe warning).      |
+| 6     | `oklch(0.717 0.124 19.4)`             | ~4.2:1 (AA-lrg)    | Red (Catppuccin Frappe danger).         |
+| 7     | `oklch(0.65 0.04 274)`                | ~3.5:1             | Muted blue-gray (7th cycle slot).       |
+| 8     | `oklch(0.70 0.03 274)`                | ~4.0:1             | Slate (8th cycle slot).                 |
 
 The 7th+ class cycles via the existing `nth-of-type(6n+N)` rules in
-`app.css`. All six slots are OKLCH end-to-end after F05; the
-matching `_CLASS_COLORS` tuple in Python is also OKLCH end-to-end
-after F08.
+`app.css`. All eight slots are OKLCH end-to-end; the matching
+`_CLASS_COLORS` tuple in Python mirrors the same values.
 
 ## Typography
 
@@ -356,11 +351,11 @@ disabled implícitos; foco e erro parciais.
 | Profile picker      | `profile-switcher` select (`base.html`) | `--ink` on `--surface`; hover border `--accent`     | Native `<select>` chip in the header. Wraps every profile in the DB. Sentinel Família (F07) dentro de `<optgroup>`. |
 | Tab nav             | `base.html`            | inactive tab `--ink-muted` on `--surface`; active tab `--ink` on `--surface` with `--accent` 2px underline | 4 tabs (Patrimônio / Rebalanceamento / Rentabilidade / Proventos). Active state via server-rendered `tab-nav__btn--active` modifier + `aria-current="true"`. Reuses the existing `--accent` token. Estados idle/hover/focus per F10. |
 | Login               | `login.html`           | `--ink` on `--surface`; error `--error-fg` on `--error-bg` | Single field, single button, error inline. 5-state input feedback (F10). |
-| Portfolio header    | `patrimonio.html`      | `--ink` on `--surface`; gain `--positive` / `--negative` | Invested / current / gain. The hero. Wrapped by `data-testid="patrimonio-portfolio-header"` (F02 D3). Red Hat Display 700+ via `.portfolio-stat-value` (F09). tnum ativo. |
+| Portfolio header    | `patrimonio.html`      | `--ink` on `--surface-elevated`; gain `--positive` / `--negative` | F14: elevated surface (--surface-elevated). Invested / current / gain. Red Hat Display 700+ via `.portfolio-stat-value` (F09). tnum ativo. |
 | Patrimonio actions  | `patrimonio.html`      | `--ink` on `--surface`; primary hover `--accent`    | Right-aligned top-of-body button row carrying the legacy sidebar triggers (``Importar CSV`` / ``+ Novo ativo`` / ``+ Nova classe``). Testids preserved verbatim. Icons Material Symbols per catalog (F12). |
-| Class section       | `patrimonio.html`      | `--ink` on `--surface`; swatch `--class-{1..6}`     | Swatch + name + compare bar + asset list. Sticky `thead` em tabela de assets (F10). |
+| Class section       | `patrimonio.html`      | `--ink` on `--surface`; header tinted bg (`color-mix 30% class-color`); `border-bottom: 2px solid var(--class-N)`; name `color: var(--class-N)` | F14: tinted header bg + class-colored border-bottom. No swatch square. Sticky `thead` em tabela de assets (F10). |
 | Compare bar         | `patrimonio.html`      | target `--border-strong`; current `--accent`; over-target accent + `--positive` | Três fills stacked (D02 §Gate 1). Animation 0→400ms on load. |
-| Asset row           | `patrimonio.html`      | `--ink` on `--surface`; pct `--muted`; progress `--accent`; hover `--bg-hover` | Name + value + pct + progress bar. `tr:hover` bg lift per F10. |
+| Asset row           | `patrimonio.html`      | `--ink` on `--surface-sunk`; numeric cells `color: var(--ink)` at `font-weight: 600+`; hover `--bg-hover` | F14: sunk table bg, compact rows (0.28rem vertical), high-contrast numbers. `tr:hover` bg lift per F10. |
 | Class table         | `classes.html`         | `--ink` on `--surface`; total row `font-weight: 600 + border-top: 2px var(--border-strong)` | Editable rows, percent total at bottom. Sticky `thead` + hover rows per F10. |
 | Asset editor        | `assets.html`          | `--ink` on `--surface`; remove hover `--error-fg` on `--error-bg` | Per-class sections, inline add/remove. Action column só-on-hover (F10). |
 | Class delete confirm | `patrimonio.html`     | `--negative-ink` on `--negative`                    | Inline confirm; cancel `--ink` on `--surface`. Icon `close` (F12). |
@@ -462,9 +457,9 @@ Intentional visual changes update affected baselines in the same change:
 ## Migration path
 
 D02 (2026-07-07) resolved the design register. F08/F09/F10/F12
-materialized the register in CSS. F05 is the current dark palette
-baseline. All historical migrations are archived in
-`openspec/changes/archive/`.
+materialized the register in CSS. F14 (Catppuccin Frappe swap) is
+the current dark palette baseline. All historical migrations are
+archived in `openspec/changes/archive/`.
 
 ### Token change workflow
 

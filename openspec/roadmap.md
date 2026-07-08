@@ -44,8 +44,7 @@ verificação for específica por comando) entre gates.
 
 ## Slices
 
-All slices archived or closed. No active work. See `openspec/changes/archive/`
-for full proposal/design/tasks of each.
+All previous slices archived or closed. F14 is the active slice.
 
 ### F01 - Consolidação cross-profile (visão household agregada)
 Status: `Archived` (superseded by F06) — 2026-07-04
@@ -164,17 +163,58 @@ Archive: `openspec/changes/archive/2026-07-07-d01-refresh-readme/`
 Status: `Archived` — 2026-07-07
 Archive: `openspec/changes/archive/2026-07-07-d02-design-register-decision/`
 
+### F14 - Catppuccin Frappe theme + component differentiation
+Status: `Archived` — 2026-07-08
+Archive: `openspec/changes/archive/2026-07-08-f14-catppuccin-frappe-theme/`
+Goal: Replace warm-brown dark palette (hue 60) with Catppuccin Frappe
+  cool blue-gray (hue ~274). Differentiate components via surface
+  elevation, class-colored headers, sunk asset tables, compact rows,
+  angular borders, and high-contrast numbers.
+Candidate OpenSpec change id: `f14-catppuccin-frappe-theme`
+Spec link: `openspec/changes/f14-catppuccin-frappe-theme/`
+Spec: `openspec/specs/color-tokens/spec.md` (update),
+  `openspec/specs/component-state-language/spec.md` (update)
+Files: `src/omaha/static/app.css`, `DESIGN.md`,
+  `_patrimonio_class_section.html`, `_patrimonio_portfolio_header.html`
+Scope:
+  1. Token swap: --bg, --surface, --surface-sunk, --border, --ink,
+     --ink-muted, --accent, --positive, --negative, --error-bg/fg,
+     --class-1..6 → Catppuccin Frappe OKLCH values.
+  2. New token: --surface-elevated (portfolio header).
+  3. Class header: tinted bg (color-mix 30% class-color) + 2px solid
+     border-bottom. No swatch square — name carries the color.
+  4. Asset table: --surface-sunk background (inset feel).
+  5. Row padding: 0.55rem → 0.28rem (−50% vertical).
+  6. Border-radius: pills/toggles 999px → 4px (angular).
+  7. Trade toggle: Liberado = success green, Bloqueado = danger red.
+  8. Number contrast: all numeric cells use --ink at weight 600+.
+  9. Update DESIGN.md tokens table + color strategy section.
+  10. Update visual baselines (task test-visual).
+Notes: Mockup validated at /mockup (v4). Theme source:
+  Catppuccin Frappe (https://catppuccin.com/palette).
+  Hue 274 (periwinkle blue) replaces hue 60 (warm brown).
+  PRD §4.10 brand register: "domestic, no ornament" — theme
+  swap is palette-only, no gradient/glow/glassmorphism.
+Progress:
+  - 2026-07-08: Propose complete. All artifacts created (proposal, design,
+    specs, tasks). Change validated. Status → Spec Proposed.
+  - 2026-07-08: Apply complete. All 27 tasks implemented:
+    token swap (1.1-1.7), component differentiation (2.1-2.6),
+    class header differentiation (3.1-3.4), portfolio header elevation
+    (4.1), Python class-color sync (5.1-5.2), DESIGN.md update (6.1-6.3),
+    test updates (7.1, 7.3), mockup route removal (8.1).
+    Visual baselines (7.2) need regeneration by owner.
+    Status → Applied.
+  - 2026-07-08: Refresh-for-test complete. Server restarted at
+    http://192.168.1.6:8000. DB: 12 classes, 100 assets, 99 positions.
+    Dashboard renders correctly. Delivery receipt emitted.
+
 ---
 
 ## Recommended Execution Order
 
-All slices archived. No active queue. Next work comes from owner demand
-or `add "<intent>"` command.
-
-**Historical order** (for reference):
-R01 → F02 → F01 → F06 → F07 → F05 → R02 → R03 → R04 → T05 → T01 →
-T02 → T03 → I01 → I02 → D01 → D02 → F08 → F09 → F10 → F12 → R05 →
-T06 → R06.
+**Active queue:**
+(empty — F14 archived, no new slices pending)
 
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed, reactivation path documented above.
@@ -223,4 +263,4 @@ Each resolved and applied in the referenced slice.
 - [x] `.gitignore` cobre `openspec/.temp_assets/`.
 - [x] Grill 2026-07-03 resolvido (D1-D9 em §Decisions).
 - [x] PRD §5.3 marcado para reescrita no mesmo PR do `propose` de F02 (D8).
-
+- [x] F14 — Catppuccin Frappe theme + component differentiation (Archived).
