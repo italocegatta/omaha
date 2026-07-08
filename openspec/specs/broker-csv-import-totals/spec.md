@@ -2,6 +2,10 @@
 
 Synced from change `broker-csv-import-totals`.
 
+## Purpose
+
+Preserve broker-provided `Total investido` and `Total atual` values from CSV import through parser, commit, and dashboard aggregation without recomputing from `qty × price`.
+
 ## Requirements
 
 ### Requirement: Parser extrai `Total investido` e `Total atual` do CSV

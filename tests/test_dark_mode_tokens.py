@@ -544,3 +544,24 @@ def test_class_colors_tuple_all_oklch_no_hex() -> None:
         )
         # Parse must succeed.
         Color(value).convert("oklch")
+
+
+def test_class_tint_tokens_exist_for_all_runtime_slots() -> None:
+    """R05 — import preview tints SHALL exist for all 8 runtime class slots."""
+    css = APP_CSS_PATH.read_text(encoding="utf-8")
+
+    for i in range(1, 9):
+        base = f"--class-{i}:"
+        tint = f"--class-{i}-tint: color-mix(in srgb, var(--class-{i}) 38%, var(--surface));"
+        assert base in css, f"{base} missing from CSS root block"
+        assert tint in css, f"{tint} missing from CSS root block"
+
+
+def test_runtime_css_has_no_legacy_white_or_hex_tint_backgrounds() -> None:
+    """R05 — runtime stylesheet SHALL not keep legacy white surfaces or hex tint rules."""
+    css = APP_CSS_PATH.read_text(encoding="utf-8")
+
+    assert "background: #fff" not in css
+    assert "background:#fff" not in css
+    assert "#ffffff" not in css
+    assert "color-mix(in srgb, #" not in css

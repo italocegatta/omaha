@@ -25,7 +25,7 @@ markup.
 
 ### Requirement: Upload de CSV no modal (Step 1)
 
-O modal DEVE permitir upload de arquivo CSV via input file e enviar para
+O modal SHALL permitir upload de arquivo CSV via input file e enviar para
 `POST /api/import/preview`. O preview retorna JSON com `preview_id`, `auto_matched`,
 `unmatched`, e `asset_classes`.
 
@@ -40,7 +40,7 @@ O modal DEVE permitir upload de arquivo CSV via input file e enviar para
 
 ### Requirement: Revisão e commit de import (Step 2)
 
-O modal DEVE exibir:
+O modal SHALL exibir:
 - Resumo de linhas auto-matched (data-testid="import-matched-summary")
 - Tabela de linhas unmatched (data-testid="import-unmatched-table") com dropdowns de classe
 - Botão "Confirmar importacao" (data-testid="import-confirm-btn")
@@ -62,7 +62,7 @@ Ao confirmar, DEVE fazer POST /api/import/commit com os assignments e recarregar
 
 ### Requirement: Alpine store global importModal
 
-O estado do modal DEVE viver em um Alpine store global (`$store.importModal`) para
+O estado do modal SHALL viver em um Alpine store global (`$store.importModal`) para
 que o botão trigger (fora do escopo x-data do modal) possa abri-lo.
 
 #### Scenario: Store expõe métodos openModal e closeModal
@@ -174,7 +174,7 @@ A coluna "Preço médio" das tabelas de revisão (`data-testid="import-existing-
 
 ### Requirement: Colunas "Ticker" e "Nome do ativo" removidas das tabelas
 
-As tabelas do Step 2 (`data-testid="import-existing-table"` e `data-testid="import-unmatched-table"`) MUST NOT renderizar as colunas `Ticker` e `Nome do ativo`. O `broker_ticker` continua sendo usado como chave do `<template x-for>` e como chave do objeto `assignments` no Alpine store — só a coluna visual é removida. O nome editável do ativo continua persistido no payload de commit via `assignments[ticker].asset_name`.
+As tabelas do Step 2 (`data-testid="import-existing-table"` e `data-testid="import-unmatched-table"`) SHALL NOT renderizar as colunas `Ticker` e `Nome do ativo`. O `broker_ticker` continua sendo usado como chave do `<template x-for>` e como chave do objeto `assignments` no Alpine store — só a coluna visual é removida. O nome editável do ativo continua persistido no payload de commit via `assignments[ticker].asset_name`.
 
 #### Scenario: Tabela não contém coluna Ticker
 
@@ -195,7 +195,7 @@ As tabelas do Step 2 (`data-testid="import-existing-table"` e `data-testid="impo
 
 ### Requirement: Ortografia corrigida nos textos do modal
 
-Os textos visíveis do modal de import MUST estar corretamente acentuados. As correções MUST incluir:
+Os textos visíveis do modal de import SHALL estar corretamente acentuados. As correções MUST incluir:
 - `Importar posicoes` → `Importar posições` (header do modal)
 - `posicoes` → `posições` (texto de ajuda do Step 1)
 - `Sessao expirada` → `Sessão expirada. Reenvie o arquivo.`
@@ -222,7 +222,7 @@ Os textos visíveis do modal de import MUST estar corretamente acentuados. As co
 
 ### Requirement: Preview de import inclui trade-control por linha
 
-O `POST /api/import/preview` DEVE retornar, em cada item de
+O `POST /api/import/preview` SHALL retornar, em cada item de
 `auto_matched` (asset pré-existente) e `unmatched` (asset a ser
 criado), os três campos de trade-control:
 `buy_enabled`, `sell_enabled`, `currency_code`.
@@ -252,7 +252,7 @@ Esses campos são editáveis no modal de review antes do commit.
 
 ### Requirement: Modal de review renderiza controles de trade-control
 
-O modal de review DEVE renderizar, por linha das tabelas
+O modal de review SHALL renderizar, por linha das tabelas
 `data-testid="import-existing-table"` e
 `data-testid="import-unmatched-table"`, três controles:
 
@@ -282,7 +282,7 @@ antecipado — apenas o commit final persiste.
 
 ### Requirement: Commit de import persiste trade-control
 
-O `POST /api/import/commit` DEVE aceitar `buy_enabled`,
+O `POST /api/import/commit` SHALL aceitar `buy_enabled`,
 `sell_enabled`, e `currency_code` por linha no body e persistir:
 
 - Auto-matched: atualiza os 3 campos do `Asset` existente.

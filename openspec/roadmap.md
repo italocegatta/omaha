@@ -1740,7 +1740,7 @@ Progress:
 - 2026-07-07: Blocked formal per D02 gate. Sem progress de execução.
 
 ### R05 - Audit + migração de literais hex legados (residual F05)
-Status: `Ready`
+Status: `Archived` 2026-07-07
 Goal: Migrar literais hex legados em `app.css` pra tokens. Identificado
 em polish pass F05 §Polish pass item 1+2 (residual documentado em
 DESIGN.md linhas 326-336). Inclui: 8 ocorrências `background: #fff`
@@ -1752,7 +1752,7 @@ srgb, #<hex> 38%, var(--surface))` em `.import-class-cell--cls-{0..7}`
 Migra pra `var(--surface)` e `--class-N-tint` (novo token derivado
 de `--class-N` com lightness lift para AA em dark surface).
 Candidate OpenSpec change id: `r05-hex-literal-audit-and-migration`
-Spec link: `openspec/changes/r05-hex-literal-audit-and-migration/` (criada no propose)
+Spec link: `openspec/changes/archive/2026-07-07-r05-hex-literal-audit-and-migration/`
 Files:
 - `src/omaha/static/app.css` (migra `background: #fff` → `var(--surface)`
   nos 8 sites; migra `color-mix(... #<hex> 38% ...)` →
@@ -1772,7 +1772,11 @@ de D02; após D02, esses items permanecem como candidates of R05.
 Mecânico, baixo risco. Estima 1-2h. Confirma pre-condition com
 `grep -nE '#fff|#ffffff' src/omaha/static/app.css` antes de propor
 pra contar sites exatos.
-Progress: (vazio)
+Progress:
+- Proposed: done (2026-07-07; folder `openspec/changes/r05-hex-literal-audit-and-migration/`; 4 artifacts completos: `proposal.md` + `design.md` + `tasks.md` + `specs/color-tokens/spec.md` delta ADDED para `--class-N-tint`; `openspec validate r05-hex-literal-audit-and-migration --json` retorna `valid: true`; repo spec gate `openspec list --specs` passou)
+- Applying: done (2026-07-07; `app.css` ganhou `--class-7`, `--class-8` + `--class-1-tint..8-tint`; 9 superfícies `background: #fff` migradas para `var(--surface)`; `.import-class-cell--cls-{0..7}` rebind para tint tokens; `tests/test_dark_mode_tokens.py` ganhou asserts para tint-token presence + absence de white/hex legacy backgrounds; `DESIGN.md` §Polish pass atualizado para marcar items 1-2 como done)
+- Applied: done (2026-07-07; `uv run task lint` verde; `uv run task test-unit` 345 passed / 2 skipped; `uv run task test-integration` 369 passed / 2 skipped; `openspec validate r05-hex-literal-audit-and-migration --json` `valid: true`; repo spec gate `openspec list --specs` passou; `refresh-for-test` non-destructive: server reiniciado em `0.0.0.0:8000`, `GET /healthz` OK, LAN URL `http://192.168.1.6:8000`, DB preservado em `12 classes / 100 assets / 99 positions`, login smoke `GET /` autenticado renderiza `RF Din` 5x)
+- Archived: done (2026-07-07; archive `2026-07-07-r05-hex-literal-audit-and-migration/`; delta spec consolidada em `openspec/specs/color-tokens/spec.md` com 1 ADDED requirement sobre `--class-N-tint` + import-preview tint usage; `openspec list --specs` passou pós-sync)
 
 ### T06 - Visual regression baseline (screenshot diffs)
 Status: `Ready`

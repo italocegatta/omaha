@@ -601,19 +601,19 @@ flipping the same tokens for dark mode; the structural migration to
 OKLCH that Phase 2 started is now complete (all 6 swatch slots are
 OKLCH end-to-end).
 
-### Polish pass (planned)
+### Polish pass
 
-Post-F05. Out of scope for F05 itself but kept as the residual
-backlog — each item below is a future slice candidate.
+Post-F05 residual cleanup log. Items 1-2 landed in R05; items 3-5
+remain future slice candidates.
 
-1. Migrate leftover `background: #fff` literals across `.class-color-
-   swatch`, `.btn`, `.import-page`, etc. to `var(--surface)` so
-   isolated white islands disappear on the dark body (run
-   `grep -nE '#fff|#ffffff' src/omaha/static/app.css` to confirm).
-2. Migrate the `color-mix(in srgb, #<hex> 38%, var(--surface))` calls
-   in `.import-class-cell--cls-{0..7}` to the lifted `--class-N`
-   tokens so the import preview tints read correctly on dark
-   `--surface`.
+1. Done in R05: migrated leftover runtime `background: #fff` literals
+   in shared form / modal / picker controls to `var(--surface)` so
+   isolated white islands disappeared on dark body.
+2. Done in R05: migrated `.import-class-cell--cls-{0..7}` from inline
+   `color-mix(in srgb, #<hex> 38%, var(--surface))` rules to derived
+   `--class-N-tint` tokens. `:root` now carries `--class-1..8` plus
+   matching `--class-1-tint..8-tint` so runtime chip tints track live
+   class palette without hex drift.
 3. Add `font-feature-settings: "tnum"` on numeric data; add
    `text-wrap: balance` on h1 elements; add the `prefers-reduced-motion`
    media query.

@@ -5,7 +5,7 @@ TBD - created by syncing change fix-import-modal-select-binding. Update Purpose 
 ## Requirements
 ### Requirement: Import modal exibe classe pré-selecionada no dropdown
 
-O modal de import (linhas auto-matched e unmatched da tabela de revisão) DEVE exibir a classe correta já selecionada no `<select>` do DOM no momento em que o usuário vê o modal — sem que precise clicar ou rolar para descobrir.
+O modal de import (linhas auto-matched e unmatched da tabela de revisão) SHALL exibir a classe correta já selecionada no `<select>` do DOM no momento em que o usuário vê o modal — sem que precise clicar ou rolar para descobrir.
 
 Para linhas auto-matched, o `<select>` DEVE ter como valor selecionado o `asset_class_id` retornado pelo servidor em `auto_matched[].asset_class_id`.
 
@@ -44,11 +44,12 @@ Para linhas unmatched com `suggested_class_id` nulo, o `<select>` DEVE estar em 
 
 ### Requirement: Real-browser E2E valida binding do <select> no modal após upload real
 
-O `<select data-testid="import-assignment-class">` das linhas unmatched
-no modal de import DEVE pré-selecionar a classe correta (a sugerida pelo
-servidor via `suggested_class_id`, ou o placeholder se nula) no momento
-em que o modal aparece, quando exercitado num browser real contra o
-CSV `posicao_italo.csv` (8 categorias distintas).
+The system MUST pre-select the correct class in each unmatched-row
+`<select data-testid="import-assignment-class">` as soon as the import
+modal appears in a real browser: suggested class when
+`suggested_class_id` is non-null, placeholder when it is null. This
+requirement is exercised against `posicao_italo.csv` (8 categorias
+distintas) in a real browser.
 
 Esta requirement existe porque o teste unitário do binding (`test_s05_*`,
 `test_s06_*` em TestClient) não consegue exercitar o ciclo de vida
@@ -82,7 +83,7 @@ renderização do `<template x-for>` interno.
 
 ### Requirement: Suíte e2e é executável contra o estado pós multi-user seed
 
-A suíte e2e (`tests/e2e/`) DEVE ser executável contra o estado
+A suíte e2e (`tests/e2e/`) SHALL ser executável contra o estado
 atual do seed (commit `35bf15d`, que cria os usuários `Italo` e
 `Ana` em vez do legado `family`) sem erro de autenticação no
 passo de login. Concretamente:

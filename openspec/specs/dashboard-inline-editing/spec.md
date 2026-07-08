@@ -650,7 +650,7 @@ freeze exists to prevent.
 
 ### Requirement: classSection exposes every class_data field used by the template
 
-The Alpine classSection factory MUST copy every field of the
+The Alpine classSection factory SHALL copy every field of the
 class_data blob that the surrounding template references into
 a corresponding camelCase property on the returned component
 object. The blob is built at Jinja render time
@@ -689,7 +689,7 @@ pill) shows broken state.
 
 ### Requirement: Asset table column proportions live in CSS variables
 
-The asset table column widths MUST be defined as CSS custom
+The asset table column widths SHALL be defined as CSS custom
 properties at `:root` (one per column, `--col-ativo`
 through `--col-atual-total`). The table MUST consume these
 variables via a `<colgroup>` with `<col class="col-N">`
@@ -783,8 +783,8 @@ re-align automatically when any variable changes.
 
 ### Requirement: Inline edit auto-focuses the input on the same click
 
-The dashboard's three inline editors (class header `Alvo`, per-asset
-`alvo % classe`, per-asset `alvo % total`) MUST auto-focus their
+The system SHALL auto-focus the dashboard's three inline editors (class header `Alvo`, per-asset
+`alvo % classe`, per-asset `alvo % total`) so their
 `<input>` and pre-select its content as part of the same click that
 opens the editor. The user MUST NOT need a second click or touch
 interaction to focus the input before typing. The auto-focus MUST be
@@ -823,10 +823,10 @@ or asset rows on the page MUST NOT have their focus stolen.
 
 ### Requirement: Empty inline edit commits as zero
 
-When the inline editor for any of the three target-% fields is
+The system SHALL commit the value `0` when the inline editor for any of the three target-% fields is
 visible and the user clears the value (string is empty or
 whitespace-only) and then presses Enter, blurs the input, or moves
-focus outside the editor, the dashboard MUST commit the value `0` to
+focus outside the editor. The dashboard MUST commit the value `0` to
 the server. The dashboard MUST treat this client-side coercion as a
 silent normal write — no 422 round trip, no inline error span, no
 visible "saved 0" toast. Existing in-range validation (0 ≤ pct ≤ 100)
@@ -875,8 +875,8 @@ delta / portfolio sticky alert surfaces the resulting deviation.
 
 ### Requirement: Inline edit inputs render without the native number spinner
 
-The dashboard's three inline editor inputs (class header input and
-both per-asset inputs) MUST NOT render the browser's native
+The system SHALL render the dashboard's three inline editor inputs (class header input and
+both per-asset inputs) without the browser's native
 `<input type="number">` spinner (`▲` / `▼` glyphs on the right edge).
 The input visual MUST be a flat field consistent with the
 surrounding pill — same border treatment, same height, no

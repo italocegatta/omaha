@@ -117,7 +117,7 @@ stays `class-current-pct`.
 
 ### Requirement: Sobra/Falta pill aligns with the Alvo % classe column
 
-The per-class `Sobra/Falta` pill
+The per-class `Sobra/Falta` pill SHALL
 (`data-testid="class-delta-badge"`) MUST be placed at the
 horizontal position aligned with the `<th
 data-testid="asset-table-th-target-pct-class">` column header
@@ -150,9 +150,8 @@ when `|classDelta| <= 0.01`) are unchanged from
 
 ### Requirement: Consolidated stats remain visible when the section is collapsed
 
-The three consolidated stat cells (`Valor`, `Alvo % total`,
-`Atual % total`) and the `Sobra/Falta` pill MUST all remain
-visible when the class section body is collapsed (the
+The system SHALL keep the three consolidated stat cells (`Valor`, `Alvo % total`,
+`Atual % total`) and the `Sobra/Falta` pill visible when the class section body is collapsed (the
 `<table class="asset-table">` is hidden via
 `.class-section-body--collapsed`). Only the asset table rows
 and the per-asset delete confirm dialog hide when collapsed;
@@ -221,8 +220,8 @@ column-proportions change MUST NOT require a template edit.
 
 ### Requirement: Alignment contract between header stats and table columns
 
-Each consolidated stat cell in the class section header
-MUST be horizontally aligned with the corresponding table
+Each consolidated stat cell in the class section header SHALL
+be horizontally aligned with the corresponding table
 column header (`<th>`):
 
 | Header stat (`data-testid`) | Table column header (`data-testid`) |

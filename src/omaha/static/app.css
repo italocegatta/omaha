@@ -53,6 +53,19 @@
   --class-4: oklch(0.75 0.13 50);  /* orange */
   --class-5: oklch(0.65 0.12 300); /* purple */
   --class-6: oklch(0.72 0.10 200); /* teal   */
+  --class-7: oklch(0.55 0.06 60);  /* warm-brown */
+  --class-8: oklch(0.60 0.02 250); /* slate */
+
+  /* Derived import-preview tints — keep formula tokenized so class-chip
+     surfaces follow live class palette on dark --surface. */
+  --class-1-tint: color-mix(in srgb, var(--class-1) 38%, var(--surface));
+  --class-2-tint: color-mix(in srgb, var(--class-2) 38%, var(--surface));
+  --class-3-tint: color-mix(in srgb, var(--class-3) 38%, var(--surface));
+  --class-4-tint: color-mix(in srgb, var(--class-4) 38%, var(--surface));
+  --class-5-tint: color-mix(in srgb, var(--class-5) 38%, var(--surface));
+  --class-6-tint: color-mix(in srgb, var(--class-6) 38%, var(--surface));
+  --class-7-tint: color-mix(in srgb, var(--class-7) 38%, var(--surface));
+  --class-8-tint: color-mix(in srgb, var(--class-8) 38%, var(--surface));
 
   /* Focus ring color (S05 T04) — blue-foco with lightness adjusted for dark. */
   --color-focus: oklch(0.65 0.15 250);
@@ -135,7 +148,7 @@ input, select, button, textarea, label {
   background: var(--surface);
 }
 input, select, textarea {
-  background: #fff;
+  background: var(--surface);
 }
 button {
   background: var(--surface);
@@ -398,7 +411,7 @@ header.app-header form.profile-switcher select:focus-visible {
 form.profile-picker button {
   display: block; width: 100%; margin: 0.5rem 0; padding: 0.75rem 1rem;
   font-size: 1rem; border: 1px solid var(--border); border-radius: 6px;
-  background: #fff; cursor: pointer; text-align: left;
+  background: var(--surface); cursor: pointer; text-align: left;
 }
 form.profile-picker button:hover { border-color: var(--accent); }
 
@@ -576,7 +589,7 @@ p.error, .error {
 .asset-form input[type="text"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent); }
 .asset-form select {
   padding: 0.5rem 0.75rem; border: 1px solid var(--border);
-  border-radius: 4px; font-size: 0.95rem; background: #fff;
+  border-radius: 4px; font-size: 0.95rem; background: var(--surface);
 }
 
 .asset-section { margin: 1.5rem 0 1rem 0; }
@@ -716,7 +729,7 @@ p.error, .error {
   font: inherit;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
 }
 
@@ -1233,7 +1246,7 @@ p.error, .error {
   padding: 0.15rem 0.3rem;
   border: 1px solid var(--border);
   border-radius: 3px;
-  background: #fff;
+  background: var(--surface);
   color: inherit;
 }
 
@@ -1423,7 +1436,7 @@ td.editing {
   padding: 0.1rem 0.3rem;
   border: 1px solid var(--border);
   border-radius: 3px;
-  background: #fff;
+  background: var(--surface);
   color: inherit;
   margin-left: 0.25rem;
 }
@@ -1828,7 +1841,7 @@ td.editing {
   font-size: 0.85rem;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #fff;
+  background: var(--surface);
   color: var(--fg);
   transition: border-color 0.15s;
 }
@@ -2185,41 +2198,33 @@ td.editing {
   display: inline-block;
 }
 
-/* Class-color modifier classes for the import modal table cells.
+/* Class-color modifier classes for import modal table cells.
    Index N (0-7) MUST stay in sync with _CLASS_COLORS in
-   src/omaha/routes/pages.py — that tuple is the canonical server-
-   side palette and the same indices drive the swatches. If the
-   palette grows beyond 8 colors, add the next --cls-N rule here
-   AND extend _CLASS_COLORS in pages.py; the colors wrap modulo
-   len(_CLASS_COLORS) on the server so anything past index 7
-   aliases back to an existing rule. The hex values come straight
-   from _CLASS_COLORS (no OKLCH remap like --class-N has) because
-   these are used at 38% tint over --surface, where the contrast
-   difference vs the accessibility-tuned --class-N tokens is
-   imperceptible. */
+   src/omaha/routes/pages.py AND matching --class-(N+1)-tint tokens
+   in :root. Server owns slot order; CSS owns dark-surface tinting. */
 .import-class-cell--cls-0 {
-  background: color-mix(in srgb, #0a66c2 38%, var(--surface));
+  background: var(--class-1-tint);
 }
 .import-class-cell--cls-1 {
-  background: color-mix(in srgb, #2e7d32 38%, var(--surface));
+  background: var(--class-2-tint);
 }
 .import-class-cell--cls-2 {
-  background: color-mix(in srgb, #c62828 38%, var(--surface));
+  background: var(--class-3-tint);
 }
 .import-class-cell--cls-3 {
-  background: color-mix(in srgb, #ef6c00 38%, var(--surface));
+  background: var(--class-4-tint);
 }
 .import-class-cell--cls-4 {
-  background: color-mix(in srgb, #6a1b9a 38%, var(--surface));
+  background: var(--class-5-tint);
 }
 .import-class-cell--cls-5 {
-  background: color-mix(in srgb, #00838f 38%, var(--surface));
+  background: var(--class-6-tint);
 }
 .import-class-cell--cls-6 {
-  background: color-mix(in srgb, #5d4037 38%, var(--surface));
+  background: var(--class-7-tint);
 }
 .import-class-cell--cls-7 {
-  background: color-mix(in srgb, #455a64 38%, var(--surface));
+  background: var(--class-8-tint);
 }
 
 /* Pending state — assigned only when the active profile has zero
@@ -2263,7 +2268,7 @@ td.editing {
   border-radius: 4px;
   font: inherit;
   font-size: 0.82rem;
-  background: #fff;
+  background: var(--surface);
 }
 
 .import-review-table select:focus,
@@ -2354,7 +2359,7 @@ td.editing {
   font-size: 0.9rem;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #fff;
+  background: var(--surface);
   color: var(--fg);
   transition: border-color 0.15s;
 }

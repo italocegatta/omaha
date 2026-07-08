@@ -5,7 +5,7 @@ TBD - created by syncing change fix-import-class-suggestion. Update Purpose afte
 ## Requirements
 ### Requirement: Import preview sugere classe automaticamente quando há match
 
-O sistema DEVE preencher `suggested_class_id` na resposta de `POST /api/import/preview` quando o nome de uma classe do perfil ativo corresponder ao valor da coluna "Minha Categoria" do CSV importado, seguindo a estratégia de matching definida em `suggest_class_id` (exato → substring → interseção de palavras).
+O sistema SHALL preencher `suggested_class_id` na resposta de `POST /api/import/preview` quando o nome de uma classe do perfil ativo corresponder ao valor da coluna "Minha Categoria" do CSV importado, seguindo a estratégia de matching definida em `suggest_class_id` (exato → substring → interseção de palavras).
 
 O preenchimento automático DEVE considerar APENAS as classes do perfil do usuário ativo no momento da importação. Perfis diferentes podem ter classes diferentes, e o matching DEVE refletir as classes do perfil que está importando.
 
@@ -49,7 +49,7 @@ Se não houver correspondência entre nenhuma classe do perfil e a categoria do 
 
 ### Requirement: Real-browser E2E valida suggest_class_id contra posicao_italo.csv
 
-O sistema DEVE passar o teste `tests/e2e/test_s06_full_journey.py` num
+O sistema SHALL passar o teste `tests/e2e/test_s06_full_journey.py` num
 chromium real contra um uvicorn real, exercitando o pipeline completo
 de import com o CSV real do operador (`tests/fixtures/posicao_italo.csv`,
 8 categorias distintas: Internacional, RF Pos, RF Dinamica, Acoes, FII,

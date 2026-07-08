@@ -2,6 +2,10 @@
 
 Synced from changes `fix-br-number-parser` and `broker-csv-import-totals`.
 
+## Purpose
+
+Define the canonical BR/US numeric parsing heuristics for broker CSV import, including `R$`, quotes, broker sentinel `-`, and total-value columns.
+
 ## Requirements
 
 ### Requirement: Parser reconhece BR-milhar com `.` sozinho
@@ -104,7 +108,7 @@ de linha mal-formada continua visível no summary do import.
 
 ### Requirement: Parser aplica a mesma heurística BR/US/R$/quotes às colunas de total
 
-Synced from change `broker-csv-import-totals`. A função
+Synced from change `broker-csv-import-totals`. The parser SHALL use `_parse_brazilian_number` to parse the
 `_parse_brazilian_number` MUST ser usada para parsear os
 valores das colunas `Total investido` e `Total atual` quando
 presentes no CSV. As regras existentes (BR-milhar com `.` sozinho,
