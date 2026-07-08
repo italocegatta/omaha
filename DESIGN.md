@@ -44,56 +44,20 @@ glassmorphism, no transition between themes. F05 is the new default;
 no toggle, no `prefers-color-scheme` media query — those would belong
 to a future slice if the owner asks for a light-mode option.
 
-### Target register (D02) — historical
+### Target register (D02)
 
-D02 elegeu **Status Invest maximal** como register a perseguir em
-2026-07-07. F08 (archived 2026-07-07) materializou em CSS os tokens
-correspondentes; targets abaixo viraram os valores da tabela
-"Tokens (current — post F08)". Mantido aqui como registro da decisão
-de design — referência histórica, não verdade operativa.
+Status Invest maximal (D02 archived 2026-07-07). Tokens derivados
+em F08 — tabela "Tokens (current)" abaixo é a verdade operativa.
+Decisões: accent emerald hue 152, positive fern hue 145, negative
+coral hue 25, class-3 magenta-red hue 350, warning amber hue 75.
+Sem `--bg-secondary` (2-tier suficiente). `_CLASS_COLORS` Python
+OKLCH end-to-end (sem hex drift).
 
-Diretrizes originais (targets que F08 derivou em números exatos):
+### Tokens (current)
 
-- **Accent**: emerald `oklch(0.68 0.20 152)` — chroma up vs F05
-  `0.68 0.13 150`. Separa "marca" de "ganho" via hue gap + lightness
-  hierarchy. Materializado em `--accent` / `--accent-hover`.
-- **Positive**: fern-leaning `oklch(0.79 0.19 145)` — lightness lift
-  (L 0.70→0.79) + chroma up (0.16→0.19). Lê como "data signal"
-  brilhante em body escuro.
-- **Negative**: coral `oklch(0.69 0.20 25)` — chroma up vs F05
-  `0.70 0.18 25`; hue 25 preservado (universal "red = loss").
-- **Class-3 hue destino: 350 magenta-red.** Separa classe 3 de
-  `--negative` (long-arc hue gap 325°). Materializado em `--class-3`.
-- **Warning**: amber `oklch(0.78 0.16 75)` — chroma up vs F05
-  `0.78 0.13 85`. Materializado em `--alert-warn`.
-- **Surface**: warm-neutral dark, hue 60, chroma ~0.012 mantido.
-- **Bugs resolvidos em F08** (4 itens da sessão 2026-07-06):
-  1. ✅ colisão `--class-3` vs `--negative` (class-3 hue 25 → 350).
-  2. ✅ `--positive` sem punch (L 0.70 → 0.79).
-  3. ✅ `_CLASS_COLORS` Python hex drift vs CSS OKLCH (todos os
-     8 hex literals migrados pra OKLCH em `routes/pages.py:686`
-     + `audit/inventory.py:99`).
-  4. ✅ `--accent` vs `--positive` ambiguidade (hue gap 5°→7° +
-     lightness hierarchy pos L 0.79 > accent L 0.68).
-- `--bg-secondary` 3-tier surface: NÃO adicionado. F08 confirmou que
-  a paleta 2-tier (`--surface` +0.04 sobre `--bg` + `--surface-sunk`
-  -0.03 sob `--bg`) é suficiente para todas as 10 superfícies
-  atuais (D-F08.5).
-- Tokens de classe re-derivados em OKLCH (mata o hex drift — F08
-  D-F08.3).
-
-### Tokens (current — post F08)
-
-OKLCH throughout, calibrated against the dark `--bg`. Values match
-the current `app.css` `:root` block. F05 lifted every previous
-token's lightness (where required) to maintain WCAG 2.1 AA on the
-new background; F08 further re-derived 4 status/accent tokens per
-the D02 Status Invest maximal register (emerald accent, fern-leaning
-positive, coral negative, magenta-red class-3, amber warning) and
-killed the Python hex-vs-OKLCH drift in `_CLASS_COLORS`. Hue
-families preserved for warmth (60 / 145 / 152 / 25 / 75 / 350). Ratios
-in the "Contrast" column are measured against the noted "Pair"
-background and re-verified by `tests/test_dark_mode_tokens.py`.
+OKLCH throughout. All pairs measured against `--bg` and verified by
+`tests/test_dark_mode_tokens.py`. Body warmth invariant: hue 60,
+chroma ≈ 0.01. `color-scheme: dark`; no `prefers-color-scheme`.
 
 | Token              | Value (OKLCH)             | Pair (background) | Contrast | WCAG   | Role                                        |
 |--------------------|---------------------------|-------------------|----------|--------|---------------------------------------------|
@@ -118,60 +82,6 @@ background and re-verified by `tests/test_dark_mode_tokens.py`.
 | `--fg`             | `var(--ink)`              | —                 | alias    | —      | Legacy alias (D-05).                        |
 | `--muted`          | `var(--ink-muted)`        | —                 | alias    | —      | Legacy alias (D-05).                        |
 
-> **F08 corrections (over F05)**
-> * `--accent`: chroma `0.13` → `0.20`, hue `150` → `152`. Same
->   lightness (L 0.68). Closes the F05 hue gap (accent 150 vs positive
->   145 = 5°) to 7°. Contrast on `--bg` lifts from 5.3:1 to 7.1:1.
-> * `--accent-hover`: chroma `0.13` → `0.20`, hue `150` → `152`.
->   Maintains the +0.06 lightness lift pattern.
-> * `--positive`: lightness `0.70` → `0.79`, chroma `0.16` → `0.19`.
->   Pushes the gain signal above the body-warmth floor — reads as
->   bright "data signal" instead of muted dark-green. Contrast on
->   `--bg` lifts from 7.6:1 to 10.4:1 (AAA solid).
-> * `--negative`: chroma `0.18` → `0.20`. Same hue 25 (coral
->   identity preserved). Contrast on `--bg` lifts from 5.4:1 to 6.2:1.
-> * `--class-3`: hue `25` → `350`. Magenta-red replaces red-orange
->   so the categorical class swatch reads as distinct from the loss
->   signal (long-arc hue gap 325° ≥ 320° invariant). Same lightness
->   + chroma.
-> * `--alert-warn`: hue `85` → `75`, chroma `0.13` → `0.16`. Amber
->   takes over from yellow-amber. Contrast on `--bg` = 9.2:1 (AAA).
-> * `_CLASS_COLORS` (Python tuple in `routes/pages.py:686` +
->   `audit/inventory.py:99`): 8 hex literals replaced by OKLCH strings
->   that mirror `--class-1..8` exactly. Kills the hex-vs-OKLCH drift
->   documented as bug #3 in the D02 redesign session.
-> * `--bg`, `--surface`, `--surface-sunk`, `--ink`, `--ink-muted`,
->   `--border`, `--border-strong`, `--color-focus`, `--error-bg`,
->   `--error-fg`, `--positive-ink`, `--negative-ink`, `--accent-ink`,
->   `--alert-ok`, `--alert-danger`, `--bg-hover`, `--col-*`: UNTOUCHED.
->   Body warmth invariant (hue 60, chroma ≈ 0.01) preserved.
-> * `color-scheme: dark` + no `prefers-color-scheme` query: UNTOUCHED
->   (D-F05.10 still holds; F13 light/dark toggle remains Blocked).
-
-> **F05 corrections (over Phase 2)**
-> * `--bg` inverted from `oklch(0.975 0.003 60)` (off-white) →
->   `oklch(0.18 0.01 60)` (dark warm-neutral). Hue 60 preserved;
->   chroma stays ≈ 0.01 to keep neutrality.
-> * `--surface` and `--surface-sunk` re-derived around the new `--bg`
->   using lightness deltas instead of relative offset (D-F05.2).
-> * `--ink` and `--ink-muted` flipped to light values; lightness
->   calibrated for AA on the dark body.
-> * `--accent`, `--positive`, `--negative` lightness-lifted (NOT hue-
->   shifted) so the fern-green / positive-green / coral identities
->   stay readable on dark (D-F05.1, D-F05.3).
-> * `--accent-ink`, `--positive-ink`, `--negative-ink` inverted to
->   dark (`oklch(0.18 0.01 60)`) because the fills are now lightness-
->   lifted — dark text on light fill is the AAA combination.
-> * `--error-bg` and `--error-fg` re-split: `--error-bg` sinks (red +
->   darkness ≈ 0.30), `--error-fg` lifts (red + lightness ≈ 0.80)
->   per D-F05.7.
-> * `--color-focus` converted from `#2563eb` to OKLCH
->   `oklch(0.65 0.15 250)`; hue 250 (blue-foco) preserved, lightness
->   adjusted for ≥3:1 against the dark `--bg` (D-F05.6). The
->   `, #2563eb` hex fallback in `outline: ... var(--color-focus, ...)`
->   rules is removed (the token is now always present).
-> * `color-scheme: light dark` → `color-scheme: dark` (D-F05.10).
->   No `prefers-color-scheme` media query is added.
 
 ### Accent rationale
 
@@ -551,100 +461,14 @@ Intentional visual changes update affected baselines in the same change:
 
 ## Migration path
 
-### D02 (design register decision) — gate resolvido 2026-07-07
+D02 (2026-07-07) resolved the design register. F08/F09/F10/F12
+materialized the register in CSS. F05 is the current dark palette
+baseline. All historical migrations are archived in
+`openspec/changes/archive/`.
 
-Decisão de register não toca código — materializa-se nas fatias da
-frente visual:
+### Token change workflow
 
-- **F08** (palette overhaul v2) — re-deriva tokens per SI maximal
-  (4 bugs concretos: colisão `--class-3` vs `--negative`,
-  `--positive` sem punch, `_CLASS_COLORS` hex drift, ambiguidade
-  `--accent` vs `--positive`). Toca em `app.css :root` +
-  `routes/pages.py::_CLASS_COLORS` +
-  `tests/test_dark_mode_tokens.py` + `color-tokens` spec delta.
-- **F09** (typography refresh) — Red Hat Display 700+ portfolio
-  header + Inter variable `tnum, cv01, ss01, ss02`. Toca em
-  `base.html` Google Fonts URL + `app.css` font-family chain +
-  `DESIGN.md` §Typography já reescrita.
-- **F10** (component state language + table pattern) — 5-state
-  feedback (idle/hover/focus/disabled/error) + sticky `<thead>` +
-  hover row bg lift + total row emphasis + action column
-  só-on-hover + section dividers + `::selection` + autofill
-  override + eyebrow labels. 10 templates × 8 elementos × 5
-  estados = ~40 micro-decisões. Pode rodar em paralelo com F08/F09
-  (cap 2 Applying).
-- **F12** (Material Symbols icons) — catalog definido em D02
-  §Iconography acima. Toca em `base.html` Google Fonts URL +
-  `app.css` `.icon--sm/md/lg` + 5 templates parciais.
-- **F11 / F13** — Blocked por decisão D02 (sidebar reintroduce
-  bloqueada; light/dark toggle bloqueada). Permanecem no roadmap
-  como histórico com nota formal.
-
-Todas as 4 fatias materializam invariantes documentadas aqui
-(maior fatia em volume = F10). Tokens finais chegam com F08
-archive — tabela "Tokens (current — post F05)" desta doc
-permanece como verdade operativa até lá.
-
-### F05 (dark mode palette swap) — current
-
-The F05 change set is a single token-layer rewrite of `:root` in
-`app.css`. Hue 60 is preserved on the body warmth axis; every other
-token is re-derived against the new dark surface. The set is
-reversible by reverting the file.
-
-1. `:root` block in `app.css` — see the "F05 corrections (over Phase 2)"
-   block above for the per-token deltas.
-2. `color-scheme: light dark` → `color-scheme: dark`. No
-   `prefers-color-scheme` media query is added (D-F05.10).
-3. The hex fallbacks inside `outline: 2px solid var(--color-focus,
-   #2563eb)` are removed — `--color-focus` is now always present.
-4. `tests/test_dark_mode_tokens.py` replaces `tests/test_tokens.py`
-   (the previous "Phase 2 — PALT-01 / PALT-02" suite). It re-derives
-   the dark-mode contract: body warmth, lightness lifts on the
-   swatches and status fills, swatch-2 hue-shift, and the pair
-   table sourced from the table above.
-
-For any future token change, the migration is:
-
-1. Update the value in `:root` (or a component-scoped override).
-2. Run `uv run pytest tests/test_dark_mode_tokens.py
-   tests/test_audit_css_parser.py tests/test_audit_color_resolver.py -x`
-   to confirm all pairs still meet their documented minimum.
-3. Update the "Tokens (current)" table in this document with the new
-   value and the new measured contrast.
-4. If a component changes which token it consumes, update the
-   component inventory table and the call site in the same commit.
-
-Rollback: `git checkout HEAD -- src/omaha/static/app.css` reverts the
-F05 token changes. The new test file is reverted separately.
-
-### Phase 2 (palette corrections) — historical
-
-Phase 2 (archived `2026-06-16-phase-02-palette`) replaced the pre-token
-hex values for `--class-4`, `--class-6`, `--error-bg`, `--error-fg`,
-and added `--negative-ink` / `--positive-ink`. F05 supersedes it by
-flipping the same tokens for dark mode; the structural migration to
-OKLCH that Phase 2 started is now complete (all 6 swatch slots are
-OKLCH end-to-end).
-
-### Polish pass
-
-Post-F05 residual cleanup log. Items 1-2 landed in R05; items 3-5
-remain future slice candidates.
-
-1. Done in R05: migrated leftover runtime `background: #fff` literals
-   in shared form / modal / picker controls to `var(--surface)` so
-   isolated white islands disappeared on dark body.
-2. Done in R05: migrated `.import-class-cell--cls-{0..7}` from inline
-   `color-mix(in srgb, #<hex> 38%, var(--surface))` rules to derived
-   `--class-N-tint` tokens. `:root` now carries `--class-1..8` plus
-   matching `--class-1-tint..8-tint` so runtime chip tints track live
-   class palette without hex drift.
-3. Add `font-feature-settings: "tnum"` on numeric data; add
-   `text-wrap: balance` on h1 elements; add the `prefers-reduced-motion`
-   media query.
-4. Add the compare-bar and per-asset progress fill animations.
-5. Add the Source Serif 4 / IBM Plex Serif display face, scoped to
-   `.portfolio-header` and `.profile-name` only.
-
-The polish command drives this end-to-end.
+1. Update value in `app.css :root`.
+2. Run `uv run pytest tests/test_dark_mode_tokens.py -x`.
+3. Update the "Tokens (current)" table above.
+4. Update component inventory if a component's token consumption changed.

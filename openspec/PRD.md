@@ -90,17 +90,18 @@ Esta seção apenas lista e agrupa — nenhum comportamento é definido aqui.
 | Área             | Specs (link em `openspec/specs/`)                                                                                                                                                                                                                                                                                                                       |
 |------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Auth & perfis**| `profile-landing`, `header-profile-switcher`, `cross-profile-sharing`                                                                                                                                                                                                                                                                                    |
-| **Classes**      | `class-section-totals`, `asset-allocation-alerts`, `dashboard-inline-editing`                                                                                                                                                                                                                                                                            |
+| **Classes**      | `class-section-totals`, `asset-allocation-alerts`, `dashboard-inline-editing`, `class-section-alignment-rebaseline`                                                                                                                                                                                                                                       |
 | **Ativos**       | `asset-class-quote-kind`, `asset-trade-flags`                                                                                                                                                                                                                                                                                                            |
 | **Posições**     | `broker-csv-import-totals`, `broker-csv-number-parsing`, `import-modal`, `import-class-auto-suggest`, `import-class-color-via-css-class`, `import-modal-class-binding`, `import-position-totals`                                                                                                                                                                |
-| **Dashboard**    | `dashboard-sidebar`                                                                                                                                                                                                                                                                                                                                      |
-| **Cotações**     | `quote-provider` (yfinance `.SA`), `quote-cache` (TTL em tabela `quotes`), `quote-refresh` (loop `asyncio`)                                                                                                                                                                                                                                              |
-| **Rebalance**    | `rebalance-data-bridges` (ORM → solver), `rebalance-engine` (CVXPY), `rebalance-route` (`POST /api/rebalance`), `rebalance-page` (`GET /rebalance`)                                                                                                                                                                                                       |
-| **Tema visual**  | `color-tokens` (pares de tokens com contraste WCAG AA)                                                                                                                                                                                                                                                                                                    |
-| **Dados**        | `data-driven-seed` (CSV triplet via `scripts/seed_from_csv.py`), `seeded-state` (`db-reset` popula Italo + Ana)                                                                                                                                                                                                                                          |
-| **Qualidade**    | `route-test-alignment`, `test-suite-quality`, `unit-test-effectiveness`, `e2e-rework`, `e2e-fixture-isolation`, `bdd-workflow-reuse`, `dev-tasks`, `prek-hooks`                                                                                                                                                                                            |
+| **Dashboard**    | `dashboard-sidebar` (deprecated), `patrimonio-portfolio-header`, `patrimonio-template-partials`                                                                                                                                                                                                                                                          |
+| **Cotações**     | `quote-provider`, `quote-provider-factory`, `quote-cache`, `quote-refresh`                                                                                                                                                                                                                                                                               |
+| **Rebalance**    | `rebalance-data-bridges`, `rebalance-engine`, `rebalance-route`, `rebalance-page`, `rebalance-mutation-testing`                                                                                                                                                                                                                                           |
+| **Tema visual**  | `color-tokens`, `typography-tokens`, `component-state-language`, `iconography-tokens`, `design-register-decision`                                                                                                                                                                                                                                        |
+| **Dados**        | `data-driven-seed`, `seeded-state`, `csv-seed-internals`                                                                                                                                                                                                                                                                                                 |
+| **Infra/ops**    | `backup-scheduling`, `tls-cert-renewal`, `admin-recovery`, `db-mutation-safety`, `readme-freshness`                                                                                                                                                                                                                                                      |
+| **Qualidade**    | `route-test-alignment`, `test-suite-quality`, `unit-test-effectiveness`, `e2e-rework`, `e2e-fixture-isolation`, `e2e-selector-pinning`, `bdd-workflow-reuse`, `bdd-step-def-aliases`, `visual-regression-baseline`, `dev-tasks`, `prek-hooks`                                                                                                              |
 
-Total: **34 specs**, todos estáveis (todos os `OpenSpec changes` foram
+Total: **52 specs**, todos estáveis (todos os `OpenSpec changes` foram
 arquivados e sincronizados).
 
 ### 2.2 Modelo de dados
@@ -137,9 +138,9 @@ Corretora (CSV BR)                       Resolved server-side / LAN
     ▼                                              ▼
 scripts/seed_from_csv.py ──seed──▶ data/portfolio.db ──serve──▶ uvicorn 0.0.0.0:8000
     ▲                              (SQLite, alembic)              │
-    │                                                             ├──▶ /dashboard  (perfil ativo)
+    │                                                             ├──▶ /patrimonio  (perfil ativo)
     └──────── snapshot (scripts/snapshot_to_csv.py) ◀─────────────┤
-                                                                  ├──▶ /rebalance  (CVXPY plan)
+                                                                  ├──▶ /rebalanceamento (CVXPY plan)
                                                                   ├──▶ /importar   (modal fluxo)
                                                                   └──▶ /api/import/preview + commit
 ```
@@ -165,7 +166,7 @@ QuoteProvider.yfinance(.SA suffix)
 | Banco dev     | SQLite (`data/portfolio.db`)                            |
 | Banco prod    | Postgres (compose `prod.yml`)                           |
 | Frontend      | Jinja2 + Alpine.js (sem build step) + CSS vanilla        |
-| Fonte         | Inter (UI sans) + Source Serif 4 (display, dashboard)    |
+| Fonte         | Inter (UI sans) + Red Hat Display (display)                   |
 | Testes        | pytest (unit/integration/bdd) + Playwright (e2e)         |
 | Lint          | ruff + prek (`pre-commit` / `pre-push` / `commit-msg`)   |
 | Runner        | taskipy (`uv run task <name>`)                          |
@@ -181,10 +182,10 @@ QuoteProvider.yfinance(.SA suffix)
 | `src/omaha/quotes/`          | cache DB-backed, provider abstraction + yfinance, loop `asyncio`                 |
 | `src/omaha/rebalance/`       | solver CVXPY, data bridges (ORM → solver), glue, validação, post-processamento   |
 | `src/omaha/audit/`           | parser CSS, resolvedor de cor, inventário, relatório de contraste                |
-| `src/omaha/templates/`       | Jinja2 — `base`, `dashboard`, `_sidebar`, `rebalance`, `login`, etc.              |
+| `src/omaha/templates/`       | Jinja2 — `base`, `patrimonio`, `rebalance`, `login`, partials `_patrimonio_*`, etc. |
 | `src/omaha/static/app.css`   | Único bundle CSS (72K). Tokens em `:root`.                                       |
 | `src/omaha/seed.py`          | Idempotente. Cria **apenas** usuários + perfis. Não toca ativos/posições.        |
-| `scripts/seed_from_csv.py`   | Único caminho para criar `AssetClass` / `Asset` / `Position`. CSV triplet em `data/seed/`. |
+| `scripts/seed_from_csv/`     | Único caminho para criar `AssetClass` / `Asset` / `Position`. CSV triplet em `data/seed/`. |
 
 ### 3.3 Tarefas taskipy canônicas
 
@@ -284,7 +285,7 @@ Regras:
 
 A criação automatizada/agent-driven de linhas em **`AssetClass`**, **`Asset`**
 e **`Position`** é permitida **apenas** via o caminho CSV em `data/seed/`,
-consumido por `scripts/seed_from_csv.py` (taskipy: `db-seed-from-csv` /
+consumido por `scripts/seed_from_csv/` (taskipy: `db-seed-from-csv` /
 `db-seed-diff` / `db-seed-upsert` / `db-reset`). Seed literal/hardcoded,
 scripts ad-hoc, demo wiring e mudanças em `openspec/changes/` que burlem o
 caminho CSV são proibidos.
@@ -347,15 +348,15 @@ Por quê:
   do usuário via `@change` dispara re-render).
 - `@change` mantém a source-of-truth property em sync depois do pick manual.
 
-Referência viva: `src/omaha/templates/dashboard.html:510` (auto-matched)
-e `:553` (unmatched). PR aberta anterior usou `x-model` e falhou; ver
-spec `import-modal-class-binding`.
+Referência viva: `src/omaha/templates/patrimonio.html` (auto-matched
+e unmatched no modal de importação). PR aberta anterior usou `x-model`
+e falhou; ver spec `import-modal-class-binding`.
 
 ### 4.5 Import preview response ↔ Alpine template sync
 
 `_build_preview_response` em `src/omaha/routes/imports.py` monta os
 dicionários `auto_matched` e `unmatched` consumidos pelo Alpine store
-`$store.importModal` em `dashboard.html`. **Qualquer campo acrescentado
+`$store.importModal` em `patrimonio.html`. **Qualquer campo acrescentado
 nesses dicionários precisa estar no JSON** que `/api/import/preview`
 retorna (campos `invested`, `current_value`, etc.).
 
@@ -374,7 +375,7 @@ Disparadores:
   `_build_preview_response` emite `X` no JSON.
 
 Referência: `src/omaha/routes/imports.py:_build_preview_response`,
-`tests/` (`test_import_*`), `src/omaha/templates/dashboard.html`.
+`tests/` (`test_import_*`), `src/omaha/templates/patrimonio.html`.
 
 ### 4.6 Test marker — allowlist explícito, não pattern matching
 
@@ -779,180 +780,41 @@ explícita com o agente.
 
 ## 5. Trabalho em Curso e Horizonte
 
-### 5.1 Estado atual (snapshot)
+### 5.1 Estado atual
 
-- **Zero `OpenSpec changes` ativos.** Os 21+ já-arquivados em
-  `openspec/changes/archive/` cobriram: paleta visual, import modal
-  revertido + binding corrigido, rebalance infra (CVXPY + rota + página),
-  dashboard consolidado, profile switcher, BDD workflow reuse, CSV seed
-  driven, e mais.
-- **34 specs em `openspec/specs/`, todos estáveis** (todos os changes
-  foram arquivados e sincronizados via `opsx-sync-specs`).
-- **`test-suite`:** 4 subsets (`unit`, `integration`, `bdd`, `e2e`) com
-  gates independentes em `pyproject.toml`.
-- **Trajetória recente (último mês):** dominada por rebalance infra
-  (solver CVXPY abandonando o stub, rota, página, glue, data bridges).
-  Antes disso: dashboard consolidado, BDD workflow reuse, CSV seed
-  driven, profile switcher.
+- **52 specs estáveis** em `openspec/specs/` (todas sincronizadas).
+- **72 changes arquivados** em `openspec/changes/archive/`.
+- **Zero changes ativos.** Sistema em modo estabilizar.
+- **Test suite:** 4 subsets (`unit`, `integration`, `bdd`, `e2e`) +
+  visual regression + mutation testing.
+- **Stack:** FastAPI + SQLAlchemy 2 + SQLite + Jinja2 + Alpine.js +
+  CVXPY (rebalance) + yfinance (cotações).
 
-Sistema em modo **estabilizar**. Próximo passo é escolhido pelo roadmap
-(§5.4) ou por demanda direta do owner — não há backlog obrigatório.
+Próximo passo é escolhido pelo roadmap ou por demanda direta do owner.
 
-### 5.2 Onda recente (já arquivada, contexto)
+### 5.2 Horizonte
 
-Agrupada por tema, não exaustiva. Ver `openspec/changes/archive/` para
-proposal/design/tasks completos.
+Trabalho futuro candidato. Cada item vira uma fatia em
+`openspec/roadmap.md` quando escolhido. Itens já implementados estão
+nos archives — ver `openspec/changes/archive/`.
 
-| Tema                       | Changes representativos                                                                                                         |
-|----------------------------|---------------------------------------------------------------------------------------------------------------------------------|
-| **Rebalance infra**        | `2026-06-26-rebalance-infra`, `…-rebalance-route`, `…-rebalance-page`, `…-rebalance-data-bridges`                                |
-| **CSV seed**               | `…-csv-driven-asset-seed`, `…-add-db-snapshot`                                                                                  |
-| **Dashboard**              | `…-dashboard-width-and-inline-edit`, `…-dashboard-inline-edit-friction`, `…-consolidated-totals`, `…-header-profile-switcher` |
-| **Auth & landing**         | `…-direct-landing-with-header-profile-switcher`, `…-auth-card-styling`                                                          |
-| **Import modal**           | `…-restore-import-modal`, `…-modify-import-positions-modal`, `…-fix-asset-table-ui-bugs`                                       |
-| **Bugfix / correção**      | `…-fix-br-number-parser`, `…-fix-bdd-workflow-reuse-gaps`, `…-fix-route-test-failures`, `…-fix-e2e-tests`                       |
-| **Tema visual**            | `…-execute-phase-02-palette`, `…-investigate-import-class-color`                                                                |
-| **Qualidade**              | `…-review-unit-tests-effectiveness`, `…-add-dev-tasks`                                                                          |
-| **Plumbing do OpenSpec**   | `…-verify-m002-fix-s06-real-browser`, `…-split-prek-push-bdd-from-blocking-gate`                                                |
+**Features pendentes (owner decide quando):**
+- **F03 — Rentabilidade:** página com séries temporais de retorno.
+  Closed 2026-07-06 (owner deferiu). Reactivation path no roadmap.
+- **F04 — Proventos:** dividendos/JCP por ativo/classe/perfil.
+  Deprecated 2026-07-06 (owner deferiu). Reactivation path no roadmap.
 
-### 5.3 Horizonte — candidate next slices
+**Infra/tooling candidata:**
+- Dockerfile COPY scripts (gap pré-existente — backup/scheduler
+  não funciona em prod sem isso).
+- Coverage threshold gate (`--cov-fail-under`).
+- GH Actions reactivation (workflow dormente em `.github/workflows/`).
 
-Sem compromisso. Cada item é semente para uma fatia em
-`openspec/roadmap.md` quando for escolhida. Prefixo (`F`/`R`/`T`/`D`/`I`)
-indica o kind sugerido:
+### 5.3 Ponteiro para o roadmap
 
-- **F — consolidação cross-profile (agregado familiar).** F01
-  entregou a infraestrutura do modo household (read-only gate +
-  `?view=household` querystring + wire `{"reason":
-  "household_read_only"}`); F01 foi arquivado em
-  `2026-07-04-f01-household-cross-profile-consolidation/`. F01
-  ficou obsoleto porque agregava só perfis do viewer (intra-User)
-  e o seed canônico cria Italo e Ana como `User` rows separadas,
-  então o toggle nunca representava "a família". F06
-  (`f06-family-household-full-join-aggregate`) substitui a
-  semântica: `?view=household` agora é agregado cross-User
-  (família inteira) com full-join por nome de classe/ativo,
-  `target_pct` suprimido (alocação-alvo cross-User é ambígua),
-  toggle renomeado `Casa` → `Família` (visibilidade =
-  `len(all_profiles) >= 2`), e o read-only gate de F01 é
-  reusado sem retrabalho. Spec deltas consolidados em
-  `openspec/specs/cross-profile-sharing/spec.md` (F01: 3 ADDED;
-  F06: 2 MODIFIED + 1 REMOVED + 1 ADDED).
-- **F — páginas do sistema (top-level nav).** Implementado em F02. Quatro
-  tabs top-level persistentes em `base.html`: **Patrimônio** (canônica
-  em `/patrimonio`, espelha o root URL `/` para compat), **Rebalanceamento**
-  (rota dedicada `/rebalanceamento` — não embutido em Patrimônio), e os
-  stubs **Rentabilidade** (`/rentabilidade`) e **Proventos**
-  (`/proventos`). Side panel removido; rebind das ações de input
-  (`Importar CSV` / `+ Classe` / `+ Ativo`) no topo da página Patrimônio.
-  As URLs `/dashboard` e `/rebalance` legadas respondem 404 (sem alias).
-  F03 / F04 substituem os stubs pelo conteúdo real de Rentabilidade e
-  Proventos sem mexer na top nav.
-- **F — Família como opção no profile-switcher (peer de Italo/Ana).**
-  Em application via F07
-  (`f07-familia-as-profile-option`, candidato
-  `openspec/changes/f07-familia-as-profile-option/`). Substitui o
-  toggle `?view=household` (F06) por uma opção `Família (agregado)`
-  dentro do `profile-switcher` `<select>` — peer dos perfis reais
-  Italo + Ana. A Família vira um `Profile` row sentinel com
-  `is_family_sentinel=True`, owned por um User `family` sem senha
-  (não autentica; só aparece como opção no chip). O fixture `Italo
-  RF2` (perfil #3 órfão do seed F01) sai — F07 produz o estado
-  canônico `db-reset` de exatamente 2 perfis reais + 1 sentinel.
-  Migration Alembic `0017_is_family_sentinel` adiciona a coluna com
-  `DEFAULT 0` (compat com rows legadas). A querystring
-  `?view=household` continua funcionando como deep-link; o chip é
-  a porta de entrada de primeira classe. Read-only gate
-  (`{"reason": "household_read_only"}` 409) reusado de F01 sem
-  retrabalho. Spec deltas em
-  `openspec/specs/cross-profile-sharing/spec.md`.
-- **F — alterar paleta para dark mode.** **Entregue via F05
-  (`f05-dark-mode-palette-swap`, archived).** O register off-white
-  descrito em §4.10 + `DESIGN.md` foi invertido para dark warm-neutral
-  (lightness ~0.18, hue 60 preservado); tokens re-derivados em
-  `app.css :root`; `DESIGN.md` §Color strategy + tabela de tokens
-  + §Migration path reescritas; §4.10 deste PRD reescrita com a
-  mesma redação carregada em D-F05.8 (D-F05.8 do `design.md` da
-  F05). `tests/test_dark_mode_tokens.py` substituiu
-  `tests/test_tokens.py` como gate de contrato (corpo, swatches,
-  status inks, error pair, focus, surface lift/sink). Spec deltas
-  consolidados em `openspec/specs/color-tokens/spec.md` (3 MODIFIED
-  requirements — todos re-derivados, sem ADDED/REMOVED).
-- **R — revisão de arquivos não utilizados/temporários/backup.** Limpar
-  o repo de fixtures órfãs, dumps temporários e snapshots antigos. Sem
-  mudança de comportamento observável.
-- **R — revisar sistema de seed.** Tornar o caminho CSV (hoje
-  `scripts/seed_from_csv.py` + triplet em `data/seed/`) mais simples e
-  direto para manutenção dos valores de seed na plataforma.
-- **R — extrair `quote_provider` adapter para pacote.** Se
-  `yfinance` for trocado, hoje há só um impl. Daria para injetar mais
-  providers.
-- **R — split `templates/patrimonio.html` em partials.** Hoje é monolith
-  de ~1700 linhas (após F02 rename `dashboard.html → patrimonio.html`).
-  Partials já existem (`_rebalance_*`); estender. Depende de F02
-  (template renomeado + side panel removido) para não parcializar
-  sobre mudança em voo.
-- **T — BDD e2e suite a 100% green.** Spec `e2e-rework` está estável mas
-  ainda com selectors pendentes; o `bdd-workflow-reuse-helpers`
-  documenta o caminho.
-- **T — coverage report no CI.** `task coverage` existe; falta cabo no
-  pipeline.
-- **T — mutation testing do rebalance engine.** Solver é crítico.
-- **I — agendamento automático de backup.** `task backup` existe; nenhum
-  cron/certbot.timer está cabeado para ele.
-- **I — TLS cert renewal automation.** Certbot está configurado em
-  `nginx/` mas renovação é manual.
-- **D — refresh do README para refletir surface atual.** Em particular,
-  a seção "Network access" e o bloco de features.
-
-> **Gate D02 resolvido 2026-07-07** — owner escolheu o register
-> Status Invest maximal após sessão exploratória em
-> `openspec/.temp_assets/design-system-redesign-session-2026-07-06.md`.
-> §4.10 deste PRD foi reescrita como memorial descritivo do register
-> escolhido. Consequências para as fatias da frente visual:
->
-> - **Unblocked** (gate D02 atendido; podem ser promovidas a `propose`
->   via `next` em `openspec/roadmap.md`):
->   - `f08-palette-overhaul-v2` — re-deriva tokens per SI maximal
->     (resolve 4 bugs concretos: colisão `--class-3` vs `--negative`,
->     `--positive` sem punch, drift hex→OKLCH, ambiguidade
->     `--accent` vs `--positive`).
->   - `f09-typography-refresh` — Red Hat Display 700+ + Inter
->     feature-settings completos (`tnum, cv01, ss01, ss02`).
->   - `f10-component-state-language-and-table-pattern` —
->     5-state feedback + table pattern upgrade + dividers +
->     `::selection` + autofill override.
->   - `f12-material-symbols-icons` — icons nos pontos cobertos (add
->     class, add asset, import, signout, warning triangle, close,
->     expand chevron); catalog definido em D02 §Iconography.
-> - **Efetivamente Blocked** (gate D02 = NÃO para essas direções):
->   - `f11-sidebar-reintroduce` — Blocked. Register ≠ A; top nav F02
->     preservada. Slice vira histórico no roadmap com nota
->     "register chose SI maximal without sidebar".
->   - `f13-light-dark-toggle` — Blocked. Owner não pediu toggle;
->     F05 D-F05.10 (dark-only deliberado) mantido.
->
-> Próximo passo operacional: `next` em `openspec/roadmap.md` pega a
-> fatia Ready de maior prioridade (F08 esperado).
-
-### 5.4 Ponteiro para o roadmap
-
-Próxima camada de planejamento: **`openspec/roadmap.md`**. Esta PRD é a
-documentação canônica de **o que** o sistema é e **como** ele opera. O
-roadmap documenta **qual fatia** entra em execução agora e seu ciclo de
-vida (`Ready → Spec Proposed → Applying → Applied → Archived` + `Blocked`).
-
-Quando o owner decidir atacar qualquer item de §5.3, o fluxo é:
-
-1. Owner descreve o feature intent.
-2. Agente cria **uma** fatia em `openspec/roadmap.md` com id, prefix e
-   título, e status `Ready`.
-3. Agente delega `openspec-propose` passando o `Candidate OpenSpec change id`
-   exato do roadmap → cria `openspec/changes/<change-id>/`.
-4. Avança para `Applying`, depois `Applied`, depois `Archived`. Status é
-   atualizado no roadmap a cada gate.
-5. Verificação spec roda após cada gate (`openspec/config.yaml`
-   `openspec_roadmap`).
+Planejamento detalhado: **`openspec/roadmap.md`**. Esta PRD documenta
+**o que** o sistema é; o roadmap documenta **qual fatia** entra em
+execução.
 
 ---
 
@@ -1039,7 +901,7 @@ Falha na verificação → parar, resolver, re-rodar, continuar.
 | **Cotação**          | Preço de mercado do ativo. Cache DB-backed com TTL; provider `yfinance` com suffix `.SA`.            |
 | **Quote kind**       | `auto` (refresh), `manual` (edita o número), `none` (cache estático).                                 |
 | **Rebalance**        | Cálculo CVXPY que produz plano de compra/venda para zerar o desvio das classes em relação ao alvo.    |
-| **Seed**             | Carga inicial de dados. `seed.py` cobre user+profile; `seed_from_csv.py` cobre classes+ativos+posições. |
+| **Seed**             | Carga inicial de dados. `seed.py` cobre user+profile; `seed_from_csv/` cobre classes+ativos+posições. |
 | **Snapshot**         | DB → CSV (lossless). Espelha o round-trip do parser de corretora.                                     |
 | **Backup**           | Cópia física do SQLite via `sqlite3.Connection.backup` para `./backups/`.                              |
 | **Slice**            | Uma unidade de trabalho no roadmap. 1:1 com um `OpenSpec change`.                                     |
