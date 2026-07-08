@@ -73,8 +73,8 @@ os.environ.setdefault("OMAHA_ENV", "development")
 # Force-import omaha.config + omaha.db NOW so SessionLocal is bound to
 # the safe DB. Any subsequent `from omaha.db import SessionLocal` in
 # test modules resolves to this same instance.
-import omaha.config  # noqa: F401 — populates ``settings``
-import omaha.db  # noqa: F401 — populates engine + SessionLocal
+import omaha.config  # noqa: F401, E402 — populates ``settings``
+import omaha.db  # noqa: F401, E402 — populates engine + SessionLocal
 
 # Run alembic migrations against the safe DB so schema exists when tests
 # query. Idempotent — safe to run even if the DB is empty.
@@ -90,8 +90,8 @@ subprocess.run(
 
 # NOW we can import pytest + fastapi. Anything below this line runs
 # AFTER SessionLocal is bound to the safe DB.
-import pytest
-from fastapi.testclient import TestClient
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TEST_SECRET_KEY = "test-secret-do-not-use"
@@ -102,6 +102,7 @@ TEST_ADMIN_PASSWORD = "test-password"
 # "Italo" / "Ana" / "Família" find them. Idempotent — no-op if users
 # already present (e.g. when `_omaha_test_env` fixture runs again).
 import omaha.seed  # noqa: E402
+
 omaha.seed.seed()
 
 
