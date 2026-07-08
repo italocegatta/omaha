@@ -41,7 +41,11 @@ vendor/
 coverage/
 reports/coverage.xml
 reports/.coverage
+reports/*.log
 .cache/
+.ruff_cache/
+.pytest_cache/
+screenshots/
 tmp/
 
 # Project: SQLite database lives under data/. Keep the directory tracked
