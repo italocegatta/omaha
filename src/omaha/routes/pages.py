@@ -690,10 +690,10 @@ _CLASS_COLORS: tuple[str, ...] = (
     "oklch(0.765 0.111 311.7)",  # lavender       -- mirrors --class-2
     "oklch(0.783 0.073 184.6)",  # teal           -- mirrors --class-3
     "oklch(0.812 0.107 133.4)",  # green          -- mirrors --class-4
-    "oklch(0.844 0.08 83.5)",    # amber          -- mirrors --class-5
-    "oklch(0.717 0.124 19.4)",   # red            -- mirrors --class-6
-    "oklch(0.65 0.04 274)",      # muted blue-gray -- 7th cycle slot
-    "oklch(0.70 0.03 274)",      # slate          -- 8th cycle slot
+    "oklch(0.844 0.08 83.5)",  # amber          -- mirrors --class-5
+    "oklch(0.717 0.124 19.4)",  # red            -- mirrors --class-6
+    "oklch(0.65 0.04 274)",  # muted blue-gray -- 7th cycle slot
+    "oklch(0.70 0.03 274)",  # slate          -- 8th cycle slot
 )
 
 
