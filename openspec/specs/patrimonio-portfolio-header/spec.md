@@ -79,4 +79,3 @@ copy changes between the old and new template path.
   `data-testid="patrimonio-portfolio-header"`
 - **AND** the three metric labels are `Investido`, `Valor atual`,
   `Ganho` in that order
-

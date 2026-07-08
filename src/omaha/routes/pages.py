@@ -822,7 +822,9 @@ def portfolio_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
         row["gain_pct"] = _pct_or_none(row["gain_value"], row["invested"])
         row["class_current_pct_class"] = _HUNDRED if row["current_value"] > _ZERO else _ZERO
         row["class_target_pct_class"] = _HUNDRED if row["current_value"] > _ZERO else _ZERO
-        row["class_deviation_pct_class"] = row["class_current_pct_class"] - row["class_target_pct_class"]
+        row["class_deviation_pct_class"] = (
+            row["class_current_pct_class"] - row["class_target_pct_class"]
+        )
         row["portfolio_target_pct"] = row["target_pct"] or _ZERO
         row["portfolio_deviation_pct"] = row["current_pct"] - row["portfolio_target_pct"]
         row["position_target_value"] = _target_value(portfolio_current, row["portfolio_target_pct"])
@@ -1203,7 +1205,9 @@ def family_aggregates(asset_classes: list[AssetClass]) -> dict[str, Any]:
         row["gain_pct"] = _pct_or_none(row["gain_value"], row["invested"])
         row["class_current_pct_class"] = _HUNDRED if row["current_value"] > _ZERO else _ZERO
         row["class_target_pct_class"] = _HUNDRED if row["current_value"] > _ZERO else _ZERO
-        row["class_deviation_pct_class"] = row["class_current_pct_class"] - row["class_target_pct_class"]
+        row["class_deviation_pct_class"] = (
+            row["class_current_pct_class"] - row["class_target_pct_class"]
+        )
         row["portfolio_target_pct"] = None
         row["portfolio_deviation_pct"] = None
         row["position_target_value"] = None

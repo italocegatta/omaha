@@ -229,7 +229,9 @@ class TestClassSectionAlignment:
                 f"th left={row['thLeft']}, Δ={row['pillLeft'] - row['thLeft']}"
             )
 
-    def test_class_delta_pill_aligned_with_desvio_classe_th(self, page: Page, live_url: str) -> None:
+    def test_class_delta_pill_aligned_with_desvio_classe_th(
+        self, page: Page, live_url: str
+    ) -> None:
         """When the ``Sobra/Falta`` pill renders (per-class asset sum
         off 100), it sits in the class deviation totals cell, aligned with
         ``asset-table-th-class-deviation``.

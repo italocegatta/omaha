@@ -268,4 +268,3 @@ left-edge `x` coordinate of the matching table `<th>`.
 - **WHEN** the user collapses a class section
 - **THEN** the asset rows are hidden
 - **AND** the class totals row remains visible with the grouped column alignment intact
-

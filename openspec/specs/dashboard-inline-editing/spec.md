@@ -878,4 +878,3 @@ modal forms, not inline pill editors.
 - **THEN** no `▲` / `▼` stepper is rendered on either
   `data-testid="asset-inline-edit-input"` or
   `data-testid="asset-target-pct-total-edit-input"`
-
