@@ -54,10 +54,10 @@ tmp/
 # truth for the CSV-driven seed (`scripts/seed_from_csv.py`).
 data/
 !data/.gitkeep
+data/*
 !data/seed/
 !data/seed/*.csv
 !data/seed/*.md
-data/*
 
 # OpenSpec roadmap ephemeral working artifacts (audit notes, scratch
 # checklists). The canonical register lives at openspec/roadmap.md;
