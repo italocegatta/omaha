@@ -2436,20 +2436,58 @@ td.editing {
   /* Fade transition controlled by x-transition */
 }
 
+.import-modal-step--upload {
+  max-width: 42rem;
+  margin: 0 auto;
+}
+
 .import-modal-upload-area {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.9rem;
   padding: 1.5rem;
   border: 1px dashed var(--border-strong);
-  border-radius: 6px;
+  border-radius: 10px;
   background: var(--surface-sunk);
   text-align: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.import-modal-upload-hint {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
 }
 
 .import-modal-upload-area input[type="file"] {
+  width: min(100%, 28rem);
+  margin: 0 auto;
   font: inherit;
   font-size: 0.9rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.35rem;
+}
+
+.import-modal-upload-area input[type="file"]::file-selector-button {
+  margin-right: 0.75rem;
+  padding: 0.45rem 0.9rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface-sunk);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.import-modal-upload-area .import-btn {
+  width: min(100%, 28rem);
+  justify-content: center;
+  padding-block: 0.7rem;
+  margin: 0 auto;
 }
 
 .import-modal-actions {
@@ -2607,6 +2645,10 @@ td.editing {
   font: inherit;
   font-size: 0.82rem;
   background: var(--surface);
+}
+
+.import-review-table select option {
+  color: #111827;
 }
 
 .import-review-table select:focus,

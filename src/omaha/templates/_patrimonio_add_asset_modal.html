@@ -183,11 +183,11 @@
     </div>
 
     <!-- Step 1: File upload -->
-    <div class="import-modal-step"
+    <div class="import-modal-step import-modal-step--upload"
          x-show="$store.importModal.step === 1"
          x-transition:enter.duration.200ms>
       <div class="import-modal-upload-area">
-        <p style="font-size:0.85rem;color:var(--muted);margin:0;">
+        <p class="import-modal-upload-hint">
           Selecione um arquivo CSV com as posições do seu corretor
         </p>
         <input type="file"
@@ -276,7 +276,7 @@
                             :style="`background: ${cellColor}`"
                             x-init="cellColor = $store.importModal.getClassColor(($store.importModal.assignments[row.broker_ticker] || {}).class_id)"
                             x-effect="cellColor = $store.importModal.getClassColor(($store.importModal.assignments[row.broker_ticker] || {}).class_id)"></span>
-                      <select :style="cellColor === 'transparent' ? '' : `background: color-mix(in srgb, ${cellColor} 30%, white); border-color: ${cellColor}`"
+                      <select :style="cellColor === 'transparent' ? '' : `background: color-mix(in srgb, ${cellColor} 30%, white); border-color: ${cellColor}; color: #111827`"
                               x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })"
                               x-effect="(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })()"
                               @change="$store.importModal.assignments[row.broker_ticker].class_id = $event.target.value"
@@ -362,7 +362,7 @@
                             :style="`background: ${cellColor}`"
                             x-init="cellColor = $store.importModal.getClassColor(($store.importModal.assignments[row.broker_ticker] || {}).class_id)"
                             x-effect="cellColor = $store.importModal.getClassColor(($store.importModal.assignments[row.broker_ticker] || {}).class_id)"></span>
-                      <select :style="cellColor === 'transparent' ? '' : `background: color-mix(in srgb, ${cellColor} 30%, white); border-color: ${cellColor}`"
+                      <select :style="cellColor === 'transparent' ? '' : `background: color-mix(in srgb, ${cellColor} 30%, white); border-color: ${cellColor}; color: #111827`"
                               x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })"
                               x-effect="(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })()"
                               @change="$store.importModal.assignments[row.broker_ticker].class_id = $event.target.value"
