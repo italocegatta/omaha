@@ -530,9 +530,11 @@ def test_asset_plan_table_has_eleven_visible_columns(
     ]
     for key in asset_th_keys:
         assert f'data-testid="{key}"' in body, f"missing asset table column: {key}"
-    assert body.index('data-testid="rebalance-asset-th-sell"') < body.index(
-        'data-testid="rebalance-asset-th-quantity"'
-    ) < body.index('data-testid="rebalance-asset-th-projected"')
+    assert (
+        body.index('data-testid="rebalance-asset-th-sell"')
+        < body.index('data-testid="rebalance-asset-th-quantity"')
+        < body.index('data-testid="rebalance-asset-th-projected"')
+    )
 
 
 def test_asset_plan_renders_trade_quantity_and_blank_ineligible_cell(

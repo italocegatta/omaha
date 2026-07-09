@@ -133,9 +133,9 @@ def run_rebalance(
     solver_kwargs: dict[str, float] = {}
     signature = inspect.signature(solver)
     parameters = signature.parameters
-    if any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()) or (
-        "min_deviation_value" in parameters and "min_deviation_pct" in parameters
-    ):
+    if any(
+        parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()
+    ) or ("min_deviation_value" in parameters and "min_deviation_pct" in parameters):
         solver_kwargs = {
             "min_deviation_value": float(min_deviation_value),
             "min_deviation_pct": float(min_deviation_pct),

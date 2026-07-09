@@ -525,7 +525,9 @@ def _materialize_rebalance_plan(
     return plan
 
 
-def _parse_non_negative_form_float(raw: str | None, *, default: float) -> tuple[float | None, str | None]:
+def _parse_non_negative_form_float(
+    raw: str | None, *, default: float
+) -> tuple[float | None, str | None]:
     if raw is None or raw.strip() == "":
         return default, None
     try:
@@ -754,7 +756,9 @@ def post_rebalanceamento(
             min_deviation_value=_resolved_threshold(
                 parsed_min_deviation_value, DEFAULT_MIN_DEVIATION_VALUE
             ),
-            min_deviation_pct=_resolved_threshold(parsed_min_deviation_pct, DEFAULT_MIN_DEVIATION_PCT),
+            min_deviation_pct=_resolved_threshold(
+                parsed_min_deviation_pct, DEFAULT_MIN_DEVIATION_PCT
+            ),
         )
     except RebalanceValidationError as exc:
         return _render_rebalance(
@@ -766,7 +770,9 @@ def post_rebalanceamento(
             min_deviation_value=_resolved_threshold(
                 parsed_min_deviation_value, DEFAULT_MIN_DEVIATION_VALUE
             ),
-            min_deviation_pct=_resolved_threshold(parsed_min_deviation_pct, DEFAULT_MIN_DEVIATION_PCT),
+            min_deviation_pct=_resolved_threshold(
+                parsed_min_deviation_pct, DEFAULT_MIN_DEVIATION_PCT
+            ),
         )
 
     return _render_rebalance(
