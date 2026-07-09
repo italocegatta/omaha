@@ -18,7 +18,7 @@
         "question": "allow"
       }
     },
-    "roadmap-opencode": {
+    "roadmap-oc": {
       "description": "OpenCode roadmap session alias for monitored roadmap orchestration.",
       "mode": "subagent",
       "model": "opencode/deepseek-v4-flash",
@@ -34,7 +34,7 @@
         "question": "allow"
       }
     },
-    "roadmap-openai": {
+    "roadmap-oai": {
       "description": "OpenAI roadmap session alias for monitored roadmap orchestration.",
       "mode": "subagent",
       "model": "openai/gpt-5.4-mini",
@@ -51,7 +51,7 @@
         "question": "allow"
       }
     },
-    "roadmap-orchestrator-opencode": {
+    "1-roadmap-oc": {
       "description": "OpenCode roadmap orchestrator. Plans OpenSpec slices and advances roadmap gates.",
       "mode": "primary",
       "model": "opencode/deepseek-v4-flash",
@@ -67,7 +67,7 @@
         "question": "allow"
       }
     },
-    "roadmap-orchestrator-openai": {
+    "1-roadmap-oai": {
       "description": "OpenAI roadmap planner alias for roadmap orchestration.",
       "mode": "primary",
       "model": "openai/gpt-5.4-mini",
@@ -84,8 +84,8 @@
         "question": "allow"
       }
     },
-    "propose-specialist-openai": {
-      "description": "OpenAI specialist that builds OpenSpec proposal, design, tasks, and internal validation for one slice.",
+    "2-propose-oai": {
+      "description": "OpenAI stage that builds OpenSpec proposal, design, tasks, and internal validation for one slice.",
       "mode": "primary",
       "model": "openai/gpt-5.4",
       "variant": "high",
@@ -101,8 +101,8 @@
         "question": "allow"
       }
     },
-    "propose-specialist-opencode": {
-      "description": "OpenCode proposal builder alias for one OpenSpec slice.",
+    "2-propose-oc": {
+      "description": "OpenCode stage that builds OpenSpec proposal, design, tasks, and internal validation for one slice.",
       "mode": "primary",
       "model": "opencode/deepseek-v4-pro",
       "permission": {
@@ -117,8 +117,8 @@
         "question": "allow"
       }
     },
-    "apply-specialist-opencode": {
-      "description": "OpenCode specialist that implements approved OpenSpec tasks and stops at Applied.",
+    "3-apply-oc": {
+      "description": "OpenCode stage that implements approved OpenSpec tasks and stops at Applied.",
       "mode": "primary",
       "model": "opencode/deepseek-v4-pro",
       "permission": {
@@ -133,8 +133,8 @@
         "question": "allow"
       }
     },
-    "apply-specialist-openai": {
-      "description": "OpenAI implementation agent alias for one applied OpenSpec slice.",
+    "3-apply-oai": {
+      "description": "OpenAI stage that implements approved OpenSpec tasks and stops at Applied.",
       "mode": "primary",
       "model": "openai/gpt-5.4-mini",
       "variant": "high",
@@ -150,8 +150,8 @@
         "question": "allow"
       }
     },
-    "finalize-specialist-opencode": {
-      "description": "OpenCode specialist that archives applied changes and runs refresh-for-test receipt.",
+    "4-finalize-oc": {
+      "description": "OpenCode stage that archives applied changes and runs refresh-for-test receipt.",
       "mode": "primary",
       "model": "opencode/deepseek-v4-flash",
       "permission": {
@@ -166,8 +166,8 @@
         "question": "allow"
       }
     },
-    "finalize-specialist-openai": {
-      "description": "OpenAI archive-and-refresh agent alias for one applied OpenSpec slice.",
+    "4-finalize-oai": {
+      "description": "OpenAI stage that archives applied changes and runs refresh-for-test receipt.",
       "mode": "primary",
       "model": "openai/gpt-5.4-mini",
       "variant": "medium",
