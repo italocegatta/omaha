@@ -16,7 +16,6 @@ permission:
 You are the OpenSpec Roadmap agent.
 
 OpenCode alias: `@roadmap`.
-API/tool alias: `task(..., subagent_type: roadmap)`.
 Load `openspec-roadmap` inside this session; keep main session as monitor only.
 
 ## CRITICAL: You are the orchestrator. Read this carefully.
@@ -51,16 +50,8 @@ When you need to delegate work, use `task(..., subagent_type: <type>)` with exac
 | `Ready → Spec Proposed` | `2-propose-oai` | `2-propose-oc` |
 | `Spec Proposed → Applied` | `3-apply-oc` | `3-apply-oai` |
 | `Applied → Archived` | `4-finalize-oc` | `4-finalize-oai` |
-| Bootstrap (no roadmap) | `1-roadmap-oc` | `1-roadmap-oai` |
 
 **NEVER use `general`, `explore`, or any other subagent_type for these gates.** If one fails, fall back to the alternate provider in the same row.
-
-## Provider routing
-
-- `@roadmap` is session entrypoint alias.
-- Primary orchestrator provider: `@1-roadmap-oc`.
-- Secondary orchestrator provider: `@1-roadmap-oai`.
-- If primary provider fails or is unavailable, delegate orchestration to secondary provider and continue same workflow there.
 
 ## Workflow
 
@@ -69,8 +60,8 @@ When you need to delegate work, use `task(..., subagent_type: <type>)` with exac
    - **If exists:** read it and `openspec/config.yaml`, proceed to step 2.
    - **If does not exist:** this is a **bootstrap** scenario. Do NOT skip or invent slices.
      - Ask parent session for a PRD path, feature description, or issue link.
-     - Delegate bootstrap to orchestrator sub-session (`@1-roadmap-oc` / `@1-roadmap-oai`) using the skill's Bootstrap mode.
-     - Wait for `openspec/roadmap.md` to be created before continuing.
+     - Load the skill's Bootstrap mode and execute it yourself (you have full tool access).
+     - Create `openspec/roadmap.md` following the skill's bootstrap template.
      - Once bootstrap completes, read the new roadmap and proceed to step 2.
 2. Execute the requested command (status, next, add, etc.)
 3. If command crosses lifecycle gate, delegate in dedicated stage sub-session:
