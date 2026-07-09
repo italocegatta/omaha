@@ -59,8 +59,7 @@
                  inputmode="decimal"
                  data-testid="rebalance-contribution-input"
                  :class="{'rebalance-form-input--error': error}"
-                 :disabled="inert"
-                 required />
+                 :disabled="inert" />
         </label>
         <button type="submit"
                 class="btn btn-primary rebalance-form-submit"
@@ -79,10 +78,10 @@
 
     {% if zero_classes %}
       {% include "_rebalance_empty.html" %}
-    {% elif plan is none %}
-      {% include "_rebalance_placeholder.html" %}
-    {% else %}
+    {% elif plan is not none %}
       {% include "_rebalance_plan.html" %}
+    {% else %}
+      {% include "_rebalance_placeholder.html" %}
     {% endif %}
 
   </div>

@@ -225,8 +225,8 @@ def test_negative_contribution_renders_plan(client: TestClient) -> None:
 # assert 422).
 
 
-def test_missing_contribution_returns_422(client: TestClient) -> None:
-    """Missing ``contribution`` returns 422 (Pydantic)."""
+def test_missing_contribution_defaults_to_zero(client: TestClient) -> None:
+    """Missing ``contribution`` resolves to zero and still returns a plan."""
     _login_and_select(client, profile_id=1)
 
     response = client.post(
@@ -234,7 +234,8 @@ def test_missing_contribution_returns_422(client: TestClient) -> None:
         json={},
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 200
+    assert response.json()["metrics"]["contribution"] == 0.0
 
 
 # ---------------------------------------------------------------------------

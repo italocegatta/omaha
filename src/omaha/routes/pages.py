@@ -76,6 +76,8 @@ from omaha.rebalance.schemas import RebalancePlanResponse
 
 router = APIRouter(tags=["pages"])
 
+_REBALANCE_SESSION_KEY = "rebalance_contributions"
+
 
 def _templates(request: Request):
     """Return the application-wide Jinja2 templates instance."""
@@ -455,6 +457,61 @@ def _load_asset_classes(db: DbSession, profile: Profile) -> list[AssetClass]:
     )
 
 
+def _rebalance_contributions(request: Request) -> dict[str, float]:
+    """Return normalized per-profile aporte memory from session state."""
+
+    raw = request.session.get(_REBALANCE_SESSION_KEY)
+    if not isinstance(raw, dict):
+        return {}
+
+    normalized: dict[str, float] = {}
+    changed = False
+    for profile_id, value in raw.items():
+        if not isinstance(profile_id, str):
+            changed = True
+            continue
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError):
+            changed = True
+            continue
+        if not math.isfinite(parsed):
+            changed = True
+            continue
+        normalized[profile_id] = parsed
+    if changed:
+        request.session[_REBALANCE_SESSION_KEY] = normalized
+    return normalized
+
+
+def _get_rebalance_contribution(request: Request, profile: Profile) -> float:
+    """Return persisted aporte for profile, defaulting to zero."""
+
+    return _rebalance_contributions(request).get(str(profile.id), 0.0)
+
+
+def _set_rebalance_contribution(request: Request, profile: Profile, contribution: float) -> None:
+    """Persist finite aporte for active profile in session memory."""
+
+    contributions = _rebalance_contributions(request)
+    contributions[str(profile.id)] = float(contribution)
+    request.session[_REBALANCE_SESSION_KEY] = contributions
+
+
+def _materialize_rebalance_plan(
+    request: Request,
+    db: DbSession,
+    profile: Profile,
+    contribution: float,
+) -> RebalancePlanResponse:
+    """Run rebalance, persisting non-negative aporte used by page UX."""
+
+    plan = run_rebalance(db, profile, contribution)
+    if contribution >= 0:
+        _set_rebalance_contribution(request, profile, contribution)
+    return plan
+
+
 def _render_rebalance(
     request: Request,
     db: DbSession,
@@ -468,7 +525,7 @@ def _render_rebalance(
 
     Centralises the shared context assembly so GET and POST use the
     same path. ``plan`` is the resolved plan (or ``None`` for the
-    initial placeholder); ``form_error`` is the inline error string
+    initial plan-free render); ``form_error`` is the inline error string
     when the POST hit a validation failure (non-finite contribution
     or solver validation error).
 
@@ -489,7 +546,9 @@ def _render_rebalance(
             "zero_classes": zero_classes,
             "form_inert": zero_classes,
             "form_error": form_error,
-            "contribution": plan.metrics.contribution if plan is not None else None,
+            "contribution": (
+                plan.metrics.contribution if plan is not None else _get_rebalance_contribution(request, profile)
+            ),
         }
     )
     return _templates(request).TemplateResponse(request, "rebalance.html", context)
@@ -501,14 +560,16 @@ def get_rebalanceamento(
     db: DbSession,
     user: User = Depends(require_user),
 ) -> Response:
-    """Render the rebalance page in its placeholder state.
+    """Render rebalance page, materializing plan when profile has classes.
 
     When the active profile has zero classes, the main area renders
-    the empty-state card. Otherwise it renders the "defina um aporte"
-    placeholder. The in-body form is present in both cases; it is
-    disabled only when the profile has zero classes (the operator
-    must create a class first via the patrimonio "+ Nova classe"
-    button — see F02 design notes for the button migration).
+    the empty-state card. Otherwise the route resolves the persisted
+    aporte for that profile (or ``0`` when absent), runs rebalance,
+    and renders the current plan immediately. The in-body form is
+    present in both cases; it is disabled only when the profile has
+    zero classes (the operator must create a class first via the
+    patrimonio "+ Nova classe" button — see F02 design notes for the
+    button migration).
 
     The previous URL ``/rebalance`` is no longer served — see F02
     D1 + D9. Requests to ``/rebalance`` return HTTP 404 from a sibling
@@ -526,6 +587,17 @@ def get_rebalanceamento(
     if profile is None:
         request.session.pop("active_profile_id", None)
         return RedirectResponse("/login", status_code=303)
+    if _load_asset_classes(db, profile):
+        try:
+            plan = _materialize_rebalance_plan(
+                request,
+                db,
+                profile,
+                _get_rebalance_contribution(request, profile),
+            )
+        except RebalanceValidationError as exc:
+            return _render_rebalance(request, db, user, profile, form_error=str(exc))
+        return _render_rebalance(request, db, user, profile, plan=plan)
     return _render_rebalance(request, db, user, profile)
 
 
@@ -563,28 +635,19 @@ def post_rebalanceamento(
         request.session.pop("active_profile_id", None)
         return RedirectResponse("/login", status_code=303)
 
-    # Empty / missing contribution field — distinct from "0" which is
-    # a valid rebalance-only scenario. Mirror the JSON route's 422
-    # path inline so the user sees the same copy on the page.
     if contribution is None or contribution.strip() == "":
-        return _render_rebalance(
-            request,
-            db,
-            user,
-            profile,
-            form_error="Informe um valor de aporte (em R$).",
-        )
-
-    try:
-        parsed = float(contribution)
-    except ValueError:
-        return _render_rebalance(
-            request,
-            db,
-            user,
-            profile,
-            form_error="Valor inválido. Use um número finito.",
-        )
+        parsed = 0.0
+    else:
+        try:
+            parsed = float(contribution)
+        except ValueError:
+            return _render_rebalance(
+                request,
+                db,
+                user,
+                profile,
+                form_error="Valor inválido. Use um número finito.",
+            )
 
     if not math.isfinite(parsed):
         return _render_rebalance(
@@ -596,7 +659,7 @@ def post_rebalanceamento(
         )
 
     try:
-        plan = run_rebalance(db, profile, parsed)
+        plan = _materialize_rebalance_plan(request, db, profile, parsed)
     except RebalanceValidationError as exc:
         return _render_rebalance(
             request,

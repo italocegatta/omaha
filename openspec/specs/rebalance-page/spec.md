@@ -28,10 +28,11 @@ Auth follows the project standard (`require_user` +
 When the active profile has zero `AssetClass` rows, the main
 content area renders an empty-state card; the in-body form is
 present but inert (the input + button carry `disabled`).
-When the profile has classes, the main area renders either a
-placeholder ("defina um aporte e clique em Rebalancear") or the
-last computed plan if the request carried a previously-submitted
-aporte in the form (default: placeholder).
+When the profile has classes, the main area SHALL render the
+materialized rebalance plan using the active profile's persisted
+aporte value. If no aporte was persisted yet for that profile, the
+system SHALL use `0` as the default contribution and render the
+resulting plan immediately.
 
 The previous URL `/rebalance` is no longer served — requests to
 `/rebalance` return HTTP 404. No alias, no redirect.
@@ -48,16 +49,26 @@ The previous URL `/rebalance` is no longer served — requests to
 - **AND** the in-body form's submit button has the `disabled`
   attribute
 
-#### Scenario: Authenticated user with populated profile sees placeholder
+#### Scenario: Populated profile with no prior aporte renders zero plan
 
 - **WHEN** the active profile has at least one `AssetClass` row
-- **AND** `GET /rebalanceamento` is called without a prior form
-  submission
+- **AND** no aporte was persisted yet for that profile in the current session
+- **AND** `GET /rebalanceamento` is called
 - **THEN** the response is HTTP 200
 - **AND** the main area contains an element with
-  `data-testid="rebalance-placeholder"`
-- **AND** the in-body form's input does NOT have the `disabled`
-  attribute
+  `data-testid="rebalance-plan"`
+- **AND** the rendered plan reflects `metrics.contribution = 0`
+
+#### Scenario: Returning to page reuses persisted aporte and fresh data
+
+- **WHEN** the active profile has at least one `AssetClass` row
+- **AND** the operator previously submitted aporte `5000`
+- **AND** portfolio data changed before the next `GET /rebalanceamento`
+- **THEN** the response is HTTP 200
+- **AND** the main area contains `data-testid="rebalance-plan"`
+- **AND** the rendered plan reflects `metrics.contribution = 5000`
+- **AND** the plan is recomputed from current persisted classes/assets/positions,
+  not reused from an older serialized snapshot
 
 #### Scenario: Unauthenticated request bounces to /login
 
@@ -74,17 +85,19 @@ The previous URL `/rebalance` is no longer served — requests to
 ### Requirement: POST /rebalanceamento renders the plan
 
 The system SHALL expose `POST /rebalanceamento` that reads
-`contribution` from the in-body form, calls `run_rebalance()`,
-and re-renders the `rebalance.html` template with the resulting
-`RebalancePlanResponse` in the Jinja context. Same URL — no
-redirect, no JSON wire trip on the page flow.
+`contribution` from the in-body form, resolves it as the active
+profile's current aporte, calls `run_rebalance()`, and re-renders the
+`rebalance.html` template with the resulting `RebalancePlanResponse`
+in the Jinja context. Same URL - no redirect, no JSON wire trip on
+the page flow.
 
-The handler SHALL render the page with the plan visible when
-the aporte is a finite float (including 0 and negative). On
-non-finite (`NaN` / `inf`) or missing `contribution`, the
+The handler SHALL persist the submitted finite contribution for the
+active profile in the current session before rendering the page.
+When the field is blank or missing, the handler SHALL normalize it to
+`0` instead of rendering an error. On non-finite (`NaN` / `inf`), the
 handler re-renders the page with an inline `form_error`.
 
-#### Scenario: Valid finite contribution renders the plan
+#### Scenario: Valid finite contribution renders and persists the plan
 
 - **WHEN** `POST /rebalanceamento` is called with
   `contribution = 5000.00`
@@ -94,10 +107,16 @@ handler re-renders the page with an inline `form_error`.
 - **AND** six elements with `data-testid="rebalance-stat-*"`
   are visible (contribution, total_buy, total_sell,
   residual_cash, current_deviation_pct, projected_deviation_pct)
-- **AND** the asset plan table has one `<tr>` per `asset_plan`
-  row in the response
-- **AND** the category summary table has one `<tr>` per
-  `category_plan` row
+- **AND** a later `GET /rebalanceamento` for the same active profile
+  renders a plan with `metrics.contribution = 5000.00`
+
+#### Scenario: Blank contribution is normalized to zero
+
+- **WHEN** `POST /rebalanceamento` is called with an empty
+  `contribution` field
+- **THEN** the response is HTTP 200 with the page rendered
+- **AND** the plan section is visible
+- **AND** the rendered plan reflects `metrics.contribution = 0`
 
 #### Scenario: Zero contribution is a valid rebalance plan
 
@@ -123,14 +142,6 @@ handler re-renders the page with an inline `form_error`.
   `data-testid="rebalance-form-error"` containing
   "Use um número finito"
 - **AND** the plan section is NOT rendered
-
-#### Scenario: Missing contribution re-renders with form error
-
-- **WHEN** `POST /rebalanceamento` is called without a
-  `contribution` field
-- **THEN** the response is HTTP 200 with the page rendered
-- **AND** the form error element contains "Informe um valor
-  de aporte"
 
 #### Scenario: Solver validation failure renders inline error
 

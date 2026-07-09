@@ -45,7 +45,7 @@
             this.error = '';
             var raw = this.contribution;
             if (raw === '' || raw === null || raw === undefined) {
-              // Browser's native ``required`` attribute handles this.
+              this.contribution = '0';
               return;
             }
             var parsed = Number(raw);

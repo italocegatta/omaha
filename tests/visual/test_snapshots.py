@@ -68,8 +68,8 @@ def test_rebalance_form_snapshot(visual_page, live_url_visual: str, visual_viewp
     assert_structural_content(
         visual_page,
         '[data-testid="rebalance-form"]',
-        '[data-testid="rebalance-placeholder"]',
-        text="Pronto para rebalancear",
+        '[data-testid="rebalance-plan"]',
+        text="Política aplicada",
     )
     compare_or_update_screenshot(visual_page, "rebalance-form", visual_viewport)
 

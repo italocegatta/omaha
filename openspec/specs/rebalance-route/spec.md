@@ -16,8 +16,9 @@ hook; Phase 3b consumes the wire format defined here.
 The system SHALL expose `POST /api/rebalance` that accepts a
 `RebalanceRequest` body and returns a `RebalancePlanResponse` JSON.
 
-`RebalanceRequest` SHALL carry one field: `contribution` (float,
-R$). `RebalancePlanResponse` SHALL carry five top-level fields:
+`RebalanceRequest` SHALL carry one optional field: `contribution`
+(float, R$). When the field is omitted, the route SHALL resolve it as
+`0`. `RebalancePlanResponse` SHALL carry five top-level fields:
 `asset_plan` (list of `RebalanceAssetPlanRow`), `category_plan`
 (list of `RebalanceCategoryPlanRow`), `metrics` (`RebalancePlanMetrics`
 object), `warnings` (list of `RebalanceWarning`), and `applied_policy`
@@ -39,6 +40,13 @@ matching every other JSON route in the project.
   (zero is the canonical rebalance-only case — no new money, just
   reallocation)
 
+#### Scenario: Omitted contribution defaults to zero
+
+- **WHEN** `POST /api/rebalance` is called with `{}`
+- **THEN** the response is HTTP 200 with a populated
+  `RebalancePlanResponse`
+- **AND** `metrics.contribution` equals `0.00`
+
 #### Scenario: Unauthenticated request returns 401
 
 - **WHEN** `POST /api/rebalance` is called without a valid session
@@ -55,12 +63,12 @@ matching every other JSON route in the project.
 ### Requirement: Request validates contribution as a finite float
 
 The system SHALL accept `contribution` as any finite float (positive,
-zero, or negative). The system SHALL reject `NaN` and `Infinity` (and
-`-Infinity`) with HTTP 422 and a `detail` message stating that the
-aporte must be a finite number.
+zero, or negative). When `contribution` is omitted, the system SHALL
+behave exactly as if `0` had been supplied. The system SHALL reject
+`NaN` and `Infinity` (and `-Infinity`) with HTTP 422 and a `detail`
+message stating that the aporte must be a finite number.
 
-A missing `contribution` field SHALL be rejected with HTTP 422
-(Pydantic required-field error).
+An explicit `null` `contribution` value SHALL be rejected with HTTP 422.
 
 *(This requirement replaces "Request validates contribution greater
 than zero" — zero is now valid for rebalance-only plans; negative is
@@ -103,10 +111,10 @@ contract stays permissive.)*
   `{"contribution": Infinity}` (or `"-Infinity"` as a string)
 - **THEN** the response is HTTP 422
 
-#### Scenario: Missing contribution field returns 422
+#### Scenario: Null contribution returns 422
 
-- **WHEN** `POST /api/rebalance` is called with `{}`
-- **THEN** the response is HTTP 422 (Pydantic required-field error)
+- **WHEN** `POST /api/rebalance` is called with `{"contribution": null}`
+- **THEN** the response is HTTP 422
 
 ### Requirement: Wire format exposes a v1 subset of the solver's native output
 

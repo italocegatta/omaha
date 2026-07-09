@@ -151,10 +151,10 @@ def test_get_rebalanceamento_empty_profile_renders_empty_state(client: TestClien
     assert "disabled" in body  # at least one disabled element
 
 
-def test_get_rebalanceamento_populated_profile_renders_placeholder(
+def test_get_rebalanceamento_populated_profile_renders_zero_plan(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
-    """A profile with classes and no POST shows the placeholder card."""
+    """A profile with classes and no prior aporte shows the zero plan."""
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
@@ -162,8 +162,9 @@ def test_get_rebalanceamento_populated_profile_renders_placeholder(
 
     assert response.status_code == 200
     body = response.text
-    assert 'data-testid="rebalance-placeholder"' in body
+    assert 'data-testid="rebalance-plan"' in body
     assert 'data-testid="rebalance-empty-state"' not in body
+    assert '"contribution": 0.0' in body or '"contribution":0.0' in body
     # In-body form is present and not inert (profile has classes).
     assert 'data-testid="rebalance-form"' in body
 
@@ -260,6 +261,29 @@ def _seed_positions(_omaha_test_env: dict[str, str], by_asset: dict[str, float])
         db.commit()
 
 
+def _mutate_position_current_value(_omaha_test_env: dict[str, str], asset_name: str, current_value: float) -> None:
+    """Update one seeded position so the next GET must recompute plan data."""
+    import os
+
+    from omaha.db import SessionLocal
+    from omaha.models import Position
+
+    db_url = _omaha_test_env["db_url"]
+    os.environ["DATABASE_URL"] = db_url
+
+    with SessionLocal() as db:
+        position = (
+            db.query(Position)
+            .join(Asset, Position.asset_id == Asset.id)
+            .filter(Asset.name == asset_name)
+            .one()
+        )
+        value = Decimal(str(current_value))
+        position.current_price = value
+        position.total_current = value
+        db.commit()
+
+
 def test_post_rebalanceamento_valid_contribution_renders_plan(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
@@ -328,10 +352,10 @@ def test_post_rebalanceamento_negative_contribution_renders_form_error(
     assert 'data-testid="rebalance-plan"' not in body
 
 
-def test_post_rebalanceamento_missing_contribution_renders_form_error(
+def test_post_rebalanceamento_missing_contribution_renders_zero_plan(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
-    """Missing ``contribution`` field re-renders with an inline error."""
+    """Missing ``contribution`` field normalizes to zero and renders plan."""
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
@@ -339,8 +363,53 @@ def test_post_rebalanceamento_missing_contribution_renders_form_error(
 
     assert response.status_code == 200
     body = response.text
-    assert 'data-testid="rebalance-form-error"' in body
-    assert "Informe um valor de aporte" in body
+    assert 'data-testid="rebalance-plan"' in body
+    assert 'data-testid="rebalance-form-error"' not in body
+    assert '"contribution": 0.0' in body or '"contribution":0.0' in body
+
+
+def test_rebalanceamento_persists_aporte_per_profile_and_recomputes_on_get(
+    client: TestClient, _omaha_test_env: dict[str, str]
+) -> None:
+    """Session keeps aporte per profile while GET recomputes from fresh DB data."""
+    _seed_two_classes(_omaha_test_env)
+    _seed_class(2, "Exterior", "100", [("IVVB11", "100")], _omaha_test_env=_omaha_test_env)
+    _seed_positions(_omaha_test_env, {"IVVB11": 4321.0})
+    _login_and_select(client, profile_id=1)
+
+    response = client.post("/rebalanceamento", data={"contribution": "5000"})
+    assert response.status_code == 200
+    assert '"contribution": 5000.0' in response.text or '"contribution":5000.0' in response.text
+
+    client.post("/profiles/2/select", follow_redirects=False)
+    profile_two = client.get("/rebalanceamento")
+    assert profile_two.status_code == 200
+    assert '"contribution": 0.0' in profile_two.text or '"contribution":0.0' in profile_two.text
+
+    client.post("/profiles/1/select", follow_redirects=False)
+    _mutate_position_current_value(_omaha_test_env, "Selic", 1234.56)
+    refreshed = client.get("/rebalanceamento")
+    assert refreshed.status_code == 200
+    assert '"contribution": 5000.0' in refreshed.text or '"contribution":5000.0' in refreshed.text
+    assert '1234.56' in refreshed.text
+
+
+def test_rebalanceamento_logout_clears_persisted_aporte(
+    client: TestClient, _omaha_test_env: dict[str, str]
+) -> None:
+    """Logout clears session-backed aporte memory and next login restarts from zero."""
+    _seed_two_classes(_omaha_test_env)
+    _login_and_select(client, profile_id=1)
+
+    response = client.post("/rebalanceamento", data={"contribution": "5000"})
+    assert response.status_code == 200
+    assert '"contribution": 5000.0' in response.text or '"contribution":5000.0' in response.text
+
+    client.post("/logout", follow_redirects=False)
+    _login_and_select(client, profile_id=1)
+    after_relogin = client.get("/rebalanceamento")
+    assert after_relogin.status_code == 200
+    assert '"contribution": 0.0' in after_relogin.text or '"contribution":0.0' in after_relogin.text
 
 
 def test_post_rebalanceamento_invalid_contribution_renders_form_error(

@@ -93,6 +93,7 @@ class RebalanceRequest(BaseModel):
     """
 
     contribution: float = Field(
+        default=0,
         description=(
             "Aporte em R$ a ser aplicado no rebalanceamento. Aceita "
             "0 (rebalance sem dinheiro novo) e valores negativos "
