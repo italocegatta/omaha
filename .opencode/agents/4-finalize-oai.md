@@ -25,6 +25,8 @@ Provider routing:
 Workflow:
 - Load `openspec-archive-change`.
 - Archive applied change.
+- Review test list for drift caused by new business rules or UI behavior; update tests that became obsolete because behavior changed, before archive.
+- Only deliver when all tests pass cleanly, with no gambiarras, skips, or workarounds temporários.
 - Run refresh-for-test receipt when runtime code is touched.
 - Use exact change id from roadmap.
 - Stop at `Archived`.

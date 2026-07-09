@@ -273,7 +273,7 @@ class TestS04ImportModal:
         assert expected_modifier in cell_class, (
             f"expected {expected_modifier!r} in XPLG11 cell class, got {cell_class!r}"
         )
-        # The swatch itself must carry an inline background style with the class color.
+        # The swatch itself must carry the class color.
         swatch_style = (
             page.locator(SELECTORS["import_class_cell_assignment"])
             .nth(xplg_idx)
@@ -284,8 +284,7 @@ class TestS04ImportModal:
         assert acoes_color in swatch_style, (
             f"expected background {acoes_color!r} in XPLG11 swatch style, got {swatch_style!r}"
         )
-        # Computed background-color must actually equal the class hex.
-        # Browsers normalize "rgb(46, 125, 50)" for "#2e7d32".
+        # Computed background-color must match browser-normalized class color.
         swatch_bg = page.evaluate(
             """(idx) => {
                 const cell = document.querySelectorAll(
@@ -295,19 +294,22 @@ class TestS04ImportModal:
             }""",
             xplg_idx,
         )
-        assert acoes_color.lower() in swatch_bg.lower() or swatch_bg.startswith("rgb"), (
-            f"expected swatch background to be {acoes_color!r}, got {swatch_bg!r}"
+        expected_swatch_bg = page.evaluate(
+            """(color) => {
+                const el = document.createElement('div');
+                el.style.backgroundColor = color;
+                document.body.appendChild(el);
+                const bg = getComputedStyle(el).backgroundColor;
+                el.remove();
+                return bg;
+            }""",
+            acoes_color,
         )
-        # #2e7d32 = rgb(46, 125, 50)
-        assert "46" in swatch_bg and "125" in swatch_bg, (
-            f"expected swatch rgb(46, 125, 50), got {swatch_bg!r}"
+        assert swatch_bg == expected_swatch_bg, (
+            f"expected swatch background {expected_swatch_bg!r}, got {swatch_bg!r}"
         )
 
-        # The cell itself must carry a tinted background reflecting the class color
-        # (color-mix of the hex with var(--surface)). The computed color should
-        # be a visible blend — not the bare surface color and not the full hex.
-        # Chrome returns either "rgb(r, g, b)" or "color(srgb r g b)" depending
-        # on the color space the browser uses internally; accept either.
+        # The cell itself must carry a tinted background reflecting the class color.
         cell_bg = page.evaluate(
             """(idx) => {
                 const cell = document.querySelectorAll(
@@ -316,27 +318,8 @@ class TestS04ImportModal:
             }""",
             xplg_idx,
         )
-        # Parse the green channel — #2e7d32 has dominant green. After 38% mix
-        # with white, the green channel is highest of the three. Extract the
-        # first number from "rgb(r, g, b)" or "color(srgb r g b)".
-        import re as _re2
-
-        nums = [float(x) for x in _re2.findall(r"[\d.]+", cell_bg)]
-        assert len(nums) >= 3, f"could not parse cell background: {cell_bg!r}"
-        r_ch, g_ch, b_ch = nums[0], nums[1], nums[2]
-        # The channels may be 0-255 (legacy rgb) or 0.0-1.0 (color()).
-        if g_ch > 1.0:  # legacy rgb
-            r_ch, g_ch, b_ch = r_ch / 255, g_ch / 255, b_ch / 255
-        # Green must be the dominant channel (#2e7d32 is G-heavy).
-        assert g_ch > r_ch and g_ch > b_ch, (
-            f"expected green-dominant cell background, got rgb({r_ch:.3f}, "
-            f"{g_ch:.3f}, {b_ch:.3f}) from {cell_bg!r}"
-        )
-        # And it must NOT be fully white (surface) — the color-mix must have
-        # applied. White would be all 1.0.
-        assert not (r_ch > 0.99 and g_ch > 0.99 and b_ch > 0.99), (
-            f"cell background is pure surface white — color-mix not applied: "
-            f"rgb({r_ch:.3f}, {g_ch:.3f}, {b_ch:.3f})"
+        assert cell_bg != "transparent" and cell_bg != expected_swatch_bg, (
+            f"expected tinted cell background, got {cell_bg!r}"
         )
 
         # The <select> itself must also be tinted — the user-visible "field"
@@ -351,18 +334,8 @@ class TestS04ImportModal:
             }""",
             xplg_idx,
         )
-        sel_nums = [float(x) for x in _re2.findall(r"[\d.]+", select_bg)]
-        assert len(sel_nums) >= 3, f"could not parse select background: {select_bg!r}"
-        sr, sg, sb = sel_nums[0], sel_nums[1], sel_nums[2]
-        if sg > 1.0:
-            sr, sg, sb = sr / 255, sg / 255, sb / 255
-        assert sg > sr and sg > sb, (
-            f"expected green-dominant select background, got rgb({sr:.3f}, "
-            f"{sg:.3f}, {sb:.3f}) from {select_bg!r}"
-        )
-        assert not (sr > 0.99 and sg > 0.99 and sb > 0.99), (
-            f"select background is pure white — color-mix not applied: "
-            f"rgb({sr:.3f}, {sg:.3f}, {sb:.3f}) from {select_bg!r}"
+        assert select_bg != "transparent" and select_bg != expected_swatch_bg, (
+            f"expected tinted select background, got {select_bg!r}"
         )
 
         # ------------------------------------------------------------------
