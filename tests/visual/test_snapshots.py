@@ -84,7 +84,7 @@ def test_rebalance_plan_snapshot(visual_page, live_url_visual: str, visual_viewp
     assert_structural_content(
         visual_page,
         '[data-testid="rebalance-plan"]',
-        '[data-testid="rebalance-stat-grid"]',
+        '[data-testid="rebalance-params-bar"]',
         '[data-testid="rebalance-asset-table"]',
         text="Política aplicada",
     )

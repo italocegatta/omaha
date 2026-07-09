@@ -104,33 +104,60 @@ def run_rebalance(
 
     plan_native = solver(setup, positions, quotes, contribution)
 
-    asset_plan = [
-        RebalanceAssetPlanRow(
-            asset_key=row.name.casefold(),
-            asset_name=row.name,
-            category_name=row.category_name,
-            current_value=float(row.current_value),
-            target_value=float(row.target_value),
-            buy_amount=float(row.buy_amount),
-            sell_amount=float(row.sell_amount),
-            projected_value=float(row.projected_value),
-            action=_derive_action(
+    total_portfolio = sum(
+        float(row.current_value) for row in plan_native.asset_plan
+    )
+
+    asset_plan = []
+    for row in plan_native.asset_plan:
+        cv = float(row.current_value)
+        tv = float(row.target_value)
+        deviation_value = cv - tv
+        deviation_pct = (deviation_value / tv * 100) if tv != 0 else 0.0
+        asset_plan.append(
+            RebalanceAssetPlanRow(
+                asset_key=row.name.casefold(),
+                asset_name=row.name,
+                category_name=row.category_name,
+                current_value=cv,
+                target_value=tv,
                 buy_amount=float(row.buy_amount),
                 sell_amount=float(row.sell_amount),
-            ),
+                projected_value=float(row.projected_value),
+                action=_derive_action(
+                    buy_amount=float(row.buy_amount),
+                    sell_amount=float(row.sell_amount),
+                ),
+                deviation_value=deviation_value,
+                deviation_pct=deviation_pct,
+            )
         )
-        for row in plan_native.asset_plan
-    ]
 
-    category_plan = [
-        RebalanceCategoryPlanRow(
-            category_name=row.category_name,
-            current_value=float(row.current_value),
-            projected_value=float(row.projected_value),
-            delta=float(row.projected_value) - float(row.current_value),
+    # Build per-category target_value sums for target_pct computation
+    cat_target_sums: dict[str, float] = {}
+    for row in plan_native.asset_plan:
+        cat = row.category_name
+        cat_target_sums[cat] = cat_target_sums.get(cat, 0.0) + float(row.target_value)
+
+    category_plan = []
+    for row in plan_native.category_plan:
+        cv = float(row.current_value)
+        pv = float(row.projected_value)
+        delta = pv - cv
+        current_pct = (cv / total_portfolio * 100) if total_portfolio > 0 else 0.0
+        target_pct = (cat_target_sums.get(row.category_name, 0.0) / total_portfolio * 100) if total_portfolio > 0 else 0.0
+        deviation_pct = current_pct - target_pct
+        category_plan.append(
+            RebalanceCategoryPlanRow(
+                category_name=row.category_name,
+                current_value=cv,
+                projected_value=pv,
+                delta=delta,
+                target_pct=target_pct,
+                current_pct=current_pct,
+                deviation_pct=deviation_pct,
+            )
         )
-        for row in plan_native.category_plan
-    ]
 
     metrics = _metrics_from_native(plan_native.metrics)
 

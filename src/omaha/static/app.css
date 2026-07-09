@@ -1771,13 +1771,22 @@ td.editing {
   overflow-wrap: break-word;
 }
 
+.portfolio-table-shell {
+  overflow: auto;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 80%, white 20%), var(--surface));
+  box-shadow: 0 18px 34px rgba(8, 10, 20, 0.14);
+}
+
 .asset-table {
-  min-width: 1650px
+  min-width: 1650px;
+  width: 100%;
   font-size: 0.84rem;
-  background: var(--surface-sunk);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
 }
 
 .asset-table col:nth-child(1) { width: var(--col-ativo); }
@@ -1797,20 +1806,16 @@ td.editing {
 .asset-table col:nth-child(15) { width: var(--col-sell); }
 .asset-table col:nth-child(16) { width: var(--col-currency); }
 
-.asset-table thead {
-  background: var(--surface-elevated);
-}
-
 .asset-table th,
 .asset-table td {
-  padding: 0.28rem 0.45rem;
+  padding: 0.72rem 0.75rem;
   vertical-align: middle;
   overflow-wrap: break-word;
 }
 
 .asset-table th {
-  font-size: 0.72rem;
-  letter-spacing: 0.03em;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--ink) 94%, white);
   text-align: center;
@@ -1820,11 +1825,12 @@ td.editing {
   line-height: 1.15;
   word-break: normal;
   overflow-wrap: anywhere;
+  font-weight: 700;
 }
 
 .asset-table-group-row th {
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-elevated);
+  background: color-mix(in srgb, var(--surface-sunk) 70%, var(--surface));
+  border-bottom: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
 }
 
 .asset-table th > span[data-testid^="asset-table-th-"] {
@@ -1838,18 +1844,18 @@ td.editing {
 }
 
 .asset-table-subhead-row th {
-  background: color-mix(in srgb, var(--surface-elevated) 82%, var(--surface-sunk));
-  border-bottom: 2px solid var(--border-strong);
+  background: color-mix(in srgb, var(--surface-sunk) 82%, var(--surface));
+  border-bottom: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
 }
 
 .asset-table-subhead--ghost {
   padding: 0;
-  border-bottom: 2px solid var(--border-strong);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
 }
 
 .class-totals-row td {
-  background: color-mix(in srgb, var(--surface-elevated) 72%, var(--surface));
-  border-bottom: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--surface-sunk) 76%, var(--surface));
+  border-bottom: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
   font-weight: 600;
   color: var(--ink);
 }
@@ -1919,6 +1925,28 @@ td.editing {
 .asset-table td[data-testid="class-total-current-value"],
 .asset-table td[data-testid="class-total-gain-value"] {
   white-space: nowrap;
+}
+
+.asset-table tbody td {
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  white-space: nowrap;
+}
+
+.asset-table tbody tr:nth-child(odd) td {
+  background: color-mix(in srgb, var(--surface) 84%, var(--surface-sunk));
+}
+
+.asset-table tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--surface-sunk) 88%, transparent);
+}
+
+.asset-table tbody td:first-child {
+  font-weight: 700;
+  color: color-mix(in srgb, var(--ink) 92%, white 8%);
+}
+
+.asset-table tbody tr.class-totals-row td {
+  background: color-mix(in srgb, var(--surface-sunk) 76%, var(--surface));
 }
 
 .metric-sign {
@@ -2790,181 +2818,263 @@ td.editing {
   font-size: 0.9rem;
 }
 
-.rebalance-plan-summary {
-  margin-bottom: 1rem;
-}
-
-.rebalance-plan-summary-line {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--ink-muted);
-}
-
-.rebalance-plan-summary-label {
-  margin-right: 0.35rem;
-}
-
-.rebalance-plan-summary-policy {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 0.85rem;
-  background: var(--bg-hover);
-  padding: 0.1rem 0.4rem;
-  border-radius: 4px;
-  color: var(--ink);
-}
-
-/* Stub banner (only rendered when applied_policy is the fixture v1). */
-.rebalance-stub-banner {
-  margin-top: 0.75rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--surface-sunk);
-  font-size: 0.85rem;
-  color: var(--ink-muted);
-}
-
-.rebalance-stub-banner > summary {
-  cursor: pointer;
-  font-weight: 500;
-  color: var(--ink);
-}
-
-.rebalance-stub-banner > summary > code {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 0.8rem;
-  background: var(--surface);
-  padding: 0.05rem 0.3rem;
-  border-radius: 3px;
-  border: 1px solid var(--border);
-}
-
-.rebalance-stub-banner p {
-  margin: 0.5rem 0 0 0;
-}
-
-/* Warnings panel (only rendered when warnings is non-empty). */
-.rebalance-warnings {
-  margin: 0 0 1rem 0;
-  padding: 0.5rem 0.75rem;
-  background: color-mix(in srgb, var(--alert-warn) 12%, transparent);
-  border-radius: 4px;
-  border: 1px solid color-mix(in srgb, var(--alert-warn) 35%, transparent);
-}
-
-.rebalance-warnings-title {
-  margin: 0 0 0.5rem 0;
-  font-size: 0.9rem;
-  color: var(--ink);
-}
-
-.rebalance-warnings-list {
-  margin: 0;
-  padding-left: 1.25rem;
-  list-style: disc;
-}
-
-.rebalance-warnings-item {
-  font-size: 0.85rem;
-  color: var(--ink);
-  margin-bottom: 0.25rem;
-}
-
-.rebalance-warnings-code {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 0.8rem;
-  background: var(--surface);
-  padding: 0.05rem 0.3rem;
-  border-radius: 3px;
-  border: 1px solid var(--border);
-  margin-right: 0.4rem;
-}
-
-/* 6 metric cards in a single row (1x6). Wraps to 3x2 on narrow
-   viewports (< 720px) to keep each card legible on mobile. */
-.rebalance-stat-grid {
+/* Params bar — compact inline form: aporte + thresholds + submit */
+.rebalance-params-bar {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 0.75rem;
-  margin: 1rem 0;
+  grid-template-columns: minmax(0, 1.15fr) repeat(2, minmax(11rem, 0.8fr)) auto;
+  align-items: end;
+  gap: 1rem;
+  margin: 1rem 0 1.35rem;
+  padding: 1.1rem;
+  border: 1px solid color-mix(in srgb, var(--border-strong) 70%, transparent);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-elevated, var(--surface)) 92%, white 8%), var(--surface)),
+    var(--surface);
+  box-shadow: 0 16px 32px rgba(8, 10, 20, 0.16);
 }
-
-@media (max-width: 720px) {
-  .rebalance-stat-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (max-width: 480px) {
-  .rebalance-stat-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-.rebalance-stat {
+.rebalance-params-bar .rebalance-form-group {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.75rem 1rem;
-  background: var(--surface-sunk);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  gap: 0.4rem;
 }
-
-.rebalance-stat-label {
-  font-size: 0.7rem;
+.rebalance-params-bar label {
+  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.12em;
   color: var(--ink-muted);
-  font-weight: 500;
+  font-weight: 700;
+}
+.rebalance-params-bar input[type="number"] {
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.72rem 0.9rem;
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 700;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-sunk) 76%, white 24%);
+  color: var(--ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.rebalance-params-bar input[type="number"]:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 70%, white 30%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.rebalance-params-bar .rebalance-form-submit {
+  min-height: 3rem;
+  padding-inline: 1.35rem;
+  border-radius: 10px;
+  font-weight: 700;
 }
 
-.rebalance-stat-value {
-  font-family: "Red Hat Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+@media (max-width: 1040px) {
+  .rebalance-params-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .rebalance-params-bar {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Class deviation summary — horizontal cards */
+.rebalance-class-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.9rem;
+  padding: 0.15rem 0;
+  margin: 1rem 0 1.35rem;
+}
+.rebalance-class-card {
+  min-width: 0;
+  padding: 1rem 1rem 0.95rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
+  border-top: 3px solid var(--border);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-elevated, var(--surface)) 85%, white 15%), var(--surface-sunk));
+  font-size: 0.85rem;
+  box-shadow: 0 14px 26px rgba(8, 10, 20, 0.14);
+}
+.rebalance-class-card--ok {
+  border-top-color: var(--positive);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--positive) 9%, var(--surface-elevated, var(--surface))), var(--surface-sunk));
+}
+.rebalance-class-card--over {
+  border-top-color: var(--negative);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--negative) 9%, var(--surface-elevated, var(--surface))), var(--surface-sunk));
+}
+.rebalance-class-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  margin-bottom: 0.85rem;
+}
+.rebalance-class-card-kicker {
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
   font-weight: 700;
-  font-size: 1.15rem;
+}
+.rebalance-class-card-name {
+  font-weight: 800;
+  color: var(--ink);
+  display: block;
+  font-size: 1.08rem;
+}
+.rebalance-class-card-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem 0.85rem;
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+}
+.rebalance-class-card-metrics strong {
+  color: var(--ink);
+}
+.rebalance-class-card-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+.rebalance-class-card-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.rebalance-class-card-projected {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 0.9rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+/* Filter bar */
+.rebalance-filter-bar {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin: 0.9rem 0 0.85rem;
+  flex-wrap: wrap;
+  padding: 0.9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-sunk) 72%, transparent);
+}
+.rebalance-filter-group {
+  position: relative;
+}
+.rebalance-filter-trigger {
+  min-height: 2.6rem;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 14%, var(--border));
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--surface) 80%, white 20%);
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 600;
+}
+.rebalance-filter-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 20;
+  min-width: 180px;
+  padding: 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  max-height: 240px;
+  overflow-y: auto;
+}
+.rebalance-filter-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  font-size: 0.85rem;
+  color: var(--ink);
+  cursor: pointer;
+}
+.rebalance-filter-search {
+  flex: 1;
+  min-width: 240px;
+  min-height: 2.6rem;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 14%, var(--border));
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--surface) 80%, white 20%);
   color: var(--ink);
 }
 
 /* Sortable table — mirrors .asset-table's hairline style. */
 .rebalance-section-title {
-  margin: 1rem 0 0.5rem 0;
-  font-size: 1rem;
-  font-weight: 600;
+  margin: 1.2rem 0 0.65rem 0;
+  font-size: 1.18rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   color: var(--ink);
+}
+
+.rebalance-table-shell {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 80%, white 20%), var(--surface));
+  box-shadow: 0 18px 34px rgba(8, 10, 20, 0.14);
 }
 
 .rebalance-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.85rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
 }
 
 .rebalance-table-th {
-  text-align: left;
-  padding: 0.5rem 0.75rem;
-  background: var(--surface-sunk);
-  border-bottom: 1px solid var(--border);
-  font-weight: 500;
+  text-align: center;
+  padding: 0.9rem 0.75rem;
+  background: color-mix(in srgb, var(--surface-sunk) 70%, var(--surface));
+  border-bottom: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--ink);
   cursor: pointer;
   user-select: none;
+  white-space: nowrap;
 }
 
 .rebalance-table-th:hover {
-  background: var(--bg-hover);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-sunk));
 }
 
 .rebalance-table-th--num {
-  text-align: right;
+  text-align: center;
 }
 
 .rebalance-table-th-label {
-  margin-right: 0.25rem;
+  margin-right: 0.3rem;
 }
 
 .rebalance-table-th-indicator {
@@ -2973,34 +3083,50 @@ td.editing {
   color: var(--accent);
 }
 
-.rebalance-asset-cell,
-.rebalance-category-cell {
-  padding: 0.45rem 0.75rem;
-  border-bottom: 1px solid var(--border);
+.rebalance-asset-cell {
+  padding: 0.82rem 0.75rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
   color: var(--ink);
+  white-space: nowrap;
 }
 
-.rebalance-asset-cell--num,
-.rebalance-category-cell--num {
+.rebalance-asset-cell--num {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-.rebalance-category-cell--pos {
-  color: var(--positive);
-}
-
-.rebalance-category-cell--neg {
-  color: var(--negative);
-}
-
-.rebalance-asset-row:last-child .rebalance-asset-cell,
-.rebalance-category-row:last-child .rebalance-category-cell {
+.rebalance-asset-row:last-child .rebalance-asset-cell {
   border-bottom: none;
 }
 
+/* Row color-coding by deviation vs threshold */
+.rebalance-asset-row:nth-child(odd) td {
+  background: color-mix(in srgb, var(--surface) 84%, var(--surface-sunk));
+}
+.rebalance-asset-row:nth-child(even) td {
+  background: color-mix(in srgb, var(--surface-sunk) 88%, transparent);
+}
+.rebalance-asset-row:hover td {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.rebalance-asset-row--buy td {
+  background: color-mix(in srgb, var(--positive) 7%, var(--surface)) !important;
+}
+.rebalance-asset-row--sell td {
+  background: color-mix(in srgb, var(--negative) 10%, var(--surface)) !important;
+}
+.rebalance-asset-row--neutral td {
+  background: color-mix(in srgb, var(--surface) 82%, var(--surface-sunk) 18%) !important;
+}
+.rebalance-deviation--pos { color: var(--positive); }
+.rebalance-deviation--neg { color: var(--negative); }
+
 .rebalance-asset-cell--action {
   text-align: center;
+}
+.rebalance-asset-cell:first-child {
+  font-weight: 700;
+  color: color-mix(in srgb, var(--ink) 92%, white 8%);
 }
 
 /* Action badge — square (border-radius 4px), bg-color 12% opacity,
@@ -3114,10 +3240,10 @@ td.editing {
   flex-direction: column;
   gap: 0.4rem;
   margin-top: auto;
-  padding: 0.75rem;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  background: var(--surface);
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
 }
 
 .rebalance-form-label {

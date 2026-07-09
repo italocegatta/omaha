@@ -1,134 +1,151 @@
-{# Main plan layout — 6 metric cards (1x6 row) + category summary table
-   (4 cols) + asset plan table (8 cols, sortable) + footer (policy line
-   + stub banner + warnings). All numbers come from the
-   ``RebalancePlanResponse`` object passed in via Jinja context.
-
-   Layout order: stat grid → category summary → asset plan → footer
-   (policy + warnings). The footer surfaces the applied policy and any
-   plan-level warnings at the END so the operator's eye flows from
-   headline numbers → category rollup → per-asset detail → outcome
-   summary.
+{# Main plan layout — params bar (aporte + thresholds) + class deviation
+   summary (horizontal cards) + asset plan table (10 cols, sortable,
+   filterable) + footer (policy line + stub banner + warnings).
 
    Alpine scope: a local ``rebalancePage({plan: ...})`` component on
-   the wrapping <section> owns the sort state. The plan rows are
-   snapshot into ``displayRows`` on init and rebuilt by ``sortBy`` on
-   user-driven resort — the dashboard uses the same pattern, see
-   ``dashboard.html`` ``classSection.displayAssets``. #}
+   the wrapping <section> owns sort, filter, and threshold state. #}
 <section class="rebalance-plan"
          data-testid="rebalance-plan"
          x-data="rebalancePage({ plan: window.__rebalancePlan })">
   <script type="application/json"
            data-testid="rebalance-plan-data">{{ plan_dict | tojson }}</script>
 
-  <section class="rebalance-stat-grid"
-           data-testid="rebalance-stat-grid"
-           aria-label="Métricas do plano">
-    <div class="rebalance-stat" data-testid="rebalance-stat-contribution">
-      <span class="rebalance-stat-label">Aporte</span>
-      <span class="rebalance-stat-value">{{ plan.metrics.contribution | brl }}</span>
+  {# Params bar — compact inline: aporte + thresholds + submit #}
+  <div class="rebalance-params-bar" data-testid="rebalance-params-bar">
+    <div class="rebalance-form-group">
+      <label for="rebalance-contribution">Aporte (R$)</label>
+      <input type="number" step="any" name="contribution" id="rebalance-contribution"
+             x-model="contribution" inputmode="decimal"
+             data-testid="rebalance-contribution-input" />
     </div>
-    <div class="rebalance-stat" data-testid="rebalance-stat-total-buy">
-      <span class="rebalance-stat-label">Comprar</span>
-      <span class="rebalance-stat-value">{{ plan.metrics.total_buy | brl }}</span>
+    <div class="rebalance-form-group">
+      <label for="rebalance-threshold-abs">Desvio mín. (R$)</label>
+      <input type="number" step="any" id="rebalance-threshold-abs"
+             x-model.number="thresholdAbs" inputmode="decimal"
+             data-testid="rebalance-threshold-abs" />
     </div>
-    <div class="rebalance-stat" data-testid="rebalance-stat-total-sell">
-      <span class="rebalance-stat-label">Vender</span>
-      <span class="rebalance-stat-value">{{ plan.metrics.total_sell | brl }}</span>
+    <div class="rebalance-form-group">
+      <label for="rebalance-threshold-pct">Desvio mín. (%)</label>
+      <input type="number" step="any" id="rebalance-threshold-pct"
+             x-model.number="thresholdPct" inputmode="decimal"
+             data-testid="rebalance-threshold-pct" />
     </div>
-    <div class="rebalance-stat" data-testid="rebalance-stat-residual-cash">
-      <span class="rebalance-stat-label">Caixa residual</span>
-      <span class="rebalance-stat-value">{{ plan.metrics.residual_cash | brl }}</span>
-    </div>
-    <div class="rebalance-stat" data-testid="rebalance-stat-current-deviation">
-      <span class="rebalance-stat-label">Desvio atual</span>
-      <span class="rebalance-stat-value">{{ plan.metrics.current_deviation_pct | round(2) }}%</span>
-    </div>
-    <div class="rebalance-stat" data-testid="rebalance-stat-projected-deviation">
-      <span class="rebalance-stat-label">Desvio projetado</span>
-      <span class="rebalance-stat-value">{{ plan.metrics.projected_deviation_pct | round(2) }}%</span>
-    </div>
-  </section>
+    <button type="submit"
+            class="btn btn-primary rebalance-form-submit"
+            data-testid="rebalance-submit-btn"
+            :disabled="computing">
+      <span x-show="!computing">Rebalancear</span>
+      <span x-show="computing">Calculando...</span>
+    </button>
+  </div>
 
+  {# Class deviation summary — horizontal cards #}
   {% if plan.category_plan %}
-  <section class="rebalance-category-section"
+  <section class="rebalance-class-summary"
+           data-testid="rebalance-class-summary"
            aria-label="Resumo por classe">
-    <h3 class="rebalance-section-title">Resumo por classe</h3>
-    <table class="rebalance-table"
-           data-testid="rebalance-category-table">
-      <thead>
-        <tr>
-          <th class="rebalance-table-th"
-              data-testid="rebalance-category-th-name"
-              @click="sortByCategory('category_name')">
-            <span class="rebalance-table-th-label">Classe</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicatorCategory('category_name')"></span>
-          </th>
-          <th class="rebalance-table-th rebalance-table-th--num"
-              data-testid="rebalance-category-th-current"
-              @click="sortByCategory('current_value')">
-            <span class="rebalance-table-th-label">Valor atual</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicatorCategory('current_value')"></span>
-          </th>
-          <th class="rebalance-table-th rebalance-table-th--num"
-              data-testid="rebalance-category-th-projected"
-              @click="sortByCategory('projected_value')">
-            <span class="rebalance-table-th-label">Projetado</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicatorCategory('projected_value')"></span>
-          </th>
-          <th class="rebalance-table-th rebalance-table-th--num"
-              data-testid="rebalance-category-th-delta"
-              @click="sortByCategory('delta')">
-            <span class="rebalance-table-th-label">Δ</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicatorCategory('delta')"></span>
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        <template x-for="(c, i) in displayCategories" :key="c.category_name">
-          <tr class="rebalance-category-row"
-              :data-testid="'rebalance-category-row-' + i"
-              :data-category-name="c.category_name">
-            <td class="rebalance-category-cell"
-                x-text="c.category_name"></td>
-            <td class="rebalance-category-cell rebalance-category-cell--num"
-                x-text="formatBRL(c.current_value)"></td>
-            <td class="rebalance-category-cell rebalance-category-cell--num"
-                x-text="formatBRL(c.projected_value)"></td>
-            <td class="rebalance-category-cell rebalance-category-cell--num"
-                :class="c.delta < 0 ? 'rebalance-category-cell--neg' : (c.delta > 0 ? 'rebalance-category-cell--pos' : '')"
-                x-text="formatBRL(c.delta)"></td>
-          </tr>
-        </template>
-      </tbody>
-    </table>
+    <template x-for="c in displayCategories" :key="c.category_name">
+      <div class="rebalance-class-card"
+           :class="classCardClass(c)"
+           :data-testid="'rebalance-class-card-' + c.category_name">
+        <div class="rebalance-class-card-header">
+          <span class="rebalance-class-card-kicker">Classe</span>
+          <span class="rebalance-class-card-name" x-text="c.category_name"></span>
+        </div>
+        <div class="rebalance-class-card-metrics">
+          <div class="rebalance-class-card-metric">
+            <span class="rebalance-class-card-label">Atual</span>
+            <strong x-text="formatPct(c.current_pct)"></strong>
+          </div>
+          <div class="rebalance-class-card-metric">
+            <span class="rebalance-class-card-label">Alvo</span>
+            <strong x-text="formatPct(c.target_pct)"></strong>
+          </div>
+          <div class="rebalance-class-card-metric"
+               :class="c.deviation_pct >= 0 ? 'rebalance-deviation--pos' : 'rebalance-deviation--neg'">
+            <span class="rebalance-class-card-label">Desvio</span>
+            <strong x-text="formatDeviationPp(c.deviation_pct)"></strong>
+          </div>
+          <div class="rebalance-class-card-metric"
+               :class="c.delta >= 0 ? 'rebalance-deviation--pos' : 'rebalance-deviation--neg'">
+            <span class="rebalance-class-card-label">Valor</span>
+            <strong x-text="formatBRL(c.delta)"></strong>
+          </div>
+        </div>
+        <div class="rebalance-class-card-projected">
+          <span class="rebalance-class-card-label">Projetado</span>
+          <strong x-text="formatPct(c.projected_pct)"></strong>
+        </div>
+      </div>
+    </template>
   </section>
   {% endif %}
 
+  {# Asset plan table with filters #}
   <section class="rebalance-asset-section"
            aria-label="Plano por ativo">
     <h3 class="rebalance-section-title">Plano por ativo</h3>
     {% if plan.asset_plan %}
+
+    {# Filter bar #}
+    <div class="rebalance-filter-bar" data-testid="rebalance-filter-bar">
+      <div class="rebalance-filter-group" x-data="{open: false}">
+        <button @click="open = !open" class="rebalance-filter-trigger" type="button">
+          Classe <span x-text="selectedClasses.length === 0 ? '(todas)' : selectedClasses.length + ' selecionada(s)'"></span>
+        </button>
+        <div class="rebalance-filter-panel" x-show="open" x-cloak @click.outside="open = false">
+          <label class="rebalance-filter-option">
+            <input type="checkbox" @change="toggleAllClasses()" :checked="selectedClasses.length === 0">
+            <span>Todas</span>
+          </label>
+          <template x-for="cls in uniqueClasses" :key="cls">
+            <label class="rebalance-filter-option">
+              <input type="checkbox" :checked="isClassSelected(cls)" @change="toggleClassFilter(cls)">
+              <span x-text="cls"></span>
+            </label>
+          </template>
+        </div>
+      </div>
+      <div class="rebalance-filter-group" x-data="{open: false}">
+        <button @click="open = !open" class="rebalance-filter-trigger" type="button">
+          Ação <span x-text="selectedActions.length === 0 ? '(todas)' : selectedActions.length + ' selecionada(s)'"></span>
+        </button>
+        <div class="rebalance-filter-panel" x-show="open" x-cloak @click.outside="open = false">
+          <label class="rebalance-filter-option">
+            <input type="checkbox" @change="toggleAllActions()" :checked="selectedActions.length === 0">
+            <span>Todas</span>
+          </label>
+          <template x-for="act in uniqueActions" :key="act">
+            <label class="rebalance-filter-option">
+              <input type="checkbox" :checked="isActionSelected(act)" @change="toggleActionFilter(act)">
+              <span x-text="act"></span>
+            </label>
+          </template>
+        </div>
+      </div>
+      <input type="search" placeholder="Buscar ativo..."
+             x-model="searchTerm" data-testid="rebalance-filter-search"
+             class="rebalance-filter-search">
+    </div>
+
+    <div class="rebalance-table-shell">
     <table class="rebalance-table"
            data-testid="rebalance-asset-table">
       <thead>
         <tr>
-          <th class="rebalance-table-th"
-              data-testid="rebalance-asset-th-name"
-              @click="sortBy('asset_name')">
-            <span class="rebalance-table-th-label">Ativo</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicator('asset_name')"></span>
-          </th>
           <th class="rebalance-table-th"
               data-testid="rebalance-asset-th-category"
               @click="sortBy('category_name')">
             <span class="rebalance-table-th-label">Classe</span>
             <span class="rebalance-table-th-indicator"
                   x-text="sortIndicator('category_name')"></span>
+          </th>
+          <th class="rebalance-table-th"
+              data-testid="rebalance-asset-th-name"
+              @click="sortBy('asset_name')">
+            <span class="rebalance-table-th-label">Ativo</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicator('asset_name')"></span>
           </th>
           <th class="rebalance-table-th rebalance-table-th--num"
               data-testid="rebalance-asset-th-current-value"
@@ -143,6 +160,20 @@
             <span class="rebalance-table-th-label">Alvo</span>
             <span class="rebalance-table-th-indicator"
                   x-text="sortIndicator('target_value')"></span>
+          </th>
+          <th class="rebalance-table-th rebalance-table-th--num"
+              data-testid="rebalance-asset-th-deviation-value"
+              @click="sortBy('deviation_value')">
+            <span class="rebalance-table-th-label">Desvio (R$)</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicator('deviation_value')"></span>
+          </th>
+          <th class="rebalance-table-th rebalance-table-th--num"
+              data-testid="rebalance-asset-th-deviation-pct"
+              @click="sortBy('deviation_pct')">
+            <span class="rebalance-table-th-label">Desvio (%)</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicator('deviation_pct')"></span>
           </th>
           <th class="rebalance-table-th rebalance-table-th--num"
               data-testid="rebalance-asset-th-buy"
@@ -175,18 +206,25 @@
         </tr>
       </thead>
       <tbody>
-        <template x-for="(row, i) in displayRows" :key="row.asset_key">
+        <template x-for="(row, i) in filteredRows" :key="row.asset_key">
           <tr class="rebalance-asset-row"
+              :class="rowClass(row)"
               :data-asset-key="row.asset_key"
               :data-testid="'rebalance-asset-row-' + row.asset_key">
             <td class="rebalance-asset-cell"
-                x-text="row.asset_name"></td>
-            <td class="rebalance-asset-cell"
                 x-text="row.category_name"></td>
+            <td class="rebalance-asset-cell"
+                x-text="row.asset_name"></td>
             <td class="rebalance-asset-cell rebalance-asset-cell--num"
                 x-text="formatBRL(row.current_value)"></td>
             <td class="rebalance-asset-cell rebalance-asset-cell--num"
                 x-text="formatBRL(row.target_value)"></td>
+            <td class="rebalance-asset-cell rebalance-asset-cell--num"
+                :class="row.deviation_value >= 0 ? 'rebalance-deviation--pos' : 'rebalance-deviation--neg'"
+                x-text="formatBRL(row.deviation_value)"></td>
+            <td class="rebalance-asset-cell rebalance-asset-cell--num"
+                :class="row.deviation_pct >= 0 ? 'rebalance-deviation--pos' : 'rebalance-deviation--neg'"
+                x-text="formatDeviationPp(row.deviation_pct)"></td>
             <td class="rebalance-asset-cell rebalance-asset-cell--num"
                 x-text="formatBRL(row.buy_amount)"></td>
             <td class="rebalance-asset-cell rebalance-asset-cell--num"
@@ -203,6 +241,7 @@
         </template>
       </tbody>
     </table>
+    </div>
     {% else %}
     <p class="rebalance-empty-asset-plan"
        data-testid="rebalance-asset-table-empty">
@@ -211,42 +250,4 @@
     {% endif %}
   </section>
 
-  <footer class="rebalance-plan-footer">
-    {% if plan.warnings %}
-    <section class="rebalance-warnings"
-             data-testid="rebalance-warnings">
-      <h3 class="rebalance-warnings-title">
-        ⚠ Avisos ({{ plan.warnings|length }})
-      </h3>
-      <ul class="rebalance-warnings-list">
-        {% for w in plan.warnings %}
-        <li class="rebalance-warnings-item warning-line"
-            data-testid="rebalance-warnings-item">
-          <span class="icon icon--sm" aria-hidden="true">warning</span>
-          <code class="rebalance-warnings-code">{{ w.code }}</code>
-          <span class="rebalance-warnings-message">{{ w.message }}</span>
-        </li>
-        {% endfor %}
-      </ul>
-    </section>
-    {% endif %}
-
-    <header class="rebalance-plan-summary">
-      <p class="rebalance-plan-summary-line">
-        <span class="rebalance-plan-summary-label">Política aplicada:</span>
-        <code class="rebalance-plan-summary-policy"
-              data-testid="rebalance-applied-policy">{{ plan.applied_policy }}</code>
-      </p>
-      {% if plan.applied_policy == "stub-fixture-v1" %}
-      <details class="rebalance-stub-banner"
-               data-testid="rebalance-stub-banner">
-        <summary>Mostrando fixture stub (solver CVXPY chegará em
-          <code>rebalance-engine</code>)</summary>
-        <p>Os números abaixo são determinísticos e frozen no
-          arquivo <code>tests/fixtures/rebalance_stub_fixture.json</code>.
-          Quando o solver real entrar, este banner some sozinho.</p>
-      </details>
-      {% endif %}
-    </header>
-  </footer>
 </section>

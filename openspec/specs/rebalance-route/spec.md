@@ -119,7 +119,7 @@ contract stays permissive.)*
 ### Requirement: Wire format exposes a v1 subset of the solver's native output
 
 The system SHALL expose `RebalanceAssetPlanRow` with exactly these
-nine fields:
+eleven fields:
 
 * `asset_key` (string, `Asset.name.casefold()`)
 * `asset_name` (string, `Asset.name`)
@@ -130,14 +130,19 @@ nine fields:
 * `sell_amount` (float, R$; `0.0` when no sell is recommended)
 * `projected_value` (float, R$)
 * `action` (enum string: `"buy"`, `"sell"`, or `"hold"`)
+* `deviation_value` (float, R$; `current_value - target_value`)
+* `deviation_pct` (float, percentage 0–100; `0.0` when `target_value == 0`)
 
 The system SHALL expose `RebalanceCategoryPlanRow` with exactly these
-four fields:
+seven fields:
 
 * `category_name` (string, `AssetClass.name`)
 * `current_value` (float, R$)
 * `projected_value` (float, R$)
 * `delta` (float, R$; `projected_value - current_value`)
+* `target_pct` (float, percentage 0–100; target weight of the class)
+* `current_pct` (float, percentage 0–100; current weight of the class)
+* `deviation_pct` (float, percentage 0–100; `current_pct - target_pct`)
 
 The system SHALL expose `RebalancePlanMetrics` with exactly these six
 keys:
@@ -155,12 +160,17 @@ The system SHALL expose `RebalanceWarning` with two fields:
 `code` (string, machine-readable) and `message` (string, PT-BR
 operator-facing).
 
-#### Scenario: Asset plan row carries exactly nine fields
+#### Scenario: Asset plan row carries deviation fields
 
 - **WHEN** a `RebalanceAssetPlanRow` is serialized
-- **THEN** the JSON object has exactly the keys
+- **THEN** the JSON object has the keys
   `asset_key, asset_name, category_name, current_value, target_value,
-  buy_amount, sell_amount, projected_value, action` and no others
+  buy_amount, sell_amount, projected_value, action,
+  deviation_value, deviation_pct`
+- **AND** `deviation_value = current_value - target_value`
+- **AND** `deviation_pct = 0.0` when `target_value = 0`
+- **AND** otherwise `deviation_pct` equals `(current_value - target_value) /
+  target_value * 100`
 
 #### Scenario: Action enum is one of three values
 
@@ -177,6 +187,14 @@ operator-facing).
 - **WHEN** a category has `current_value = 1000.00` and
   `projected_value = 1500.00`
 - **THEN** the row's `delta` field equals `500.00`
+
+#### Scenario: Category row carries percentage fields
+
+- **WHEN** a `RebalanceCategoryPlanRow` is serialized
+- **THEN** the JSON object has the keys
+  `category_name, current_value, projected_value, delta,
+  target_pct, current_pct, deviation_pct`
+- **AND** `deviation_pct = current_pct - target_pct`
 
 #### Scenario: Warning code is machine-readable
 

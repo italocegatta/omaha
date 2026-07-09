@@ -28,7 +28,7 @@ EXPECTED_DISPLAY_SELECTORS = frozenset(
         ".portfolio-stat-value",
         ".app-header-wordmark",
         ".empty-state-step-number",
-        ".rebalance-stat-value",
+        ".rebalance-class-card-name",
         ".tab-nav__btn--active",
     }
 )

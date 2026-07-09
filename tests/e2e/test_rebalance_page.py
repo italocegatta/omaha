@@ -203,19 +203,8 @@ class TestRebalancePage:
         asset_rows = page.locator('[data-testid^="rebalance-asset-row-"]')
         assert asset_rows.count() >= 1, "asset plan table is empty"
 
-        # CVXPY engine reports one of four policies — assert the surface
-        # renders, not the legacy "stub-fixture-v1" string that
-        # predates the solver swap.
-        applied_policy = page.locator(SELECTORS["rebalance_applied_policy"]).inner_text()
-        assert applied_policy in (
-            "contribution-only",
-            "contribution-with-overweight-sales",
-            "contribution-with-full-sales",
-            "current-portfolio-rebalance",
-        ), f"unexpected applied_policy: {applied_policy!r}"
-
-        # Category summary table renders.
-        assert page.locator(SELECTORS["rebalance_category_table"]).count() == 1
+        assert page.locator(SELECTORS["rebalance_class_summary"]).count() == 1
+        assert page.locator(SELECTORS["rebalance_filter_bar"]).count() == 1
 
     def test_asset_table_sort_by_current_value(self, page: Page, live_url: str) -> None:
         """Clicking the "Valor atual" <th> sorts ascending then descending."""

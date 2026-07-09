@@ -31,6 +31,8 @@ class RebalanceAssetPlanRow(BaseModel):
     sell_amount: float
     projected_value: float
     action: RebalanceAction
+    deviation_value: float = 0.0
+    deviation_pct: float = 0.0
 
 
 class RebalanceCategoryPlanRow(BaseModel):
@@ -42,6 +44,9 @@ class RebalanceCategoryPlanRow(BaseModel):
     current_value: float
     projected_value: float
     delta: float
+    target_pct: float = 0.0
+    current_pct: float = 0.0
+    deviation_pct: float = 0.0
 
 
 class RebalancePlanMetrics(BaseModel):

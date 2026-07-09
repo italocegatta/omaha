@@ -299,20 +299,14 @@ def test_post_rebalanceamento_valid_contribution_renders_plan(
     body = response.text
     # Plan layout rendered.
     assert 'data-testid="rebalance-plan"' in body
-    # 6 metric cards (one per ``RebalancePlanMetrics`` key).
-    for key in (
-        "rebalance-stat-contribution",
-        "rebalance-stat-total-buy",
-        "rebalance-stat-total-sell",
-        "rebalance-stat-residual-cash",
-        "rebalance-stat-current-deviation",
-        "rebalance-stat-projected-deviation",
-    ):
-        assert f'data-testid="{key}"' in body, f"missing metric card: {key}"
+    # Params bar (aporte + thresholds + submit).
+    assert 'data-testid="rebalance-params-bar"' in body
     # Asset plan table renders (stub fixture has at least 1 asset_plan row).
     assert 'data-testid="rebalance-asset-table"' in body
-    # Category summary renders.
-    assert 'data-testid="rebalance-category-table"' in body
+    # Class deviation summary renders.
+    assert 'data-testid="rebalance-class-summary"' in body
+    # Filter bar renders.
+    assert 'data-testid="rebalance-filter-bar"' in body
 
 
 def test_post_rebalanceamento_zero_contribution_renders_plan(
@@ -326,7 +320,7 @@ def test_post_rebalanceamento_zero_contribution_renders_plan(
 
     assert response.status_code == 200
     assert 'data-testid="rebalance-plan"' in response.text
-    assert 'data-testid="rebalance-stat-contribution"' in response.text
+    assert 'data-testid="rebalance-params-bar"' in response.text
 
 
 def test_post_rebalanceamento_negative_contribution_renders_form_error(
@@ -461,10 +455,10 @@ def test_post_rebalanceamento_solver_validation_error_renders_inline(
 # ---------------------------------------------------------------------------
 
 
-def test_asset_plan_table_has_eight_visible_columns(
+def test_asset_plan_table_has_ten_visible_columns(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
-    """The asset plan <thead> has exactly 8 <th> cells."""
+    """The asset plan <thead> has exactly 10 <th> cells."""
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
@@ -472,13 +466,13 @@ def test_asset_plan_table_has_eight_visible_columns(
     assert response.status_code == 200
     body = response.text
 
-    # Match the asset plan table block: the first <table> after
-    # ``rebalance-asset-table`` test-id marker is the asset plan.
     asset_th_keys = [
         "rebalance-asset-th-name",
         "rebalance-asset-th-category",
         "rebalance-asset-th-current-value",
         "rebalance-asset-th-target-value",
+        "rebalance-asset-th-deviation-value",
+        "rebalance-asset-th-deviation-pct",
         "rebalance-asset-th-buy",
         "rebalance-asset-th-sell",
         "rebalance-asset-th-projected",
@@ -488,10 +482,10 @@ def test_asset_plan_table_has_eight_visible_columns(
         assert f'data-testid="{key}"' in body, f"missing asset table column: {key}"
 
 
-def test_category_summary_has_four_columns(
+def test_class_deviation_summary_renders(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
-    """The category summary <thead> has exactly 4 <th> cells."""
+    """The class deviation summary section renders with class cards."""
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
@@ -499,13 +493,7 @@ def test_category_summary_has_four_columns(
     assert response.status_code == 200
     body = response.text
 
-    for key in (
-        "rebalance-category-th-name",
-        "rebalance-category-th-current",
-        "rebalance-category-th-projected",
-        "rebalance-category-th-delta",
-    ):
-        assert f'data-testid="{key}"' in body, f"missing category column: {key}"
+    assert 'data-testid="rebalance-class-summary"' in body
 
 
 # ---------------------------------------------------------------------------
@@ -513,18 +501,15 @@ def test_category_summary_has_four_columns(
 # ---------------------------------------------------------------------------
 
 
-def test_stub_banner_visible_under_fixture_stub(
+def test_footer_policy_and_stub_banner_not_rendered(
     client: TestClient,
     _omaha_test_env: dict[str, str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """When the stub solver runs, ``applied_policy == "stub-fixture-v1"``
-    and the stub banner is rendered.
+    """Footer policy/stub surfaces were removed from the page.
 
-    Phase 4 changed the default solver to CVXPY; this test opts into
-    the stub via ``monkeypatch.setattr(glue, "cvxpy_solver", stub)``
-    so it preserves the original intent — the page renders the stub
-    banner when the stub runs.
+    Route payload still carries ``applied_policy`` and warnings, but the
+    page no longer renders them at the bottom.
     """
     from omaha.rebalance import glue
     from omaha.rebalance.solver_stub import stub_solver
@@ -538,15 +523,14 @@ def test_stub_banner_visible_under_fixture_stub(
     assert response.status_code == 200
     body = response.text
 
-    assert 'data-testid="rebalance-applied-policy"' in body
-    assert "stub-fixture-v1" in body
-    assert 'data-testid="rebalance-stub-banner"' in body
+    assert 'data-testid="rebalance-applied-policy"' not in body
+    assert 'data-testid="rebalance-stub-banner"' not in body
 
 
-def test_warnings_panel_present_when_stub_emits_warning(
+def test_warnings_panel_not_rendered(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
-    """The stub fixture carries at least one warning → panel renders."""
+    """Warnings remain in payload but are hidden from page footer."""
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
@@ -554,7 +538,7 @@ def test_warnings_panel_present_when_stub_emits_warning(
     assert response.status_code == 200
     body = response.text
 
-    assert 'data-testid="rebalance-warnings"' in body
+    assert 'data-testid="rebalance-warnings"' not in body
 
 
 # ---------------------------------------------------------------------------

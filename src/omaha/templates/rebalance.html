@@ -1,25 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Rebalanceamento — Omaha{% endblock %}
 {% block content %}
-{# rebalance-page — server-side rendered plan on /rebalanceamento
-   (F02, D9). Before F02 the page shared its "Rebalancear" form with
-   the dashboard via the ``_sidebar.html`` include. After F02 the
-   sidebar is gone (D7) and the form lives in the page body, above
-   the plan / placeholder / empty-state area. The previous per-card
-   nav row (``← Dashboard`` / "Plano de aporte") is removed in the
-   same pass — the global top nav in ``base.html`` replaced it.
-
-   The Alpine ``rebalancePage`` component below owns the asset-plan
-   table sort state (and the category-summary table). #}
+{# rebalance-page — server-side rendered plan on /rebalanceamento.
+   The form wraps the entire card so it's present in all states
+   (empty, placeholder, plan). Alpine owns sort, filter, threshold,
+   and deviation display state. #}
 <div class="rebalance-page">
   <div class="rebalance-card"
        data-testid="rebalance-card">
 
-    {# Inline form-error banner — rendered above the placeholder /
-       plan / empty-state card so the operator sees the validation
-       message no matter which state the page is in. The testid is
-       now ``rebalance-form-error`` (not ``sidebar-form-error`` —
-       there is no sidebar element any more; see F02 D9). #}
     {% if form_error %}
     <div class="rebalance-form-error-banner"
          data-testid="rebalance-form-error"
@@ -28,27 +17,19 @@
     </div>
     {% endif %}
 
-    {# In-body aporte form (F02 D9 — the form is no longer in any
-       sidebar). Server-side posts to /rebalanceamento; Alpine gates
-       ``contribution < 0`` client-side for v1 (see base.html
-       ``rebalanceForm``). The submit posts the form server-side via
-       a plain HTML form POST (no client fetch). The page re-renders
-       with the plan in context. #}
     <form class="rebalance-form"
           method="post"
           action="/rebalanceamento"
           data-testid="rebalance-form"
           x-data="rebalanceForm({ inert: {{ 'true' if form_inert|default(false) else 'false' }}, contribution: {{ contribution|default('null')|tojson }} })"
           @submit="validate($event)">
+      {% if plan is none %}
       <label for="rebalance-contribution"
              class="rebalance-form-label"
              data-testid="rebalance-form-label">
         Aporte (R$)
       </label>
       <div class="rebalance-form-row">
-        {# F10 D-F10.11: R$ prefix in a <label> wrapper keeps the click
-           target on the input; CSS owns the visual segment. The wrapper
-           flexes to fill the row, the submit button stays as a sibling. #}
         <label class="input-prefix-wrap" for="rebalance-contribution">
           <span class="input-prefix">R$</span>
           <input type="number"
@@ -74,34 +55,22 @@
          x-show="error"
          x-cloak
          x-text="error"></p>
-    </form>
+      {% endif %}
 
-    {% if zero_classes %}
-      {% include "_rebalance_empty.html" %}
-    {% elif plan is not none %}
-      {% include "_rebalance_plan.html" %}
-    {% else %}
-      {% include "_rebalance_placeholder.html" %}
-    {% endif %}
+      {% if zero_classes %}
+        {% include "_rebalance_empty.html" %}
+      {% elif plan is not none %}
+        {% include "_rebalance_plan.html" %}
+      {% else %}
+        {% include "_rebalance_placeholder.html" %}
+      {% endif %}
+
+    </form>
 
   </div>
 </div>
 
 <script>
-  // rebalance-page Alpine scope. Local component (no global store) —
-  // the page is self-contained: the in-body form submits via plain
-  // HTML form POST and the plan arrives via server-side render.
-  // Alpine only owns the asset-plan table sort state.
-  //
-  // The plan payload is serialised into a <script type="application/json">
-  // element rendered by the partial template; we lift it to
-  // ``window.__rebalancePlan`` before Alpine initialises so the
-  // ``rebalancePage({ plan: ... })`` factory receives it. We can't
-  // inline the JSON into the ``x-data`` attribute directly because
-  // Jinja's ``tojson`` filter escapes ``"`` as ``\"`` (JSON
-  // convention), which HTML parsers don't recognise — the attribute
-  // closes at the first inner ``"`` and the rest leaks into the DOM
-  // as malformed attributes.
   (function () {
     var dataEl = document.querySelector('[data-testid="rebalance-plan-data"]');
     if (dataEl) {
@@ -117,13 +86,6 @@
   })();
 
   document.addEventListener('alpine:init', function () {
-    // Sort comparator factory mirroring ``patrimonio.html``'s
-    // ``sortFn`` pattern: numeric fields compare numerically,
-    // strings case-insensitively, ties break by ``asset_key`` so the
-    // order is stable across re-sorts. Action label is the
-    // human-readable translation — sort uses the raw enum string so
-    // 'buy' < 'hold' < 'sell' alphabetically (a stable, predictable
-    // ordering that won't surprise the operator).
     function rebalanceSortFn(key, dir) {
       var NUMERIC_KEYS = {
         current_value: 1,
@@ -131,6 +93,8 @@
         buy_amount: 1,
         sell_amount: 1,
         projected_value: 1,
+        deviation_value: 1,
+        deviation_pct: 1,
       };
       return function (a, b) {
         var cmp = 0;
@@ -148,15 +112,14 @@
       };
     }
 
-    // Category-summary sort comparator. Mirrors ``rebalanceSortFn`` but
-    // only knows the 4 category fields and uses ``category_name`` as the
-    // stable tie-breaker (the only stable key on a category row). All
-    // monetary fields are numeric.
     function rebalanceCategorySortFn(key, dir) {
       var NUMERIC_KEYS = {
         current_value: 1,
         projected_value: 1,
         delta: 1,
+        target_pct: 1,
+        current_pct: 1,
+        deviation_pct: 1,
       };
       return function (a, b) {
         var cmp = 0;
@@ -179,15 +142,32 @@
     window.rebalancePage = function (initial) {
       return {
         plan: initial.plan,
+        computing: false,
+        thresholdAbs: 1000,
+        thresholdPct: 1,
         sortKey: 'category_name',
         sortDir: 'asc',
         displayRows: [],
         categorySortKey: 'category_name',
         categorySortDir: 'asc',
         displayCategories: [],
+        selectedClasses: [],
+        selectedActions: [],
+        searchTerm: '',
         init: function () {
           this.displayRows = this.plan.asset_plan.slice();
-          this.displayCategories = this.plan.category_plan.slice().sort(
+          this._computeCategories();
+        },
+        _computeCategories: function () {
+          var totalProjected = this.plan.asset_plan.reduce(function (s, r) {
+            return s + (Number(r.projected_value) || 0);
+          }, 0);
+          this.displayCategories = this.plan.category_plan.slice().map(function (c) {
+            var proj = totalProjected > 0
+              ? (Number(c.projected_value) / totalProjected * 100)
+              : 0;
+            return Object.assign({}, c, { projected_pct: proj });
+          }).sort(
             rebalanceCategorySortFn(this.categorySortKey, this.categorySortDir)
           );
         },
@@ -210,12 +190,7 @@
             this.categorySortKey = key;
             this.categorySortDir = 'asc';
           }
-          this.displayCategories = this.plan.category_plan.slice().sort(
-            rebalanceCategorySortFn(
-              this.categorySortKey,
-              this.categorySortDir
-            )
-          );
+          this._computeCategories();
         },
         sortIndicator: function (key) {
           if (this.sortKey !== key) return '';
@@ -237,6 +212,68 @@
             currency: 'BRL',
           });
         },
+        formatPct: function (v) {
+          return (Number(v) || 0).toFixed(1) + '%';
+        },
+        formatDeviationPp: function (v) {
+          var n = Number(v) || 0;
+          var sign = n >= 0 ? '+' : '';
+          return sign + n.toFixed(1) + '%';
+        },
+        classCardClass: function (c) {
+          if (Math.abs(c.deviation_pct) >= this.thresholdPct) {
+            return 'rebalance-class-card--over';
+          }
+          return 'rebalance-class-card--ok';
+        },
+        rowClass: function (row) {
+          if (row.action === 'hold') return 'rebalance-asset-row--neutral';
+          if (row.action === 'buy') return 'rebalance-asset-row--buy';
+          return 'rebalance-asset-row--sell';
+        },
+        get uniqueClasses() {
+          return [...new Set(this.plan.asset_plan.map(function (r) { return r.category_name; }))].sort();
+        },
+        get uniqueActions() { return ['Comprar', 'Vender', 'Manter']; },
+        get filteredRows() {
+          var self = this;
+          var rows = this.displayRows;
+          if (this.selectedClasses.length > 0) {
+            rows = rows.filter(function (r) { return self.selectedClasses.includes(r.category_name); });
+          }
+          if (this.selectedActions.length > 0) {
+            rows = rows.filter(function (r) { return self.selectedActions.includes(self.actionLabel(r.action)); });
+          }
+          if (this.searchTerm.trim()) {
+            var q = this.searchTerm.trim().toLowerCase();
+            rows = rows.filter(function (r) { return r.asset_name.toLowerCase().includes(q); });
+          }
+          return rows;
+        },
+        toggleClassFilter: function (cls) {
+          var idx = this.selectedClasses.indexOf(cls);
+          if (idx >= 0) {
+            this.selectedClasses.splice(idx, 1);
+          } else {
+            this.selectedClasses.push(cls);
+          }
+        },
+        toggleActionFilter: function (action) {
+          var idx = this.selectedActions.indexOf(action);
+          if (idx >= 0) {
+            this.selectedActions.splice(idx, 1);
+          } else {
+            this.selectedActions.push(action);
+          }
+        },
+        isClassSelected: function (cls) {
+          return this.selectedClasses.length === 0 || this.selectedClasses.includes(cls);
+        },
+        isActionSelected: function (action) {
+          return this.selectedActions.length === 0 || this.selectedActions.includes(action);
+        },
+        toggleAllClasses: function () { this.selectedClasses = []; },
+        toggleAllActions: function () { this.selectedActions = []; },
       };
     };
   });

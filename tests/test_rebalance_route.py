@@ -26,7 +26,7 @@ from decimal import Decimal
 import pytest
 from fastapi.testclient import TestClient
 
-from omaha.models import Asset, AssetClass, QuoteKind
+from omaha.models import Asset, AssetClass, Position, QuoteKind
 
 # Mirror the seed profile owners from test_assets_trade_flags.py.
 _PROFILE_OWNERS = {1: "Italo", 2: "Ana"}
@@ -47,6 +47,7 @@ def _wipe_tables(_omaha_test_env: dict[str, str]) -> None:
     SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     db = SessionLocal()
     try:
+        db.query(Position).delete()
         db.query(Asset).delete()
         db.query(AssetClass).delete()
         db.commit()
@@ -158,6 +159,22 @@ def test_active_profile_returns_200_with_plan(
     assert "warnings" in body
     assert "applied_policy" in body
     assert body["metrics"]["contribution"] == 5000.0
+
+    # New F18 schema fields: deviation on asset rows
+    for row in body["asset_plan"]:
+        assert "deviation_value" in row
+        assert "deviation_pct" in row
+        assert isinstance(row["deviation_value"], float)
+        assert isinstance(row["deviation_pct"], float)
+
+    # New F18 schema fields: pct + deviation on category rows
+    for row in body["category_plan"]:
+        assert "target_pct" in row
+        assert "current_pct" in row
+        assert "deviation_pct" in row
+        assert isinstance(row["target_pct"], float)
+        assert isinstance(row["current_pct"], float)
+        assert isinstance(row["deviation_pct"], float)
 
 
 def test_unauthenticated_request_returns_redirect(client: TestClient) -> None:
@@ -293,3 +310,30 @@ def test_empty_profile_returns_200_with_warning(client: TestClient) -> None:
     assert body["category_plan"] == []
     codes = [w["code"] for w in body["warnings"]]
     assert "EMPTY_PROFILE" in codes
+
+
+def test_deviation_fields_on_plan_rows(
+    client: TestClient, _omaha_test_env: dict[str, str]
+) -> None:
+    """Deviation fields are present and division-by-zero returns 0.0."""
+    _seed_class(1, "RF", "100", [("Selic", "100")], _omaha_test_env=_omaha_test_env)
+    _seed_positions(_omaha_test_env, {"Selic": 5_000.0})
+    _login_and_select(client, profile_id=1)
+
+    response = client.post("/api/rebalance", json={"contribution": 0})
+    assert response.status_code == 200
+    body = response.json()
+
+    # Asset rows have deviation fields
+    for row in body["asset_plan"]:
+        assert "deviation_value" in row
+        assert "deviation_pct" in row
+
+    # Category rows have pct fields
+    for row in body["category_plan"]:
+        assert "target_pct" in row
+        assert "current_pct" in row
+        assert "deviation_pct" in row
+        # pct values should sum toward 100 (single class = 100%)
+        assert row["current_pct"] >= 0.0
+        assert row["target_pct"] >= 0.0

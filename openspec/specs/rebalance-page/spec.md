@@ -104,9 +104,8 @@ handler re-renders the page with an inline `form_error`.
 - **THEN** the response is HTTP 200 with the page rendered
 - **AND** the main area contains an element with
   `data-testid="rebalance-plan"`
-- **AND** six elements with `data-testid="rebalance-stat-*"`
-  are visible (contribution, total_buy, total_sell,
-  residual_cash, current_deviation_pct, projected_deviation_pct)
+- **AND** the plan renders the compact parameter bar,
+  horizontal class summary cards, and the asset plan table
 - **AND** a later `GET /rebalanceamento` for the same active profile
   renders a plan with `metrics.contribution = 5000.00`
 
@@ -172,22 +171,28 @@ exists any more; see `dashboard-sidebar` REMOVED delta).
   "Saques serão suportados em versão futura. Por enquanto,
   deixe o aporte em zero ou positivo."
 
-### Requirement: Asset plan table renders eight visible columns plus a data attribute
+### Requirement: Asset plan table renders ten visible columns plus a data attribute
 
 The system SHALL render the asset plan table with exactly
-eight visible `<th>` cells: Ativo, Classe, Valor atual,
-Alvo, Compra, Venda, Projetado, Ação. Each row carries a
-`data-asset-key` attribute holding the wire's `asset_key`
-field (used by tests; not visible to the operator).
+ten visible `<th>` cells: Classe, Ativo, Valor atual,
+Alvo, Desvio (R$), Desvio (%), Compra, Venda, Projetado, Ação.
+Each row carries a `data-asset-key` attribute holding the wire's
+`asset_key` field (used by tests; not visible to the operator).
 
-#### Scenario: Asset plan table has eight visible columns
+#### Scenario: Asset plan table has ten visible columns
 
 - **WHEN** the plan renders
-- **THEN** the asset plan `<table>` has exactly eight `<th>`
+- **THEN** the asset plan `<table>` has exactly ten `<th>`
   elements in `<thead>`
 - **AND** each `<tbody> <tr>` has the
   `data-asset-key="..."` attribute matching the row's
   `asset_key`
+
+#### Scenario: Desvio columns show deviation values
+
+- **WHEN** an asset has `current_value = 5000` and `target_value = 5500`
+- **THEN** the Desvio (R$) cell shows `-R$ 500,00`
+- **AND** the Desvio (%) cell shows `-9.1%`
 
 ### Requirement: Sortable asset plan table
 
@@ -195,6 +200,11 @@ The system SHALL make the asset plan table sortable by
 clicking the `<th>` cells. Click cycles `asc → desc → asc`
 on the same column. Default order is the solver's native
 order (by `category_order`, then `asset_order`).
+
+The asset plan table SHALL also expose a client-side filter bar
+with a class multi-select, an action multi-select, and a text
+search input. Filtering happens entirely in Alpine, without
+server round-trips.
 
 #### Scenario: Clicking a column header sorts ascending
 
@@ -207,6 +217,27 @@ order (by `category_order`, then `asset_order`).
 - **WHEN** the user clicks "Valor atual" twice
 - **THEN** the rows are reordered by `current_value` descending
 - **AND** the `<th>` shows a `↓` indicator
+
+#### Scenario: Filtering by class shows only matching assets
+
+- **WHEN** the operator deselects all classes except "Ações BR"
+- **THEN** only assets with `category_name = "Ações BR"` are visible
+
+#### Scenario: Filtering by action shows only matching assets
+
+- **WHEN** the operator selects only "Comprar"
+- **THEN** only assets with `action = "buy"` are visible
+
+#### Scenario: Text search filters by asset name
+
+- **WHEN** the operator types "PETR" in the search input
+- **THEN** only assets whose `asset_name` contains "PETR"
+  (case-insensitive) are visible
+
+#### Scenario: Filters compose (AND logic)
+
+- **WHEN** class filter is "Ações BR" AND action filter is "Comprar"
+- **THEN** only assets matching BOTH criteria are visible
 
 ### Requirement: Action column renders translated badges
 
@@ -232,69 +263,91 @@ labels: `Comprar` (green), `Vender` (red), `Manter` (neutral).
 - **THEN** the cell renders a badge with the `Manter` label
   and the `.rebalance-action-badge--hold` class
 
-### Requirement: Stub banner conditional on applied_policy
+### Requirement: Compact parameter bar
 
-The system SHALL render the `<details>` stub banner when
-`applied_policy === "stub-fixture-v1"`. The banner explains
-the fixture is deterministic and will be replaced by the
-CVXPY solver in Phase 4.
+The system SHALL render a parameter bar above the class summary with
+four inline elements (not full-width):
+1. Aporte (R$) input — `data-testid="rebalance-contribution-input"`
+2. Desvio mínimo (R$) input — `data-testid="rebalance-threshold-abs"`
+3. Desvio mínimo (%) input — `data-testid="rebalance-threshold-pct"`
+4. Rebalancear button — `data-testid="rebalance-submit-btn"`
 
-#### Scenario: Stub banner visible under fixture stub
+The bar uses `data-testid="rebalance-params-bar"`.
 
-- **WHEN** the plan has `applied_policy = "stub-fixture-v1"`
-- **THEN** an element with `data-testid="rebalance-stub-banner"`
-  is rendered (collapsed `<details>`)
+Threshold inputs are Alpine reactive state (`thresholdAbs`,
+`thresholdPct`), not form fields. They affect visual color-coding
+only. The Rebalancear button submits the form (POST) as before.
 
-#### Scenario: Stub banner absent under real solver
-
-- **WHEN** the plan has `applied_policy != "stub-fixture-v1"`
-- **THEN** no element with
-  `data-testid="rebalance-stub-banner"` is rendered
-
-### Requirement: Warnings panel renders all warnings with PT-BR copy
-
-The system SHALL render an element with
-`data-testid="rebalance-warnings"` when `warnings.length > 0`.
-Each warning renders with the code (monospace) + the
-PT-BR operator-facing message.
-
-#### Scenario: Empty warnings list omits the panel
-
-- **WHEN** the plan has `warnings = []`
-- **THEN** no element with
-  `data-testid="rebalance-warnings"` is rendered
-
-#### Scenario: Multiple warnings render as a list
-
-- **WHEN** the plan has two warnings (codes
-  `EMPTY_CLASS_NONZERO_TARGET` and `STALE_QUOTES`)
-- **THEN** the panel renders two `<li>` elements, each with
-  the code in `<code>` and the message as body text
-
-### Requirement: Six metric cards in a 3×2 grid
-
-The system SHALL render six metric cards in a 3-column × 2-row
-grid. Each card carries a `data-testid="rebalance-stat-{key}"`
-attribute for testability.
-
-#### Scenario: All six metric cards render
+#### Scenario: Parameter bar renders all four elements inline
 
 - **WHEN** the plan renders
-- **THEN** six elements with `data-testid="rebalance-stat-*"`
-  are visible (one per `RebalancePlanMetrics` field)
-- **AND** the grid uses `grid-template-columns: repeat(3, 1fr)`
+- **THEN** `data-testid="rebalance-params-bar"` contains the aporte
+  input, two threshold inputs, and the submit button
 
-### Requirement: Category summary table renders four columns
+#### Scenario: Threshold defaults are 1000 and 1
 
-The system SHALL render the category plan summary table with
-exactly four visible `<th>` cells: Classe, Valor atual,
-Projetado, Δ (delta).
+- **WHEN** the page loads
+- **THEN** `data-testid="rebalance-threshold-abs"` has value `1000`
+- **AND** `data-testid="rebalance-threshold-pct"` has value `1`
 
-#### Scenario: Category summary has four columns
+### Requirement: Category summary renders as horizontal class cards
 
-- **WHEN** the plan renders
-- **THEN** the category `<table>` has exactly four `<th>`
-  elements in `<thead>`
+The system SHALL render the category deviation summary as horizontal
+cards (not a table). Each card displays: class name, current weight
+(%), target weight (%), deviation in percentage points, deviation in
+R$, projected weight (%).
+
+The card container SHALL use `data-testid="rebalance-class-summary"`
+and be a horizontal grid/flex container with wrapping on small viewports.
+
+Color coding: the card SHALL apply `rebalance-class-card--ok` when
+`|deviation_pct| < threshold_pct`, `rebalance-class-card--over` when
+`|deviation_pct| >= threshold_pct`. Threshold defaults:
+`thresholdPct = 1.0` (editable via params bar).
+
+#### Scenario: Class cards render one per AssetClass
+
+- **WHEN** the plan renders with 3 categories
+- **THEN** three elements with `data-testid="rebalance-class-card-*"`
+  are visible inside `data-testid="rebalance-class-summary"`
+
+#### Scenario: Class card shows current, target, deviation, projected
+
+- **WHEN** a category has `current_pct = 42.0`, `target_pct = 40.0`,
+  `deviation_pct = 2.0`, `projected_pct = 40.1`
+- **THEN** the card displays "Atual 42.0%", "Alvo 40.0%", "+2.0%",
+  and "Projetado 40.1%"
+
+#### Scenario: Class card color codes by threshold
+
+- **WHEN** a category has `|deviation_pct| >= threshold_pct`
+- **THEN** the card has class `rebalance-class-card--over`
+- **WHEN** a category has `|deviation_pct| < threshold_pct`
+- **THEN** the card has class `rebalance-class-card--ok`
+
+### Requirement: Row color-coding by deviation and action
+
+The system SHALL color asset table rows based on action and deviation:
+- `rebalance-asset-row--over`: `|deviation_pct| >= threshold_pct` OR
+  `|deviation_value| >= thresholdAbs`
+- `rebalance-asset-row--neutral`: `action = "hold"`
+- `rebalance-asset-row--buy`: `action = "buy"`
+- `rebalance-asset-row--sell`: `action = "sell"`
+
+#### Scenario: Hold row gets neutral treatment
+
+- **WHEN** an asset has `action = "hold"`
+- **THEN** the row has class `rebalance-asset-row--neutral`
+
+#### Scenario: Buy row gets green tint
+
+- **WHEN** an asset has `action = "buy"`
+- **THEN** the row has class `rebalance-asset-row--buy`
+
+#### Scenario: Sell row gets red tint
+
+- **WHEN** an asset has `action = "sell"`
+- **THEN** the row has class `rebalance-asset-row--sell`
 
 ### Requirement: Empty profile renders the empty-state card
 

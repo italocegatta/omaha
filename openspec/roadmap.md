@@ -44,7 +44,7 @@ verificação for específica por comando) entre gates.
 
 ## Slices
 
-All previous slices archived or closed. F16 is active in Spec Proposed.
+All previous slices archived or closed. F18 is active in Applied.
 
 ### F01 - Consolidação cross-profile (visão household agregada)
 Status: `Archived` (superseded by F06) — 2026-07-04
@@ -340,6 +340,7 @@ Progress:
 
 ### F17 - Precisao canonica de alvo e atalho de percentual global
 Status: `Archived` — 2026-07-08
+Archive: `openspec/changes/archive/2026-07-08-f17-precisao-canonica-de-alvo-e-atalho-de-percentual-global/`
 Goal: Tornar `% classe` e `% ativo na classe` fontes de verdade do dominio,
   manter edicao de `% ativo na carteira` como atalho server-side, elevar a
   precisao interna de `Asset.target_pct`, e ajustar pipeline de rebalance para
@@ -379,18 +380,72 @@ Progress:
     Unit (346 pass), integration (108 pass), lint, spec validation all green.
     Status -> Applied. Ready for archive.
 
+### F18 - Rebalanceamento UI: resumo por classe, filtros, desvios
+Status: `Archived` — 2026-07-09
+Goal: Redesenhar a página de rebalanceamento: substituir 6 cards de métricas
+  por resumo de desvio por classe (cards horizontais cor-coded), compactar
+  aporte + adicionar inputs de threshold de desvio mínimo (absoluto R$ e %),
+  adicionar filtros multi-select (Classe, Ação) e busca por nome na tabela de
+  ativos, incluir colunas de desvio absoluto (R$) e percentual (%) por ativo,
+  e colorir linhas/tabelas por status de desvio vs threshold.
+Candidate OpenSpec change id: `f18-rebalanceamento-ui-resumo-por-classe-filtros-desvios`
+Spec link: `openspec/changes/f18-rebalanceamento-ui-resumo-por-classe-filtros-desvios/`
+Files: `src/omaha/rebalance/schemas.py`, `src/omaha/rebalance/glue.py`,
+  `src/omaha/templates/_rebalance_plan.html`, `src/omaha/templates/rebalance.html`,
+  `src/omaha/static/app.css`
+Scope:
+  1. Schema: adicionar `target_pct`, `current_pct`, `deviation_pct` em
+     `RebalanceCategoryPlanRow`; adicionar `deviation_value`, `deviation_pct`
+     em `RebalanceAssetPlanRow`.
+  2. Glue: calcular % e desvios antes de montar response.
+  3. Template: barra de parâmetros compacta (aporte + desvio mín R$ + desvio
+     mín % + botão Rebalancear, inline, width auto).
+  4. Template: resumo por classe (cards horizontais com atual%, alvo%, Δ pp,
+     Δ R$, projetado%, cor = dentro/fora do threshold).
+  5. Template: tabela de ativos com filtros multi-select (Classe, Ação),
+     busca por nome, colunas novas Desvio(R$) e Desvio(%), todas colunas
+     ordenáveis, rows coloridas por desvio vs threshold.
+  6. Alpine: estado reativo para thresholds, filtros, computed filteredRows.
+  7. CSS: remover `.rebalance-stat-grid`, adicionar estilos para params-bar,
+     class-cards, filter-bar, deviation cells, row color-coding.
+  8. Remover footer (avisos + política aplicada).
+Notes: Decisões do owner (2026-07-08):
+  - 6 cards atuais → trocar tudo por resumo por classe.
+  - Aporte → barra compacta no topo, width auto.
+  - Filtros → multi-select com checkboxes, só na tabela de ativos.
+  - Thresholds editáveis na tela (defaults: R$ 1000, 1%).
+  - Todas colunas da tabela de ativos ordenáveis.
+  - Colunas Desvio(abs) e Desvio(%) adicionadas.
+  - Não precisa de cards clicáveis pra filtrar (filtro da tabela basta).
+Progress:
+  - 2026-07-08: Added from owner redesign request. Positioned after F16/F17
+    (both applied). Scope covers schema + glue + template + Alpine + CSS.
+    No DB migration needed (computed fields only).
+  - 2026-07-08: Propose complete. Created proposal, design, tasks, and delta
+    specs for `rebalance-page` + `rebalance-route` under
+    `openspec/changes/f18-rebalanceamento-ui-resumo-por-classe-filtros-desvios/`.
+    Spec health gate passed via `openspec list --specs`. Status -> Spec Proposed.
+  - 2026-07-09: Apply complete. All tasks implemented:
+    Backend: added deviation fields to schemas (1.1-1.2), computed in glue (1.3),
+    updated tests (1.4). Frontend: replaced stat grid with params bar (2.1-2.2),
+    replaced category table with class cards (3.1-3.3), added filter bar + desvio
+    columns (4.1-4.5), replaced CSS (5.1-5.5). Verification: lint, tests, spec
+    health all green. Status -> Applied.
+  - 2026-07-09: Follow-up UI polish per owner feedback. Improved params-bar
+    personality, expanded class cards across width, upgraded asset-table surface,
+    and removed `pp` suffix from percentual deviation display. Targeted tests,
+    lint, and live smoke on `/rebalanceamento` green.
+  - 2026-07-09: Archive complete. Specs synced to main, change moved to
+    `openspec/changes/archive/2026-07-09-f18-rebalanceamento-ui-resumo-por-classe-filtros-desvios/`.
+    Status -> Archived.
+
 ---
 
 ## Recommended Execution Order
 
 **Active queue:**
-- F17 — Precisao canonica de alvo e atalho de percentual global (P0, applied)
-- F16 — Rebalanceamento sempre pronto com aporte persistente (P0, applied)
 
-Order note: F17 jumps queue as next critical slice because current rebalance
-validation rejects operator-valid target allocations under realistic
-round-trip editing, and fix spans persistence, inline editing, and solver
-input normalization in critical rebalance domain.
+Order note: F18 archived.
 
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed, reactivation path documented above.
@@ -422,6 +477,10 @@ Each resolved and applied in the referenced slice.
 - **D-F06.5 — Read-only gate reused.** Applied in F06.
 - **D-F03-defer — F03+F04 deferred.** Owner 2026-07-05.
 - **D02 — Register = Status Invest maximal.** Owner 2026-07-07. Gate for F08-F12.
+- **D-F18.1 — 6 cards → resumo por classe.** Owner 2026-07-08.
+- **D-F18.2 — Aporte barra compacta + thresholds editáveis.** Owner 2026-07-08.
+- **D-F18.3 — Filtros multi-select (Classe, Ação) + busca por nome.** Owner 2026-07-08.
+- **D-F18.4 — Colunas Desvio(abs) e Desvio(%) na tabela de ativos.** Owner 2026-07-08.
 
 ---
 
