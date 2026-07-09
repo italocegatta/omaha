@@ -265,8 +265,11 @@ class Asset(Base):
     # :attr:`AssetClass.target_pct` shape so the validator can mix
     # class-level and asset-level percentages without precision
     # mismatches. Existing rows backfill to 0 via the
-    # ``server_default="0"`` in the 0006 migration.
-    target_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, server_default="0")
+    # ``server_default="0"`` in the 0006 migration. F17 widens the
+    # column to ``Numeric(9, 6)`` so the dashboard's ``% ativo na
+    # carteira`` shortcut can round-trip through canonical
+    # ``% ativo na classe`` storage with materially less loss.
+    target_pct: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False, server_default="0")
     display_order: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )

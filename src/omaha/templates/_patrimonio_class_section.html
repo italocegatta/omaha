@@ -310,11 +310,11 @@
                              :class="{'asset-inline-edit-input--error': errorTotal}"
                              :disabled="savingTotal"
                              @click.stop>
-                      <span class="asset-inline-edit-hint"
-                            data-testid="asset-target-pct-total-edit-hint"
-                            x-show="editingTotalValue !== '' && !isNaN(parseFloat(editingTotalValue)) && classTargetPct > 0">
-                        Isso ajusta o alvo desta classe para <span x-text="Number((parseFloat(editingTotalValue) * 100) / classTargetPct).toFixed(2)"></span>%
-                      </span>
+                       <span class="asset-inline-edit-hint"
+                             data-testid="asset-target-pct-total-edit-hint"
+                             x-show="editingTotalAssetId === a.id">
+                        Recalcula apenas a posição deste ativo dentro da classe.
+                       </span>
                       <span class="asset-inline-edit-error"
                             data-testid="asset-target-pct-total-edit-error"
                             x-show="errorTotal"

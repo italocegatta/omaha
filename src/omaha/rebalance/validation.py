@@ -26,12 +26,16 @@ with the concatenated error messages (one per line).
 from __future__ import annotations
 
 import math
+from decimal import Decimal
 
 import numpy as np
 import pandas as pd
 
 from omaha.rebalance.constants import ALLOCATION_TOLERANCE
 from omaha.rebalance.models import PortfolioSetup, RebalanceValidationError
+
+_DECIMAL_TOLERANCE = Decimal("0.000001")
+_DECIMAL_ONE = Decimal("1")
 
 
 def _validate_rebalance_inputs(
@@ -52,17 +56,14 @@ def _validate_rebalance_inputs(
     2.  ``setup.categories.empty``
     3.  ``setup.assets.empty``
     4.  duplicate ``asset_key`` in ``setup.assets``
-    5.  sum of ``target_weight`` over categories ≠ 1.0 (within
-        ``ALLOCATION_TOLERANCE``)
-    6.  sum of ``target_weight`` over assets ≠ 1.0 (within
-        ``ALLOCATION_TOLERANCE``)
-    7.  asset rows referencing a category that does not exist in
+    5.  sum of canonical class targets over categories ≠ 1.0
+    6.  asset rows referencing a category that does not exist in
         ``setup.categories``
-    8.  per-category sum of ``target_weight`` (assets) differs from
-        ``target_weight`` (category) by more than ``ALLOCATION_TOLERANCE``
-    9.  position ``asset_key`` not present in ``setup.assets``
-    10. ``current_value`` column is empty / zero / negative
-    11. ``NaN`` or ``inf`` in any numeric column of ``position``
+    7.  per-category sum of canonical ``target_weight_in_category``
+        differs from 1.0 by more than Decimal storage tolerance
+    8.  position ``asset_key`` not present in ``setup.assets``
+    9.  ``current_value`` column is empty / zero / negative
+    10. ``NaN`` or ``inf`` in any numeric column of ``position``
     """
     errors: list[str] = []
 
@@ -80,33 +81,20 @@ def _validate_rebalance_inputs(
         )
         errors.append("O setup possui ativos duplicados: " + ", ".join(duplicated) + ".")
 
-    category_sum = float(setup.categories["target_weight"].sum())
-    asset_sum = float(setup.assets["target_weight"].sum())
-    if not np.isclose(category_sum, 1.0, atol=ALLOCATION_TOLERANCE):
+    category_weights = _decimal_column(setup.categories, "target_weight")
+    category_sum = sum(category_weights, Decimal("0"))
+    if not _decimal_close(category_sum, _DECIMAL_ONE):
         errors.append(
-            f"Os pesos-alvo das categorias devem somar 100%; valor encontrado: {category_sum:.6f}."
-        )
-    if not np.isclose(asset_sum, 1.0, atol=ALLOCATION_TOLERANCE):
-        errors.append(
-            f"Os pesos-alvo dos ativos devem somar 100%; valor encontrado: {asset_sum:.6f}."
+            "Os pesos-alvo das categorias devem somar 100%; "
+            f"valor encontrado: {float(category_sum):.6f}."
         )
 
-    category_targets = setup.categories.set_index("category_key")["target_weight"]
-    # ``math.fsum`` (Shewchuk's algorithm) returns the EXACT sum of the
-    # input floats modulo the final representation rounding — at most
-    # 1 ULP. Crucial here: a class like FII with intra values 6.67,
-    # 8.33, 10.0 (none exactly representable in binary) sums to a
-    # text-perfect 100 but accumulates ~1e-5 of float drift in the
-    # product ``intra * class_target`` that ``pandas.sum`` reports
-    # as ~6e-5 off. ``fsum`` collapses the drift to < 1e-13, well
-    # within the spec's 1e-6 ``ALLOCATION_TOLERANCE``.
-    asset_target_weights = setup.assets["target_weight"].to_numpy(dtype=float)
-    asset_target_keys = setup.assets["category_key"].to_numpy()
-    asset_sum_by_category: dict[str, float] = {}
-    for weight, key in zip(asset_target_weights, asset_target_keys, strict=False):
-        asset_sum_by_category[key] = math.fsum([asset_sum_by_category.get(key, 0.0), weight])
-    asset_targets_by_category = pd.Series(asset_sum_by_category)
-    missing_categories = sorted(set(asset_targets_by_category.index) - set(category_targets.index))
+    category_keys = setup.categories["category_key"].tolist()
+    category_names = setup.categories["category_name"].tolist()
+    category_name_by_key = dict(zip(category_keys, category_names, strict=False))
+
+    asset_category_keys = setup.assets["category_key"].tolist()
+    missing_categories = sorted(set(asset_category_keys) - set(category_keys))
     if missing_categories:
         errors.append(
             "Existem ativos vinculados a categorias ausentes no setup: "
@@ -114,19 +102,19 @@ def _validate_rebalance_inputs(
             + "."
         )
 
-    for category_key, target_weight in asset_targets_by_category.items():
-        category_weight = float(category_targets.get(category_key, np.nan))
-        if np.isnan(category_weight):
+    asset_weights_in_category = _decimal_column(setup.assets, "target_weight_in_category")
+    weights_by_category: dict[str, Decimal] = {}
+    for key, weight in zip(asset_category_keys, asset_weights_in_category, strict=False):
+        weights_by_category[key] = weights_by_category.get(key, Decimal("0")) + weight
+
+    for category_key, target_weight_in_category in weights_by_category.items():
+        if category_key not in category_name_by_key:
             continue
-        if not np.isclose(target_weight, category_weight, atol=ALLOCATION_TOLERANCE):
-            category_name = setup.categories.loc[
-                setup.categories["category_key"] == category_key,
-                "category_name",
-            ].iloc[0]
+        if not _decimal_close(target_weight_in_category, _DECIMAL_ONE):
+            category_name = category_name_by_key[category_key]
             errors.append(
-                f"A categoria '{category_name}' possui peso por ativo "
-                f"inconsistente com o peso global da categoria "
-                f"({target_weight:.6f} vs {category_weight:.6f})."
+                f"A categoria '{category_name}' deve ter ativos somando 100%; "
+                f"valor encontrado: {float(target_weight_in_category):.6f}."
             )
 
     aggregated_position = _aggregate_position(position)
@@ -199,6 +187,18 @@ def _aggregate_position(position: pd.DataFrame) -> pd.DataFrame:
     else:
         aggregated["current_weight"] = 0.0
     return aggregated
+
+
+def _decimal_column(frame: pd.DataFrame, column: str) -> list[Decimal]:
+    stored = frame.attrs.get("decimal_columns", {}) if hasattr(frame, "attrs") else {}
+    values = stored.get(column)
+    if isinstance(values, list) and len(values) == len(frame):
+        return [value if isinstance(value, Decimal) else Decimal(str(value)) for value in values]
+    return [Decimal(str(value)) for value in frame[column].tolist()]
+
+
+def _decimal_close(left: Decimal, right: Decimal) -> bool:
+    return abs(left - right) <= _DECIMAL_TOLERANCE
 
 
 __all__ = ["_validate_rebalance_inputs"]

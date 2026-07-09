@@ -118,9 +118,10 @@ POSITION_HEADER = (
 def _format_decimal(value: Decimal, places: int) -> str:
     """Render ``value`` as ``str`` with ``places`` decimals.
 
-    Mirrors the precision ``seed_from_csv.py`` expects on parse:
-    ``target_pct`` uses 2 places; qty/avg_price/current_price use
-    8 places (matches the DB column ``Numeric(18, 8)``).
+    Mirrors the precision ``seed_from_csv`` expects on parse: class
+    ``target_pct`` uses 2 places; asset ``target_pct`` uses 6 places;
+    qty/avg_price/current_price use 8 places (matches the DB column
+    ``Numeric(18, 8)``).
     """
     return str(value.quantize(Decimal(10) ** -places))
 
@@ -188,7 +189,7 @@ def snapshot_assets(profile: Profile, profile_name: str) -> int:
                 yield (
                     klass.name,
                     asset.name,
-                    _format_decimal(asset.target_pct, 2),
+                    _format_decimal(asset.target_pct, 6),
                     asset.display_order,
                     _format_bool(asset.buy_enabled),
                     _format_bool(asset.sell_enabled),

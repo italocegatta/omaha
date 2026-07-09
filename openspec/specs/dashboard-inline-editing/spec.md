@@ -254,22 +254,31 @@ break-word` rather than overflow horizontally or force the column to grow.
 ### Requirement: Inline edit of alvo % total
 
 The dashboard MUST allow the user to edit the `alvo % total` cell of
-an asset row inline. Editing this cell MUST compute
-`new_target_pct = target_pct_total * 100 / classTargetPct` and PATCH
-the resulting `target_pct` value to `/api/assets/{id}`. The cell MUST
-show an inline confirm hint while in edit mode describing the effect
-of the edit (recalculation of the asset's `alvo % classe` within the
-class, other assets in the class unaffected). Only one cell per row
-may be in edit mode at a time.
+an asset row inline. Editing this cell MUST send the operator's typed
+global target percentage to `PATCH /api/assets/{id}` using a dedicated
+shortcut field for `% ativo na carteira`; the server, not the browser,
+MUST convert that value into the canonical persisted `target_pct`
+(`% ativo na classe`) using the owning class's current `target_pct`.
+The cell MUST show an inline confirm hint while in edit mode
+describing the effect of the edit (recalculation of the asset's
+`alvo % classe` within the class, other assets in the class
+unaffected). Only one cell per row may be in edit mode at a time.
 
-#### Scenario: Edit alvo % total commits a derived alvo % classe
+On success, the UI MUST update both the canonical `alvo % classe` cell
+and the derived `alvo % total` cell from the server-confirmed state,
+without re-applying browser-side back-solve rounding.
+
+#### Scenario: Edit alvo % total commits a server-derived alvo % classe
 
 - **WHEN** the user commits a new `alvo % total` value of 20 for
   an asset whose class has `classTargetPct = 30`
-- **THEN** the client computes `new_target_pct = 20 * 100 / 30 = 66.67`
-- **AND** PATCH /api/assets/{id} is sent with `{"target_pct": "66.67"}`
-- **AND** on 200, the asset's `alvo % classe` cell updates to 66.67
-- **AND** the asset's `alvo % total` cell updates to 20.00
+- **THEN** the client sends `PATCH /api/assets/{id}` with the typed
+  global-target shortcut field carrying `20`
+- **AND** the server derives the canonical in-class target from
+  `20 * 100 / 30`
+- **AND** on 200, the asset's `alvo % classe` cell updates from the
+  server-confirmed canonical value
+- **AND** the asset's `alvo % total` cell updates to `20.00`
 
 #### Scenario: Confirm hint visible while editing alvo % total
 
@@ -279,6 +288,14 @@ may be in edit mode at a time.
   "recalcula apenas a posição deste ativo dentro da classe")
 - **AND** the `alvo % classe` cell on the same row is in read-only
   view mode (not editable) while the edit is in flight
+
+#### Scenario: Browser does not decide persisted rounding for alvo % total edit
+
+- **WHEN** the user commits a `alvo % total` value whose back-solved
+  in-class target has more than two decimal places
+- **THEN** the browser still sends the typed global value unchanged
+- **AND** persisted `target_pct` precision is decided by the server's
+  canonical conversion rule, not by client-side `toFixed(2)`
 
 ### Requirement: Per-class group is always visible
 
@@ -348,10 +365,9 @@ the PATCH on:
   (`data-testid="class-delta-badge"`) in the class section header
   so the operator sees "Sobra X%" / "Falta X%" in real time, but
   the advisory MUST NOT block the write;
-- the back-solve math in the "alvo % total" editor
-  (`newTargetPct < 0 || newTargetPct > 100`) — the server
-  accepts the derived `target_pct` if it is in range; otherwise
-  returns 422 and the client renders the server's `detail`.
+- browser-side back-solve math in the `alvo % total` editor — the
+  browser sends the typed global value, and the server decides whether
+  the resulting canonical `target_pct` is valid and persistable.
 
 The "aceitar o commit incondicionalmente" rule applies
 identically to Enter and to blur. Escape continues to cancel

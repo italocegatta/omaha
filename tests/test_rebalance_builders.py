@@ -301,6 +301,32 @@ def test_setup_warning_for_empty_class_with_target(italo_profile: Profile) -> No
     assert "caixa residual" in warnings[0]
 
 
+def test_setup_preserves_high_precision_asset_target_before_float_boundary(
+    italo_profile: Profile,
+) -> None:
+    """Builder keeps canonical Decimal weights for validation while exposing float columns."""
+    _seed_class(
+        italo_profile.id,
+        "RF",
+        "30",
+        [("Selic", "66.666667"), ("IPCA", "33.333333")],
+        quote_kind=QuoteKind.AUTO.value,
+    )
+
+    with SessionLocal() as db:
+        profile = db.merge(italo_profile)
+        setup, warnings = build_setup_from_db(db, profile)
+
+    assert warnings == []
+    assert setup.assets["target_weight"].sum() == pytest.approx(0.3, abs=1e-9)
+    decimal_columns = setup.assets.attrs["decimal_columns"]
+    assert decimal_columns["target_weight_in_category"] == [
+        Decimal("0.66666667"),
+        Decimal("0.33333333"),
+    ]
+    assert decimal_columns["target_weight"] == [Decimal("0.200000001"), Decimal("0.099999999")]
+
+
 def test_setup_no_warning_for_empty_class_with_zero_target(italo_profile: Profile) -> None:
     """Empty class with ``target_pct == 0`` does NOT warn."""
     _seed_class(italo_profile.id, "RF", "100", [("Selic", "100")])

@@ -951,10 +951,13 @@
             // references, so ``classSum`` keeps reading the
             // post-PATCH value through ``assets``.
             var parsed = parseFloat(payload.target_pct);
+            var parsedTotal = parseFloat(payload.target_pct_total);
             var asset = self.displayAssets.find(function (a) { return a.id === id; });
             if (asset) {
               asset.target_pct = isNaN(parsed) ? asset.target_pct : parsed;
-              asset.target_pct_total = (asset.target_pct * self.classTargetPct) / 100;
+              asset.target_pct_total = isNaN(parsedTotal)
+                ? asset.target_pct_total
+                : parsedTotal;
             }
             // 3.3: push the new per-class sum to the store on every
             // successful asset PATCH so the per-class badge and the
@@ -980,28 +983,22 @@
           });
       },
 
-      // asset-table-view 7.1/7.2: inline edit of ``alvo % total``.
-      // The user edits the total allocation; the client back-solves
-      // ``target_pct = total * 100 / classTargetPct`` and PATCHes the
-      // server with the derived class-level percentage. The same
-      // local update + classSum store push pattern as ``commitEdit``
-      // keeps the per-class badge and portfolio alert reactive.
+      // asset-table-view 7.1/7.2 + F17: inline edit of ``alvo % total``.
+      // Browser sends operator's typed global percentage unchanged;
+      // server converts it into canonical ``target_pct`` and returns
+      // the confirmed canonical + derived state.
       commitEditTotal: function () {
         if (this.editingTotalAssetId === null) return;
         var self = this;
         var totalStr = (self.editingTotalValue ?? '').toString().trim();
         if (totalStr === '') totalStr = '0';
-        var parsed = parseFloat(totalStr);
-        var newTargetPct = self.classTargetPct > 0
-          ? (parsed * 100) / self.classTargetPct
-          : 0;
         var id = self.editingTotalAssetId;
         self.savingTotal = true;
         self.errorTotal = '';
         fetch('/api/assets/' + id, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ target_pct: newTargetPct.toFixed(2) }),
+          body: JSON.stringify({ target_pct_total: totalStr }),
         })
           .then(function (r) {
             if (r.status === 200) {
@@ -1018,10 +1015,13 @@
             // the row order stays frozen after the PATCH (see
             // ``commitEdit`` for the same pattern + reasoning).
             var parsedPct = parseFloat(payload.target_pct);
+            var parsedTotal = parseFloat(payload.target_pct_total);
             var asset = self.displayAssets.find(function (a) { return a.id === id; });
             if (asset) {
               asset.target_pct = isNaN(parsedPct) ? asset.target_pct : parsedPct;
-              asset.target_pct_total = (asset.target_pct * self.classTargetPct) / 100;
+              asset.target_pct_total = isNaN(parsedTotal)
+                ? asset.target_pct_total
+                : parsedTotal;
             }
             if (Alpine.store('classSum')) {
               var store = Alpine.store('classSum');

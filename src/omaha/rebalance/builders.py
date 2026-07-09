@@ -13,11 +13,10 @@ reference CVXPY solver expects:
   asset, aggregating ``qty`` / ``total_invested`` / ``total_current``
   across the asset's positions and computing ``current_weight``.
 
-Decimal → float conversion happens once at extraction time
-(:class:`decimal.Decimal` → :class:`float` on the way into the dict),
-not per-cell inside a pandas ``.apply`` loop — the solver tolerates
-``1e-6`` drift and a per-cell conversion would multiply rounding
-errors across hundreds of assets.
+Decimal target math stays canonical through row-building. Float
+conversion happens once at the explicit pandas / numpy / CVXPY
+boundary when the final DataFrame columns are materialized, not per-cell
+inside a pandas ``.apply`` loop.
 
 ``category_order`` / ``asset_order`` are re-numbered ``0..N-1``
 regardless of ``display_order`` gaps (defensive — a future CSV edit
@@ -67,7 +66,7 @@ from omaha.rebalance.models import PortfolioSetup
 # out as a constant so the test fixtures and the warning text agree
 # on the rounding precision (``20.00%`` not ``20%``).
 _PCT_DIVISOR = Decimal("100")
-_PCT_PRODUCT_DIVISOR = Decimal("10000")
+_ONE = Decimal("1")
 
 _CATEGORIES_COLUMNS = [
     "category_name",
@@ -220,22 +219,29 @@ def _build_categories_frame(
         return _empty_categories_frame(), []
 
     rows: list[dict[str, Any]] = []
+    decimal_weights: list[Decimal] = []
     warnings: list[str] = []
     for new_order, klass in enumerate(classes):
+        target_weight_decimal = _decimal_to_weight_decimal(klass.target_pct)
         rows.append(
             {
                 "category_name": klass.name,
                 "category_key": klass.name.casefold(),
-                "target_weight": _decimal_to_weight(klass.target_pct),
+                "target_weight": target_weight_decimal,
                 "category_order": new_order,
             }
         )
+        decimal_weights.append(target_weight_decimal)
         if not klass.assets and (klass.target_pct or Decimal("0")) > Decimal("0"):
             warnings.append(
                 f"Classe '{klass.name}' está vazia mas com "
                 f"target_pct={klass.target_pct:.2f}%; solver irá alocar caixa residual."
             )
-    return pd.DataFrame(rows, columns=_CATEGORIES_COLUMNS), warnings
+    return _materialize_decimal_frame(
+        rows,
+        _CATEGORIES_COLUMNS,
+        decimal_columns={"target_weight": decimal_weights},
+    ), warnings
 
 
 def _build_assets_frame(
@@ -256,14 +262,17 @@ def _build_assets_frame(
         return _empty_assets_frame(), []
 
     rows: list[dict[str, Any]] = []
+    decimal_in_category: list[Decimal] = []
+    decimal_global: list[Decimal] = []
     for klass in classes:
-        class_weight = _decimal_to_weight(klass.target_pct)
+        class_weight = _decimal_to_weight_decimal(klass.target_pct)
         sorted_assets = sorted(
             klass.assets,
             key=lambda a: (a.display_order, a.id),
         )
         for new_order, asset in enumerate(sorted_assets):
-            asset_target = _decimal_to_weight(asset.target_pct)
+            asset_target = _decimal_to_weight_decimal(asset.target_pct)
+            global_target = _normalize_weight(asset_target * class_weight)
             rows.append(
                 {
                     "asset_name": asset.name,
@@ -274,16 +283,25 @@ def _build_assets_frame(
                     "buy_enabled": bool(asset.buy_enabled),
                     "sell_enabled": bool(asset.sell_enabled),
                     "target_weight_in_category": asset_target,
-                    "target_weight": asset_target * class_weight,
+                    "target_weight": global_target,
                     "asset_order": new_order,
                     "quote_kind": klass.quote_kind,
                 }
             )
+            decimal_in_category.append(asset_target)
+            decimal_global.append(global_target)
 
     if not rows:
         return _empty_assets_frame(), []
 
-    df = pd.DataFrame(rows, columns=_ASSETS_COLUMNS)
+    df = _materialize_decimal_frame(
+        rows,
+        _ASSETS_COLUMNS,
+        decimal_columns={
+            "target_weight_in_category": decimal_in_category,
+            "target_weight": decimal_global,
+        },
+    )
     grouped = df.groupby("asset_key", sort=False)
     counts = grouped.size()
     if (counts > 1).any():
@@ -338,30 +356,41 @@ def _empty_positions_frame() -> pd.DataFrame:
     return df
 
 
-def _decimal_to_weight(value: Decimal | None) -> float:
-    """Convert a 0..100 percentage ``Decimal`` to a 0..1 weight float.
-
-    ``None`` and ``Decimal('NaN')`` both map to ``0.0`` (a target of
-    zero is meaningful — the solver treats it as "no allocation" — and
-    we don't want a downstream ``NaN`` propagating through the LP).
-    """
+def _decimal_to_weight_decimal(value: Decimal | None) -> Decimal:
+    """Convert a 0..100 percentage ``Decimal`` to canonical 0..1 Decimal."""
     if value is None:
-        return 0.0
+        return Decimal("0")
     try:
         if value.is_nan():
-            return 0.0
+            return Decimal("0")
     except AttributeError:
         pass
-    weight = float(value) / float(_PCT_DIVISOR)
-    # Two-product math (asset × class / 10000) may produce 1.0000…0001
-    # from rounding. Clamp to [0, 1] so the solver's sum-to-100
-    # invariant in ``_validate_rebalance_inputs`` doesn't fire on
-    # floating-point dust.
-    if weight < 0.0:
-        return 0.0
-    if weight > 1.0:
-        return 1.0
-    return weight
+    return _normalize_weight(value / _PCT_DIVISOR)
+
+
+def _normalize_weight(value: Decimal) -> Decimal:
+    if value < Decimal("0"):
+        return Decimal("0")
+    if value > _ONE:
+        return _ONE
+    return value
+
+
+def _materialize_decimal_frame(
+    rows: list[dict[str, Any]],
+    columns: list[str],
+    *,
+    decimal_columns: dict[str, list[Decimal]],
+) -> pd.DataFrame:
+    float_rows: list[dict[str, Any]] = []
+    for row in rows:
+        out = dict(row)
+        for column in decimal_columns:
+            out[column] = float(out[column])
+        float_rows.append(out)
+    df = pd.DataFrame(float_rows, columns=columns)
+    df.attrs["decimal_columns"] = decimal_columns
+    return df
 
 
 # ``func`` import retained for symmetry with future query helpers and

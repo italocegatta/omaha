@@ -24,10 +24,15 @@ The `assets` DataFrame SHALL contain one row per `Asset` with columns
 `asset_name`, `asset_key` (= `Asset.name.casefold()`),
 `category_name`, `category_key` (= `AssetClass.name.casefold()`),
 `currency_code`, `buy_enabled`, `sell_enabled`,
-`target_weight_in_category` (= `Asset.target_pct / 100`),
-`target_weight` (= `Asset.target_pct * AssetClass.target_pct / 10000`),
+`target_weight_in_category` (= canonical `Asset.target_pct / 100`),
+`target_weight` (= canonical `Asset.target_pct * AssetClass.target_pct / 10000`),
 `asset_order` (re-numbered `0..N-1` per class),
 and the omaha-specific column `quote_kind` (= `AssetClass.quote_kind`).
+
+Target derivation SHALL happen in `Decimal` using canonical persisted values first; conversion
+to `float` SHALL happen only when the final DataFrame columns are materialized for pandas /
+numpy / CVXPY consumption. The builder MUST NOT treat rounded display values of
+`target_pct_total` as input truth.
 
 Empty categories or assets SHALL produce empty DataFrames with the correct column schema
 (not `pd.DataFrame()` with no columns), so the solver's `merge`/`reindex` calls do not raise.
@@ -40,6 +45,16 @@ Empty categories or assets SHALL produce empty DataFrames with the correct colum
 - **THEN** the returned `categories` DataFrame has 3 rows summing `target_weight == 1.0`
   and the returned `assets` DataFrame has 5 rows whose `target_weight` values sum to `1.0`
   (tolerance `1e-6`) and whose `target_weight_in_category` values sum to `1.0` per category
+- **AND** the canonical `target_weight_in_category` values close to `1.0` per category before
+  the float boundary is crossed
+
+#### Scenario: Global-target edits still derive canonical builder weights
+
+- **WHEN** an asset's last edit came through the dashboard's `% ativo na carteira` shortcut
+- **THEN** `build_setup_from_db` reads the persisted canonical `Asset.target_pct`
+- **AND** the resulting `target_weight_in_category` / `target_weight` are derived from that
+  canonical value plus the owning class target
+- **AND** no client-rounded `target_pct_total` value is needed or trusted by the builder
 
 #### Scenario: Empty profile returns empty DataFrames with full schema
 

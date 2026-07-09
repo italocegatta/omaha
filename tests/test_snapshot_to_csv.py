@@ -421,6 +421,69 @@ def test_broker_ticker_preserved(seed_omaha_db, seed_dir_backup) -> None:
         assert pos.current_price == Decimal("38.75")
 
 
+def test_asset_target_precision_preserved_through_snapshot_reset(
+    seed_omaha_db, seed_dir_backup
+) -> None:
+    """6-decimal asset targets survive snapshot -> reset without truncation."""
+    SessionLocal = seed_omaha_db["SessionLocal"]
+    db_url = seed_omaha_db["db_url"]
+
+    with SessionLocal() as session:
+        from omaha.models import Asset, AssetClass, Profile
+
+        italo = session.query(Profile).filter(Profile.name == "Italo").one()
+        precisao = AssetClass(
+            profile_id=italo.id,
+            name="Precisao Snapshot",
+            target_pct=Decimal("0.00"),
+            display_order=999,
+        )
+        session.add(precisao)
+        session.flush()
+        session.add_all(
+            [
+                Asset(
+                    asset_class_id=precisao.id,
+                    name="Ativo Precisao A",
+                    target_pct=Decimal("66.666667"),
+                    display_order=0,
+                    buy_enabled=True,
+                    sell_enabled=True,
+                    currency_code="BRL",
+                ),
+                Asset(
+                    asset_class_id=precisao.id,
+                    name="Ativo Precisao B",
+                    target_pct=Decimal("33.333333"),
+                    display_order=1,
+                    buy_enabled=True,
+                    sell_enabled=True,
+                    currency_code="BRL",
+                ),
+            ]
+        )
+        session.commit()
+
+    r1 = _run_snapshot(db_url)
+    assert r1.returncode == 0, r1.stderr
+    r2 = _run_seed("italo", "reset", db_url=db_url)
+    assert r2.returncode == 0, r2.stderr
+
+    with SessionLocal() as session:
+        from omaha.models import Asset
+
+        assets = {
+            asset.name: asset.target_pct
+            for asset in session.query(Asset)
+            .filter(Asset.name.in_(["Ativo Precisao A", "Ativo Precisao B"]))
+            .all()
+        }
+        assert assets == {
+            "Ativo Precisao A": Decimal("66.666667"),
+            "Ativo Precisao B": Decimal("33.333333"),
+        }
+
+
 def test_totals_preserved_through_round_trip(seed_omaha_db, seed_dir_backup) -> None:
     """``total_invested`` / ``total_current`` survive ``snapshot → reset → snapshot``.
 

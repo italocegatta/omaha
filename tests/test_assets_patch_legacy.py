@@ -218,18 +218,18 @@ def _read_asset_target_pct(asset_id: int, _omaha_test_env: dict[str, str]) -> De
 def _patch_asset(
     client: TestClient,
     asset_id: int,
-    target_pct: str,
+    payload: str | dict[str, object],
 ) -> Any:
-    """PATCH ``/api/assets/{asset_id}`` with ``{"target_pct": "<value>"}``.
+    """PATCH ``/api/assets/{asset_id}`` with a JSON body.
 
-    The body is a JSON object with a *string* value so the editor
-    can post ``"40"`` or ``"40.5"`` without a JSON-number round-
-    trip (matches the S02 ``_parse_pct`` style). The route's
-    response is also JSON, so we assert on the parsed dict.
+    String payload is normalized to ``{"target_pct": "<value>"}``
+    for the legacy class-level editor path. Dict payload lets tests
+    exercise the F17 shortcut field directly.
     """
+    json_payload = {"target_pct": payload} if isinstance(payload, str) else payload
     return client.patch(
         f"/api/assets/{asset_id}",
-        json={"target_pct": target_pct},
+        json=json_payload,
         follow_redirects=False,
     )
 
@@ -387,3 +387,86 @@ def test_patch_asset_active_profile_succeeds(
     assert body["sell_enabled"] is True
     assert body["currency_code"] == "BRL"
     assert _read_asset_target_pct(ana_asset_id, _omaha_test_env) == Decimal("60")
+
+
+def test_patch_asset_target_pct_total_shortcut_persists_high_precision(
+    client: TestClient, _omaha_test_env: dict[str, str]
+) -> None:
+    """Shortcut edit stores canonical 6-decimal target_pct and returns derived total."""
+    _login_and_select(client, profile_id=1)
+    class_id, asset_ids = _seed_class_with_assets(1, "Renda Fixa", ["0"], _omaha_test_env)
+    asset_id = asset_ids[0]
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from omaha.models import AssetClass
+
+    engine = create_engine(_omaha_test_env["db_url"], future=True)
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    db = SessionLocal()
+    try:
+        klass = db.get(AssetClass, class_id)
+        klass.target_pct = Decimal("30")
+        db.commit()
+    finally:
+        db.close()
+        engine.dispose()
+
+    response = _patch_asset(client, asset_id, {"target_pct_total": "20"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["target_pct"] == "66.666667"
+    assert body["target_pct_total"] == "20"
+    assert _read_asset_target_pct(asset_id, _omaha_test_env) == Decimal("66.666667")
+
+
+def test_patch_asset_target_pct_total_rejects_class_target_zero(
+    client: TestClient, _omaha_test_env: dict[str, str]
+) -> None:
+    """Non-zero shortcut edit against 0%-target class returns 422 and keeps DB unchanged."""
+    _login_and_select(client, profile_id=1)
+    class_id, asset_ids = _seed_class_with_assets(1, "Caixa", ["0"], _omaha_test_env)
+    asset_id = asset_ids[0]
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from omaha.models import AssetClass
+
+    engine = create_engine(_omaha_test_env["db_url"], future=True)
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    db = SessionLocal()
+    try:
+        klass = db.get(AssetClass, class_id)
+        klass.target_pct = Decimal("0")
+        db.commit()
+    finally:
+        db.close()
+        engine.dispose()
+
+    response = _patch_asset(client, asset_id, {"target_pct_total": "10"})
+
+    assert response.status_code == 422
+    assert "classe com alvo 0%" in response.json()["detail"]
+    assert _read_asset_target_pct(asset_id, _omaha_test_env) == Decimal("0")
+
+
+def test_patch_asset_rejects_target_pct_and_target_pct_total_together(
+    client: TestClient, _omaha_test_env: dict[str, str]
+) -> None:
+    """Canonical and shortcut targets are mutually exclusive in one PATCH."""
+    _login_and_select(client, profile_id=1)
+    _class_id, asset_ids = _seed_class_with_assets(1, "Renda Fixa", ["40"], _omaha_test_env)
+    asset_id = asset_ids[0]
+
+    response = _patch_asset(
+        client,
+        asset_id,
+        {"target_pct": "50", "target_pct_total": "20"},
+    )
+
+    assert response.status_code == 422
+    assert "apenas um alvo" in response.json()["detail"]
+    assert _read_asset_target_pct(asset_id, _omaha_test_env) == Decimal("40")

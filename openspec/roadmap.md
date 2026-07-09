@@ -44,7 +44,7 @@ verificação for específica por comando) entre gates.
 
 ## Slices
 
-All previous slices archived or closed. F15 is next active slice.
+All previous slices archived or closed. F16 is active in Spec Proposed.
 
 ### F01 - Consolidação cross-profile (visão household agregada)
 Status: `Archived` (superseded by F06) — 2026-07-04
@@ -288,14 +288,109 @@ Progress:
     `openspec/changes/archive/2026-07-08-f15-patrimonio-table-redesign-for-class-and-asset-metrics/`.
     Status -> Archived.
 
+### F16 - Rebalanceamento sempre pronto com aporte persistente
+Status: `Archived` — 2026-07-08
+Archive: `openspec/changes/archive/2026-07-08-f16-rebalanceamento-sempre-pronto-com-aporte-persistente/`
+Goal: Manter um plano de rebalanceamento sempre materializado para perfil
+  ativo usando valor atual de `aporte` (default `0` quando app inicia ou
+  campo ainda vazio), recalculando após mutações de patrimônio/classe/alvo,
+  e preservando `aporte` enquanto usuário navega entre páginas na mesma
+  execução do app.
+Candidate OpenSpec change id: `f16-rebalanceamento-sempre-pronto-com-aporte-persistente`
+Spec link: `openspec/changes/f16-rebalanceamento-sempre-pronto-com-aporte-persistente/`
+Files: `src/omaha/routes/pages.py`, `src/omaha/routes/rebalance.py`,
+  `src/omaha/templates/rebalance.html`, `src/omaha/templates/patrimonio.html`,
+  `src/omaha/templates/_patrimonio_*.html`, `src/omaha/rebalance/`,
+  `openspec/specs/rebalance-page/spec.md`,
+  `openspec/specs/rebalance-route/spec.md`
+Notes: Scope cruza UX + estado server/browser. Owner quer eliminar estado
+  descartável atual: trocar de página, importar CSV, criar/excluir classe
+  ou ativo, e editar alocação alvo devem refletir imediatamente no plano já
+  pronto. Persistência de `aporte` só precisa durar enquanto processo/app
+  segue vivo; reinício volta para `0`. Confirmar durante propose se plano
+  persistido vive em sessão, store server-side por perfil, ou outro estado
+  efêmero equivalente sem gravar em banco.
+Progress:
+  - 2026-07-08: Added from owner request. Inserted as next feature slice
+    because change affects rebalance contract + cross-page dashboard flow,
+    not isolated bugfix. No hard dependency on deferred work.
+  - 2026-07-08: Propose complete. Created `proposal.md`, `design.md`,
+    `tasks.md`, and delta specs for `rebalance-page` + `rebalance-route`
+    under `openspec/changes/f16-rebalanceamento-sempre-pronto-com-aporte-persistente/`.
+    Spec health gate passed via `openspec list --specs`. Status -> Spec Proposed.
+  - 2026-07-08: Apply complete. Added session-backed per-profile aporte
+    helpers in `src/omaha/routes/pages.py`, materialized `GET /rebalanceamento`
+    with persisted/default-zero aporte, normalized blank POST input to zero,
+    preserved zero-class/sentinel/client-side-negative guards, and aligned
+    `RebalanceRequest.contribution` default to `0` for omitted JSON payloads.
+  - 2026-07-08: Verification complete. Commands: `uv run task lint`,
+    `uv run task test-file tests/test_rebalance_page.py tests/test_rebalance_route.py`,
+    `openspec list --specs`. Added regression coverage for per-profile aporte
+    persistence, logout reset semantics, and fresh GET recompute after DB
+    mutation.
+  - 2026-07-08: UX decision locked during apply: visible default input value
+    is literal `0`, matching the always-materialized zero-aporte plan and
+    allowing blank submit to normalize client-side without browser `required`
+    blocking.
+  - 2026-07-08: Refresh-for-test complete. Server restarted on LAN URL,
+    `/healthz` OK, read-only DB verification preserved existing state
+    (`12` classes / `99` assets / `99` positions), and authenticated
+    dashboard smoke found `6` rendered class-summary rows. No DB
+    migration/seed change required. Status -> Applied.
+
+### F17 - Precisao canonica de alvo e atalho de percentual global
+Status: `Archived` — 2026-07-08
+Goal: Tornar `% classe` e `% ativo na classe` fontes de verdade do dominio,
+  manter edicao de `% ativo na carteira` como atalho server-side, elevar a
+  precisao interna de `Asset.target_pct`, e ajustar pipeline de rebalance para
+  usar `Decimal` ate fronteira numpy/CVXPY sem tratar pesos globais derivados
+  como verdade independente.
+Candidate OpenSpec change id: `f17-precisao-canonica-de-alvo-e-atalho-de-percentual-global`
+Spec link: `openspec/changes/f17-precisao-canonica-de-alvo-e-atalho-de-percentual-global/`
+Files: `src/omaha/models.py`, `alembic/`, `src/omaha/routes/assets.py`,
+  `src/omaha/routes/pages.py`, `src/omaha/templates/_patrimonio_*.html`,
+  `src/omaha/rebalance/builders.py`, `src/omaha/rebalance/validation.py`,
+  `src/omaha/rebalance/solver.py`, `src/omaha/rebalance/policy.py`,
+  `src/omaha/rebalance/postprocessing.py`, `tests/test_assets_patch_legacy.py`,
+  `tests/test_rebalance_*.py`, `openspec/specs/dashboard-inline-editing/spec.md`,
+  `openspec/specs/rebalance-engine/spec.md`,
+  `openspec/specs/rebalance-route/spec.md`,
+  `openspec/specs/rebalance-page/spec.md`
+Notes: Dominio critico (`src/omaha/rebalance/`). Proposal precisa explicitar
+  limites de CVXPY/NumPy com `float`, decidir precisao interna minima para
+  `Asset.target_pct`, e separar claramente regra canonicamente validada
+  (classes + soma intra-classe) de valores globais apenas derivados/exibidos.
+  Preservar UX de edicao direta de `% carteira` sem autoajuste residual opaco.
+Progress:
+  - 2026-07-08: Added from owner bug investigation about periodic-decimal drift
+    between class target, per-asset in-class target, and derived global target.
+    Inserted after F16 because scope changes critical rebalance contract,
+    inline-edit semantics, and target precision persistence.
+  - 2026-07-08: Propose complete. Created `proposal.md`, `design.md`,
+    `tasks.md`, and delta specs for `dashboard-inline-editing`,
+    `rebalance-data-bridges`, and `rebalance-engine` under
+    `openspec/changes/f17-precisao-canonica-de-alvo-e-atalho-de-percentual-global/`.
+    Spec health gate passed via `openspec list --specs`. Status -> Spec Proposed.
+  - 2026-07-08: Apply complete. All 17/17 tasks implemented. Migration0019
+    widens `assets.target_pct` to `Numeric(9,6)`. PATCH route accepts
+    `target_pct_total` shortcut with server-side Decimal conversion. Dashboard
+    sends raw global value, re-renders from server-confirmed state. Rebalance
+    builders/validation enforce canonical Decimal closure before float boundary.
+    Unit (346 pass), integration (108 pass), lint, spec validation all green.
+    Status -> Applied. Ready for archive.
+
 ---
 
 ## Recommended Execution Order
 
 **Active queue:**
-- none
+- F17 — Precisao canonica de alvo e atalho de percentual global (P0, applied)
+- F16 — Rebalanceamento sempre pronto com aporte persistente (P0, applied)
 
-Order note: F15 archived; pick next `Ready` slice when one appears.
+Order note: F17 jumps queue as next critical slice because current rebalance
+validation rejects operator-valid target allocations under realistic
+round-trip editing, and fix spans persistence, inline editing, and solver
+input normalization in critical rebalance domain.
 
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed, reactivation path documented above.

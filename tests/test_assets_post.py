@@ -307,6 +307,26 @@ def test_post_api_asset_per_class_sum_accepted(client: TestClient) -> None:
     assert on_disk == Decimal("150")
 
 
+def test_post_api_asset_preserves_high_precision_target_pct(client: TestClient) -> None:
+    """POST accepts 6-decimal canonical target_pct and persists it unchanged."""
+    _login_and_select(client, profile_id=1)
+    [class_id] = _seed_classes(profile_id=1, rows=[("Renda Fixa", "100")])
+
+    response = _post_api_asset(
+        client,
+        name="Tesouro IPCA 2035",
+        asset_class_id=class_id,
+        target_pct="66.666667",
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["target_pct"] == "66.666667"
+    asset = _get_asset(data["id"])
+    assert asset is not None
+    assert asset.target_pct == Decimal("66.666667")
+
+
 def test_post_api_asset_duplicate_name_returns_409(client: TestClient) -> None:
     """POST two assets with the same name in the same class; expect 201 then 409.
 

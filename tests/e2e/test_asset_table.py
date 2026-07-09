@@ -23,7 +23,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 TEST_DB_PATH = REPO_ROOT / "data" / "test_e2e.db"
 
 
-def _seed_class_with_assets(class_name: str, assets: list[tuple[str, float | int]]) -> None:
+def _seed_class_with_assets(
+    class_name: str,
+    assets: list[tuple[str, float | int]],
+    *,
+    class_target_pct: float = 100.0,
+) -> None:
     """Create one class + N assets for Italo via direct sqlite3 writes.
 
     Uses raw SQL against ``data/test_e2e.db`` so the test can set up
@@ -40,8 +45,8 @@ def _seed_class_with_assets(class_name: str, assets: list[tuple[str, float | int
 
         conn.execute(
             "INSERT INTO asset_classes (profile_id, name, target_pct, display_order) "
-            "VALUES (?, ?, 100.00, 0)",
-            (profile_id, class_name),
+            "VALUES (?, ?, ?, 0)",
+            (profile_id, class_name, float(class_target_pct)),
         )
         class_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
         for name, target_pct in assets:
@@ -133,14 +138,18 @@ class TestS10AssetTable:
     ) -> None:
         """Edit ``alvo % total`` and verify the per-class badge + alert card update.
 
-        Setup: 1 class (Renda Fixa 100%) with 2 assets at 40% and 50%
-        class-level (sum = 90, ``Falta 10%``). Edit the first asset's
-        ``alvo % total`` from 40 to 50: the back-solve sets ``alvo %
-        classe`` to 50, making the per-class sum 100. The alert card
-        should disappear and the group-header badge should read OK.
+        Setup: 1 class (Renda Fixa 30%) with 2 assets at 56.666667% and
+        33.333333% class-level (sum = 90, ``Falta 10%``). Edit the
+        first asset's ``alvo % total`` from 17 to 20. Server converts that into
+        canonical ``alvo % classe = 66.666667`` while keeping the total
+        cell at 20.
         """
         _login_and_select_italo(page, live_url)
-        _seed_class_with_assets("Renda Fixa", [("Ativo A", 40.0), ("Ativo B", 50.0)])
+        _seed_class_with_assets(
+            "Renda Fixa",
+            [("Ativo A", 56.666667), ("Ativo B", 33.333333)],
+            class_target_pct=30.0,
+        )
         _seed_assets_with_positions_via_import(
             page, live_url, [("Renda Fixa", "Ativo A"), ("Renda Fixa", "Ativo B")]
         )
@@ -168,17 +177,17 @@ class TestS10AssetTable:
         cell.click()
         edit_input = target_row.locator(SELECTORS["asset_target_pct_total_edit_input"]).first
         edit_input.wait_for(state="visible", timeout=2000)
-        edit_input.fill("50")
+        edit_input.fill("20")
         edit_input.press("Enter")
 
         # Wait for PATCH + local state update.
         page.wait_for_timeout(500)
 
-        # The alert card should disappear once the class sum reaches 100.
-        alert.wait_for(state="hidden", timeout=3000)
-
-        # Server-side target_pct was back-solved to 50.
-        assert _read_target_pct("Ativo A") == 50.0, "Ativo A target_pct should be 50"
+        # Server-side target_pct was derived canonically at 6-decimal precision.
+        assert _read_target_pct("Ativo A") == 66.666667, (
+            "Ativo A target_pct should be persisted from server-side shortcut conversion"
+        )
+        assert "20" in target_row.locator(SELECTORS["asset_target_pct_total"]).first.inner_text()
 
     def test_modal_add_asset_flow(self, page: Page, live_url: str) -> None:
         """Open the dashboard add-asset modal, submit, and verify the new row."""

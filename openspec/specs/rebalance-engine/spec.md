@@ -7,13 +7,21 @@ TBD - created by archiving change rebalance-engine. Update Purpose after archive
 
 The system SHALL provide
 `omaha.rebalance.validation._validate_rebalance_inputs(setup,
-position, contribution)` that runs 11 checks and raises
+position, contribution)` that runs validation checks and raises
 `RebalanceValidationError(errors: list[str])` when any check
 fails. The error message SHALL be the concatenation of all
-failing checks separated by newlines (matching the
-reference).
+failing checks separated by newlines.
 
-The 11 checks (per reference §7.1):
+Target-allocation validation SHALL treat the following as canonical truth:
+
+1. class target percentages (`AssetClass.target_pct` / `setup.categories.target_weight`)
+2. per-class asset target percentages (`Asset.target_pct` / `setup.assets.target_weight_in_category`)
+
+The validator SHALL enforce canonical closure on those layers and SHALL NOT reject the setup
+solely because rounded or float-converted derived global per-asset weights fail a redundant
+`asset-global-sum-by-class == class-target` check.
+
+At minimum, validation SHALL still reject:
 
 1. `contribution < 0` ⇒ "O aporte informado nao pode ser
    negativo."
@@ -21,20 +29,13 @@ The 11 checks (per reference §7.1):
    carregadas."
 3. `setup.assets.empty` ⇒ "O setup nao possui ativos
    carregados."
-4. Sum of `target_weight` does not equal `1.0` within
-   `ALLOCATION_TOLERANCE` ⇒ "Soma dos pesos-alvo difere de
-   100%."
-5. Position contains `asset_key` not in setup ⇒ list orphan
-   keys.
-6. Setup contains `asset_key` not in position AND
-   `target_pct > 0` ⇒ list missing keys.
-7. `current_value < 0` for any asset ⇒ list offending assets.
-8. Duplicate `asset_key` in position ⇒ list duplicate keys.
-9. `currency_code` not in `{"BRL", "USD"}` ⇒ list offending
-   assets.
-10. `target_pct < 0` for any asset ⇒ list offending assets.
-11. `NaN` / `inf` in any numeric column ⇒ list offending
-    rows.
+4. class targets that do not close to 100% within canonical storage-compatible tolerance
+5. per-class asset targets that do not close to the owning class's full 100% allocation within
+   canonical storage-compatible tolerance
+6. asset rows referencing a category absent from the setup
+7. position `asset_key` values not present in setup assets
+8. non-positive / negative total current-value invariants already required by the existing route
+9. `NaN` / `inf` in any numeric position columns
 
 `RebalanceValidationError` is already defined in
 `omaha.rebalance.models` and is mapped to HTTP 400 by
@@ -59,13 +60,20 @@ mapping") and to inline `form_error` by `routes/pages.py`
   message containing "O setup nao possui categorias
   carregadas."
 
-#### Scenario: Target weight sum mismatch rejects
+#### Scenario: Canonical closure mismatch rejects
 
-- **WHEN** `simulate_rebalance` is called with a setup
-  whose `target_weight.sum() != 1.0` within
-  `ALLOCATION_TOLERANCE`
+- **WHEN** `simulate_rebalance` is called with a setup whose
+  class totals or per-class asset totals do not close within canonical tolerance
 - **THEN** `RebalanceValidationError` raises with the
-  message containing "Soma dos pesos-alvo difere de 100%."
+  corresponding closure message
+
+#### Scenario: Derived global rounding drift does not reject
+
+- **WHEN** `simulate_rebalance` is called with canonical class and intra-class targets that
+  close correctly, but derived global per-asset weights would differ from a displayed rounded sum
+  by a tiny amount after Decimal-to-float conversion
+- **THEN** validation succeeds
+- **AND** the solver proceeds using normalized derived weights
 
 #### Scenario: Multiple checks fail, all errors reported
 

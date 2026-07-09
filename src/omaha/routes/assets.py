@@ -57,7 +57,7 @@ Failure modes
 from __future__ import annotations
 
 import logging
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -79,10 +79,12 @@ router = APIRouter(tags=["assets"])
 NAME_MAX_LEN = 64
 
 # Per-asset target range mirrors the schema in 0006_asset_target_pct
-# (Numeric(5, 2)) — the validator additionally enforces the
+# (widened to Numeric(9, 6) by F17) — the validator additionally enforces the
 # per-class sum-to-100 invariant on top of this per-row cap.
 PCT_MIN = Decimal("0")
 PCT_MAX = Decimal("100")
+_HUNDRED = Decimal("100")
+_TARGET_PCT_QUANTUM = Decimal("0.000001")
 
 # asset-trade-flags: the per-asset ``currency_code`` allowlist mirrors
 # the DB CHECK ``ck_asset_currency_code`` (migration 0016). The route
@@ -416,7 +418,7 @@ def post_api_asset(
     return {
         "id": asset.id,
         "name": asset.name,
-        "target_pct": str(asset.target_pct),
+        "target_pct": _format_pct_decimal(asset.target_pct),
         "buy_enabled": asset.buy_enabled,
         "sell_enabled": asset.sell_enabled,
         "currency_code": asset.currency_code,
@@ -491,11 +493,17 @@ def patch_asset(
     if not isinstance(body, dict) or not body:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Informe ao menos um campo: target_pct, buy_enabled, "
+            detail="Informe ao menos um campo: target_pct, target_pct_total, buy_enabled, "
             "sell_enabled ou currency_code.",
         )
 
-    allowed_keys = {"target_pct", "buy_enabled", "sell_enabled", "currency_code"}
+    allowed_keys = {
+        "target_pct",
+        "target_pct_total",
+        "buy_enabled",
+        "sell_enabled",
+        "currency_code",
+    }
     unknown = set(body) - allowed_keys
     if unknown:
         raise HTTPException(
@@ -507,19 +515,26 @@ def patch_asset(
         # Body present but empty of recognized keys (e.g. {"foo": "bar"}).
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Informe ao menos um campo: target_pct, buy_enabled, "
+            detail="Informe ao menos um campo: target_pct, target_pct_total, buy_enabled, "
             "sell_enabled ou currency_code.",
         )
 
     if "target_pct" in body:
-        raw = body["target_pct"]
-        parsed = _parse_pct(raw)
-        if parsed is None or parsed < PCT_MIN or parsed > PCT_MAX:
+        if "target_pct_total" in body:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=f"A alocação do ativo deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
+                detail="Envie apenas um alvo por vez: target_pct ou target_pct_total.",
             )
-        asset.target_pct = parsed
+        asset.target_pct = _normalize_target_pct(_parse_target_pct_or_422(body["target_pct"]))
+
+    if "target_pct_total" in body:
+        total_pct = _parse_target_pct_or_422(
+            body["target_pct_total"],
+            detail=(
+                f"O alvo % total do ativo deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}."
+            ),
+        )
+        asset.target_pct = _target_pct_from_total_or_422(total_pct, asset.asset_class.target_pct)
 
     if "buy_enabled" in body:
         raw = body["buy_enabled"]
@@ -559,7 +574,10 @@ def patch_asset(
     db.commit()
     return {
         "id": asset.id,
-        "target_pct": str(asset.target_pct),
+        "target_pct": _format_pct_decimal(asset.target_pct),
+        "target_pct_total": _format_pct_decimal(
+            _derive_target_pct_total(asset.target_pct, asset.asset_class.target_pct)
+        ),
         "buy_enabled": asset.buy_enabled,
         "sell_enabled": asset.sell_enabled,
         "currency_code": asset.currency_code,
@@ -618,6 +636,57 @@ def _parse_pct(raw: str) -> Decimal | None:
         return Decimal(cleaned)
     except (ArithmeticError, ValueError, TypeError):  # pragma: no cover - Decimal edge cases
         return None
+
+
+def _parse_target_pct_or_422(
+    raw: Any,
+    *,
+    detail: str | None = None,
+) -> Decimal:
+    parsed = _parse_pct(raw)
+    if parsed is None or parsed < PCT_MIN or parsed > PCT_MAX:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=detail or f"A alocação do ativo deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
+        )
+    return parsed
+
+
+def _target_pct_from_total_or_422(total_pct: Decimal, class_target_pct: Decimal | None) -> Decimal:
+    class_target = class_target_pct or Decimal("0")
+    if class_target <= Decimal("0"):
+        if total_pct == Decimal("0"):
+            return Decimal("0")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Nao e possivel definir % total para ativo em classe com alvo 0%.",
+        )
+    canonical = (total_pct * _HUNDRED) / class_target
+    if canonical < PCT_MIN or canonical > PCT_MAX:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"O alvo % total informado resulta em alvo da classe fora de {int(PCT_MIN)} a {int(PCT_MAX)}.",
+        )
+    return _normalize_target_pct(canonical)
+
+
+def _derive_target_pct_total(target_pct: Decimal | None, class_target_pct: Decimal | None) -> Decimal:
+    return _normalize_target_pct(
+        ((target_pct or Decimal("0")) * (class_target_pct or Decimal("0"))) / _HUNDRED
+    )
+
+
+def _normalize_target_pct(value: Decimal) -> Decimal:
+    return value.quantize(_TARGET_PCT_QUANTUM, rounding=ROUND_HALF_UP)
+
+
+def _format_pct_decimal(value: Decimal | None) -> str:
+    if value is None:
+        return "0"
+    text = format(value, "f")
+    if "." not in text:
+        return text
+    return text.rstrip("0").rstrip(".") or "0"
 
 
 def _parse_bool(raw: object) -> bool | None:
