@@ -312,9 +312,7 @@ def test_empty_profile_returns_200_with_warning(client: TestClient) -> None:
     assert "EMPTY_PROFILE" in codes
 
 
-def test_deviation_fields_on_plan_rows(
-    client: TestClient, _omaha_test_env: dict[str, str]
-) -> None:
+def test_deviation_fields_on_plan_rows(client: TestClient, _omaha_test_env: dict[str, str]) -> None:
     """Deviation fields are present and division-by-zero returns 0.0."""
     _seed_class(1, "RF", "100", [("Selic", "100")], _omaha_test_env=_omaha_test_env)
     _seed_positions(_omaha_test_env, {"Selic": 5_000.0})

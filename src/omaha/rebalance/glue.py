@@ -104,9 +104,7 @@ def run_rebalance(
 
     plan_native = solver(setup, positions, quotes, contribution)
 
-    total_portfolio = sum(
-        float(row.current_value) for row in plan_native.asset_plan
-    )
+    total_portfolio = sum(float(row.current_value) for row in plan_native.asset_plan)
 
     asset_plan = []
     for row in plan_native.asset_plan:
@@ -145,7 +143,11 @@ def run_rebalance(
         pv = float(row.projected_value)
         delta = pv - cv
         current_pct = (cv / total_portfolio * 100) if total_portfolio > 0 else 0.0
-        target_pct = (cat_target_sums.get(row.category_name, 0.0) / total_portfolio * 100) if total_portfolio > 0 else 0.0
+        target_pct = (
+            (cat_target_sums.get(row.category_name, 0.0) / total_portfolio * 100)
+            if total_portfolio > 0
+            else 0.0
+        )
         deviation_pct = current_pct - target_pct
         category_plan.append(
             RebalanceCategoryPlanRow(

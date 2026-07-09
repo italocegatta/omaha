@@ -527,9 +527,7 @@ def test_footer_policy_and_stub_banner_not_rendered(
     assert 'data-testid="rebalance-stub-banner"' not in body
 
 
-def test_warnings_panel_not_rendered(
-    client: TestClient, _omaha_test_env: dict[str, str]
-) -> None:
+def test_warnings_panel_not_rendered(client: TestClient, _omaha_test_env: dict[str, str]) -> None:
     """Warnings remain in payload but are hidden from page footer."""
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
