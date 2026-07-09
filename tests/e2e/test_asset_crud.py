@@ -145,10 +145,14 @@ class TestS03AssetCRUD:
         modal.locator(SELECTORS["dashboard_add_asset_class"]).select_option(label="Renda Fixa")
         modal.locator(SELECTORS["dashboard_add_asset_name"]).fill("PETR4")
         modal.locator(SELECTORS["dashboard_add_asset_target_pct"]).fill("0")
+        before = page.locator(SELECTORS["dashboard_asset_row"]).count()
         modal.locator(SELECTORS["dashboard_add_asset_submit"]).click()
 
-        # Wait for page reload (201 -> window.location.reload()).
-        page.wait_for_load_state("networkidle", timeout=10000)
+        # Wait for asset row to appear after reload.
+        page.wait_for_function(
+            f"() => document.querySelectorAll('{SELECTORS['dashboard_asset_row']}').length > {before}",
+            timeout=10000,
+        )
         page.wait_for_selector(SELECTORS["dashboard_asset_row"], state="attached", timeout=8000)
 
         rows = page.locator(SELECTORS["dashboard_asset_row"])
@@ -190,9 +194,11 @@ class TestS03AssetCRUD:
         confirm.wait_for(state="visible", timeout=2000)
         confirm.locator(SELECTORS["dashboard_asset_delete_confirm_yes"]).click(force=True)
 
-        # Wait for page reload (204 -> window.location.reload()).
-        page.wait_for_load_state("networkidle", timeout=10000)
-        page.wait_for_timeout(300)
+        # Wait for row removal after reload.
+        page.wait_for_function(
+            f"() => document.querySelectorAll('{SELECTORS['dashboard_asset_row']}').length === 0",
+            timeout=10000,
+        )
         assert page.locator(SELECTORS["dashboard_asset_row"]).count() == 0
 
     def test_full_asset_crud_journey(self, page: Page, live_url: str) -> None:
@@ -212,15 +218,21 @@ class TestS03AssetCRUD:
         modal.locator(SELECTORS["dashboard_add_asset_class"]).select_option(label="Renda Fixa")
         modal.locator(SELECTORS["dashboard_add_asset_name"]).fill("PETR4")
         modal.locator(SELECTORS["dashboard_add_asset_target_pct"]).fill("0")
+        before = page.locator(SELECTORS["dashboard_asset_row"]).count()
         modal.locator(SELECTORS["dashboard_add_asset_submit"]).click()
 
-        page.wait_for_load_state("networkidle", timeout=10000)
-        page.wait_for_timeout(500)
+        page.wait_for_function(
+            f"() => document.querySelectorAll('{SELECTORS['dashboard_asset_row']}').length > {before}",
+            timeout=10000,
+        )
 
         # Second add via direct API.
         _create_seed_assets(page, [("Renda Fixa", "VALE3", 100)])
 
-        page.wait_for_load_state("networkidle", timeout=10000)
+        page.wait_for_function(
+            f"() => document.querySelectorAll('{SELECTORS['dashboard_asset_row']}').length === 2",
+            timeout=10000,
+        )
 
         rows = page.locator(SELECTORS["dashboard_asset_row"])
         assert rows.count() == 2
@@ -235,9 +247,11 @@ class TestS03AssetCRUD:
         confirm.wait_for(state="visible", timeout=2000)
         confirm.locator(SELECTORS["dashboard_asset_delete_confirm_yes"]).click(force=True)
 
-        # Wait for page reload (204 -> window.location.reload()).
-        page.wait_for_load_state("networkidle", timeout=10000)
-        page.wait_for_timeout(300)
+        # Wait for row removal after reload.
+        page.wait_for_function(
+            f"() => document.querySelectorAll('{SELECTORS['dashboard_asset_row']}').length === 1",
+            timeout=10000,
+        )
 
         # Only VALE3 remains.
         remaining = page.locator(SELECTORS["dashboard_asset_row"])

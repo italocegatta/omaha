@@ -19,7 +19,6 @@ involves a template/JS bug that route-level tests cannot see.
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -38,10 +37,19 @@ def _login_and_select_italo(page: Page, base_url: str) -> None:
     the dashboard.
     """
     page.goto(f"{base_url}/login")
-    page.fill(SELECTORS["login_user"], "Italo")
-    page.fill(SELECTORS["login_pass"], "test-password")
-    page.click(SELECTORS["login_submit"])
-    page.wait_for_url(re.compile(r"/$"))
+    page.evaluate(
+        """async () => {
+            const fd = new FormData();
+            fd.append('username', 'Italo');
+            fd.append('password', 'test-password');
+            const r = await fetch('/login', { method: 'POST', body: fd });
+            if (!r.ok && r.status !== 303) {
+                throw new Error('POST /login ' + r.status);
+            }
+        }"""
+    )
+    page.goto(f"{base_url}/")
+    page.wait_for_selector(SELECTORS["app_header_wordmark"], timeout=5000)
 
 
 def _create_three_classes(page: Page, base_url: str) -> None:
@@ -102,13 +110,17 @@ def _add_asset_via_dashboard(
     modal.locator(SELECTORS["dashboard_add_asset_pct"]).fill(target_pct)
 
     # Click Salvar — this triggers a POST /api/assets and reloads on 201.
+    before = page.locator(SELECTORS["dashboard_asset_row"]).count()
     modal.locator(SELECTORS["dashboard_add_asset_submit"]).click()
 
     # Wait for the page to reload (the modal calls
     # window.location.reload() on 201). wait_for_url returns
     # immediately when the URL was already /, so use load_state
     # to wait for the actual reload to complete.
-    page.wait_for_load_state("networkidle", timeout=10000)
+    page.wait_for_function(
+        f"() => document.querySelectorAll('{SELECTORS['dashboard_asset_row']}').length > {before}",
+        timeout=10000,
+    )
 
 
 class TestS03UserJourney:
@@ -178,10 +190,11 @@ class TestS03UserJourney:
         )
         confirm.locator(SELECTORS["dashboard_asset_delete_confirm_yes"]).click()
 
-        # Wait for the page reload (confirmDeleteAsset() calls
-        # window.location.reload() on 204). Use load_state to wait
-        # for the actual navigation, not just URL match.
-        page.wait_for_load_state("networkidle", timeout=10000)
+        # Wait for delete reload to settle on 2 remaining rows.
+        page.wait_for_function(
+            f"() => document.querySelectorAll('{SELECTORS['dashboard_asset_row']}').length === 2",
+            timeout=10000,
+        )
         page.wait_for_selector(SELECTORS["class_summary_row"], timeout=5000)
 
         # --- 4. Verify dashboard shows 3 class sections, 2 assets.

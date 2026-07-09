@@ -105,7 +105,7 @@
               <th rowspan="2" data-testid="asset-table-th-qty" @click.stop="sortBy('qty')">Qtd <span data-testid="asset-table-sort-qty" x-text="sortIndicator('qty')"></span></th>
               <th rowspan="2" data-testid="asset-table-th-avg-price" @click.stop="sortBy('avg-price')">Preço médio <span data-testid="asset-table-sort-avg-price" x-text="sortIndicator('avg-price')"></span></th>
               <th colspan="2" data-testid="asset-table-th-gain" @click.stop="sortBy('gain')">Ganho <span data-testid="asset-table-sort-gain" x-text="sortIndicator('gain')"></span></th>
-              <th rowspan="2" data-testid="asset-table-th-position" @click.stop="sortBy('position')"><span data-testid="asset-table-th-current-value">Posição</span> <span data-testid="asset-table-sort-position" x-text="sortIndicator('position')"></span></th>
+              <th rowspan="2" data-testid="asset-table-th-position" @click.stop="sortBy('position')"><span data-testid="asset-table-th-current-value"><span>Posição</span></span> <span data-testid="asset-table-sort-position" x-text="sortIndicator('position')"></span></th>
               <th rowspan="2" data-testid="asset-table-th-position-deviation" @click.stop="sortBy('position-deviation')">Desvio <span data-testid="asset-table-sort-position-deviation" x-text="sortIndicator('position-deviation')"></span></th>
               <th colspan="3">Classe</th>
               <th colspan="3">Carteira</th>
@@ -211,10 +211,11 @@
           </template>
             <template x-for="a in displayAssets" :key="a.id">
               <tbody class="class-section-body" :class="{'class-section-body--collapsed': !isOpen}" x-show="isOpen">
-                <tr data-testid="dashboard-asset-row" :data-asset-id="a.id" :data-position-count="a.position_count">
+                <tr data-testid="dashboard-asset-row" :data-asset-id="a.id" :data-position-count="a.position_count" :data-asset-class-name="a.class_name">
                   <td data-testid="asset-row-name">
                     <div class="asset-name-cell">
                       <span data-testid="asset-row-name-text" x-text="a.name"></span>
+                      <span data-testid="asset-row-class" hidden x-text="a.class_name"></span>
                       <button type="button"
                               class="dashboard-asset-delete-btn"
                               data-testid="dashboard-asset-delete-btn"
@@ -246,12 +247,12 @@
                             @click="startEdit(a.id)"
                             x-show="editingAssetId !== a.id && !readOnly"
                             title="Clique para editar">
-                      <span x-text="formatPct(a.target_pct)"></span>
+                      <span x-text="formatPctOrDash(a.target_pct)"></span>
                     </button>
                     <span class="asset-pct-cell asset-pct-cell--inline"
                           data-testid="asset-target-pct-class-static"
                           x-show="editingAssetId !== a.id && readOnly"
-                          x-cloak><span x-text="formatPct(a.target_pct)"></span></span>
+                          x-cloak><span x-text="formatPctOrDash(a.target_pct)"></span></span>
                     <div class="asset-pct-cell asset-pct-cell--editing asset-pct-cell--inline"
                          data-testid="asset-target-pct-class-editing"
                          x-show="editingAssetId === a.id"
@@ -286,12 +287,12 @@
                             @click="startEditTotal(a.id)"
                             x-show="editingTotalAssetId !== a.id && !readOnly"
                             title="Clique para editar">
-                      <span x-text="formatPct(a.target_pct_total)"></span>
+                      <span x-text="formatPctOrDash(a.target_pct_total)"></span>
                     </button>
                     <span class="asset-pct-cell asset-pct-cell--inline"
                           data-testid="asset-target-pct-total-static"
                           x-show="editingTotalAssetId !== a.id && readOnly"
-                          x-cloak><span x-text="formatPct(a.target_pct_total)"></span></span>
+                           x-cloak><span x-text="formatPctOrDash(a.target_pct_total)"></span></span>
                     <div class="asset-pct-cell asset-pct-cell--editing asset-pct-cell--inline"
                          data-testid="asset-target-pct-total-editing"
                          x-show="editingTotalAssetId === a.id"

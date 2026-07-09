@@ -15,11 +15,16 @@ in the middle of a scenario.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+import re
 
 from pytest_bdd import parsers, then
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page
+
+
+def _normalize_pct_text(text: str) -> str:
+    return re.sub(r"(\d+)\.0+%", r"\1%", text)
 
 
 @then(parsers.parse("o dashboard mostra {count:d} seções de classe"))
@@ -42,12 +47,22 @@ def section_text(page: Page, name: str, text: str):
         f'[data-testid="class-summary-row"]:has([data-testid="class-section-name"]:text-is("{name}"))'
     )
     section.first.wait_for(state="visible", timeout=5000)
-    # Wait for the section text to actually contain the expected value.
-    # Some flows (PATCH / inline edit) are async — the DOM updates
-    # only after the fetch resolves and Alpine re-renders, so a
-    # plain read immediately after the action would race the
-    # response and produce a false negative.
-    section.first.filter(has_text=text).wait_for(state="visible", timeout=10000)
+    expected = _normalize_pct_text(text)
+    page.wait_for_function(
+        """({name, expected}) => {
+            const rows = Array.from(document.querySelectorAll('[data-testid="class-summary-row"]'));
+            return rows.some((row) => {
+                const nameEl = row.querySelector('[data-testid="class-section-name"]');
+                if (!nameEl || nameEl.textContent.trim() !== name) return false;
+                const clone = row.cloneNode(true);
+                clone.querySelectorAll('.icon, [class*="icon--"]').forEach((n) => n.remove());
+                const inner = clone.innerText.replace(/(\\d+)\\.0+%/g, '$1%');
+                return inner.includes(expected);
+            });
+        }""",
+        arg={"name": name, "expected": expected},
+        timeout=10000,
+    )
     # F12 — Material Symbols icons render via ligature text inside
     # ``<span class="icon ...">``. Playwright ``inner_text()`` includes
     # ligature text (e.g. ``expand_more``, ``close``) in the read,
@@ -61,14 +76,18 @@ def section_text(page: Page, name: str, text: str):
             return clone.innerText;
         }""",
     )
-    assert text in inner, f"esperava {text!r} na seção {name!r}, vi {inner!r}"
+    assert _normalize_pct_text(text) in _normalize_pct_text(inner), (
+        f"esperava {text!r} na seção {name!r}, vi {inner!r}"
+    )
 
 
 @then(parsers.parse('a seção "{name}" contém {count:d} ativos'))
 def section_contains_assets(page: Page, name: str, count: int):
-    rows = page.locator(
-        f'[data-testid="dashboard-asset-row"]:has([data-testid="asset-row-class"]:text-is("{name}"))'
+    section = page.locator(
+        f'[data-testid="class-summary-row"]:has([data-testid="class-section-name"]:text-is("{name}"))'
     )
+    section.first.wait_for(state="visible", timeout=5000)
+    rows = section.locator('[data-testid="dashboard-asset-row"]')
     actual = rows.count()
     assert actual == count, f"esperava {count} ativos em {name!r}, vi {actual}"
 
@@ -85,7 +104,7 @@ def asset_ordinal_in_class(page: Page, ticker: str, ordinal: int, class_name: st
     would naturally re-sort the row elsewhere.
     """
     rows = page.locator(
-        f'[data-testid="dashboard-asset-row"]:has([data-testid="asset-row-class"]:text-is("{class_name}"))'
+        f'[data-testid="class-summary-row"]:has([data-testid="class-section-name"]:text-is("{class_name}")) [data-testid="dashboard-asset-row"]'
     )
     rows.first.wait_for(state="visible", timeout=5000)
     if ordinal < 1 or ordinal > rows.count():

@@ -440,7 +440,6 @@ class TestS06PosicaoItaloImport:
         # ------------------------------------------------------------------
         # Step 5: Verify assets on dashboard with positions
         # ------------------------------------------------------------------
-        page.wait_for_load_state("networkidle", timeout=10000)
         dashboard_rows = page.locator(SELECTORS["dashboard_asset_row"])
 
         try:

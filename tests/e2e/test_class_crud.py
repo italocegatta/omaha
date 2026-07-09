@@ -377,9 +377,13 @@ class TestS02ClassCRUD:
         modal.locator(SELECTORS["dashboard_add_asset_class"]).select_option(label="Renda Fixa")
         modal.locator(SELECTORS["dashboard_add_asset_name"]).fill("Tesouro Selic")
         modal.locator(SELECTORS["dashboard_add_asset_pct"]).fill("100")
+        before = page.locator(SELECTORS["dashboard_asset_row"]).count()
         modal.locator(SELECTORS["dashboard_add_asset_submit"]).click()
-        # Wait for the page reload (201 -> window.location.reload()).
-        page.wait_for_load_state("networkidle", timeout=10000)
+        # Wait for row to appear after reload.
+        page.wait_for_function(
+            f"() => document.querySelectorAll('{SELECTORS['dashboard_asset_row']}').length > {before}",
+            timeout=10000,
+        )
         page.wait_for_selector(SELECTORS["class_summary_row"], timeout=5000)
 
         # Click x to trigger the delete confirm.

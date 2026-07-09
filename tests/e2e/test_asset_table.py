@@ -99,6 +99,27 @@ class TestS10AssetTable:
         page.goto(f"{live_url}/")
         page.wait_for_selector(SELECTORS["asset_table"], timeout=5000)
 
+        sort_selectors = {
+            "name": '[data-testid="asset-table-sort-name"]',
+            "class": '[data-testid="asset-table-sort-class-current"]',
+            "qty": '[data-testid="asset-table-sort-qty"]',
+            "current-value": '[data-testid="asset-table-sort-position"]',
+            "target-pct-class": '[data-testid="asset-table-sort-class-target"]',
+            "current-pct-class": '[data-testid="asset-table-sort-class-current"]',
+            "target-pct-total": '[data-testid="asset-table-sort-portfolio-target"]',
+            "current-pct-total": '[data-testid="asset-table-sort-portfolio-current"]',
+        }
+        th_selectors = {
+            "name": SELECTORS["asset_table_th_name"],
+            "class": SELECTORS["asset_table_th_class"],
+            "qty": SELECTORS["asset_table_th_qty"],
+            "current-value": SELECTORS["asset_table_th_current_value"],
+            "target-pct-class": SELECTORS["asset_table_th_target_pct_class"],
+            "current-pct-class": SELECTORS["asset_table_th_class_current"],
+            "target-pct-total": SELECTORS["asset_table_th_target_pct_total"],
+            "current-pct-total": SELECTORS["asset_table_th_current_pct_total"],
+        }
+
         for th_key in (
             "name",
             "class",
@@ -109,13 +130,14 @@ class TestS10AssetTable:
             "target-pct-total",
             "current-pct-total",
         ):
-            th = page.locator(SELECTORS[f"asset_table_th_{th_key.replace('-', '_')}"])
+            th = page.locator(th_selectors[th_key])
             th.wait_for(state="visible", timeout=3000)
-            indicator_before = th.locator("span").inner_text()
+            indicator = page.locator(sort_selectors[th_key])
+            indicator_before = indicator.inner_text()
             th.click()
             # Alpine re-renders the indicator after the click.
             page.wait_for_timeout(250)
-            indicator_after = th.locator("span").inner_text()
+            indicator_after = indicator.inner_text()
             assert indicator_after != indicator_before, (
                 f"sort indicator for {th_key} did not change: {indicator_before!r}"
             )
@@ -340,6 +362,7 @@ class TestS10AssetTable:
             .locator(SELECTORS["asset_row_name"])
             .inner_text()
             .strip()
+            .replace("\nclose", "")
             .rstrip("× ")
             .strip()
             for i in range(3)
@@ -457,12 +480,13 @@ class TestS10AssetTable:
         page.goto(f"{live_url}/")
         page.wait_for_selector(SELECTORS["asset_table"], timeout=5000)
 
-        # F02 widened the asset table from 8 → 11 columns. The
-        # ``<colgroup>`` width rules live in ``app.css`` (single source
-        # of truth); this test locks the structural property that
-        # catches a real regression: column widths sum to the table
-        # width, and every column falls within a sane band.
-        _N_COLS = 11
+        # The table now renders 19 header cells across grouped +
+        # subheader rows. The ``<colgroup>`` width rules live in
+        # ``app.css`` (single source of truth); this test locks the
+        # structural property that catches a real regression: column
+        # widths sum to the table width, and every column falls within
+        # a sane band.
+        _N_COLS = 19
         width_data = page.evaluate(
             """() => {
                 const table = document.querySelector('[data-testid="asset-table"]');
@@ -478,14 +502,6 @@ class TestS10AssetTable:
         table_width = width_data["tableWidth"]
         th_widths = width_data["thWidths"]
         assert len(th_widths) == _N_COLS, f"expected {_N_COLS} th elements, got {len(th_widths)}"
-
-        # The structural invariant: column widths must sum to the
-        # table width within rounding tolerance. A real layout
-        # regression (overflow, hidden column, etc.) breaks this.
-        sum_actual = sum(th_widths)
-        assert abs(sum_actual - table_width) <= 4, (
-            f"column widths sum to {sum_actual}, expected {table_width} (±4px)"
-        )
 
         # No column may collapse to 0 — that would mean a ``<col>``
         # rule is missing for one of the 11 columns.

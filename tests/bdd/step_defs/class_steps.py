@@ -69,7 +69,7 @@ def fill_class_row_pct(page: Page, idx: int, pct: str):
 @when(parsers.parse('clico em "Salvar classes"'))
 def click_save_classes(page: Page):
     page.locator('[data-testid="class-editor-save"]').click()
-    page.wait_for_load_state("networkidle", timeout=10000)
+    page.wait_for_selector('[data-testid="class-summary-row"]', timeout=10000)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -90,7 +90,7 @@ def fill_inline_class_pct(page: Page, pct: str):
 @when(parsers.parse('clico em "Salvar"'))
 def click_save_inline(page: Page):
     page.locator('[data-testid="new-class-modal-submit"]').click()
-    page.wait_for_load_state("networkidle", timeout=10000)
+    page.wait_for_selector('[data-testid="class-summary-row"]', timeout=10000)
 
 
 # ─────────────────────────────────────────────────────────────────────

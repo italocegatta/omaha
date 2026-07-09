@@ -346,9 +346,7 @@ class TestS04ImportJourney:
         # --- 3. Confirm the import.
         page.click(SELECTORS["import_commit_btn"], force=True)
 
-        # Wait for the page reload (modal calls window.location.reload()
-        # on successful commit). Use load_state to catch the actual reload.
-        page.wait_for_load_state("networkidle", timeout=15000)
+        # Wait for dashboard re-render after import commit.
         page.wait_for_selector(SELECTORS["class_summary_row"], timeout=10000)
 
         # --- 4. Dashboard shows 48 asset rows, each with >= 1 position.

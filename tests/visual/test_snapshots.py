@@ -57,7 +57,6 @@ def test_classes_snapshot(visual_page, live_url_visual: str, visual_viewport) ->
         '[data-testid="class-summary"]',
         '[data-testid="class-summary-row"]',
         '[data-testid="class-section-name"]',
-        text="Alvo",
     )
     compare_or_update_screenshot(visual_page, "classes", visual_viewport)
 
@@ -69,7 +68,6 @@ def test_rebalance_form_snapshot(visual_page, live_url_visual: str, visual_viewp
         visual_page,
         '[data-testid="rebalance-form"]',
         '[data-testid="rebalance-plan"]',
-        text="Política aplicada",
     )
     compare_or_update_screenshot(visual_page, "rebalance-form", visual_viewport)
 
@@ -86,7 +84,6 @@ def test_rebalance_plan_snapshot(visual_page, live_url_visual: str, visual_viewp
         '[data-testid="rebalance-plan"]',
         '[data-testid="rebalance-params-bar"]',
         '[data-testid="rebalance-asset-table"]',
-        text="Política aplicada",
     )
     visual_page.wait_for_function(
         "() => document.querySelectorAll('[data-testid^=\"rebalance-asset-row-\"]').length > 0"

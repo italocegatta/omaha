@@ -60,7 +60,7 @@ def select_import_file(page: Page, filename: str):
 @when(parsers.parse('clico em "Enviar"'))
 def click_upload(page: Page):
     page.locator('[data-testid="import-upload-btn"]').click()
-    page.wait_for_load_state("networkidle", timeout=15000)
+    page.wait_for_selector('[data-testid="import-commit-btn"]', timeout=15000)
 
 
 @when(parsers.parse('atribuo "{class_name}" ao ticker "{ticker}"'))
@@ -76,7 +76,7 @@ def assign_class_to_ticker(page: Page, class_name: str, ticker: str):
 @when(parsers.parse('clico em "Confirmar importação"'))
 def click_commit_import(page: Page):
     page.locator('[data-testid="import-commit-btn"]').click()
-    page.wait_for_load_state("networkidle", timeout=15000)
+    page.wait_for_selector('[data-testid="class-summary-row"]', timeout=15000)
 
 
 @then(parsers.parse("o modal mostra {count:d} linhas não correspondidas"))

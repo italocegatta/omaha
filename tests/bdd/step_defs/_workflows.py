@@ -175,7 +175,10 @@ def create_one_class(page: Page, live_url: str, name: str, target_pct: int) -> N
     modal.locator('[data-testid="new-class-modal-name-input"]').fill(name)
     modal.locator('[data-testid="new-class-modal-pct-input"]').fill(str(target_pct))
     modal.locator('[data-testid="new-class-modal-submit"]').click()
-    page.wait_for_load_state("networkidle", timeout=10000)
+    page.wait_for_selector(
+        f'[data-testid="class-summary-row"]:has([data-testid="class-section-name"]:text-is("{name}"))',
+        timeout=10000,
+    )
     page.locator(
         f'[data-testid="class-summary-row"]:has('
         f'[data-testid="class-section-name"]:text-is("{name}"))'
@@ -258,12 +261,15 @@ def add_one_asset(
     page.locator('[data-testid="dashboard-add-asset-open"]').click()
     modal = page.locator('[data-testid="add-asset-modal-overlay"]')
     modal.wait_for(state="visible", timeout=5000)
+    before = page.locator('[data-testid="dashboard-asset-row"]').count()
     modal.locator('[data-testid="dashboard-add-asset-modal-class"]').select_option(label=class_name)
     modal.locator('[data-testid="dashboard-add-asset-name"]').fill(ticker)
     modal.locator('[data-testid="dashboard-add-asset-target-pct"]').fill(str(target_pct))
-    before = page.locator('[data-testid="dashboard-asset-row"]').count()
     modal.locator('[data-testid="dashboard-add-asset-submit"]').click()
-    page.wait_for_load_state("networkidle", timeout=10000)
+    page.wait_for_function(
+        f"() => document.querySelectorAll('[data-testid=\"dashboard-asset-row\"]').length > {before}",
+        timeout=10000,
+    )
     page.locator('[data-testid="dashboard-asset-row"]').nth(before).wait_for(
         state="visible", timeout=10000
     )

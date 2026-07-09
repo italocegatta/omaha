@@ -53,8 +53,12 @@ def fill_asset_pct(page: Page, pct: str):
 
 @when(parsers.parse('clico em "Adicionar ativo"'))
 def click_add_asset(page: Page):
+    before = page.locator('[data-testid="dashboard-asset-row"]').count()
     page.locator('[data-testid="dashboard-add-asset-submit"]').click()
-    page.wait_for_load_state("networkidle", timeout=10000)
+    page.wait_for_function(
+        f"() => document.querySelectorAll('[data-testid=\"dashboard-asset-row\"]').length > {before}",
+        timeout=10000,
+    )
 
 
 @then(parsers.parse("o dashboard mostra {count:d} linhas de ativos"))
@@ -68,9 +72,11 @@ def dashboard_asset_row_count(page: Page, count: int):
 def class_contains_assets(page: Page, class_name: str, count: int):
     # The asset table groups rows by class — count rows whose
     # ``asset-row-class`` cell exactly matches ``class_name``.
-    rows = page.locator(
-        f'[data-testid="dashboard-asset-row"]:has([data-testid="asset-row-class"]:text-is("{class_name}"))'
+    section = page.locator(
+        f'[data-testid="class-summary-row"]:has([data-testid="class-section-name"]:text-is("{class_name}"))'
     )
+    section.first.wait_for(state="visible", timeout=5000)
+    rows = section.locator('[data-testid="dashboard-asset-row"]')
     actual = rows.count()
     assert actual == count, f"esperava {count} ativos em {class_name!r}, vi {actual}"
 

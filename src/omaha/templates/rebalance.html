@@ -214,7 +214,7 @@
           });
         },
         formatPct: function (v) {
-          return (Number(v) || 0).toFixed(1) + '%';
+          return (Number(v) || 0).toFixed(2) + '%';
         },
         formatQuantity: function (value, assetName) {
           if (value === null || value === undefined || Number.isNaN(Number(value))) {
@@ -229,7 +229,7 @@
         formatDeviationPp: function (v) {
           var n = Number(v) || 0;
           var sign = n >= 0 ? '+' : '';
-          return sign + n.toFixed(1) + '%';
+          return sign + n.toFixed(2) + '%';
         },
         classCardClass: function (c) {
           if (Math.abs(c.deviation_pct) >= this.thresholdPct) {

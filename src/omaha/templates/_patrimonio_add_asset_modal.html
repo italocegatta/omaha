@@ -553,6 +553,7 @@
         return {
           id: a.id,
           name: a.name,
+          class_name: a.class_name,
           target_pct: a.target_pct,
           qty: a.qty,
           avg_price: a.avg_price,
@@ -702,7 +703,11 @@
 
       formatPct: function (value) {
         if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
-        return Number(value).toFixed(1) + '%';
+        return Number(value).toFixed(2) + '%';
+      },
+      formatPctOrDash: function (value) {
+        if (value === 0 || value === '0' || value === 0.0) return '—';
+        return this.formatPct(value);
       },
       formatMoney: function (value, currency) {
         if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';

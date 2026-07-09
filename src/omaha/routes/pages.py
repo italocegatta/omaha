@@ -1117,6 +1117,7 @@ def _compute_class_totals(klass: AssetClass) -> dict[str, Any]:
             {
                 "id": asset.id,
                 "name": asset.name,
+                "class_name": klass.name,
                 "position_count": len(asset.positions),
                 "qty": asset_qty,
                 "avg_price": (asset_invested / asset_qty) if asset_qty > _ZERO else None,
