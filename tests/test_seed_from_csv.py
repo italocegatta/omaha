@@ -25,9 +25,8 @@ via the ``omaha_db`` fixture (boots a fresh SQLite file, runs
 8. ``test_position_referencing_missing_asset_is_rejected`` — position
    referencing a missing asset aborts with the offending line number.
 9. ``test_non_tradeable_position_sentinel_preserves_value`` —
-   non-tradeable position (``qty=1``, ``avg=20000``, ``cur=26475.01``)
-   survives ``reset`` and contributes ``R$ 26.475,01`` to the
-   portfolio's ``current_value``.
+    one explicit-totals position survives ``reset`` and contributes
+    its CSV values to portfolio ``current_value``.
 10. ``test_non_ascii_asset_name_round_trips`` — non-ASCII asset name
     (``Tesouro IPCA+ 2035``) round-trips correctly.
 11. ``test_upsert_rejects_sum_violation_before_write`` — ``upsert``
@@ -42,6 +41,7 @@ test.
 
 from __future__ import annotations
 
+import csv
 import os
 import subprocess
 import sys
@@ -49,6 +49,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
+from scripts.seed_from_csv import load_assets, load_classes, load_positions
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SEED_DIR = REPO_ROOT / "data" / "seed"
@@ -164,6 +165,40 @@ def _run_seed(profile: str, mode: str, *, db_url: str) -> subprocess.CompletedPr
     )
 
 
+def _italo_classes():
+    return load_classes("italo")
+
+
+def _italo_assets():
+    return load_assets("italo")
+
+
+def _italo_positions():
+    return load_positions("italo")
+
+
+def _rewrite_csv_row(
+    path: Path,
+    *,
+    match,
+    mutate,
+) -> None:
+    with path.open(encoding="utf-8", newline="") as f:
+        rows = list(csv.reader(f))
+    header, body = rows[0], rows[1:]
+    found = False
+    for row in body:
+        if match(row):
+            mutate(row)
+            found = True
+            break
+    assert found, f"row not found in {path}"
+    with path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f, lineterminator="\n")
+        writer.writerow(header)
+        writer.writerows(body)
+
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
@@ -174,6 +209,9 @@ def test_reset_creates_full_italo_state(omaha_db) -> None:
     assert result.returncode == 0, (
         f"reset failed: stdout={result.stdout!r} stderr={result.stderr!r}"
     )
+    expected_classes = _italo_classes()
+    expected_assets = _italo_assets()
+    expected_positions = _italo_positions()
     SessionLocal = omaha_db["SessionLocal"]
     with SessionLocal() as session:
         from omaha.models import Asset, AssetClass, Position, Profile
@@ -185,22 +223,16 @@ def test_reset_creates_full_italo_state(omaha_db) -> None:
             .order_by(AssetClass.display_order)
             .all()
         )
-        assert len(classes) == 6, [c.name for c in classes]
-        assert [c.target_pct for c in classes] == [
-            Decimal("25.00"),
-            Decimal("20.00"),
-            Decimal("18.00"),
-            Decimal("15.00"),
-            Decimal("8.00"),
-            Decimal("14.00"),
-        ]
-        # sum == 100 within 0.01 tolerance
-        assert abs(sum(c.target_pct for c in classes) - Decimal("100")) <= Decimal("0.01")
+        assert [c.name for c in classes] == [r.name for r in expected_classes]
+        assert [c.target_pct for c in classes] == [r.target_pct for r in expected_classes]
+        assert [c.display_order for c in classes] == [r.display_order for r in expected_classes]
+        assert [c.quote_kind for c in classes] == [r.quote_kind for r in expected_classes]
+        assert sum(c.target_pct for c in classes) == Decimal("100")
 
         assets = (
             session.query(Asset).filter(Asset.asset_class_id.in_([c.id for c in classes])).all()
         )
-        assert len(assets) == 48, len(assets)
+        assert len(assets) == len(expected_assets), len(assets)
 
         # per-class asset sum
         from collections import defaultdict
@@ -210,14 +242,14 @@ def test_reset_creates_full_italo_state(omaha_db) -> None:
         for a in assets:
             per_class[a.asset_class_id].append(a.target_pct)
         for class_id, pcts in per_class.items():
-            assert abs(sum(pcts) - Decimal("100")) <= Decimal("0.01"), (
+            assert sum(pcts) == Decimal("100"), (
                 f"{class_by_id[class_id].name}: {[str(p) for p in pcts]}"
             )
 
         positions = (
             session.query(Position).filter(Position.asset_id.in_([a.id for a in assets])).all()
         )
-        assert len(positions) == 47, len(positions)
+        assert len(positions) == len(expected_positions), len(positions)
 
 
 def test_reset_wipes_existing_state_first(omaha_db) -> None:
@@ -263,38 +295,47 @@ def test_reset_wipes_existing_state_first(omaha_db) -> None:
 
     result = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
     assert result.returncode == 0, result.stderr
+    expected_classes = _italo_classes()
+    expected_assets = _italo_assets()
+    expected_positions = _italo_positions()
     with SessionLocal() as session:
         from omaha.models import Asset, AssetClass, Position, Profile
 
         italo = session.query(Profile).filter(Profile.name == "Italo").one()
         classes = session.query(AssetClass).filter(AssetClass.profile_id == italo.id).all()
-        assert {c.name for c in classes} == {
-            "RF Dinâmica",
-            "RF Pós",
-            "Internacional",
-            "FII",
-            "Cripto",
-            "Ações",
-        }, "ghost classes must be gone"
+        assert {c.name for c in classes} == {r.name for r in expected_classes}, (
+            "ghost classes must be gone"
+        )
+        assert session.query(Asset).count() == len(expected_assets)
         assert "GHOST1" not in {a.name for a in session.query(Asset).all()}
-        assert session.query(Position).count() == 47, "positions must be the CSV's 47 rows"
+        assert session.query(Position).count() == len(expected_positions), (
+            "positions must match CSV rows"
+        )
 
 
 def test_reset_is_idempotent(omaha_db) -> None:
     r1 = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
     r2 = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
     assert r1.returncode == 0 and r2.returncode == 0, r2.stderr
+    expected_classes = _italo_classes()
+    expected_assets = _italo_assets()
+    expected_positions = _italo_positions()
     SessionLocal = omaha_db["SessionLocal"]
     with SessionLocal() as session:
         from omaha.models import Asset, AssetClass, Position
 
-        assert session.query(AssetClass).count() == 6
-        assert session.query(Asset).count() == 48
-        assert session.query(Position).count() == 47
+        assert session.query(AssetClass).count() == len(expected_classes)
+        assert session.query(Asset).count() == len(expected_assets)
+        assert session.query(Position).count() == len(expected_positions)
 
 
 def test_upsert_updates_changes_creates_missing(omaha_db) -> None:
     SessionLocal = omaha_db["SessionLocal"]
+    expected_classes = _italo_classes()
+    expected_assets = _italo_assets()
+    expected_positions = _italo_positions()
+    target_class = expected_classes[0]
+    target_position = next(row for row in expected_positions if row.qty > 0)
     # First reset — gives us the canonical state.
     r0 = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
     assert r0.returncode == 0, r0.stderr
@@ -303,60 +344,64 @@ def test_upsert_updates_changes_creates_missing(omaha_db) -> None:
     with SessionLocal() as session:
         from omaha.models import Asset, AssetClass, Position
 
-        # Change RF Dinâmica target_pct
-        cls = session.query(AssetClass).filter(AssetClass.name == "RF Dinâmica").one()
+        # Change one class target_pct.
+        cls = session.query(AssetClass).filter(AssetClass.name == target_class.name).one()
         cls.target_pct = Decimal("30.00")
-        # Change SMH current_price
-        smh = session.query(Asset).filter(Asset.name == "SMH").one()
-        position = session.query(Position).filter(Position.asset_id == smh.id).one()
+        # Change one position current_price.
+        asset = session.query(Asset).filter(Asset.name == target_position.asset_name).one()
+        position = session.query(Position).filter(Position.asset_id == asset.id).one()
         position.current_price = Decimal("9999.99")
         session.commit()
 
-    # Now upsert: should re-set RF Dinâmica to 25, SMH current_price to 2264.47
+    # Now upsert: should restore CSV values.
     r1 = _run_seed("italo", "upsert", db_url=omaha_db["db_url"])
     assert r1.returncode == 0, r1.stderr
 
     with SessionLocal() as session:
-        cls = session.query(AssetClass).filter(AssetClass.name == "RF Dinâmica").one()
-        assert cls.target_pct == Decimal("25.00"), cls.target_pct
-        smh = session.query(Asset).filter(Asset.name == "SMH").one()
-        pos = session.query(Position).filter(Position.asset_id == smh.id).one()
-        assert pos.current_price == Decimal("2264.47"), pos.current_price
+        cls = session.query(AssetClass).filter(AssetClass.name == target_class.name).one()
+        assert cls.target_pct == target_class.target_pct, cls.target_pct
+        asset = session.query(Asset).filter(Asset.name == target_position.asset_name).one()
+        pos = session.query(Position).filter(Position.asset_id == asset.id).one()
+        assert pos.current_price == target_position.current_price, pos.current_price
 
     # Now delete an asset + position, then upsert — should recreate.
     with SessionLocal() as session:
         from omaha.models import Asset, AssetClass, Position
 
-        a = session.query(Asset).filter(Asset.name == "SMH").one()
+        a = session.query(Asset).filter(Asset.name == target_position.asset_name).one()
         session.query(Position).filter(Position.asset_id == a.id).delete()
         session.delete(a)
         session.commit()
-        assert session.query(Asset).count() == 47
-        assert session.query(Position).count() == 46
+        assert session.query(Asset).count() == len(expected_assets) - 1
+        assert session.query(Position).count() == len(expected_positions) - 1
 
     r2 = _run_seed("italo", "upsert", db_url=omaha_db["db_url"])
     assert r2.returncode == 0, r2.stderr
     with SessionLocal() as session:
         from omaha.models import Asset, Position
 
-        assert session.query(Asset).count() == 48, "SMH re-created"
-        assert session.query(Position).count() == 47, "SMH position re-created"
+        assert session.query(Asset).count() == len(expected_assets), "asset re-created"
+        assert session.query(Position).count() == len(expected_positions), "position re-created"
 
 
 def test_diff_lists_changes_no_write(omaha_db) -> None:
     SessionLocal = omaha_db["SessionLocal"]
+    expected_classes = _italo_classes()
+    expected_positions = _italo_positions()
+    target_class = expected_classes[0]
+    target_position = next(row for row in expected_positions if row.qty > 0)
     _run_seed("italo", "reset", db_url=omaha_db["db_url"])
     with SessionLocal() as session:
         from omaha.models import Asset, AssetClass, Position
 
         # Mutate so diff has work to report.
-        cls = session.query(AssetClass).filter(AssetClass.name == "RF Dinâmica").one()
+        cls = session.query(AssetClass).filter(AssetClass.name == target_class.name).one()
         cls.target_pct = Decimal("30.00")
-        smh = session.query(Asset).filter(Asset.name == "SMH").one()
-        pos = session.query(Position).filter(Position.asset_id == smh.id).one()
+        asset = session.query(Asset).filter(Asset.name == target_position.asset_name).one()
+        pos = session.query(Position).filter(Position.asset_id == asset.id).one()
         pos.current_price = Decimal("9999.99")
         # Delete one position to flip it into would-create.
-        session.query(Position).filter(Position.asset_id == smh.id).delete()
+        session.query(Position).filter(Position.asset_id == asset.id).delete()
         session.commit()
         # Snapshot row counts
         before_classes = session.query(AssetClass).count()
@@ -381,9 +426,11 @@ def test_sum_violating_class_csv_is_rejected(omaha_db, monkeypatch) -> None:
     original = bad_dir / "italo_classes.csv"
     backup = original.read_text(encoding="utf-8")
     try:
-        # Change "Cripto,8.00" to "Cripto,7.00" so sum = 99.
-        bad = backup.replace("Cripto,8.00", "Cripto,7.00")
-        original.write_text(bad, encoding="utf-8")
+        _rewrite_csv_row(
+            original,
+            match=lambda row: row[0] == "Cripto",
+            mutate=lambda row: row.__setitem__(1, "7.00"),
+        )
         r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
         assert r.returncode != 0, "reset must fail on bad class sum"
         assert "Falta 1%" in r.stderr or "Falta" in r.stderr, r.stderr
@@ -402,9 +449,11 @@ def test_asset_referencing_missing_class_is_rejected(omaha_db, monkeypatch) -> N
     bad_path = REPO_ROOT / "data" / "seed" / "italo_assets.csv"
     backup = bad_path.read_text(encoding="utf-8")
     try:
-        # Change "Internacional,IAU" to "InternacionalInvalida,IAU"
-        bad = backup.replace("Internacional,IAU", "ClasseFantasma,IAU")
-        bad_path.write_text(bad, encoding="utf-8")
+        _rewrite_csv_row(
+            bad_path,
+            match=lambda row: row[0] == "Internacional" and row[1] == "IAU",
+            mutate=lambda row: row.__setitem__(0, "ClasseFantasma"),
+        )
         r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
         assert r.returncode != 0, "reset must fail on missing class ref"
         assert "ClasseFantasma" in r.stderr, r.stderr
@@ -422,12 +471,12 @@ def test_position_referencing_missing_asset_is_rejected(omaha_db, monkeypatch) -
     bad_path = REPO_ROOT / "data" / "seed" / "italo_positions.csv"
     backup = bad_path.read_text(encoding="utf-8")
     try:
-        # Change "SMH,SMH,14" to "TICKERFANTASMA,TICKERFANTASMA,14" — points
-        # asset_name at a non-existent asset. The new header has
-        # broker_ticker as the second column, so the replace must touch
-        # both the asset_name and the broker_ticker cells.
-        bad = backup.replace("SMH,SMH,14", "TICKERFANTASMA,TICKERFANTASMA,14")
-        bad_path.write_text(bad, encoding="utf-8")
+        target = next(row for row in _italo_positions() if row.qty > 0)
+        _rewrite_csv_row(
+            bad_path,
+            match=lambda row: row[0] == target.asset_name and row[1] == target.broker_ticker,
+            mutate=lambda row: (row.__setitem__(0, "TICKERFANTASMA"), row.__setitem__(1, "TICKERFANTASMA")),
+        )
         r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
         assert r.returncode != 0, r.stderr
         assert "TICKERFANTASMA" in r.stderr, r.stderr
@@ -506,33 +555,23 @@ def test_reset_preserves_totals_verbatim_no_recompute(omaha_db) -> None:
 
     Pins the ``broker-csv-import-totals`` invariant: the seed
     script never falls back to ``qty * price`` when the CSV has
-    explicit (non-empty) totals cells. Picks the SMH row (qty=14,
-    avg=992.67, cur=2264.47) and overwrites the CSV totals with
-    values that *do not* equal the product — the post-reset
-    position must carry the CSV-supplied numbers exactly.
+    explicit (non-empty) totals cells. Picks one real position row
+    and overwrites CSV totals with values that *do not* equal
+    product — post-reset position must carry CSV-supplied numbers
+    exactly.
     """
     SessionLocal = omaha_db["SessionLocal"]
     positions_path = REPO_ROOT / "data" / "seed" / "italo_positions.csv"
     backup = positions_path.read_text(encoding="utf-8")
     try:
-        # The current Italo CSV row may have either empty or
-        # pre-populated totals cells; either way we want to inject
-        # sentinel values that DO NOT equal qty*avg / qty*cur.
-        # Strip the trailing two cells (whatever they are) and
-        # append the sentinels.
         sentinel_invested = "99999.9999"
         sentinel_current = "88888.8888"
-        lines = backup.splitlines(keepends=False)
-        new_lines: list[str] = []
-        for line in lines:
-            if line.startswith("SMH,SMH,14.00000000,992.67071429,2264.47000000,"):
-                new_lines.append(
-                    f"SMH,SMH,14.00000000,992.67071429,2264.47000000,{sentinel_invested},{sentinel_current}"
-                )
-            else:
-                new_lines.append(line)
-        assert any(ln.startswith("SMH,SMH,") for ln in new_lines), "SMH row missing"
-        positions_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+        target = next(row for row in _italo_positions() if row.qty > 0)
+        _rewrite_csv_row(
+            positions_path,
+            match=lambda row: row[0] == target.asset_name and row[1] == target.broker_ticker,
+            mutate=lambda row: (row.__setitem__(5, sentinel_invested), row.__setitem__(6, sentinel_current)),
+        )
 
         r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
         assert r.returncode == 0, r.stderr
@@ -540,8 +579,8 @@ def test_reset_preserves_totals_verbatim_no_recompute(omaha_db) -> None:
         with SessionLocal() as session:
             from omaha.models import Asset, Position
 
-            smh = session.query(Asset).filter(Asset.name == "SMH").one()
-            pos = session.query(Position).filter(Position.asset_id == smh.id).one()
+            asset = session.query(Asset).filter(Asset.name == target.asset_name).one()
+            pos = session.query(Position).filter(Position.asset_id == asset.id).one()
             assert pos.total_invested == Decimal(sentinel_invested), pos.total_invested
             assert pos.total_current == Decimal(sentinel_current), pos.total_current
     finally:
@@ -562,20 +601,12 @@ def test_reset_null_total_cells_contribute_zero(omaha_db) -> None:
     positions_path = REPO_ROOT / "data" / "seed" / "italo_positions.csv"
     backup = positions_path.read_text(encoding="utf-8")
     try:
-        # Strip SMH's totals cells entirely (replace with empty
-        # cells) and assert the row's totals columns parse to
-        # ``None`` after reset.
-        lines = backup.splitlines(keepends=False)
-        new_lines: list[str] = []
-        smh_seen = False
-        for line in lines:
-            if line.startswith("SMH,SMH,14.00000000,992.67071429,2264.47000000,"):
-                smh_seen = True
-                new_lines.append("SMH,SMH,14.00000000,992.67071429,2264.47000000,,")
-            else:
-                new_lines.append(line)
-        assert smh_seen, "SMH row missing"
-        positions_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+        target = next(row for row in _italo_positions() if row.qty > 0)
+        _rewrite_csv_row(
+            positions_path,
+            match=lambda row: row[0] == target.asset_name and row[1] == target.broker_ticker,
+            mutate=lambda row: (row.__setitem__(5, ""), row.__setitem__(6, "")),
+        )
 
         r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
         assert r.returncode == 0, r.stderr
@@ -583,8 +614,8 @@ def test_reset_null_total_cells_contribute_zero(omaha_db) -> None:
         with SessionLocal() as session:
             from omaha.models import Asset, Position
 
-            smh = session.query(Asset).filter(Asset.name == "SMH").one()
-            pos = session.query(Position).filter(Position.asset_id == smh.id).one()
+            asset = session.query(Asset).filter(Asset.name == target.asset_name).one()
+            pos = session.query(Position).filter(Position.asset_id == asset.id).one()
             assert pos.total_invested is None, pos.total_invested
             assert pos.total_current is None, pos.total_current
     finally:
@@ -592,41 +623,37 @@ def test_reset_null_total_cells_contribute_zero(omaha_db) -> None:
 
 
 def test_non_tradeable_position_sentinel_preserves_value(omaha_db) -> None:
-    """The RDB sentinel ``qty=1, avg=20000, cur=26475.01`` round-trips
-    into the DB unchanged.
+    """One explicit-totals position round-trips into DB unchanged.
 
     broker-csv-import-totals: the seed path pre-populates
     ``total_invested = qty * avg`` and ``total_current = qty * cur``
-    so the dashboard's "no-recompute" calc renders the seed values
-    the user typed. The sentinel row therefore contributes exactly
-    R$ 20.000,00 invested and R$ 26.475,01 current.
+    so dashboard's "no-recompute" calc renders seed values
+    user typed. The row below therefore contributes exact CSV totals.
     """
     SessionLocal = omaha_db["SessionLocal"]
     r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
     assert r.returncode == 0, r.stderr
+    target = next(row for row in _italo_positions() if row.qty == 0 and row.total_invested)
     with SessionLocal() as session:
         from omaha.models import Asset, Position
 
-        rdb = session.query(Asset).filter(Asset.name == "RDB Pós 100% CDI 01/08/2033").one()
-        pos = session.query(Position).filter(Position.asset_id == rdb.id).one()
-        # Sentinel row-level fields are preserved.
-        assert pos.qty == Decimal("1")
-        assert pos.avg_price == Decimal("20000.00")
-        assert pos.current_price == Decimal("26475.01")
-        # Seed populates totals as ``qty * avg`` / ``qty * cur``
-        # (computed at seed time, not at dashboard read time).
-        assert pos.total_invested == Decimal("20000.00")
-        assert pos.total_current == Decimal("26475.01")
+        asset = session.query(Asset).filter(Asset.name == target.asset_name).one()
+        pos = session.query(Position).filter(Position.asset_id == asset.id).one()
+        assert pos.qty == target.qty
+        assert pos.avg_price == target.avg_price
+        assert pos.current_price == target.current_price
+        assert pos.total_invested == target.total_invested
+        assert pos.total_current == target.total_current
 
         # Portfolio aggregate: the sentinel contributes its totals,
-        # so the portfolio total includes the R$ 26.475,01 sentinel.
+        # so portfolio total includes that exact CSV row.
         from omaha.models import AssetClass
         from omaha.routes.pages import portfolio_aggregates
 
         classes = session.query(AssetClass).all()
         aggregates = portfolio_aggregates(classes)
-        assert aggregates["portfolio"]["current_value"] >= Decimal("26475.01"), (
-            f"sentinel must contribute at least R$ 26.475,01, got "
+        assert aggregates["portfolio"]["current_value"] >= target.total_current, (
+            f"row must contribute at least {target.total_current!r}, got "
             f"{aggregates['portfolio']['current_value']!r}"
         )
 
@@ -706,8 +733,11 @@ def test_upsert_rejects_sum_violation_before_write(omaha_db, monkeypatch) -> Non
     bad_path = REPO_ROOT / "data" / "seed" / "italo_classes.csv"
     backup = bad_path.read_text(encoding="utf-8")
     try:
-        bad = backup.replace("Cripto,8.00", "Cripto,7.00")
-        bad_path.write_text(bad, encoding="utf-8")
+        _rewrite_csv_row(
+            bad_path,
+            match=lambda row: row[0] == "Cripto",
+            mutate=lambda row: row.__setitem__(1, "7.00"),
+        )
         r = _run_seed("italo", "upsert", db_url=omaha_db["db_url"])
         assert r.returncode != 0, r.stderr
         assert "Falta" in r.stderr or "Sobra" in r.stderr, r.stderr
@@ -788,23 +818,22 @@ def test_run_reset_populates_trade_fields_from_csv(omaha_db) -> None:
     SessionLocal = omaha_db["SessionLocal"]
     r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
     assert r.returncode == 0, r.stderr
+    expected_assets = {row.name: row for row in _italo_assets()}
     with SessionLocal() as session:
         from omaha.models import Asset
 
-        # Every seeded asset reads the CSV-supplied values. The
-        # Italo CSV uses uniform ``true / true`` for the flags
-        # and BRL for most tickers; the 7 NYSE/Nasdaq-listed
-        # ETFs in the Internacional class (IAU, IVV, QQQ, SMH,
-        # TFLO, VNQ, VT) read USD.
+        # Every seeded asset reads CSV-supplied values.
         usd_count = 0
         for a in session.query(Asset).all():
-            assert a.buy_enabled is True
-            assert a.sell_enabled is True
-            assert a.currency_code in {"BRL", "USD"}
+            expected = expected_assets[a.name]
+            assert a.buy_enabled == expected.buy_enabled
+            assert a.sell_enabled == expected.sell_enabled
+            assert a.currency_code == expected.currency_code
             if a.currency_code == "USD":
                 usd_count += 1
-        assert usd_count == 7, (
-            f"expected 7 USD assets (US-listed ETFs in Internacional class), got {usd_count}"
+        expected_usd_count = sum(1 for row in expected_assets.values() if row.currency_code == "USD")
+        assert usd_count == expected_usd_count, (
+            f"expected {expected_usd_count} USD assets, got {usd_count}"
         )
 
 

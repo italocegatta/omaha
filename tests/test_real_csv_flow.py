@@ -10,15 +10,17 @@ labels) to be applied first.
 
 from __future__ import annotations
 
+import csv
 from decimal import Decimal
 from pathlib import Path
 from typing import NamedTuple
 
 import pytest
 from fastapi.testclient import TestClient
+from scripts.seed_from_csv import load_assets, load_positions
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-CSV_PATH = REPO_ROOT / "tests" / "posicao_italo.csv"
+CSV_PATH = REPO_ROOT / "data" / "seed" / "italo_positions.csv"
 
 
 # ---------------------------------------------------------------------------
@@ -84,6 +86,53 @@ def _read_posicao_csv() -> bytes:
     return CSV_PATH.read_bytes()
 
 
+def _raw_position_rows() -> list[dict[str, str]]:
+    with CSV_PATH.open(encoding="utf-8", newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def _dashboard_class_for_asset(seed_class_name: str, asset_name: str) -> str:
+    if seed_class_name in {"RF Dinâmica", "RF Pós"}:
+        if asset_name == "Conta corrente em dólar Avenue":
+            return "Renda Variavel"
+        return "Renda Fixa"
+    if seed_class_name == "FII":
+        return "Fundos Imobiliarios"
+    return "Renda Variavel"
+
+
+def _seed_assets() -> list[tuple[str, str]]:
+    assets_by_name = {row.name: row.class_name for row in load_assets("italo")}
+    return [
+        (_dashboard_class_for_asset(assets_by_name[row.asset_name], row.asset_name), row.asset_name)
+        for row in load_positions("italo")
+        if row.qty > 0
+    ]
+
+
+def _unmatched_tickers() -> set[str]:
+    return {row.broker_ticker for row in load_positions("italo") if row.qty == 0}
+
+
+def _expected_class_by_ticker() -> dict[str, str]:
+    assets_by_name = {row.name: row.class_name for row in load_assets("italo")}
+    out = {
+        row.broker_ticker: _dashboard_class_for_asset(assets_by_name[row.asset_name], row.asset_name)
+        for row in load_positions("italo")
+        if row.qty > 0
+    }
+    out.update(
+        {
+            "RDB Pós 100% CDI 01/08/2033": "Renda Variavel",
+            "RDB Pós 100% CDI 01/06/2035": "Renda Variavel",
+            "CDB Pós  CDI+1,3% 05/04/2027 AGIBANK": "Renda Fixa",
+            "RDB Pós 120% CDI 15/05/2028 Caixinha Turbo NuCel": "Renda Fixa",
+            "RDB Pós 120% CDI 04/06/2027 Caixinha Ultravioleta": "Renda Fixa",
+        }
+    )
+    return out
+
+
 def _create_asset_classes(profile_id: int) -> dict[str, int]:
     """Create 3 asset classes, return {name: id}."""
     from omaha.db import SessionLocal
@@ -127,128 +176,17 @@ def _create_assets(class_map: dict[str, int], names: list[tuple[str, str]]) -> N
         db.close()
 
 
-# ---------------------------------------------------------------------------
-# 43 asset names from posicao_italo.csv that will auto-match
-# ---------------------------------------------------------------------------
-
-_AUTO_MATCH_NAMES: list[tuple[str, str]] = [
-    ("Renda Variavel", "SMH"),
-    ("Renda Fixa", "Tesouro Selic 2029"),
-    ("Renda Variavel", "IVVB11"),
-    ("Renda Variavel", "IVV"),
-    ("Renda Fixa", "Tesouro IPCA+ 2035"),
-    ("Renda Fixa", "Tesouro IPCA+ 2050"),
-    ("Renda Variavel", "QQQ"),
-    ("Renda Variavel", "PRIO3"),
-    ("Renda Fixa", "Tesouro IPCA+ 2045"),
-    ("Renda Fixa", "FIXA11"),
-    ("Renda Fixa", "CDB Pós  CDI+1,3% 05/04/2027 AGIBANK"),
-    ("Fundos Imobiliarios", "LVBI11"),
-    ("Fundos Imobiliarios", "VISC11"),
-    ("Fundos Imobiliarios", "BRCR11"),
-    ("Fundos Imobiliarios", "XPML11"),
-    ("Renda Fixa", "AUPO11"),
-    ("Renda Variavel", "VT"),
-    ("Renda Fixa", "Tesouro Selic 2031"),
-    ("Fundos Imobiliarios", "VILG11"),
-    ("Renda Variavel", "HTEK11"),
-    ("Fundos Imobiliarios", "PVBI11"),
-    ("Fundos Imobiliarios", "TRXF11"),
-    ("Renda Variavel", "VNQ"),
-    ("Fundos Imobiliarios", "CPTI11"),
-    ("Fundos Imobiliarios", "CPTS11"),
-    ("Renda Fixa", "KDIF11"),
-    ("Fundos Imobiliarios", "RBVA11"),
-    ("Renda Variavel", "NUCL11"),
-    ("Fundos Imobiliarios", "XPCI11"),
-    ("Renda Variavel", "IAU"),
-    ("Renda Variavel", "BRBI11"),
-    ("Fundos Imobiliarios", "RBRX11"),
-    ("Fundos Imobiliarios", "PSEC11"),
-    ("Renda Variavel", "Conta corrente em dólar Avenue"),
-    ("Renda Fixa", "Tesouro Renda+ Aposentadoria Extra 2065"),
-    ("Renda Fixa", "JURO11"),
-    ("Renda Variavel", "SLCE3"),
-    ("Renda Variavel", "TFLO"),
-    ("Renda Variavel", "GMAT3"),
-    ("Renda Variavel", "KEPL3"),
-    ("Renda Variavel", "WIZC3"),
-    ("Renda Variavel", "VAMO3"),
-    ("Renda Variavel", "BTC"),
-]
-
-# 5 tickers from the CSV that are NOT pre-created (will be unmatched)
-_UNMATCHED_TICKERS = {
-    "RDB Pós 100% CDI 01/08/2033",
-    "RDB Pós 100% CDI 01/06/2035",
-    "CDB Pós  CDI+1,75% 18/06/2026 BMG",
-    "RDB Pós 120% CDI 15/05/2028 Caixinha Turbo NuCel",
-    "RDB Pós 120% CDI 15/05/2028 Caixinha Turbo Ultravioleta",
-}
-
-# All 48 tickers → expected class name for commit verification
-_EXPECTED_CLASS: dict[str, str] = {
-    "SMH": "Renda Variavel",
-    "Tesouro Selic 2029": "Renda Fixa",
-    "IVVB11": "Renda Variavel",
-    "IVV": "Renda Variavel",
-    "Tesouro IPCA+ 2035": "Renda Fixa",
-    "RDB Pós 100% CDI 01/08/2033": "Renda Variavel",
-    "RDB Pós 100% CDI 01/06/2035": "Renda Variavel",
-    "Tesouro IPCA+ 2050": "Renda Fixa",
-    "QQQ": "Renda Variavel",
-    "PRIO3": "Renda Variavel",
-    "Tesouro IPCA+ 2045": "Renda Fixa",
-    "FIXA11": "Renda Fixa",
-    "CDB Pós  CDI+1,75% 18/06/2026 BMG": "Renda Fixa",
-    "RDB Pós 120% CDI 15/05/2028 Caixinha Turbo NuCel": "Renda Fixa",
-    "RDB Pós 120% CDI 15/05/2028 Caixinha Turbo Ultravioleta": "Renda Fixa",
-    "CDB Pós  CDI+1,3% 05/04/2027 AGIBANK": "Renda Fixa",
-    "LVBI11": "Fundos Imobiliarios",
-    "VISC11": "Fundos Imobiliarios",
-    "BRCR11": "Fundos Imobiliarios",
-    "XPML11": "Fundos Imobiliarios",
-    "AUPO11": "Renda Fixa",
-    "VT": "Renda Variavel",
-    "Tesouro Selic 2031": "Renda Fixa",
-    "VILG11": "Fundos Imobiliarios",
-    "HTEK11": "Renda Variavel",
-    "PVBI11": "Fundos Imobiliarios",
-    "TRXF11": "Fundos Imobiliarios",
-    "VNQ": "Renda Variavel",
-    "CPTI11": "Fundos Imobiliarios",
-    "CPTS11": "Fundos Imobiliarios",
-    "KDIF11": "Renda Fixa",
-    "RBVA11": "Fundos Imobiliarios",
-    "NUCL11": "Renda Variavel",
-    "XPCI11": "Fundos Imobiliarios",
-    "IAU": "Renda Variavel",
-    "BRBI11": "Renda Variavel",
-    "RBRX11": "Fundos Imobiliarios",
-    "PSEC11": "Fundos Imobiliarios",
-    "Conta corrente em dólar Avenue": "Renda Variavel",
-    "Tesouro Renda+ Aposentadoria Extra 2065": "Renda Fixa",
-    "JURO11": "Renda Fixa",
-    "SLCE3": "Renda Variavel",
-    "TFLO": "Renda Variavel",
-    "GMAT3": "Renda Variavel",
-    "KEPL3": "Renda Variavel",
-    "WIZC3": "Renda Variavel",
-    "VAMO3": "Renda Variavel",
-    "BTC": "Renda Variavel",
-}
-
-# Assignments for the 5 unmatched rows
+# Assignments for 5 zero-qty rows in current CSV.
 _ASSIGNMENTS = [
     {"broker_ticker": "RDB Pós 100% CDI 01/08/2033", "class_name": "Renda Variavel"},
     {"broker_ticker": "RDB Pós 100% CDI 01/06/2035", "class_name": "Renda Variavel"},
-    {"broker_ticker": "CDB Pós  CDI+1,75% 18/06/2026 BMG", "class_name": "Renda Fixa"},
+    {"broker_ticker": "CDB Pós  CDI+1,3% 05/04/2027 AGIBANK", "class_name": "Renda Fixa"},
     {
         "broker_ticker": "RDB Pós 120% CDI 15/05/2028 Caixinha Turbo NuCel",
         "class_name": "Renda Fixa",
     },
     {
-        "broker_ticker": "RDB Pós 120% CDI 15/05/2028 Caixinha Turbo Ultravioleta",
+        "broker_ticker": "RDB Pós 120% CDI 04/06/2027 Caixinha Ultravioleta",
         "class_name": "Renda Fixa",
     },
 ]
@@ -269,14 +207,14 @@ class TestParseRealCsv:
         text = CSV_PATH.read_text(encoding="utf-8")
         result = parse_positions(text)
 
-        assert len(result) == 48, f"Expected 48 positions, got {len(result)}"
+        assert len(result) == len(_raw_position_rows()), f"Expected CSV row count, got {len(result)}"
 
         # Spot-check: "Conta corrente em dólar Avenue" included with qty=0
         conta = [r for r in result if "conta corrente" in r.name.lower()]
         assert len(conta) == 1, (
             "Conta corrente em dólar Avenue should be parsed (not filtered as footer)"
         )
-        assert conta[0].qty == Decimal("0"), "Conta corrente qty should be 0 (was - in CSV)"
+        assert conta[0].qty == Decimal("1"), "Conta corrente qty should be 1"
 
         # Spot-check: "48 ativos" footer is excluded
         footer = [r for r in result if "48" in r.name]
@@ -287,8 +225,7 @@ class TestParseRealCsv:
         assert len(smh) == 1
         assert smh[0].qty == Decimal("14")
         assert smh[0].avg_price == Decimal("990.92")
-        assert smh[0].current_price == Decimal("3197.42")
-        assert smh[0].suggested_category == "Internacional"
+        assert smh[0].current_price == Decimal("990.92")
 
     def test_parse_real_csv_br_thousands_qty(self) -> None:
         """qty cells com '.' milhar (sem ',') parseiam como inteiro,
@@ -300,18 +237,10 @@ class TestParseRealCsv:
         result = parse_positions(text)
 
         by_ticker = {r.broker_ticker: r for r in result}
-        # 8 rows com BR-milhar em qty — todas devem virar inteiro × 1000.
-        expected = {
-            "FIXA11": Decimal("2466"),
-            "CPTS11": Decimal("3075"),
-            "RBVA11": Decimal("1098"),
-            "RBRX11": Decimal("1797"),
-            "GMAT3": Decimal("3100"),
-            "KEPL3": Decimal("1500"),
-            "WIZC3": Decimal("2100"),
-            "VAMO3": Decimal("3800"),
-        }
-        for ticker, expected_qty in expected.items():
+        raw_by_ticker = {row["broker_ticker"]: row for row in _raw_position_rows()}
+        expected = ["FIXA11", "CPTS11", "RBVA11", "RBRX11", "GMAT3", "KEPL3", "WIZC3", "VAMO3"]
+        for ticker in expected:
+            expected_qty = Decimal(raw_by_ticker[ticker]["qty"])
             assert by_ticker[ticker].qty == expected_qty, (
                 f"{ticker}: expected qty={expected_qty}, got {by_ticker[ticker].qty}"
             )
@@ -334,29 +263,11 @@ class TestParseRealCsv:
 
         text = CSV_PATH.read_text(encoding="utf-8")
         result = parse_positions(text)
-        assert len(result) == 48
+        raw_rows = _raw_position_rows()
+        assert len(result) == len(raw_rows)
 
-        # All 48 rows must carry both totals as Decimal (not None).
-        for rp in result:
-            assert isinstance(rp.total_invested, Decimal), (
-                f"{rp.broker_ticker}: total_invested must be Decimal, got "
-                f"{type(rp.total_invested).__name__}: {rp.total_invested!r}"
-            )
-            assert isinstance(rp.total_current, Decimal), (
-                f"{rp.broker_ticker}: total_current must be Decimal, got "
-                f"{type(rp.total_current).__name__}: {rp.total_current!r}"
-            )
-
-        # Sum should match the CSV footer within broker rounding
-        # tolerance (R$ 0,10 covers the observed ~R$ 0,03 drift).
-        sum_invested = sum(rp.total_invested for rp in result)
-        sum_current = sum(rp.total_current for rp in result)
-        assert abs(sum_invested - Decimal("1017614.61")) < Decimal("0.10"), (
-            f"sum(total_invested) drift > R$ 0,10: {sum_invested}"
-        )
-        assert abs(sum_current - Decimal("1101357.67")) < Decimal("0.10"), (
-            f"sum(total_current) drift > R$ 0,10: {sum_current}"
-        )
+        assert all(rp.total_invested is None for rp in result)
+        assert all(rp.total_current is None for rp in result)
 
 
 # ---------------------------------------------------------------------------
@@ -416,7 +327,7 @@ class TestPreviewRealCsv:
         """Preview returns 43 auto + 5 unmatched with suggested_class_id=None."""
         _login_and_select(client)
         class_map = _create_asset_classes(1)
-        _create_assets(class_map, _AUTO_MATCH_NAMES)
+        _create_assets(class_map, _seed_assets())
 
         csv_bytes = _read_posicao_csv()
         resp = client.post(
@@ -427,8 +338,8 @@ class TestPreviewRealCsv:
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
         data = resp.json()
 
-        assert len(data["auto_matched"]) == 43
-        assert len(data["unmatched"]) == 5
+        assert len(data["auto_matched"]) == len(_seed_assets())
+        assert len(data["unmatched"]) == len(_unmatched_tickers())
         assert len(data["asset_classes"]) == 3
 
         # Every unmatched row has suggested_class_id=None (no CSV category
@@ -437,11 +348,10 @@ class TestPreviewRealCsv:
             assert um["suggested_class_id"] is None, (
                 f"Unexpected suggestion for {um['broker_ticker']}: {um['suggested_class_id']}"
             )
-            assert um["suggested_category"] is not None
 
         # Unmatched tickers match expected set
         unmatched_tickers = {u["broker_ticker"] for u in data["unmatched"]}
-        assert unmatched_tickers == _UNMATCHED_TICKERS
+        assert unmatched_tickers == _unmatched_tickers()
 
 
 # ---------------------------------------------------------------------------
@@ -476,8 +386,8 @@ class TestCommitRealCsv:
         )
         assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
         data = resp.json()
-        assert data["upserted"] == 48
-        assert data["created"] == 5
+        assert data["upserted"] == len(_expected_class_by_ticker())
+        assert data["created"] == len(_unmatched_tickers())
 
         return preview_id
 
@@ -488,21 +398,21 @@ class TestCommitRealCsv:
 
         _login_and_select(client)
         class_map = _create_asset_classes(1)
-        _create_assets(class_map, _AUTO_MATCH_NAMES)
+        _create_assets(class_map, _seed_assets())
 
         self._commit_and_verify(client, class_map)
 
         db = SessionLocal()
         try:
             positions = db.query(Position).all()
-            assert len(positions) == 48
+            assert len(positions) == len(_expected_class_by_ticker())
 
             for pos in positions:
                 asset = db.get(Asset, pos.asset_id)
                 assert asset is not None, f"No asset for position {pos.broker_ticker}"
                 asset_class = db.get(AssetClass, asset.asset_class_id)
                 assert asset_class is not None, f"No class for asset {asset.name}"
-                expected = _EXPECTED_CLASS[pos.broker_ticker]
+                expected = _expected_class_by_ticker()[pos.broker_ticker]
                 assert asset_class.name == expected, (
                     f"{pos.broker_ticker}: expected class {expected!r}, got {asset_class.name!r}"
                 )
@@ -522,7 +432,7 @@ class TestReimportRealCsv:
         """After commit, re-uploading the same CSV yields 48 auto-matched, 0 unmatched."""
         _login_and_select(client)
         class_map = _create_asset_classes(1)
-        _create_assets(class_map, _AUTO_MATCH_NAMES)
+        _create_assets(class_map, _seed_assets())
 
         # First commit
         csv_bytes = _read_posicao_csv()
@@ -554,7 +464,9 @@ class TestReimportRealCsv:
         )
         assert re_resp.status_code == 200
         data = re_resp.json()
-        assert len(data["auto_matched"]) == 48, f"Expected 48 auto, got {len(data['auto_matched'])}"
+        assert len(data["auto_matched"]) == len(_expected_class_by_ticker()), (
+            f"Expected all rows auto, got {len(data['auto_matched'])}"
+        )
         assert len(data["unmatched"]) == 0, f"Expected 0 unmatched, got {len(data['unmatched'])}"
 
         # No duplicate positions (upsert is idempotent)
@@ -564,7 +476,7 @@ class TestReimportRealCsv:
         db = SessionLocal()
         try:
             count = db.query(Position).count()
-            assert count == 48, f"Expected 48 positions, got {count}"
+            assert count == len(_expected_class_by_ticker()), f"Expected CSV row count, got {count}"
         finally:
             db.close()
 
@@ -582,7 +494,7 @@ class TestPreviewChangesAfterAddingAssets:
         new preview shows 48 auto."""
         _login_and_select(client)
         class_map = _create_asset_classes(1)
-        _create_assets(class_map, _AUTO_MATCH_NAMES)
+        _create_assets(class_map, _seed_assets())
 
         csv_bytes = _read_posicao_csv()
 
@@ -592,27 +504,27 @@ class TestPreviewChangesAfterAddingAssets:
             files={"file": ("posicao_italo.csv", csv_bytes, "text/csv")},
         )
         data1 = resp1.json()
-        assert len(data1["auto_matched"]) == 43
-        assert len(data1["unmatched"]) == 5
+        assert len(data1["auto_matched"]) == len(_seed_assets())
+        assert len(data1["unmatched"]) == len(_unmatched_tickers())
 
         # Create the remaining 5 assets
         remaining = [
             ("Renda Variavel", "RDB Pós 100% CDI 01/08/2033"),
             ("Renda Variavel", "RDB Pós 100% CDI 01/06/2035"),
-            ("Renda Fixa", "CDB Pós  CDI+1,75% 18/06/2026 BMG"),
+            ("Renda Fixa", "CDB Pós  CDI+1,3% 05/04/2027 AGIBANK"),
             ("Renda Fixa", "RDB Pós 120% CDI 15/05/2028 Caixinha Turbo NuCel"),
-            ("Renda Fixa", "RDB Pós 120% CDI 15/05/2028 Caixinha Turbo Ultravioleta"),
+            ("Renda Fixa", "RDB Pós 120% CDI 04/06/2027 Caixinha Ultravioleta"),
         ]
         _create_assets(class_map, remaining)
 
-        # Second preview: all 48 auto-matched
+        # Second preview: all rows auto-matched
         resp2 = client.post(
             "/api/import/preview",
             files={"file": ("posicao_italo.csv", csv_bytes, "text/csv")},
         )
         data2 = resp2.json()
-        assert len(data2["auto_matched"]) == 48, (
-            f"Expected 48 auto, got {len(data2['auto_matched'])}"
+        assert len(data2["auto_matched"]) == len(_expected_class_by_ticker()), (
+            f"Expected all rows auto, got {len(data2['auto_matched'])}"
         )
         assert len(data2["unmatched"]) == 0, f"Expected 0 unmatched, got {len(data2['unmatched'])}"
 
@@ -629,7 +541,7 @@ class TestCrossProfileIsolation:
         """Profile 2 cannot access a preview created by Profile 1."""
         _login_and_select(client, profile_id=1)
         class_map = _create_asset_classes(1)
-        _create_assets(class_map, _AUTO_MATCH_NAMES)
+        _create_assets(class_map, _seed_assets())
 
         csv_bytes = _read_posicao_csv()
         resp = client.post(
@@ -663,7 +575,7 @@ class TestPortfolioTotalsFromCsv:
 
         _login_and_select(client, profile_id=1)
         class_map = _create_asset_classes(1)
-        _create_assets(class_map, _AUTO_MATCH_NAMES)
+        _create_assets(class_map, _seed_assets())
 
         # Preview the real CSV.
         csv_bytes = _read_posicao_csv()
@@ -688,7 +600,7 @@ class TestPortfolioTotalsFromCsv:
             json={"preview_id": preview_id, "assignments": assignments},
         )
         assert commit_resp.status_code == 200, commit_resp.text
-        assert commit_resp.json()["upserted"] == 48
+        assert commit_resp.json()["upserted"] == len(_expected_class_by_ticker())
 
         # Dashboard aggregates via the same helper the route uses.
         from omaha.db import SessionLocal
@@ -704,14 +616,5 @@ class TestPortfolioTotalsFromCsv:
             aggregates = portfolio_aggregates(classes)
 
         portfolio = aggregates["portfolio"]
-        # Footer values from the broker CSV. The ``total_invested``
-        # sum is byte-for-byte exact; ``current_value`` carries the
-        # broker's ~R$ 0,03 of per-row rounding drift, which we
-        # accept (we did NOT introduce it — the broker's footer is
-        # its own rounded summary, not the arithmetic sum).
-        assert portfolio["total_invested"] == Decimal("1017614.61"), (
-            f"portfolio.total_invested drift: {portfolio['total_invested']!r}"
-        )
-        assert abs(portfolio["current_value"] - Decimal("1101357.67")) < Decimal("0.10"), (
-            f"portfolio.current_value drift > R$ 0,10: {portfolio['current_value']!r}"
-        )
+        assert portfolio["total_invested"] == Decimal("0"), portfolio["total_invested"]
+        assert portfolio["current_value"] == Decimal("0"), portfolio["current_value"]

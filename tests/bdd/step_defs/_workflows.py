@@ -132,7 +132,7 @@ def login_and_land(
       - input[name=password]
       - button[type=submit]
     """
-    page.goto(f"{live_url}/login")
+    page.goto(f"{live_url}/login", wait_until="domcontentloaded")
     page.fill('input[name="username"]', profile)
     page.fill('input[name="password"]', password)
     page.click('button[type="submit"]')
@@ -174,7 +174,10 @@ def create_one_class(page: Page, live_url: str, name: str, target_pct: int) -> N
     modal.wait_for(state="visible", timeout=5000)
     modal.locator('[data-testid="new-class-modal-name-input"]').fill(name)
     modal.locator('[data-testid="new-class-modal-pct-input"]').fill(str(target_pct))
-    modal.locator('[data-testid="new-class-modal-submit"]').click()
+    with page.expect_response(re.compile(r".*/api/classes$"), timeout=10000) as resp_info:
+        modal.locator('[data-testid="new-class-modal-submit"]').click()
+    assert resp_info.value.status == 201
+    page.goto(f"{live_url}/", wait_until="domcontentloaded")
     page.wait_for_selector(
         f'[data-testid="class-summary-row"]:has([data-testid="class-section-name"]:text-is("{name}"))',
         timeout=10000,
