@@ -547,7 +547,9 @@ def _render_rebalance(
             "form_inert": zero_classes,
             "form_error": form_error,
             "contribution": (
-                plan.metrics.contribution if plan is not None else _get_rebalance_contribution(request, profile)
+                plan.metrics.contribution
+                if plan is not None
+                else _get_rebalance_contribution(request, profile)
             ),
         }
     )

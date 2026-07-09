@@ -261,7 +261,9 @@ def _seed_positions(_omaha_test_env: dict[str, str], by_asset: dict[str, float])
         db.commit()
 
 
-def _mutate_position_current_value(_omaha_test_env: dict[str, str], asset_name: str, current_value: float) -> None:
+def _mutate_position_current_value(
+    _omaha_test_env: dict[str, str], asset_name: str, current_value: float
+) -> None:
     """Update one seeded position so the next GET must recompute plan data."""
     import os
 
@@ -391,7 +393,7 @@ def test_rebalanceamento_persists_aporte_per_profile_and_recomputes_on_get(
     refreshed = client.get("/rebalanceamento")
     assert refreshed.status_code == 200
     assert '"contribution": 5000.0' in refreshed.text or '"contribution":5000.0' in refreshed.text
-    assert '1234.56' in refreshed.text
+    assert "1234.56" in refreshed.text
 
 
 def test_rebalanceamento_logout_clears_persisted_aporte(
