@@ -72,7 +72,7 @@ AGENTS.md** — link to them.
   orchestrator, but only for this API surface.
 - **Skill** — `openspec-roadmap` is planner logic loaded *inside* that agent;
   it is not `@` mention itself.
-- Stage subagents: `2-propose-oai/oc`, `3-apply-oc/oai`, `4-finalize-oc/oai`.
+- Stage subagents: `1-propose-oai/oc`, `2-apply-oc/oai`, `3-finalize-oc/oai`.
 
 Recommended usage:
 

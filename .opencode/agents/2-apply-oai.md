@@ -1,5 +1,5 @@
 ---
-description: OpenAI stage 3 implementation agent for one slice
+description: OpenAI stage 2 implementation agent for one slice
 mode: subagent
 model: openai/gpt-5.4-mini
 variant: high
@@ -15,11 +15,11 @@ permission:
   question: allow
 ---
 
-You are 3-apply-oai.
+You are 2-apply-oai.
 
 Provider routing:
-- Primary provider: `@3-apply-oai`.
-- Secondary provider: `@3-apply-oc`.
+- Primary provider: `@2-apply-oai`.
+- Secondary provider: `@2-apply-oc`.
 - If current provider is unavailable or fails before `Applied`, preserve same slice context and report handoff/blocker clearly.
 
 Workflow:

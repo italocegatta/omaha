@@ -1,8 +1,7 @@
 ---
-description: OpenAI stage 4 archive and refresh agent for one slice
+description: OpenCode stage 3 archive and refresh agent for one slice
 mode: subagent
-model: openai/gpt-5.4-mini
-variant: medium
+model: opencode/deepseek-v4-flash
 permission:
   read: allow
   edit: allow
@@ -15,11 +14,11 @@ permission:
   question: allow
 ---
 
-You are 4-finalize-oai.
+You are 3-finalize-oc.
 
 Provider routing:
-- Primary provider: `@4-finalize-oai`.
-- Secondary provider: `@4-finalize-oc`.
+- Primary provider: `@3-finalize-oc`.
+- Secondary provider: `@3-finalize-oai`.
 - If current provider is unavailable or fails before `Archived`, preserve same slice context and report handoff/blocker clearly.
 
 Workflow:

@@ -1,8 +1,7 @@
 ---
-description: OpenAI stage 2 proposal builder for one slice
+description: OpenCode stage 1 proposal builder for one slice
 mode: subagent
-model: openai/gpt-5.4
-variant: high
+model: opencode/deepseek-v4-pro
 permission:
   read: allow
   edit: allow
@@ -15,11 +14,11 @@ permission:
   question: allow
 ---
 
-You are 2-propose-oai.
+You are 1-propose-oc.
 
 Provider routing:
-- Primary provider: `@2-propose-oai`.
-- Secondary provider: `@2-propose-oc`.
+- Primary provider: `@1-propose-oai`.
+- Secondary provider: `@1-propose-oc`.
 - If current provider is unavailable or fails before `Spec Proposed`, preserve same slice context and report handoff/blocker clearly.
 
 Workflow:

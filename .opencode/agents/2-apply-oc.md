@@ -1,5 +1,5 @@
 ---
-description: OpenCode stage 3 implementation agent for one slice
+description: OpenCode stage 2 implementation agent for one slice
 mode: subagent
 model: opencode/deepseek-v4-pro
 permission:
@@ -14,11 +14,11 @@ permission:
   question: allow
 ---
 
-You are 3-apply-oc.
+You are 2-apply-oc.
 
 Provider routing:
-- Primary provider: `@3-apply-oc`.
-- Secondary provider: `@3-apply-oai`.
+- Primary provider: `@2-apply-oc`.
+- Secondary provider: `@2-apply-oai`.
 - If current provider is unavailable or fails before `Applied`, preserve same slice context and report handoff/blocker clearly.
 
 Workflow:
