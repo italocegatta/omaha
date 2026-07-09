@@ -332,7 +332,7 @@ def test_empty_profile_returns_empty_plan_with_warning(
 def test_glue_drops_solver_columns_not_in_v1_subset(
     italo_profile: Profile, _omaha_test_env: dict[str, str]
 ) -> None:
-    """The glue maps only the 9 v1 fields per asset row."""
+    """The glue maps only documented wire fields per asset row."""
     _seed_class(italo_profile.id, "RF", "100", [("Selic", "100")], _omaha_test_env)
 
     from omaha.rebalance.solver_stub import stub_solver
@@ -363,8 +363,11 @@ def test_glue_drops_solver_columns_not_in_v1_subset(
         "target_value",
         "buy_amount",
         "sell_amount",
+        "trade_quantity",
         "projected_value",
         "action",
+        "deviation_value",
+        "deviation_pct",
     }
 
 
@@ -452,3 +455,89 @@ def test_action_derived_from_buy_and_sell_amounts(
 
     actions = {row.asset_name: row.action for row in response.asset_plan}
     assert actions == {"Buy": "buy", "Sell": "sell", "Hold": "hold"}
+
+
+def test_trade_quantity_derived_for_brl_usd_and_ineligible_rows(
+    italo_profile: Profile, _omaha_test_env: dict[str, str]
+) -> None:
+    """Glue derives trade quantity from movement amount and quote basis."""
+    _seed_class(italo_profile.id, "RF", "100", [("Selic", "100")], _omaha_test_env)
+
+    from omaha.rebalance.solver_stub import (
+        RebalanceAssetPlanRowNative,
+        RebalanceCategoryPlanRowNative,
+        RebalancePlan,
+        RebalancePlanMetricsNative,
+    )
+
+    native_plan = RebalancePlan(
+        contribution=1000.0,
+        asset_classes=[],
+        asset_plan=[
+            RebalanceAssetPlanRowNative(
+                name="BRL Buy",
+                category_name="RF",
+                currency_code="BRL",
+                buy_enabled=True,
+                current_value=100.0,
+                target_value=200.0,
+                buy_amount=1000.0,
+                sell_amount=0.0,
+                quote_price=20.0,
+                projected_value=1100.0,
+            ),
+            RebalanceAssetPlanRowNative(
+                name="USD Sell",
+                category_name="RF",
+                currency_code="USD",
+                buy_enabled=True,
+                current_value=200.0,
+                target_value=100.0,
+                buy_amount=0.0,
+                sell_amount=540.0,
+                quote_price=5.0,
+                usdbrl_rate=5.4,
+                projected_value=100.0,
+            ),
+            RebalanceAssetPlanRowNative(
+                name="No Price",
+                category_name="RF",
+                currency_code="BRL",
+                buy_enabled=True,
+                current_value=100.0,
+                target_value=150.0,
+                buy_amount=50.0,
+                sell_amount=0.0,
+                projected_value=150.0,
+            ),
+        ],
+        category_plan=[
+            RebalanceCategoryPlanRowNative(
+                category_name="RF",
+                current_value=400.0,
+                projected_value=400.0,
+            ),
+        ],
+        metrics=RebalancePlanMetricsNative(
+            contribution=1000.0,
+            total_buy=1000.0,
+            total_sell=540.0,
+            residual_cash=0.0,
+            current_deviation_pct=0.0,
+            projected_deviation_pct=0.0,
+        ),
+        warnings=[],
+        applied_policy="contribution-only",
+    )
+
+    def sentinel_solver(setup, positions, quotes, contribution):
+        return native_plan
+
+    profile = _refresh_profile(italo_profile, _omaha_test_env)
+    with _session(_omaha_test_env) as db:
+        response = run_rebalance(db, profile, contribution=1000.0, solver=sentinel_solver)
+
+    quantities = {row.asset_name: row.trade_quantity for row in response.asset_plan}
+    assert quantities["BRL Buy"] == pytest.approx(50.0)
+    assert quantities["USD Sell"] == pytest.approx(20.0)
+    assert quantities["No Price"] is None

@@ -14,6 +14,7 @@ the expected output shape.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -47,6 +48,8 @@ class RebalanceAssetPlanRowNative:
     buy_amount: float
     sell_amount: float
     projected_value: float
+    quote_price: float = math.nan
+    usdbrl_rate: float = math.nan
 
 
 @dataclass(frozen=True)
