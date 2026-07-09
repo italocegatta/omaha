@@ -60,6 +60,35 @@ AGENTS.md** — link to them.
   `openspec-apply-change`, `openspec-archive-change`, `openspec-verify-change`,
   `openspec-sync-specs`, `openspec-roadmap`.
 
+### 2.3.1 Orchestrator invocation model
+
+- **Default entry alias** — `@roadmap` maps to `.opencode/agents/roadmap.md` and
+  `opencode.json` key `roadmap`. Use this for normal day-to-day orchestration.
+- **Provider-explicit entry alias** — `@roadmap-opencode` maps to
+  `.opencode/agents/roadmap-opencode.md`. Use this when you want to force the
+  OpenCode provider entry session explicitly.
+- **Provider-explicit entry alias** — `@roadmap-openai` maps to
+  `.opencode/agents/roadmap-openai.md`. Use this when you want to force the
+  OpenAI provider entry session explicitly.
+- **Command entrypoint** — `/roadmap <demanda>` maps to
+  `.opencode/command/roadmap.md`. Use this when command invocation is more
+  reliable than `@` mention in the current UI/session.
+- **API/tool subagent** — `task(..., subagent_type: roadmap)` is same
+  orchestrator, but only for this API surface.
+- **Skill** — `openspec-roadmap` is planner logic loaded *inside* that agent;
+  it is not `@` mention itself.
+- Canonical provider-specific agents use provider suffixes (for example
+  `roadmap-orchestrator-opencode`, `roadmap-orchestrator-openai`,
+  `propose-specialist-openai`, `apply-specialist-opencode`). `@roadmap` stays
+  as the short entry alias.
+
+Recommended usage order:
+
+1. `@roadmap <demanda>`
+2. `/roadmap <demanda>`
+3. `@roadmap-opencode <demanda>` or `@roadmap-openai <demanda>` when you need
+   to force the entry provider
+
 ### 2.4 Operational scripts
 - **`scripts/print_lan_url.sh`** — discover the canonical dev URL.
 - **`scripts/seed_from_csv.py`** — only path that creates `AssetClass`,
