@@ -778,6 +778,28 @@ explícita com o agente.
 
 ---
 
+### 4.13 Testes — entrega só vale com suíte verde e sem máscara
+
+Uma change só pode ser considerada entregue se `uv run task test`
+passar sem falhas. Para change browser-visível, §4.9 continua valendo.
+
+Regras:
+
+- `skip`, `skipif`, `xfail`, `pytest.skip`, `pass` vazio em teste,
+  ou `NotImplementedError` usado como placeholder de cobertura não
+  podem ser introduzidos para mascarar falha.
+- Exceção só vale se o trecho estiver explicitamente allowlisted em
+  `openspec/specs/test-suite-quality/spec.md` e a razão estiver
+  documentada no change/roadmap.
+- Arquivar change com suite vermelha é proibido. Suite vermelha vira
+  trabalho pendente, não delivery.
+- Qualquer novo mascaramento detectado em review bloqueia merge.
+
+Objetivo: evitar falso verde. Se comportamento só passa porque o
+teste foi pulado, xfailed, ou virou stub, a change não está entregue.
+
+---
+
 ## 5. Trabalho em Curso e Horizonte
 
 ### 5.1 Estado atual

@@ -6,7 +6,7 @@
    the wrapping <section> owns sort, filter, and threshold state. #}
 <section class="rebalance-plan"
          data-testid="rebalance-plan"
-         x-data="rebalancePage({ plan: window.__rebalancePlan })">
+         x-data="rebalancePage({ plan: window.__rebalancePlan, thresholdAbs: {{ min_deviation_value|tojson }}, thresholdPct: {{ min_deviation_pct|tojson }} })">
   <script type="application/json"
            data-testid="rebalance-plan-data">{{ plan_dict | tojson }}</script>
 
@@ -20,15 +20,17 @@
     </div>
     <div class="rebalance-form-group">
       <label for="rebalance-threshold-abs">Desvio mín. (R$)</label>
-      <input type="number" step="any" id="rebalance-threshold-abs"
+      <input type="number" step="any" id="rebalance-threshold-abs" name="min_deviation_value"
+             value="{{ min_deviation_value }}"
              x-model.number="thresholdAbs" inputmode="decimal"
-             data-testid="rebalance-threshold-abs" />
+              data-testid="rebalance-threshold-abs" />
     </div>
     <div class="rebalance-form-group">
       <label for="rebalance-threshold-pct">Desvio mín. (%)</label>
-      <input type="number" step="any" id="rebalance-threshold-pct"
+      <input type="number" step="any" id="rebalance-threshold-pct" name="min_deviation_pct"
+             value="{{ min_deviation_pct }}"
              x-model.number="thresholdPct" inputmode="decimal"
-             data-testid="rebalance-threshold-pct" />
+              data-testid="rebalance-threshold-pct" />
     </div>
     <button type="submit"
             class="btn btn-primary rebalance-form-submit"
@@ -38,6 +40,7 @@
       <span x-show="computing">Calculando...</span>
     </button>
   </div>
+  <p class="rebalance-params-note">Sugestões abaixo dos mínimos viram Manter.</p>
 
   {# Class deviation summary — horizontal cards #}
   {% if plan.category_plan %}
@@ -182,17 +185,24 @@
             <span class="rebalance-table-th-indicator"
                   x-text="sortIndicator('buy_amount')"></span>
           </th>
-          <th class="rebalance-table-th rebalance-table-th--num"
-              data-testid="rebalance-asset-th-sell"
-              @click="sortBy('sell_amount')">
-            <span class="rebalance-table-th-label">Venda</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicator('sell_amount')"></span>
-          </th>
-          <th class="rebalance-table-th rebalance-table-th--num"
-              data-testid="rebalance-asset-th-projected"
-              @click="sortBy('projected_value')">
-            <span class="rebalance-table-th-label">Projetado</span>
+           <th class="rebalance-table-th rebalance-table-th--num"
+               data-testid="rebalance-asset-th-sell"
+               @click="sortBy('sell_amount')">
+             <span class="rebalance-table-th-label">Venda</span>
+             <span class="rebalance-table-th-indicator"
+                   x-text="sortIndicator('sell_amount')"></span>
+           </th>
+           <th class="rebalance-table-th rebalance-table-th--num"
+               data-testid="rebalance-asset-th-quantity"
+               @click="sortBy('trade_quantity')">
+             <span class="rebalance-table-th-label">Qtd</span>
+             <span class="rebalance-table-th-indicator"
+                   x-text="sortIndicator('trade_quantity')"></span>
+           </th>
+           <th class="rebalance-table-th rebalance-table-th--num"
+               data-testid="rebalance-asset-th-projected"
+               @click="sortBy('projected_value')">
+             <span class="rebalance-table-th-label">Projetado</span>
             <span class="rebalance-table-th-indicator"
                   x-text="sortIndicator('projected_value')"></span>
           </th>
@@ -229,6 +239,9 @@
                 x-text="formatBRL(row.buy_amount)"></td>
             <td class="rebalance-asset-cell rebalance-asset-cell--num"
                 x-text="formatBRL(row.sell_amount)"></td>
+            <td class="rebalance-asset-cell rebalance-asset-cell--num"
+                :data-testid="'rebalance-asset-qty-' + row.asset_key"
+                x-text="formatQuantity(row.trade_quantity, row.asset_name)"></td>
             <td class="rebalance-asset-cell rebalance-asset-cell--num"
                 x-text="formatBRL(row.projected_value)"></td>
             <td class="rebalance-asset-cell rebalance-asset-cell--action">

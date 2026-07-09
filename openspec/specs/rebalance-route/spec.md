@@ -16,9 +16,14 @@ hook; Phase 3b consumes the wire format defined here.
 The system SHALL expose `POST /api/rebalance` that accepts a
 `RebalanceRequest` body and returns a `RebalancePlanResponse` JSON.
 
-`RebalanceRequest` SHALL carry one optional field: `contribution`
-(float, R$). When the field is omitted, the route SHALL resolve it as
-`0`. `RebalancePlanResponse` SHALL carry five top-level fields:
+`RebalanceRequest` SHALL carry three optional fields:
+
+- `contribution` (float, R$)
+- `min_deviation_value` (float, R$)
+- `min_deviation_pct` (float, percentage)
+
+When omitted, the route SHALL resolve them as `0`, `1000`, and `1`
+respectively. `RebalancePlanResponse` SHALL carry five top-level fields:
 `asset_plan` (list of `RebalanceAssetPlanRow`), `category_plan`
 (list of `RebalanceCategoryPlanRow`), `metrics` (`RebalancePlanMetrics`
 object), `warnings` (list of `RebalanceWarning`), and `applied_policy`
@@ -40,12 +45,20 @@ matching every other JSON route in the project.
   (zero is the canonical rebalance-only case — no new money, just
   reallocation)
 
-#### Scenario: Omitted contribution defaults to zero
+#### Scenario: Omitted thresholds default to page defaults
 
 - **WHEN** `POST /api/rebalance` is called with `{}`
 - **THEN** the response is HTTP 200 with a populated
   `RebalancePlanResponse`
-- **AND** `metrics.contribution` equals `0.00`
+- **AND** the route evaluates the plan using `min_deviation_value = 1000.0`
+- **AND** the route evaluates the plan using `min_deviation_pct = 1.0`
+
+#### Scenario: Explicit thresholds reach the rebalance pipeline unchanged
+
+- **WHEN** `POST /api/rebalance` is called with
+  `{"contribution": 5000, "min_deviation_value": 2500, "min_deviation_pct": 2}`
+- **THEN** the response is HTTP 200
+- **AND** the rebalance pipeline receives `5000`, `2500`, and `2` unchanged
 
 #### Scenario: Unauthenticated request returns 401
 
@@ -116,10 +129,36 @@ contract stays permissive.)*
 - **WHEN** `POST /api/rebalance` is called with `{"contribution": null}`
 - **THEN** the response is HTTP 422
 
+### Requirement: Request validates threshold inputs as finite non-negative floats
+
+The system SHALL accept `min_deviation_value` and `min_deviation_pct` as finite
+non-negative floats. When omitted, the system SHALL behave exactly as if `1000`
+and `1` had been supplied. The system SHALL reject negative, `NaN`, and infinite
+threshold values with HTTP 422. Explicit `null` threshold values SHALL also be
+rejected with HTTP 422.
+
+#### Scenario: Negative absolute threshold returns 422
+
+- **WHEN** `POST /api/rebalance` is called with
+  `{"min_deviation_value": -1}`
+- **THEN** the response is HTTP 422
+
+#### Scenario: Infinite percentual threshold returns 422
+
+- **WHEN** `POST /api/rebalance` is called with
+  `{"min_deviation_pct": Infinity}`
+- **THEN** the response is HTTP 422
+
+#### Scenario: Null threshold returns 422
+
+- **WHEN** `POST /api/rebalance` is called with
+  `{"min_deviation_value": null}`
+- **THEN** the response is HTTP 422
+
 ### Requirement: Wire format exposes a v1 subset of the solver's native output
 
 The system SHALL expose `RebalanceAssetPlanRow` with exactly these
-eleven fields:
+twelve fields:
 
 * `asset_key` (string, `Asset.name.casefold()`)
 * `asset_name` (string, `Asset.name`)
@@ -128,10 +167,23 @@ eleven fields:
 * `target_value` (float, R$)
 * `buy_amount` (float, R$; `0.0` when no buy is recommended)
 * `sell_amount` (float, R$; `0.0` when no sell is recommended)
+* `trade_quantity` (float or null; quantity implied by buy/sell amount and
+  current ticker price when the asset is tradeable)
 * `projected_value` (float, R$)
 * `action` (enum string: `"buy"`, `"sell"`, or `"hold"`)
 * `deviation_value` (float, R$; `current_value - target_value`)
 * `deviation_pct` (float, percentage 0–100; `0.0` when `target_value == 0`)
+
+`trade_quantity` SHALL be derived from the non-zero movement side of the row:
+`buy_amount / current_price` for buys or `sell_amount / current_price` for
+sells when the asset price is denominated in BRL.
+
+For assets with `currency_code = "USD"`, the system SHALL first convert the
+BRL movement amount into USD using the same FX basis implied by the resolved
+current ticker price before dividing by the USD ticker price.
+
+For non-tradeable assets, hold rows, or rows without finite price, the system
+SHALL expose `trade_quantity = null`.
 
 The system SHALL expose `RebalanceCategoryPlanRow` with exactly these
 seven fields:
@@ -165,12 +217,38 @@ operator-facing).
 - **WHEN** a `RebalanceAssetPlanRow` is serialized
 - **THEN** the JSON object has the keys
   `asset_key, asset_name, category_name, current_value, target_value,
-  buy_amount, sell_amount, projected_value, action,
+  buy_amount, sell_amount, trade_quantity, projected_value, action,
   deviation_value, deviation_pct`
 - **AND** `deviation_value = current_value - target_value`
 - **AND** `deviation_pct = 0.0` when `target_value = 0`
 - **AND** otherwise `deviation_pct` equals `(current_value - target_value) /
   target_value * 100`
+
+#### Scenario: BRL buy row carries trade quantity
+
+- **WHEN** a `RebalanceAssetPlanRow` is serialized for a BRL asset with
+  `buy_amount = 1000` and current ticker price `20`
+- **THEN** `trade_quantity` equals `50`
+
+#### Scenario: BRL sell row carries trade quantity
+
+- **WHEN** a `RebalanceAssetPlanRow` is serialized for a BRL asset with
+  `sell_amount = 450` and current ticker price `15`
+- **THEN** `trade_quantity` equals `30`
+
+#### Scenario: USD row converts BRL amount before division
+
+- **WHEN** a USD asset has current ticker price `10 USD`
+- **AND** FX basis is `5.40 BRL/USD`
+- **AND** `buy_amount = 540 BRL`
+- **THEN** the system converts movement amount to `100 USD`
+- **AND** `trade_quantity` equals `10`
+
+#### Scenario: Non-tradeable row exposes null quantity
+
+- **WHEN** an asset row represents a non-tradeable position or lacks finite
+  current price
+- **THEN** `trade_quantity` equals `null`
 
 #### Scenario: Action enum is one of three values
 
@@ -408,7 +486,7 @@ require updating the spec and the glue mapper).
 - **WHEN** the solver returns a `RebalancePlan` whose `asset_plan`
   rows carry 31 columns (including columns not in v1 such as
   `current_weight` and `quote_symbol`)
-- **THEN** the wire format `asset_plan` rows carry exactly the 9 v1
+- **THEN** the wire format `asset_plan` rows carry exactly the 12 v1
   fields and the dropped columns are not present in the response
 
 #### Scenario: Glue preserves column order from the solver

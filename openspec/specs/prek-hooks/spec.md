@@ -73,6 +73,20 @@ entry MUST use `pass_filenames = false` so the full filtered subset runs.
 - **AND** the hook reports success when all selected tests pass
 - **AND** the hook reports failure when any selected test fails (push is blocked)
 
+### Requirement: Masked-pass guard on pre-push
+The pre-push stage SHALL reject diffs that introduce new masked-pass test constructs (`skip`, `skipif`, `xfail`, `pytest.skip`, empty `pass` placeholders, or `NotImplementedError` used as stand-ins for missing assertions) unless the exact file/line is explicitly allowlisted by the canonical test-quality spec or roadmap.
+The gate SHALL also run xfail unmasked (`--runxfail` or equivalent) so a test only remains green because of bypass logic cannot slip through.
+
+#### Scenario: New xfail blocks push
+- **WHEN** a push includes a new `@pytest.mark.xfail` without allowlist support
+- **THEN** the pre-push gate fails
+- **AND** the push is blocked
+
+#### Scenario: Legacy allowlisted skip does not block
+- **WHEN** a push touches a pre-existing, documented skip that already has allowlist coverage
+- **THEN** the pre-push gate accepts it
+- **AND** the allowlist reason remains intact
+
 ### Requirement: Pyright type-check gate on pre-push
 The pre-push stage SHALL run `pyright` in `basic` mode, scoped to `src/omaha`, with the project's `.venv` for type resolution. Pyright MUST be marked `continue-on-error: true` while the codebase has pre-existing type errors (a follow-up change removes the flag).
 

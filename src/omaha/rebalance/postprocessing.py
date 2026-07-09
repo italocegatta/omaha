@@ -61,6 +61,9 @@ def _build_rebalance_plan(
     contribution: float,
     solution: dict[str, Any],
     market_price_lookup: MarketPriceLookup,
+    *,
+    min_deviation_value: float = 1000.0,
+    min_deviation_pct: float = 1.0,
 ) -> Any:
     """Top-level plan builder — returns a :class:`solver.RebalancePlan`.
 
@@ -94,6 +97,15 @@ def _build_rebalance_plan(
         buy_amounts=buy_amounts,
         sell_amounts=sell_amounts,
         contribution=contribution,
+    )
+    projected_values = current_values + buy_amounts - sell_amounts
+    buy_amounts, sell_amounts = _suppress_subthreshold_trades(
+        current_values=current_values,
+        target_values=target_values,
+        buy_amounts=buy_amounts,
+        sell_amounts=sell_amounts,
+        min_deviation_value=min_deviation_value,
+        min_deviation_pct=min_deviation_pct,
     )
     projected_values = current_values + buy_amounts - sell_amounts
     buy_amounts[np.abs(buy_amounts) < DISPLAY_TOLERANCE] = 0.0
@@ -280,6 +292,35 @@ def _build_category_plan(
             "projected_relative_shortfall",
         ]
     ]
+
+
+def _suppress_subthreshold_trades(
+    *,
+    current_values: np.ndarray,
+    target_values: np.ndarray,
+    buy_amounts: np.ndarray,
+    sell_amounts: np.ndarray,
+    min_deviation_value: float,
+    min_deviation_pct: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    adjusted_buys = np.asarray(buy_amounts, dtype=float).copy()
+    adjusted_sells = np.asarray(sell_amounts, dtype=float).copy()
+    target_values_array = np.asarray(target_values, dtype=float)
+    actionable = (adjusted_buys > DISPLAY_TOLERANCE) | (adjusted_sells > DISPLAY_TOLERANCE)
+    deviation_value = np.abs(np.asarray(current_values, dtype=float) - target_values_array)
+    deviation_pct = np.divide(
+        deviation_value * 100.0,
+        target_values_array,
+        out=np.zeros_like(deviation_value, dtype=float),
+        where=target_values_array > 0.0,
+    )
+    below_threshold = (deviation_value < float(min_deviation_value)) | (
+        deviation_pct < float(min_deviation_pct)
+    )
+    suppress = actionable & below_threshold
+    adjusted_buys[suppress] = 0.0
+    adjusted_sells[suppress] = 0.0
+    return adjusted_buys, adjusted_sells
 
 
 def _clamp_projected_values_to_target_side(
@@ -574,4 +615,5 @@ __all__ = [
     "_clamp_projected_values_to_target_side",
     "_enrich_asset_plan_with_market_data",
     "_reduce_buy_overspend",
+    "_suppress_subthreshold_trades",
 ]

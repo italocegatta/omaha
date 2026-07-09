@@ -44,7 +44,7 @@ verificação for específica por comando) entre gates.
 
 ## Slices
 
-All previous slices archived or closed. F18 is active in Applied.
+All previous slices archived or closed. F18 archived. F19 ready.
 
 ### F01 - Consolidação cross-profile (visão household agregada)
 Status: `Archived` (superseded by F06) — 2026-07-04
@@ -145,6 +145,26 @@ Archive: `openspec/changes/archive/2026-07-06-t05-bdd-step-def-drift-after-f02/`
 ### T06 - Visual regression baseline
 Status: `Archived` — 2026-07-07
 Archive: `openspec/changes/archive/2026-07-07-t06-visual-regression-baseline/`
+
+### T07 - Revisar suite quebrada e corrigir regressões
+Status: `Ready`
+Goal: Revisar falhas atuais de `uv run task test` e fechar raiz do problema,
+  seja corrigindo código, ajustando teste, ou alinhando contrato/spec quando a
+  expectativa estiver errada. Foco nas famílias hoje vermelhas: BDD/e2e/visual,
+  fluxo real de CSV, seed_from_csv, e rebalance schema/glue.
+Candidate OpenSpec change id: `t07-revisar-suite-quebrada-e-corrigir-regressoes`
+Spec link: `openspec/changes/t07-revisar-suite-quebrada-e-corrigir-regressoes/`
+Files: `tests/`, `src/omaha/`, `openspec/specs/`
+Notes: Baseline observada em 2026-07-09: `uv run task test` com 83 falhas,
+  756 passes, 4 skips. Grupos maiores: `tests/bdd/test_scenarios.py`,
+  `tests/e2e/*`, `tests/visual/*`, `tests/test_real_csv_flow.py`,
+  `tests/test_seed_from_csv.py`, `tests/test_rebalance_glue.py`,
+  `tests/test_rebalance_schemas.py`. Regra: corrigir menor lado correto;
+  se o teste estiver forçando comportamento errado, adequar o teste à fonte
+  de verdade; se o código estiver fora do contrato, corrigir código.
+Progress:
+  - 2026-07-09: Added from owner request after suite audit. Scope is
+    test-health / regression stabilization, not new product behavior.
 
 ### I01 - Agendamento automático de backup
 Status: `Archived` — 2026-07-06
@@ -436,7 +456,94 @@ Progress:
     and removed `pp` suffix from percentual deviation display. Targeted tests,
     lint, and live smoke on `/rebalanceamento` green.
   - 2026-07-09: Archive complete. Specs synced to main, change moved to
-    `openspec/changes/archive/2026-07-09-f18-rebalanceamento-ui-resumo-por-classe-filtros-desvios/`.
+     `openspec/changes/archive/2026-07-09-f18-rebalanceamento-ui-resumo-por-classe-filtros-desvios/`.
+     Status -> Archived.
+
+### F19 - Gate de compra e venda por desvio minimo no otimizador
+Status: `Archived` — 2026-07-09
+Goal: Restringir plano de rebalanceamento para só liberar `Compra` e `Venda`
+  quando desvio do ativo ultrapassar thresholds mínimos absoluto (R$) e
+  percentual (%) informados na tela de rebalanceamento, alinhando solver,
+  pós-processamento e UI com inputs já expostos ao operador.
+Candidate OpenSpec change id: `f19-gate-de-compra-e-venda-por-desvio-minimo-no-otimizador`
+Archive: `openspec/changes/archive/2026-07-09-f19-gate-de-compra-e-venda-por-desvio-minimo-no-otimizador/`
+Files: `src/omaha/rebalance/`, `src/omaha/routes/rebalance.py`,
+  `src/omaha/rebalance/schemas.py`, `src/omaha/rebalance/glue.py`,
+  `src/omaha/templates/rebalance.html`,
+  `src/omaha/templates/_rebalance_plan.html`, `tests/test_rebalance_*.py`,
+  `openspec/specs/rebalance-engine/spec.md`,
+  `openspec/specs/rebalance-route/spec.md`,
+  `openspec/specs/rebalance-page/spec.md`
+Notes: Follow-up direto de F18. Thresholds hoje afetam leitura visual e filtros,
+  mas não gateiam execução sugerida pelo motor. Proposal precisa fechar
+  semântica exata: liberar trade só quando desvio absoluto E percentual
+  ultrapassarem mínimos, ou outra combinação explicitamente aprovada. Domínio
+  crítico (`src/omaha/rebalance/`), então respeitar cap de 1 fatia `Applying`.
+Progress:
+  - 2026-07-09: Added from owner request. Inserted as next slice because
+      request extends threshold behavior already surfaced in `/rebalanceamento`
+      and likely changes critical rebalance-engine logic.
+  - 2026-07-09: Propose complete. Created `proposal.md`, `design.md`,
+    `tasks.md`, and delta specs for `rebalance-engine`, `rebalance-route`,
+     and `rebalance-page` under
+     `openspec/changes/f19-gate-de-compra-e-venda-por-desvio-minimo-no-otimizador/`.
+     Locked semantics: trade survives only when absolute and percentual
+     deviation both clear thresholds. Spec health gate passed via
+     `openspec list --specs`. Status -> Spec Proposed.
+  - 2026-07-09: Apply complete. Extended `RebalanceRequest` and page form
+    contract with `min_deviation_value` / `min_deviation_pct`, threaded both
+    fields through `routes -> glue -> engine -> solver -> postprocessing`,
+    suppressed trades failing AND semantics after solve, recomputed projected
+    totals / residual cash from gated rows, and updated rebalance templates to
+    submit and re-render threshold values with execution-gate copy.
+  - 2026-07-09: Verification complete. Commands: `uv run task lint`,
+    `uv run task test-file tests/test_rebalance_schemas.py tests/test_rebalance_route.py tests/test_rebalance_page.py tests/test_rebalance_postprocessing.py`,
+    `openspec list --specs`. All green.
+  - 2026-07-09: Refresh-for-test complete. Server restarted at
+    `http://192.168.1.6:8000`. Read-only DB verification: `12` classes,
+    `99` assets, `99` positions. `/healthz` OK. Authenticated dashboard smoke
+    found `RF Din` 5 times. Status -> Applied.
+  - 2026-07-09: Archive complete. Main specs synced, change moved to
+    `openspec/changes/archive/2026-07-09-f19-gate-de-compra-e-venda-por-desvio-minimo-no-otimizador/`.
+    Status -> Archived.
+
+### F20 - Calculo da qtd de compra ou venda no plano de rebalanceamento
+Status: `Archived` — 2026-07-09
+Goal: Expor quantidade operacional `Qtd` na tabela do plano de
+  rebalanceamento, calculada a partir do valor de compra/venda e preço atual,
+  com conversão BRL->USD quando ativo negocia em dólar.
+Candidate OpenSpec change id: `f20-calculo-da-qtd-de-compra-ou-venda-no-plano-de-rebalanceamento`
+Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-venda-no-plano-de-rebalanceamento/`
+Files: `src/omaha/rebalance/`, `src/omaha/templates/_rebalance_plan.html`,
+  `tests/test_rebalance_page.py`, `tests/test_rebalance_route.py`,
+  `openspec/specs/rebalance-page/spec.md`,
+  `openspec/specs/rebalance-route/spec.md`
+Notes: Change preexistia como draft em folder `f19-*` fora do roadmap atual.
+  Renomeado para `F20` em 2026-07-09 para liberar `F19` atual sem conflitar
+  com artefato de escopo diferente.
+Progress:
+  - 2026-07-09: Change folder renomeado de
+    `f19-calculo-da-qtd-de-compra-ou-venda-no-plano-de-rebalanceamento` para
+    `f20-calculo-da-qtd-de-compra-ou-venda-no-plano-de-rebalanceamento`.
+    Artifacts já completos (`proposal.md`, `design.md`, `tasks.md`, delta
+    specs). Slice registrado como `Spec Proposed`.
+  - 2026-07-09: Apply complete. Added `trade_quantity` to rebalance wire
+    rows, reused solver quote fields (`quote_price`, `usdbrl_rate`) in
+    glue/engine translation, rendered `Qtd` column after `Venda`, and
+    extended rebalance glue/route/page/schema tests for BRL, USD, and
+    null-quantity cases.
+  - 2026-07-09: Verification complete. Commands: `uv run task test-file
+    tests/test_rebalance_glue.py tests/test_rebalance_route.py
+    tests/test_rebalance_page.py tests/test_rebalance_schemas.py`,
+    `uv run task lint`, `openspec list --specs`. Note: first `task lint`
+    run hit corrupted generated `.coverage` combine state; removed local
+    coverage artifacts and re-ran cleanly.
+  - 2026-07-09: Refresh-for-test complete. Server restarted on LAN URL,
+    `/healthz` OK, read-only DB verification preserved current state
+    (`12` classes / `99` assets / `99` positions), and authenticated
+    dashboard smoke found `5` `RF Din` matches. Status -> Applied.
+  - 2026-07-09: Archive complete. Main specs synced, change moved to
+    `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-venda-no-plano-de-rebalanceamento/`.
     Status -> Archived.
 
 ---
@@ -445,7 +552,10 @@ Progress:
 
 **Active queue:**
 
-Order note: F18 archived.
+1. T07 - Revisar suite quebrada e corrigir regressões
+
+Order note: F19 and F20 archived after spec sync + archive flow. T07 is now
+next remaining active slice.
 
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed, reactivation path documented above.

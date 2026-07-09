@@ -165,6 +165,10 @@ def test_get_rebalanceamento_populated_profile_renders_zero_plan(
     assert 'data-testid="rebalance-plan"' in body
     assert 'data-testid="rebalance-empty-state"' not in body
     assert '"contribution": 0.0' in body or '"contribution":0.0' in body
+    assert 'name="min_deviation_value"' in body
+    assert 'name="min_deviation_pct"' in body
+    assert 'value="1000.0"' in body or 'value="1000"' in body
+    assert 'value="1.0"' in body or 'value="1"' in body
     # In-body form is present and not inert (profile has classes).
     assert 'data-testid="rebalance-form"' in body
 
@@ -309,6 +313,51 @@ def test_post_rebalanceamento_valid_contribution_renders_plan(
     assert 'data-testid="rebalance-filter-bar"' in body
 
 
+def test_post_rebalanceamento_thresholds_round_trip_into_rendered_plan(
+    client: TestClient, _omaha_test_env: dict[str, str]
+) -> None:
+    """Threshold fields submit as real form inputs and re-render current values."""
+    _seed_class(1, "RF", "50", [("Selic", "100")], _omaha_test_env=_omaha_test_env)
+    _seed_class(1, "RV", "50", [("PETR4", "100")], _omaha_test_env=_omaha_test_env)
+    _seed_positions(_omaha_test_env, {"Selic": 201_500.0, "PETR4": 198_500.0})
+    _login_and_select(client, profile_id=1)
+
+    response = client.post(
+        "/rebalanceamento",
+        data={
+            "contribution": "0",
+            "min_deviation_value": "2500",
+            "min_deviation_pct": "2",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.text
+    assert 'name="min_deviation_value"' in body
+    assert 'name="min_deviation_pct"' in body
+    assert 'value="2500.0"' in body or 'value="2500"' in body
+    assert 'value="2.0"' in body or 'value="2"' in body
+    assert '"action": "hold"' in body or '"action":"hold"' in body
+
+
+def test_post_rebalanceamento_negative_threshold_renders_form_error(
+    client: TestClient, _omaha_test_env: dict[str, str]
+) -> None:
+    """Page rejects negative threshold fields without issuing a 4xx."""
+    _seed_two_classes(_omaha_test_env)
+    _login_and_select(client, profile_id=1)
+
+    response = client.post(
+        "/rebalanceamento",
+        data={"contribution": "0", "min_deviation_value": "-1"},
+    )
+
+    assert response.status_code == 200
+    body = response.text
+    assert 'data-testid="rebalance-form-error"' in body
+    assert "zero ou positivo" in body
+
+
 def test_post_rebalanceamento_zero_contribution_renders_plan(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
@@ -434,7 +483,7 @@ def test_post_rebalanceamento_solver_validation_error_renders_inline(
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
-    def raising_run_rebalance(db, profile, contribution, *, solver=None):  # noqa: ARG001
+    def raising_run_rebalance(db, profile, contribution, *, solver=None, **kwargs):  # noqa: ARG001
         raise RebalanceValidationError("Classes devem somar 100%")
 
     monkeypatch.setattr(pages_routes, "run_rebalance", raising_run_rebalance)
@@ -451,14 +500,14 @@ def test_post_rebalanceamento_solver_validation_error_renders_inline(
 
 
 # ---------------------------------------------------------------------------
-# §"Asset plan table renders eight visible columns plus a data attribute"
+# §"Asset plan table renders eleven visible columns plus a data attribute"
 # ---------------------------------------------------------------------------
 
 
-def test_asset_plan_table_has_ten_visible_columns(
+def test_asset_plan_table_has_eleven_visible_columns(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
-    """The asset plan <thead> has exactly 10 <th> cells."""
+    """The asset plan <thead> has exactly 11 <th> cells."""
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
@@ -475,11 +524,90 @@ def test_asset_plan_table_has_ten_visible_columns(
         "rebalance-asset-th-deviation-pct",
         "rebalance-asset-th-buy",
         "rebalance-asset-th-sell",
+        "rebalance-asset-th-quantity",
         "rebalance-asset-th-projected",
         "rebalance-asset-th-action",
     ]
     for key in asset_th_keys:
         assert f'data-testid="{key}"' in body, f"missing asset table column: {key}"
+    assert body.index('data-testid="rebalance-asset-th-sell"') < body.index(
+        'data-testid="rebalance-asset-th-quantity"'
+    ) < body.index('data-testid="rebalance-asset-th-projected"')
+
+
+def test_asset_plan_renders_trade_quantity_and_blank_ineligible_cell(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, _omaha_test_env: dict[str, str]
+) -> None:
+    """Page ships `Qtd` header plus payload/template contract for null rows."""
+    from omaha.rebalance.schemas import (
+        RebalanceAssetPlanRow,
+        RebalanceCategoryPlanRow,
+        RebalancePlanMetrics,
+        RebalancePlanResponse,
+    )
+    from omaha.routes import pages as pages_routes
+
+    _seed_two_classes(_omaha_test_env)
+    _login_and_select(client, profile_id=1)
+
+    def fake_run_rebalance(db, profile, contribution, **kwargs):  # noqa: ARG001
+        return RebalancePlanResponse(
+            asset_plan=[
+                RebalanceAssetPlanRow(
+                    asset_key="brl-buy",
+                    asset_name="BRL Buy",
+                    category_name="RF",
+                    current_value=100.0,
+                    target_value=200.0,
+                    buy_amount=1000.0,
+                    sell_amount=0.0,
+                    trade_quantity=50.0,
+                    projected_value=1100.0,
+                    action="buy",
+                ),
+                RebalanceAssetPlanRow(
+                    asset_key="no-price",
+                    asset_name="No Price",
+                    category_name="RF",
+                    current_value=100.0,
+                    target_value=150.0,
+                    buy_amount=50.0,
+                    sell_amount=0.0,
+                    trade_quantity=None,
+                    projected_value=150.0,
+                    action="buy",
+                ),
+            ],
+            category_plan=[
+                RebalanceCategoryPlanRow(
+                    category_name="RF",
+                    current_value=200.0,
+                    projected_value=1250.0,
+                    delta=1050.0,
+                )
+            ],
+            metrics=RebalancePlanMetrics(
+                contribution=0.0,
+                total_buy=1050.0,
+                total_sell=0.0,
+                residual_cash=0.0,
+                current_deviation_pct=0.0,
+                projected_deviation_pct=0.0,
+            ),
+            warnings=[],
+            applied_policy="sentinel",
+        )
+
+    monkeypatch.setattr(pages_routes, "run_rebalance", fake_run_rebalance)
+
+    response = client.post("/rebalanceamento", data={"contribution": "0"})
+    assert response.status_code == 200
+    body = response.text
+
+    assert 'data-testid="rebalance-asset-th-quantity"' in body
+    assert 'x-text="formatQuantity(row.trade_quantity, row.asset_name)"' in body
+    assert '"trade_quantity": 50.0' in body or '"trade_quantity":50.0' in body
+    assert '"trade_quantity": null' in body or '"trade_quantity":null' in body
 
 
 def test_class_deviation_summary_renders(

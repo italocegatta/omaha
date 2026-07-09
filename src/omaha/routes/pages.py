@@ -72,7 +72,11 @@ from omaha.auth import DbSession, get_active_profile, require_profile_writable, 
 from omaha.models import Asset, AssetClass, Profile, User
 from omaha.rebalance.glue import run_rebalance
 from omaha.rebalance.models import RebalanceValidationError
-from omaha.rebalance.schemas import RebalancePlanResponse
+from omaha.rebalance.schemas import (
+    DEFAULT_MIN_DEVIATION_PCT,
+    DEFAULT_MIN_DEVIATION_VALUE,
+    RebalancePlanResponse,
+)
 
 router = APIRouter(tags=["pages"])
 
@@ -503,13 +507,40 @@ def _materialize_rebalance_plan(
     db: DbSession,
     profile: Profile,
     contribution: float,
+    *,
+    min_deviation_value: float = DEFAULT_MIN_DEVIATION_VALUE,
+    min_deviation_pct: float = DEFAULT_MIN_DEVIATION_PCT,
 ) -> RebalancePlanResponse:
     """Run rebalance, persisting non-negative aporte used by page UX."""
 
-    plan = run_rebalance(db, profile, contribution)
+    plan = run_rebalance(
+        db,
+        profile,
+        contribution,
+        min_deviation_value=min_deviation_value,
+        min_deviation_pct=min_deviation_pct,
+    )
     if contribution >= 0:
         _set_rebalance_contribution(request, profile, contribution)
     return plan
+
+
+def _parse_non_negative_form_float(raw: str | None, *, default: float) -> tuple[float | None, str | None]:
+    if raw is None or raw.strip() == "":
+        return default, None
+    try:
+        parsed = float(raw)
+    except ValueError:
+        return None, "Valor inválido. Use um número finito."
+    if not math.isfinite(parsed):
+        return None, "Valor inválido. Use um número finito."
+    if parsed < 0:
+        return None, "Valor inválido. Use zero ou positivo."
+    return parsed, None
+
+
+def _resolved_threshold(value: float | None, default: float) -> float:
+    return default if value is None else value
 
 
 def _render_rebalance(
@@ -520,6 +551,8 @@ def _render_rebalance(
     *,
     plan: RebalancePlanResponse | None = None,
     form_error: str | None = None,
+    min_deviation_value: float = DEFAULT_MIN_DEVIATION_VALUE,
+    min_deviation_pct: float = DEFAULT_MIN_DEVIATION_PCT,
 ) -> Response:
     """Build the Jinja context for ``rebalance.html`` and render it.
 
@@ -546,6 +579,8 @@ def _render_rebalance(
             "zero_classes": zero_classes,
             "form_inert": zero_classes,
             "form_error": form_error,
+            "min_deviation_value": min_deviation_value,
+            "min_deviation_pct": min_deviation_pct,
             "contribution": (
                 plan.metrics.contribution
                 if plan is not None
@@ -596,10 +631,26 @@ def get_rebalanceamento(
                 db,
                 profile,
                 _get_rebalance_contribution(request, profile),
+                min_deviation_value=DEFAULT_MIN_DEVIATION_VALUE,
+                min_deviation_pct=DEFAULT_MIN_DEVIATION_PCT,
             )
         except RebalanceValidationError as exc:
-            return _render_rebalance(request, db, user, profile, form_error=str(exc))
-        return _render_rebalance(request, db, user, profile, plan=plan)
+            return _render_rebalance(
+                request,
+                db,
+                user,
+                profile,
+                form_error=str(exc),
+            )
+        return _render_rebalance(
+            request,
+            db,
+            user,
+            profile,
+            plan=plan,
+            min_deviation_value=DEFAULT_MIN_DEVIATION_VALUE,
+            min_deviation_pct=DEFAULT_MIN_DEVIATION_PCT,
+        )
     return _render_rebalance(request, db, user, profile)
 
 
@@ -610,6 +661,8 @@ def post_rebalanceamento(
     user: User = Depends(require_user),
     _writable: None = Depends(require_profile_writable),
     contribution: str = Form(default=""),
+    min_deviation_value: str = Form(default=""),
+    min_deviation_pct: str = Form(default=""),
 ) -> Response:
     """Run the rebalance pipeline and re-render the page with the plan.
 
@@ -660,8 +713,49 @@ def post_rebalanceamento(
             form_error="Valor inválido. Use um número finito.",
         )
 
+    parsed_min_deviation_value, threshold_error = _parse_non_negative_form_float(
+        min_deviation_value,
+        default=DEFAULT_MIN_DEVIATION_VALUE,
+    )
+    if threshold_error is not None:
+        return _render_rebalance(
+            request,
+            db,
+            user,
+            profile,
+            form_error=threshold_error,
+            min_deviation_value=DEFAULT_MIN_DEVIATION_VALUE,
+            min_deviation_pct=DEFAULT_MIN_DEVIATION_PCT,
+        )
+
+    parsed_min_deviation_pct, threshold_error = _parse_non_negative_form_float(
+        min_deviation_pct,
+        default=DEFAULT_MIN_DEVIATION_PCT,
+    )
+    if threshold_error is not None:
+        return _render_rebalance(
+            request,
+            db,
+            user,
+            profile,
+            form_error=threshold_error,
+            min_deviation_value=_resolved_threshold(
+                parsed_min_deviation_value, DEFAULT_MIN_DEVIATION_VALUE
+            ),
+            min_deviation_pct=DEFAULT_MIN_DEVIATION_PCT,
+        )
+
     try:
-        plan = _materialize_rebalance_plan(request, db, profile, parsed)
+        plan = _materialize_rebalance_plan(
+            request,
+            db,
+            profile,
+            parsed,
+            min_deviation_value=_resolved_threshold(
+                parsed_min_deviation_value, DEFAULT_MIN_DEVIATION_VALUE
+            ),
+            min_deviation_pct=_resolved_threshold(parsed_min_deviation_pct, DEFAULT_MIN_DEVIATION_PCT),
+        )
     except RebalanceValidationError as exc:
         return _render_rebalance(
             request,
@@ -669,9 +763,23 @@ def post_rebalanceamento(
             user,
             profile,
             form_error=str(exc),
+            min_deviation_value=_resolved_threshold(
+                parsed_min_deviation_value, DEFAULT_MIN_DEVIATION_VALUE
+            ),
+            min_deviation_pct=_resolved_threshold(parsed_min_deviation_pct, DEFAULT_MIN_DEVIATION_PCT),
         )
 
-    return _render_rebalance(request, db, user, profile, plan=plan)
+    return _render_rebalance(
+        request,
+        db,
+        user,
+        profile,
+        plan=plan,
+        min_deviation_value=_resolved_threshold(
+            parsed_min_deviation_value, DEFAULT_MIN_DEVIATION_VALUE
+        ),
+        min_deviation_pct=_resolved_threshold(parsed_min_deviation_pct, DEFAULT_MIN_DEVIATION_PCT),
+    )
 
 
 @router.get("/rebalance")

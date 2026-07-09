@@ -15,6 +15,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 RebalanceAction = Literal["buy", "sell", "hold"]
+DEFAULT_MIN_DEVIATION_VALUE = 1000.0
+DEFAULT_MIN_DEVIATION_PCT = 1.0
 
 
 class RebalanceAssetPlanRow(BaseModel):
@@ -29,6 +31,7 @@ class RebalanceAssetPlanRow(BaseModel):
     target_value: float
     buy_amount: float
     sell_amount: float
+    trade_quantity: float | None = None
     projected_value: float
     action: RebalanceAction
     deviation_value: float = 0.0
@@ -105,8 +108,16 @@ class RebalanceRequest(BaseModel):
             "(saque; suporte do solver chega em rebalance-engine)."
         ),
     )
+    min_deviation_value: float = Field(
+        default=DEFAULT_MIN_DEVIATION_VALUE,
+        description="Desvio minimo absoluto em R$ para manter compra/venda sugerida.",
+    )
+    min_deviation_pct: float = Field(
+        default=DEFAULT_MIN_DEVIATION_PCT,
+        description="Desvio minimo percentual para manter compra/venda sugerida.",
+    )
 
-    @field_validator("contribution")
+    @field_validator("contribution", "min_deviation_value", "min_deviation_pct")
     @classmethod
     def _finite_float(cls, value: float) -> float:
         """Reject ``NaN`` and ``Infinity`` with a Pydantic ValidationError.
@@ -119,4 +130,11 @@ class RebalanceRequest(BaseModel):
         """
         if not math.isfinite(value):
             raise ValueError("contribution deve ser um número finito (NaN/Inf não são aceitos)")
+        return value
+
+    @field_validator("min_deviation_value", "min_deviation_pct")
+    @classmethod
+    def _non_negative_threshold(cls, value: float) -> float:
+        if value < 0:
+            raise ValueError("thresholds de desvio devem ser zero ou positivos")
         return value

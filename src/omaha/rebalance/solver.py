@@ -74,6 +74,9 @@ def simulate_rebalance(
     position: pd.DataFrame,
     contribution: float,
     market_price_lookup: MarketPriceLookup | None = None,
+    *,
+    min_deviation_value: float = 1000.0,
+    min_deviation_pct: float = 1.0,
 ) -> RebalancePlan:
     """Drive validate → aggregate → simulate → cascade → assemble.
 
@@ -109,6 +112,8 @@ def simulate_rebalance(
         contribution=contribution_value,
         solution=solution,
         market_price_lookup=quote_lookup,
+        min_deviation_value=min_deviation_value,
+        min_deviation_pct=min_deviation_pct,
     )
 
 

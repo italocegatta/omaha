@@ -92,6 +92,7 @@
         target_value: 1,
         buy_amount: 1,
         sell_amount: 1,
+        trade_quantity: 1,
         projected_value: 1,
         deviation_value: 1,
         deviation_pct: 1,
@@ -143,8 +144,8 @@
       return {
         plan: initial.plan,
         computing: false,
-        thresholdAbs: 1000,
-        thresholdPct: 1,
+        thresholdAbs: Number(initial.thresholdAbs) || 1000,
+        thresholdPct: Number(initial.thresholdPct) || 1,
         sortKey: 'category_name',
         sortDir: 'asc',
         displayRows: [],
@@ -214,6 +215,16 @@
         },
         formatPct: function (v) {
           return (Number(v) || 0).toFixed(1) + '%';
+        },
+        formatQuantity: function (value, assetName) {
+          if (value === null || value === undefined || Number.isNaN(Number(value))) {
+            return '';
+          }
+          var normalizedAssetName = String(assetName || '').trim().toUpperCase();
+          return Number(value).toLocaleString('pt-BR', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: normalizedAssetName === 'BTC' ? 4 : 0,
+          });
         },
         formatDeviationPp: function (v) {
           var n = Number(v) || 0;

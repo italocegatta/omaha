@@ -62,7 +62,13 @@ def post_rebalance(
     """
     _ = user  # auth gate satisfied; user not consumed downstream
     try:
-        return run_rebalance(db, profile, payload.contribution)
+        return run_rebalance(
+            db,
+            profile,
+            payload.contribution,
+            min_deviation_value=payload.min_deviation_value,
+            min_deviation_pct=payload.min_deviation_pct,
+        )
     except RebalanceValidationError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 

@@ -27,6 +27,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from omaha.models import Asset, AssetClass, Position, QuoteKind
+from omaha.rebalance.schemas import (
+    RebalancePlanMetrics,
+    RebalancePlanResponse,
+)
 
 # Mirror the seed profile owners from test_assets_trade_flags.py.
 _PROFILE_OWNERS = {1: "Italo", 2: "Ana"}
@@ -253,6 +257,174 @@ def test_missing_contribution_defaults_to_zero(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.json()["metrics"]["contribution"] == 0.0
+
+
+def test_explicit_thresholds_reach_pipeline_unchanged(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Route forwards threshold fields to the rebalance pipeline unchanged."""
+    from omaha.routes import rebalance as rebalance_routes
+
+    captured: dict[str, float] = {}
+
+    def fake_run_rebalance(db, profile, contribution, **kwargs):  # noqa: ARG001
+        captured["contribution"] = contribution
+        captured.update(kwargs)
+        return RebalancePlanResponse(
+            asset_plan=[],
+            category_plan=[],
+            metrics=RebalancePlanMetrics(
+                contribution=float(contribution),
+                total_buy=0.0,
+                total_sell=0.0,
+                residual_cash=0.0,
+                current_deviation_pct=0.0,
+                projected_deviation_pct=0.0,
+            ),
+            warnings=[],
+            applied_policy="stub",
+        )
+
+    monkeypatch.setattr(rebalance_routes, "run_rebalance", fake_run_rebalance)
+    _login_and_select(client, profile_id=1)
+
+    response = client.post(
+        "/api/rebalance",
+        json={"contribution": 5000, "min_deviation_value": 2500, "min_deviation_pct": 2},
+    )
+
+    assert response.status_code == 200
+    assert captured == {
+        "contribution": 5000,
+        "min_deviation_value": 2500,
+        "min_deviation_pct": 2,
+    }
+
+
+def test_default_thresholds_suppress_small_trades(
+    client: TestClient, _omaha_test_env: dict[str, str]
+) -> None:
+    """Default thresholds (1000 / 1) zero out sub-material buy/sell rows."""
+    _seed_class(1, "RF", "50", [("Selic", "100")], _omaha_test_env=_omaha_test_env)
+    _seed_class(1, "RV", "50", [("PETR4", "100")], _omaha_test_env=_omaha_test_env)
+    _seed_positions(_omaha_test_env, {"Selic": 201_500.0, "PETR4": 198_500.0})
+    _login_and_select(client, profile_id=1)
+
+    response = client.post("/api/rebalance", json={"contribution": 0})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert {row["action"] for row in body["asset_plan"]} == {"hold"}
+    assert body["metrics"]["total_buy"] == 0.0
+    assert body["metrics"]["total_sell"] == 0.0
+
+
+def test_lower_thresholds_keep_materialized_trade_actions(
+    client: TestClient, _omaha_test_env: dict[str, str]
+) -> None:
+    """Rows survive when they clear both absolute and percentual thresholds."""
+    _seed_class(1, "RF", "50", [("Selic", "100")], _omaha_test_env=_omaha_test_env)
+    _seed_class(1, "RV", "50", [("PETR4", "100")], _omaha_test_env=_omaha_test_env)
+    _seed_positions(_omaha_test_env, {"Selic": 201_500.0, "PETR4": 198_500.0})
+    _login_and_select(client, profile_id=1)
+
+    response = client.post(
+        "/api/rebalance",
+        json={"contribution": 0, "min_deviation_value": 1000, "min_deviation_pct": 0.5},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert {row["action"] for row in body["asset_plan"]} == {"buy", "sell"}
+    assert body["metrics"]["total_buy"] > 0.0
+    assert body["metrics"]["total_sell"] > 0.0
+
+
+def test_trade_quantity_serialized_for_brl_usd_and_ineligible_rows(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, _omaha_test_env: dict[str, str]
+) -> None:
+    """Route JSON carries `trade_quantity` for eligible rows and null otherwise."""
+    from omaha.rebalance import glue
+    from omaha.rebalance.solver_stub import (
+        RebalanceAssetPlanRowNative,
+        RebalanceCategoryPlanRowNative,
+        RebalancePlan,
+        RebalancePlanMetricsNative,
+    )
+
+    _seed_class(1, "RF", "100", [("Selic", "100")], _omaha_test_env=_omaha_test_env)
+    _seed_positions(_omaha_test_env, {"Selic": 5000.0})
+    _login_and_select(client, profile_id=1)
+
+    native_plan = RebalancePlan(
+        contribution=0.0,
+        asset_classes=[],
+        asset_plan=[
+            RebalanceAssetPlanRowNative(
+                name="BRL Buy",
+                category_name="RF",
+                currency_code="BRL",
+                buy_enabled=True,
+                current_value=100.0,
+                target_value=200.0,
+                buy_amount=1000.0,
+                sell_amount=0.0,
+                quote_price=20.0,
+                projected_value=1100.0,
+            ),
+            RebalanceAssetPlanRowNative(
+                name="USD Sell",
+                category_name="RF",
+                currency_code="USD",
+                buy_enabled=True,
+                current_value=200.0,
+                target_value=100.0,
+                buy_amount=0.0,
+                sell_amount=540.0,
+                quote_price=5.0,
+                usdbrl_rate=5.4,
+                projected_value=100.0,
+            ),
+            RebalanceAssetPlanRowNative(
+                name="No Price",
+                category_name="RF",
+                currency_code="BRL",
+                buy_enabled=True,
+                current_value=100.0,
+                target_value=150.0,
+                buy_amount=50.0,
+                sell_amount=0.0,
+                projected_value=150.0,
+            ),
+        ],
+        category_plan=[
+            RebalanceCategoryPlanRowNative(
+                category_name="RF",
+                current_value=400.0,
+                projected_value=400.0,
+            )
+        ],
+        metrics=RebalancePlanMetricsNative(
+            contribution=0.0,
+            total_buy=1000.0,
+            total_sell=540.0,
+            residual_cash=0.0,
+            current_deviation_pct=0.0,
+            projected_deviation_pct=0.0,
+        ),
+        warnings=[],
+        applied_policy="sentinel",
+    )
+
+    monkeypatch.setattr(glue, "cvxpy_solver", lambda s, p, q, c, **kw: native_plan)
+
+    response = client.post("/api/rebalance", json={"contribution": 0})
+    assert response.status_code == 200
+    rows = {row["asset_name"]: row for row in response.json()["asset_plan"]}
+
+    assert rows["BRL Buy"]["trade_quantity"] == pytest.approx(50.0)
+    assert rows["USD Sell"]["trade_quantity"] == pytest.approx(20.0)
+    assert rows["No Price"]["trade_quantity"] is None
 
 
 # ---------------------------------------------------------------------------

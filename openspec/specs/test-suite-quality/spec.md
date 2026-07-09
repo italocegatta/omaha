@@ -3,6 +3,35 @@
 ## Purpose
 TBD - created by archiving change test-architecture-marker-and-dedup. Update Purpose after archive.
 ## Requirements
+### Requirement: Delivery gate requires full suite green
+Runtime changes SHALL not be considered delivered while `uv run task test` is red.
+Archive/merge must wait for a green full suite, not just a green subset.
+
+#### Scenario: Full suite is red and delivery is blocked
+- **WHEN** `uv run task test` fails
+- **THEN** the change stays open
+- **AND** no archive step marks it delivered
+
+#### Scenario: Browser-visible change still needs full suite green
+- **WHEN** a change touches runtime code, templates, routes, models, seed, migrations, or static assets
+- **THEN** the full suite gate still applies
+- **AND** the change cannot be archived on partial evidence
+
+### Requirement: Masked-pass test constructs are forbidden
+New or edited tests SHALL NOT introduce `skip`, `skipif`, `xfail`, `pytest.skip`, empty `pass` placeholders, or `NotImplementedError` used as stand-ins for missing coverage.
+If a legacy carve-out is truly necessary, it MUST be explicitly allowlisted in the canonical spec / roadmap with a written reason.
+CI verification SHALL include a masked-pass guard and SHALL run xfail unmasked (`--runxfail` or equivalent) so bypassed assertions cannot masquerade as green.
+
+#### Scenario: New xfail without allowlist is rejected
+- **WHEN** a diff adds `@pytest.mark.xfail` to a test file without explicit allowlist support
+- **THEN** review or CI rejects the change
+- **AND** the reason is "masked pass is not a delivery"
+
+#### Scenario: Legacy allowlisted skip remains valid
+- **WHEN** a pre-existing skip is already documented and allowlisted
+- **THEN** the suite may continue to honor that carve-out
+- **AND** the allowlist must name the file, reason, and owning spec or roadmap entry
+
 ### Requirement: No duplicate test coverage between retire-stubs and route tests
 Duplicate-coverage tests MUST be deleted, not left in place.
 Specifically, the "retire-stub" pattern (one assertion per file:

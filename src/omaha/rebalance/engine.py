@@ -65,6 +65,9 @@ def cvxpy_solver(
     positions: pd.DataFrame,
     quotes: pd.DataFrame,
     contribution: float,
+    *,
+    min_deviation_value: float = 1000.0,
+    min_deviation_pct: float = 1.0,
 ) -> RebalancePlan:
     """Glue-compatible callable wrapping :func:`simulate_rebalance`.
 
@@ -90,6 +93,8 @@ def cvxpy_solver(
         position=positions,
         contribution=contribution,
         market_price_lookup=lookup,
+        min_deviation_value=min_deviation_value,
+        min_deviation_pct=min_deviation_pct,
     )
 
     asset_plan_rows = _translate_asset_plan(native.asset_plan)
@@ -123,6 +128,8 @@ def _translate_asset_plan(asset_plan_df: pd.DataFrame) -> list[RebalanceAssetPla
                 target_value=float(row.get("target_value", 0.0)),
                 buy_amount=float(row.get("buy_amount", 0.0)),
                 sell_amount=float(row.get("sell_amount", 0.0)),
+                quote_price=float(row.get("quote_price", np.nan)),
+                usdbrl_rate=float(row.get("usdbrl_rate", np.nan)),
                 projected_value=float(row.get("projected_value", 0.0)),
             )
         )

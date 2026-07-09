@@ -9,6 +9,8 @@ native output into the v1 Pydantic wire format owned by
 from __future__ import annotations
 
 import dataclasses
+import inspect
+import math
 from typing import TYPE_CHECKING
 
 from omaha.models import Profile
@@ -20,6 +22,8 @@ from omaha.rebalance.builders import (
 from omaha.rebalance.engine import cvxpy_solver
 from omaha.rebalance.quotes_adapter import OmahaMarketPriceLookup
 from omaha.rebalance.schemas import (
+    DEFAULT_MIN_DEVIATION_PCT,
+    DEFAULT_MIN_DEVIATION_VALUE,
     RebalanceAssetPlanRow,
     RebalanceCategoryPlanRow,
     RebalancePlanMetrics,
@@ -50,6 +54,28 @@ def _warning_code_from_message(message: str) -> str:
     return "BUILDER_WARNING"
 
 
+def _derive_trade_quantity(
+    *,
+    buy_amount: float,
+    sell_amount: float,
+    currency_code: str,
+    quote_price: float,
+    usdbrl_rate: float,
+) -> float | None:
+    trade_amount = buy_amount if buy_amount > DISPLAY_TOLERANCE else sell_amount
+    if trade_amount <= DISPLAY_TOLERANCE:
+        return None
+    if not math.isfinite(quote_price) or quote_price <= DISPLAY_TOLERANCE:
+        return None
+
+    if str(currency_code).strip().upper() == "USD":
+        if not math.isfinite(usdbrl_rate) or usdbrl_rate <= DISPLAY_TOLERANCE:
+            return None
+        trade_amount = trade_amount / usdbrl_rate
+
+    return trade_amount / quote_price
+
+
 def _metrics_from_native(native_metrics: object) -> RebalancePlanMetrics:
     if isinstance(native_metrics, dict):
         kwargs = native_metrics
@@ -63,6 +89,8 @@ def run_rebalance(
     profile: Profile,
     contribution: float,
     *,
+    min_deviation_value: float = DEFAULT_MIN_DEVIATION_VALUE,
+    min_deviation_pct: float = DEFAULT_MIN_DEVIATION_PCT,
     solver: object = None,
 ) -> RebalancePlanResponse:
     """Build inputs, run the solver, and return the v1 wire response."""
@@ -102,7 +130,18 @@ def run_rebalance(
     lookup = OmahaMarketPriceLookup(cache=QuoteCache(), db=db)
     quotes = lookup.get_quotes(setup.assets)
 
-    plan_native = solver(setup, positions, quotes, contribution)
+    solver_kwargs: dict[str, float] = {}
+    signature = inspect.signature(solver)
+    parameters = signature.parameters
+    if any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()) or (
+        "min_deviation_value" in parameters and "min_deviation_pct" in parameters
+    ):
+        solver_kwargs = {
+            "min_deviation_value": float(min_deviation_value),
+            "min_deviation_pct": float(min_deviation_pct),
+        }
+
+    plan_native = solver(setup, positions, quotes, contribution, **solver_kwargs)
 
     total_portfolio = sum(float(row.current_value) for row in plan_native.asset_plan)
 
@@ -110,6 +149,8 @@ def run_rebalance(
     for row in plan_native.asset_plan:
         cv = float(row.current_value)
         tv = float(row.target_value)
+        buy_amount = float(row.buy_amount)
+        sell_amount = float(row.sell_amount)
         deviation_value = cv - tv
         deviation_pct = (deviation_value / tv * 100) if tv != 0 else 0.0
         asset_plan.append(
@@ -119,12 +160,19 @@ def run_rebalance(
                 category_name=row.category_name,
                 current_value=cv,
                 target_value=tv,
-                buy_amount=float(row.buy_amount),
-                sell_amount=float(row.sell_amount),
+                buy_amount=buy_amount,
+                sell_amount=sell_amount,
+                trade_quantity=_derive_trade_quantity(
+                    buy_amount=buy_amount,
+                    sell_amount=sell_amount,
+                    currency_code=str(getattr(row, "currency_code", "")),
+                    quote_price=float(getattr(row, "quote_price", math.nan)),
+                    usdbrl_rate=float(getattr(row, "usdbrl_rate", math.nan)),
+                ),
                 projected_value=float(row.projected_value),
                 action=_derive_action(
-                    buy_amount=float(row.buy_amount),
-                    sell_amount=float(row.sell_amount),
+                    buy_amount=buy_amount,
+                    sell_amount=sell_amount,
                 ),
                 deviation_value=deviation_value,
                 deviation_pct=deviation_pct,

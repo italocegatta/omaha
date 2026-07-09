@@ -16,9 +16,11 @@ from omaha.rebalance.postprocessing import (
     _build_restriction_note,
     _clamp_projected_values_to_target_side,
     _reduce_buy_overspend,
+    _suppress_subthreshold_trades,
 )
 from omaha.rebalance.solver import simulate_rebalance
 from tests.fixtures.rebalance_engine import (
+    StubMarketPriceLookup,
     build_simple_position,
     build_simple_quote_frame,
     build_simple_setup,
@@ -168,6 +170,40 @@ def test_plan_metrics_correctly_reported() -> None:
     maximum_buy = metrics["contribution"] + metrics["total_sell_amount"]
     assert metrics["total_buy_amount"] <= maximum_buy + 1e-3
     assert expected_minimum >= 0.0
+
+
+def test_threshold_gate_requires_both_absolute_and_percent_limits() -> None:
+    buys, sells = _suppress_subthreshold_trades(
+        current_values=np.array([5050.0]),
+        target_values=np.array([5000.0]),
+        buy_amounts=np.array([0.0]),
+        sell_amounts=np.array([50.0]),
+        min_deviation_value=40.0,
+        min_deviation_pct=2.0,
+    )
+    assert buys[0] == 0.0
+    assert sells[0] == 0.0
+
+
+def test_simulate_rebalance_recomputes_totals_after_threshold_suppression() -> None:
+    setup = build_simple_setup()
+    position = build_simple_position(5600.0, 4400.0)
+    quotes = StubMarketPriceLookup(build_simple_quote_frame())
+
+    plan = simulate_rebalance(
+        setup,
+        position,
+        contribution=0.0,
+        market_price_lookup=quotes,
+        min_deviation_value=1000.0,
+        min_deviation_pct=1.0,
+    )
+
+    assert float(plan.asset_plan["buy_amount"].sum()) == pytest.approx(0.0)
+    assert float(plan.asset_plan["sell_amount"].sum()) == pytest.approx(0.0)
+    assert float(plan.asset_plan["projected_value"].sum()) == pytest.approx(10_000.0)
+    assert float(plan.metrics["total_buy_amount"]) == pytest.approx(0.0)
+    assert float(plan.metrics["total_sell_amount"]) == pytest.approx(0.0)
 
 
 _ = build_simple_quote_frame  # referenced by docstring import

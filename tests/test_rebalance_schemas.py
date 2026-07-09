@@ -116,10 +116,10 @@ def test_request_rejects_infinity_contribution() -> None:
         RebalanceRequest.model_validate({"contribution": float("-inf")})
 
 
-def test_request_rejects_missing_field() -> None:
-    """Missing ``contribution`` must raise ValidationError."""
-    with pytest.raises(ValidationError):
-        RebalanceRequest()  # type: ignore[call-arg]
+def test_request_without_contribution_uses_default_zero() -> None:
+    """Missing ``contribution`` now resolves to the contract default."""
+    req = RebalanceRequest()
+    assert req.contribution == 0.0
 
 
 def test_request_accepts_positive_contribution() -> None:
@@ -128,13 +128,43 @@ def test_request_accepts_positive_contribution() -> None:
     assert req.contribution == 5000.0
 
 
+def test_request_missing_fields_default_to_contract_values() -> None:
+    """Omitted request fields resolve to route/page defaults."""
+    req = RebalanceRequest.model_validate({})
+    assert req.contribution == 0.0
+    assert req.min_deviation_value == 1000.0
+    assert req.min_deviation_pct == 1.0
+
+
+def test_request_rejects_negative_threshold() -> None:
+    """Thresholds must be zero or positive."""
+    with pytest.raises(ValidationError):
+        RebalanceRequest.model_validate({"min_deviation_value": -1})
+    with pytest.raises(ValidationError):
+        RebalanceRequest.model_validate({"min_deviation_pct": -0.1})
+
+
+def test_request_rejects_non_finite_threshold() -> None:
+    """Thresholds reject NaN/Infinity like contribution does."""
+    with pytest.raises(ValidationError):
+        RebalanceRequest.model_validate({"min_deviation_value": float("nan")})
+    with pytest.raises(ValidationError):
+        RebalanceRequest.model_validate({"min_deviation_pct": float("inf")})
+
+
+def test_request_rejects_null_threshold() -> None:
+    """Explicit null threshold is invalid at wire boundary."""
+    with pytest.raises(ValidationError):
+        RebalanceRequest.model_validate({"min_deviation_value": None})
+
+
 # ---------------------------------------------------------------------------
 # §"Wire format exposes a v1 subset"
 # ---------------------------------------------------------------------------
 
 
-def test_asset_plan_row_carries_exactly_nine_fields() -> None:
-    """``RebalanceAssetPlanRow`` has exactly the 9 v1 fields."""
+def test_asset_plan_row_carries_exactly_twelve_fields() -> None:
+    """``RebalanceAssetPlanRow`` carries v1 fields plus quantity/deviations."""
     row = RebalanceAssetPlanRow(
         asset_key="x",
         asset_name="X",
@@ -143,6 +173,7 @@ def test_asset_plan_row_carries_exactly_nine_fields() -> None:
         target_value=0.0,
         buy_amount=0.0,
         sell_amount=0.0,
+        trade_quantity=None,
         projected_value=0.0,
         action="hold",
     )
@@ -154,21 +185,32 @@ def test_asset_plan_row_carries_exactly_nine_fields() -> None:
         "target_value",
         "buy_amount",
         "sell_amount",
+        "trade_quantity",
         "projected_value",
         "action",
+        "deviation_value",
+        "deviation_pct",
     }
     assert set(row.model_dump().keys()) == expected
 
 
-def test_category_plan_row_carries_exactly_four_fields() -> None:
-    """``RebalanceCategoryPlanRow`` has exactly the 4 v1 fields."""
+def test_category_plan_row_carries_exactly_seven_fields() -> None:
+    """``RebalanceCategoryPlanRow`` carries base values plus F18 percentages."""
     row = RebalanceCategoryPlanRow(
         category_name="X",
         current_value=0.0,
         projected_value=0.0,
         delta=0.0,
     )
-    expected = {"category_name", "current_value", "projected_value", "delta"}
+    expected = {
+        "category_name",
+        "current_value",
+        "projected_value",
+        "delta",
+        "target_pct",
+        "current_pct",
+        "deviation_pct",
+    }
     assert set(row.model_dump().keys()) == expected
 
 
@@ -204,6 +246,7 @@ def test_extra_forbid_rejects_unknown_keys_on_asset_row() -> None:
             target_value=0.0,
             buy_amount=0.0,
             sell_amount=0.0,
+            trade_quantity=None,
             projected_value=0.0,
             action="hold",
             current_weight=0.5,  # type: ignore[call-arg]
@@ -221,6 +264,7 @@ def test_action_enum_rejects_unknown_value() -> None:
             target_value=0.0,
             buy_amount=0.0,
             sell_amount=0.0,
+            trade_quantity=None,
             projected_value=0.0,
             action="liquidate",  # type: ignore[arg-type]
         )

@@ -173,17 +173,23 @@ exists any more; see `dashboard-sidebar` REMOVED delta).
 
 ### Requirement: Asset plan table renders ten visible columns plus a data attribute
 
-The system SHALL render the asset plan table with exactly
-ten visible `<th>` cells: Classe, Ativo, Valor atual,
-Alvo, Desvio (R$), Desvio (%), Compra, Venda, Projetado, Ação.
+The system SHALL render the asset plan table with eleven visible `<th>`
+cells: Classe, Ativo, Valor atual, Alvo, Desvio (R$), Desvio (%), Compra,
+Venda, Qtd, Projetado, Ação.
 Each row carries a `data-asset-key` attribute holding the wire's
 `asset_key` field (used by tests; not visible to the operator).
 
-#### Scenario: Asset plan table has ten visible columns
+The `Qtd` column SHALL appear immediately after `Venda`. It SHALL show
+the calculated trade quantity only for assets with negociação em bolsa
+and finite market price. Rows that are not tradeable or lack an apt
+price SHALL render the `Qtd` cell empty without shifting the column map.
+
+#### Scenario: Asset plan table has eleven visible columns
 
 - **WHEN** the plan renders
-- **THEN** the asset plan `<table>` has exactly ten `<th>`
+- **THEN** the asset plan `<table>` has exactly eleven `<th>`
   elements in `<thead>`
+- **AND** `Qtd` appears after `Venda` and before `Projetado`
 - **AND** each `<tbody> <tr>` has the
   `data-asset-key="..."` attribute matching the row's
   `asset_key`
@@ -274,9 +280,10 @@ four inline elements (not full-width):
 
 The bar uses `data-testid="rebalance-params-bar"`.
 
-Threshold inputs are Alpine reactive state (`thresholdAbs`,
-`thresholdPct`), not form fields. They affect visual color-coding
-only. The Rebalancear button submits the form (POST) as before.
+Threshold inputs SHALL be real form fields submitted with the page request. When
+the page first loads or the caller omits the threshold values, the rendered
+defaults SHALL be `1000` and `1`. The rendered plan SHALL reflect the submitted
+thresholds, not only client-side color-coding.
 
 #### Scenario: Parameter bar renders all four elements inline
 
@@ -286,9 +293,39 @@ only. The Rebalancear button submits the form (POST) as before.
 
 #### Scenario: Threshold defaults are 1000 and 1
 
-- **WHEN** the page loads
+- **WHEN** the page loads without explicit threshold values
 - **THEN** `data-testid="rebalance-threshold-abs"` has value `1000`
 - **AND** `data-testid="rebalance-threshold-pct"` has value `1`
+
+#### Scenario: Threshold fields submit with the form
+
+- **WHEN** the operator posts aporte `5000`, threshold abs `2500`, and
+  threshold pct `2`
+- **THEN** the rendered plan reflects those threshold values
+- **AND** rows below either threshold render as non-actionable hold rows
+
+### Requirement: Threshold gate affects rendered execution suggestions
+
+The system SHALL render `Compra`, `Venda`, `Qtd`, `Projetado`, and `Ação` from
+the server-gated plan. An asset row that fails either minimum threshold SHALL
+render as a hold row with zero buy/sell suggestion even if the ungated optimizer
+would have moved capital through that asset.
+
+#### Scenario: Small buy recommendation is hidden by threshold gate
+
+- **WHEN** the plan contains an asset with ungated `buy_amount = 600`,
+  `deviation_value = 600`, `deviation_pct = 2.0`, and the active thresholds are
+  `1000` and `1`
+- **THEN** the rendered row shows `Compra = R$ 0,00`
+- **AND** the action badge is `Manter`
+
+#### Scenario: Material recommendation stays visible
+
+- **WHEN** the plan contains an asset with `sell_amount = 3500`,
+  `deviation_value = 3500`, `deviation_pct = 2.4`, and the active thresholds are
+  `1000` and `1`
+- **THEN** the rendered row still shows the sell recommendation
+- **AND** the action badge is `Vender`
 
 ### Requirement: Category summary renders as horizontal class cards
 
