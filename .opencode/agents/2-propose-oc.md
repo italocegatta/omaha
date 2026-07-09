@@ -1,6 +1,6 @@
 ---
 description: OpenCode stage 2 proposal builder for one slice
-mode: primary
+mode: subagent
 model: opencode/deepseek-v4-pro
 permission:
   read: allow

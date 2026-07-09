@@ -1,6 +1,6 @@
 ---
 description: OpenCode stage 4 archive and refresh agent for one slice
-mode: primary
+mode: subagent
 model: opencode/deepseek-v4-flash
 permission:
   read: allow

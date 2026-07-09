@@ -1,6 +1,6 @@
 ---
 description: OpenAI stage 2 proposal builder for one slice
-mode: primary
+mode: subagent
 model: openai/gpt-5.4
 variant: high
 permission:

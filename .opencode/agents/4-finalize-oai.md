@@ -1,6 +1,6 @@
 ---
 description: OpenAI stage 4 archive and refresh agent for one slice
-mode: primary
+mode: subagent
 model: openai/gpt-5.4-mini
 variant: medium
 permission:

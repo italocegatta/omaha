@@ -1,6 +1,6 @@
 ---
 description: OpenCode stage 3 implementation agent for one slice
-mode: primary
+mode: subagent
 model: opencode/deepseek-v4-pro
 permission:
   read: allow

@@ -1,6 +1,6 @@
 ---
 description: OpenAI stage 3 implementation agent for one slice
-mode: primary
+mode: subagent
 model: openai/gpt-5.4-mini
 variant: high
 permission:
