@@ -273,9 +273,9 @@ def _seed_quote(symbol: str, price: str, currency: str, fetched_at: datetime | N
         db.commit()
 
 
-def _build_lookup():
+def _build_lookup(*, profile_id: int | None = None):
     """Build a fresh adapter with a real cache + session."""
-    return _adapter_cls()(cache=_quote_cache_cls()(), db=_session()())
+    return _adapter_cls()(cache=_quote_cache_cls()(), db=_session()(), profile_id=profile_id)
 
 
 def test_adapter_auto_brl_with_fresh_cache_returns_available() -> None:
@@ -402,6 +402,45 @@ def test_adapter_manual_class_uses_position_current_price() -> None:
 
     assert frame.iloc[0]["quote_status"] == "not-requested"
     assert frame.iloc[0]["quote_price"] == pytest.approx(200.00)
+
+
+def test_adapter_fallback_price_is_scoped_to_active_profile() -> None:
+    """Duplicate asset names across profiles must not leak fallback prices."""
+    italo_profile_id = _seed_italo_profile()
+    ana_profile_id = 2
+    _seed_class_with_asset(
+        italo_profile_id,
+        "US",
+        "100",
+        "QQQ",
+        "100",
+        quote_kind=QuoteKind.NONE.value,
+        currency_code="USD",
+        positions=[("QQQ", "3677.73", "QQQ")],
+    )
+    _seed_class_with_asset(
+        ana_profile_id,
+        "US",
+        "100",
+        "QQQ",
+        "100",
+        quote_kind=QuoteKind.NONE.value,
+        currency_code="USD",
+        positions=[("QQQ", "3717.39", "QQQ")],
+    )
+
+    lookup = _build_lookup(profile_id=italo_profile_id)
+    assets = pd.DataFrame(
+        {
+            "asset_key": ["qqq"],
+            "asset_name": ["QQQ"],
+            "currency_code": ["USD"],
+        }
+    )
+    frame = lookup.get_quotes(assets)
+
+    assert frame.iloc[0]["quote_status"] == "not-requested"
+    assert frame.iloc[0]["quote_price"] == pytest.approx(3677.73)
 
 
 def test_adapter_usd_with_fresh_brl_x_populates_usdbrl_rate() -> None:

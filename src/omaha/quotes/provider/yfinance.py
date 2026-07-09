@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Any
 
 import yfinance as yf
 
@@ -90,14 +91,34 @@ class YFinanceProvider:
         """
         ticker = yf.Ticker(mapped_symbol)
         fast_info = ticker.fast_info
+        price = YFinanceProvider._dict_like_get(fast_info, "last_price")
+        currency = YFinanceProvider._dict_like_get(fast_info, "currency")
+        if price is None:
+            info = getattr(ticker, "info", {})
+            price = YFinanceProvider._dict_like_get(info, "regularMarketPrice")
+            if currency is None:
+                currency = YFinanceProvider._dict_like_get(info, "currency")
+        if price is None:
+            history = ticker.history(period="5d", interval="1d")
+            if not history.empty and "Close" in history:
+                closes = history["Close"].dropna()
+                if not closes.empty:
+                    price = closes.iloc[-1]
         return {
-            "last_price": fast_info.get("last_price")
-            if hasattr(fast_info, "get")
-            else fast_info["last_price"],
-            "currency": fast_info.get("currency")
-            if hasattr(fast_info, "get")
-            else fast_info["currency"],
+            "last_price": price,
+            "currency": currency,
         }
+
+    @staticmethod
+    def _dict_like_get(mapping: Any, key: str) -> object | None:
+        if mapping is None:
+            return None
+        if hasattr(mapping, "get"):
+            return mapping.get(key)
+        try:
+            return mapping[key]
+        except Exception:
+            return None
 
     def _quote_from_fast_info(
         self, raw_symbol: str, mapped_symbol: str, fast_info: dict[str, object]

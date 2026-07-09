@@ -61,6 +61,7 @@ def _derive_trade_quantity(
     currency_code: str,
     quote_price: float,
     usdbrl_rate: float,
+    quote_status: str,
 ) -> float | None:
     trade_amount = buy_amount if buy_amount > DISPLAY_TOLERANCE else sell_amount
     if trade_amount <= DISPLAY_TOLERANCE:
@@ -68,7 +69,10 @@ def _derive_trade_quantity(
     if not math.isfinite(quote_price) or quote_price <= DISPLAY_TOLERANCE:
         return None
 
-    if str(currency_code).strip().upper() == "USD":
+    # `not-requested` quotes come from Position.current_price fallback and are
+    # already stored in BRL even for USD assets, so FX conversion only applies
+    # to live `available` USD quotes coming from yfinance/cache.
+    if str(currency_code).strip().upper() == "USD" and quote_status == "available":
         if not math.isfinite(usdbrl_rate) or usdbrl_rate <= DISPLAY_TOLERANCE:
             return None
         trade_amount = trade_amount / usdbrl_rate
@@ -127,7 +131,7 @@ def run_rebalance(
         )
 
     positions = build_position_frame(db, profile)
-    lookup = OmahaMarketPriceLookup(cache=QuoteCache(), db=db)
+    lookup = OmahaMarketPriceLookup(cache=QuoteCache(), db=db, profile_id=profile.id)
     quotes = lookup.get_quotes(setup.assets)
 
     solver_kwargs: dict[str, float] = {}
@@ -168,6 +172,7 @@ def run_rebalance(
                     currency_code=str(getattr(row, "currency_code", "")),
                     quote_price=float(getattr(row, "quote_price", math.nan)),
                     usdbrl_rate=float(getattr(row, "usdbrl_rate", math.nan)),
+                    quote_status=str(getattr(row, "quote_status", "not-requested")),
                 ),
                 projected_value=float(row.projected_value),
                 action=_derive_action(

@@ -130,6 +130,7 @@ def _translate_asset_plan(asset_plan_df: pd.DataFrame) -> list[RebalanceAssetPla
                 sell_amount=float(row.get("sell_amount", 0.0)),
                 quote_price=float(row.get("quote_price", np.nan)),
                 usdbrl_rate=float(row.get("usdbrl_rate", np.nan)),
+                quote_status=str(row.get("quote_status", "not-requested")),
                 projected_value=float(row.get("projected_value", 0.0)),
             )
         )

@@ -49,7 +49,7 @@ import pandas as pd
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from omaha.models import Asset
+from omaha.models import Asset, AssetClass
 from omaha.quotes.cache import QuoteCache
 from omaha.rebalance.market_prices import (
     USD_BRL_QUOTE_SYMBOL,
@@ -83,6 +83,7 @@ class OmahaMarketPriceLookup:
 
     cache: QuoteCache
     db: Session
+    profile_id: int | None = None
     _usdbrl_price: float = field(default=float("nan"), init=False, repr=False)
     _usdbrl_fresh: bool = field(default=False, init=False, repr=False)
 
@@ -147,9 +148,12 @@ class OmahaMarketPriceLookup:
 
         stmt = (
             select(Asset)
+            .join(AssetClass, AssetClass.id == Asset.asset_class_id)
             .where(func.lower(Asset.name).in_([k.casefold() for k in asset_keys]))
             .order_by(Asset.id)
         )
+        if self.profile_id is not None:
+            stmt = stmt.where(AssetClass.profile_id == self.profile_id)
         from sqlalchemy.orm import selectinload
 
         stmt = stmt.options(selectinload(Asset.positions))

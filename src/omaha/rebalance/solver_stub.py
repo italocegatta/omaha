@@ -50,6 +50,7 @@ class RebalanceAssetPlanRowNative:
     projected_value: float
     quote_price: float = math.nan
     usdbrl_rate: float = math.nan
+    quote_status: str = "not-requested"
 
 
 @dataclass(frozen=True)

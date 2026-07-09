@@ -497,7 +497,22 @@ def test_trade_quantity_derived_for_brl_usd_and_ineligible_rows(
                 sell_amount=540.0,
                 quote_price=5.0,
                 usdbrl_rate=5.4,
+                quote_status="available",
                 projected_value=100.0,
+            ),
+            RebalanceAssetPlanRowNative(
+                name="USD Fallback Buy",
+                category_name="RF",
+                currency_code="USD",
+                buy_enabled=True,
+                current_value=4879.39,
+                target_value=18339.65226,
+                buy_amount=13460.26226,
+                sell_amount=0.0,
+                quote_price=392.88,
+                usdbrl_rate=5.14,
+                quote_status="not-requested",
+                projected_value=18339.65226,
             ),
             RebalanceAssetPlanRowNative(
                 name="No Price",
@@ -520,7 +535,7 @@ def test_trade_quantity_derived_for_brl_usd_and_ineligible_rows(
         ],
         metrics=RebalancePlanMetricsNative(
             contribution=1000.0,
-            total_buy=1000.0,
+            total_buy=14460.26226,
             total_sell=540.0,
             residual_cash=0.0,
             current_deviation_pct=0.0,
@@ -540,4 +555,5 @@ def test_trade_quantity_derived_for_brl_usd_and_ineligible_rows(
     quantities = {row.asset_name: row.trade_quantity for row in response.asset_plan}
     assert quantities["BRL Buy"] == pytest.approx(50.0)
     assert quantities["USD Sell"] == pytest.approx(20.0)
+    assert quantities["USD Fallback Buy"] == pytest.approx(34.260492414986764)
     assert quantities["No Price"] is None

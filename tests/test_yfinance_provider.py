@@ -27,6 +27,8 @@ import asyncio
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
+import pandas as pd
+
 from omaha.quotes.provider import YFinanceProvider, map_symbol
 
 # ---------------------------------------------------------------------------
@@ -172,4 +174,21 @@ def test_yfinance_provider_brl_x_maps_through() -> None:
 
     assert result is not None
     assert result.symbol == "BRL=X"
+    assert result.currency == "BRL"
+
+
+def test_yfinance_provider_falls_back_to_info_when_fast_info_has_no_last_price() -> None:
+    """FX quotes still resolve when `fast_info.last_price` is absent."""
+    ticker = MagicMock()
+    ticker.fast_info = {"currency": "BRL"}
+    ticker.info = {"regularMarketPrice": 5.23, "currency": "BRL"}
+    ticker.history.return_value = pd.DataFrame({"Close": [5.11, 5.22]})
+
+    with patch("omaha.quotes.provider.yfinance.yf.Ticker", return_value=ticker):
+        provider = YFinanceProvider()
+        result = asyncio.run(provider.fetch("BRL=X"))
+
+    assert result is not None
+    assert result.symbol == "BRL=X"
+    assert result.price == Decimal("5.23")
     assert result.currency == "BRL"
