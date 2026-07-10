@@ -1,7 +1,7 @@
 ---
 description: OpenCode code review agent for one implemented slice
 mode: subagent
-model: opencode/deepseek-v4-flash
+model: opencode-go/deepseek-v4-pro
 permission:
   read: allow
   edit: allow

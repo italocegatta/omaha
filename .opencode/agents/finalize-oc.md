@@ -1,7 +1,7 @@
 ---
 description: OpenCode archive, sync, commit, and push agent for one slice
 mode: subagent
-model: opencode/deepseek-v4-flash
+model: opencode-go/deepseek-v4-flash
 permission:
   read: allow
   edit: allow

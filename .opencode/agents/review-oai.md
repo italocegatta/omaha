@@ -1,7 +1,7 @@
 ---
 description: OpenAI code review agent for one implemented slice
 mode: subagent
-model: openai/gpt-5.4-mini
+model: openai/gpt-5.4
 variant: high
 permission:
   read: allow

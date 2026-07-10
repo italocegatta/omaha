@@ -216,6 +216,7 @@ test-audit-integration = { cmd = "uv run pytest tests/audit_integration -v",    
 test-e2e         = { cmd = "uv run pytest tests/e2e -v",                             help = "Playwright tests under tests/e2e/" }
 test-visual      = { cmd = "uv run pytest tests/visual -v --no-cov",                 help = "Playwright visual regression tests under tests/visual/" }
 test-bdd         = { cmd = "uv run pytest tests/bdd -v",                               help = "BDD e2e scenarios under tests/bdd/ (pytest-bdd, real chromium, serial)" }
+test-bdd-single  = { cmd = "uv run python -m tests.bdd_replay",                      help = "Rebuild BDD test DB, then replay one scenario or ordered prefix (use --trace / --after FILE)" }
 test-file        = { cmd = "uv run pytest -v",                                        help = "Run a specific test file:  task test-file tests/test_X.py" }
 test-pattern     = { cmd = "uv run pytest -v -k",                                     help = "Run tests matching a name substring:  task test-pattern \"smoke\"" }
 test-one         = { cmd = "uv run pytest -v",                                        help = "Run a single test by node id:  task test-one tests/test_X.py::test_y" }

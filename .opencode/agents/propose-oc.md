@@ -1,7 +1,7 @@
 ---
 description: OpenCode proposal builder for one slice
 mode: subagent
-model: opencode/deepseek-v4-pro
+model: opencode-go/deepseek-v4-flash
 permission:
   read: allow
   edit: allow

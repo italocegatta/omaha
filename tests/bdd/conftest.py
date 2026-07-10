@@ -8,9 +8,10 @@ a separate SQLite file ``data/test_bdd.db`` so the legacy
 
 Browser lifecycle is identical to ``tests/e2e/conftest.py`` — we
 import the ``page`` / ``browser_context`` / ``_browser`` fixtures
-directly from there. The BDD suite overrides only the
-profile-wipe policy (``clean_italo``) so every test wipes both
-seeded profiles (``Italo`` AND ``Ana``) before running.
+directly from there. BDD-specific harness glue adds stronger
+uvicorn teardown and a 3s SQLite ``busy_timeout`` during profile
+wipes so late-suite lock contention is observable instead of
+failing immediately.
 """
 
 from __future__ import annotations
@@ -27,6 +28,10 @@ from tests.e2e.conftest import (  # noqa: F401  (re-exported to step_defs)
 )
 from tests.e2e.conftest import (
     _browser,  # noqa: F401  (transitive: page → browser_context → _browser)
+    _remember_call_report,
+    _read_log_tail,
+    _shutdown_uvicorn,
+    _uvicorn_log_file,
     _wait_for_port,
     browser_context,  # noqa: F401
     page,  # noqa: F401
@@ -76,6 +81,7 @@ def _wipe_profile(profile_name: str) -> None:
         return
     conn = sqlite3.connect(BDD_DB_PATH)
     try:
+        conn.execute("PRAGMA busy_timeout = 3000")
         row = conn.execute("SELECT id FROM profiles WHERE name = ?", (profile_name,)).fetchone()
         if row is None:
             return
@@ -113,6 +119,8 @@ def live_url() -> str:
         "OMAHA_SKIP_STARTUP": "",
     }
 
+    log_handle = _uvicorn_log_file("bdd-live-url")
+    log_path = _E2E_REPO_ROOT / "tmp" / "uvicorn-logs" / os.path.basename(log_handle.name)
     proc = subprocess.Popen(
         [
             sys.executable,
@@ -128,7 +136,7 @@ def live_url() -> str:
         ],
         cwd=_E2E_REPO_ROOT,
         env=env,
-        stdout=subprocess.PIPE,
+        stdout=log_handle,
         stderr=subprocess.STDOUT,
     )
 
@@ -136,21 +144,27 @@ def live_url() -> str:
         _wait_for_bdd_port()
     except Exception:
         proc.terminate()
-        try:
-            out = proc.stdout.read(timeout=2) if proc.stdout else b""
-        except Exception:
-            out = b"<unreadable>"
+        log_handle.close()
         raise RuntimeError(
-            f"BDD uvicorn did not start on {TEST_BASE_URL}. output:\n{out.decode(errors='replace')}"
+            f"BDD uvicorn did not start on {TEST_BASE_URL}. output:\n{_read_log_tail(log_path)}"
         ) from None
 
     yield TEST_BASE_URL
 
-    proc.terminate()
-    try:
-        proc.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        proc.kill()
+    _shutdown_uvicorn(
+        proc,
+        label="bdd live_url",
+        host="127.0.0.1",
+        port=BDD_PORT,
+        log_handle=log_handle,
+        log_path=log_path,
+    )
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]):
+    outcome = yield
+    _remember_call_report(item, outcome.get_result())
 
 
 @pytest.fixture(autouse=True)

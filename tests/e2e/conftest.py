@@ -27,11 +27,13 @@ Server lifecycle
 - The session-scoped ``live_url`` fixture deletes any leftover
   test DB, starts a uvicorn subprocess with overrides for
   ``DATABASE_URL``, ``ADMIN_PASSWORD``, and ``SECRET_KEY``, and
-  waits for the port to accept connections. The subprocess's
-  startup hook runs ``alembic upgrade head`` + idempotent
-  ``seed()`` against the test DB on its own, so the schema and
-  the ``family`` / ``Italo`` / ``Ana Livia`` seed data are
-  present before the first test hits the server.
+  waits for the port to accept connections. Teardown now uses
+  ``terminate()`` → wait → ``kill()`` fallback and logs if the
+  port stays bound after shutdown. The subprocess's startup hook
+  runs ``alembic upgrade head`` + idempotent ``seed()`` against
+  the test DB on its own, so the schema and the ``family`` /
+  ``Italo`` / ``Ana`` seed data are present before first test
+  hits the server.
 - The function-scoped ``clean_italo`` fixture wipes
   ``Italo``'s classes (and the cascading assets) via raw sqlite3
   so each test starts from a known-empty class list.
@@ -39,8 +41,12 @@ Server lifecycle
 Browser lifecycle
 -----------------
 - A fresh chromium context per test (isolated cookies, isolated
-  storage). The browser process itself is reused across tests in
-  the same module for speed.
+  storage). ``OMAHA_E2E_TRACE_DIR=/path`` enables best-effort
+  Playwright traces on failure for harness debugging.
+- The shared ``page`` fixture wraps same-URL ``goto()`` calls so
+  trace/debug replays wait for an in-flight dashboard reload
+  instead of failing on Playwright's self-interrupt navigation
+  error.
 """
 
 from __future__ import annotations
@@ -52,9 +58,13 @@ import subprocess
 import sys
 import time
 import uuid
+import re
 from pathlib import Path
+from tempfile import NamedTemporaryFile
+from typing import Any
 
 import pytest
+from playwright.sync_api import Error as PlaywrightError
 
 from tests.e2e.test_import_user_journey import SELECTORS as IMPORT_SELECTORS
 
@@ -79,6 +89,114 @@ TEST_BASE_URL = f"http://127.0.0.1:{TEST_PORT}"
 TEST_DB_PATH_SHORT_TTL = REPO_ROOT / "data" / "test_e2e_short_ttl.db"
 TEST_PORT_SHORT_TTL = 8767
 TEST_BASE_URL_SHORT_TTL = f"http://127.0.0.1:{TEST_PORT_SHORT_TTL}"
+TRACE_DIR_ENV_VAR = "OMAHA_E2E_TRACE_DIR"
+
+_BROWSER_CONTEXTS: dict[int, list[Any]] = {}
+_GOTO_INTERRUPT_RE = re.compile(
+    r'Navigation to "(?P<target>[^"]+)" is interrupted by another navigation to "(?P<other>[^"]+)"'
+)
+
+
+class _HarnessPage:
+    """Thin Page proxy with retry-on-same-URL navigation guard.
+
+    Some Omaha test workflows click a UI action that triggers
+    ``window.location.reload()`` and then immediately call
+    ``page.goto()`` to the same dashboard URL. Under slower harness
+    paths (notably trace/debug runs), Playwright can surface this as
+    a same-URL navigation interruption even though the in-flight
+    reload already heads to the requested page. Treat that narrow
+    case as wait-for-completion instead of hard failure.
+    """
+
+    def __init__(self, page: Any):
+        self._page = page
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._page, name)
+
+    def goto(self, url: str, *args: Any, **kwargs: Any):
+        try:
+            return self._page.goto(url, *args, **kwargs)
+        except PlaywrightError as exc:
+            match = _GOTO_INTERRUPT_RE.search(str(exc))
+            if match is None or match.group("target") != url or match.group("other") != url:
+                raise
+            timeout = int(kwargs.get("timeout", 30_000))
+            wait_until = kwargs.get("wait_until", "load")
+            _log_harness(f"same-URL goto interrupted by in-flight reload; waiting instead: {url}")
+            self._page.wait_for_url(url, wait_until=wait_until, timeout=timeout)
+            return None
+
+
+def _log_harness(message: str) -> None:
+    print(f"[omaha-test-harness] {message}", file=sys.stderr, flush=True)
+
+
+def _remember_call_report(item: pytest.Item, report: pytest.TestReport) -> None:
+    if report.when == "call":
+        setattr(item, "_omaha_call_report", report)
+
+
+def _trace_artifact_path(base_dir: Path, nodeid: str) -> Path:
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "_", nodeid).strip("_") or "trace"
+    return base_dir / f"{slug}.zip"
+
+
+def _port_is_free(host: str, port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind((host, port))
+        except OSError:
+            return False
+    return True
+
+
+def _uvicorn_log_file(label: str):
+    log_dir = REPO_ROOT / "tmp" / "uvicorn-logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", label).strip("-") or "uvicorn"
+    return NamedTemporaryFile(prefix=f"{slug}-", suffix=".log", dir=log_dir, delete=False)
+
+
+def _read_log_tail(log_path: Path, max_bytes: int = 4000) -> str:
+    if not log_path.exists():
+        return "<missing log file>"
+    data = log_path.read_bytes()
+    return data[-max_bytes:].decode(errors="replace")
+
+
+def _shutdown_uvicorn(
+    proc: subprocess.Popen[bytes],
+    *,
+    label: str,
+    host: str,
+    port: int,
+    log_handle: Any | None = None,
+    log_path: Path | None = None,
+) -> None:
+    proc.terminate()
+    try:
+        proc.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        pass
+
+    if proc.poll() is None:
+        _log_harness(f"{label}: terminate timeout on {host}:{port}; sending kill()")
+        proc.kill()
+        try:
+            proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            _log_harness(f"{label}: process still alive after kill() on {host}:{port}")
+
+    if not _port_is_free(host, port):
+        _log_harness(f"{label}: port {port} still bound after teardown")
+
+    if log_handle is not None:
+        log_handle.close()
+    if log_path is not None and proc.returncode not in (0, -15):
+        _log_harness(f"{label}: uvicorn log tail\n{_read_log_tail(log_path)}")
 
 
 def _seed_assets_with_positions_via_import(
@@ -199,6 +317,12 @@ def _wait_for_port(host: str, port: int, timeout: float = 20.0) -> None:
     )
 
 
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]):
+    outcome = yield
+    _remember_call_report(item, outcome.get_result())
+
+
 @pytest.fixture(scope="session")
 def live_url() -> str:
     """Start a real uvicorn process for the e2e suite; yield the base URL."""
@@ -217,6 +341,8 @@ def live_url() -> str:
         "OMAHA_SKIP_STARTUP": "",
     }
 
+    log_handle = _uvicorn_log_file("e2e-live-url")
+    log_path = Path(log_handle.name)
     proc = subprocess.Popen(
         [
             sys.executable,
@@ -232,7 +358,7 @@ def live_url() -> str:
         ],
         cwd=REPO_ROOT,
         env=env,
-        stdout=subprocess.PIPE,
+        stdout=log_handle,
         stderr=subprocess.STDOUT,
     )
 
@@ -240,21 +366,21 @@ def live_url() -> str:
         _wait_for_port("127.0.0.1", TEST_PORT, timeout=30.0)
     except Exception:
         proc.terminate()
-        try:
-            out = proc.stdout.read(timeout=2) if proc.stdout else b""
-        except Exception:
-            out = b"<unreadable>"
+        log_handle.close()
         raise RuntimeError(
-            f"uvicorn did not start. output:\n{out.decode(errors='replace')}"
+            f"uvicorn did not start. output:\n{_read_log_tail(log_path)}"
         ) from None
 
     yield TEST_BASE_URL
 
-    proc.terminate()
-    try:
-        proc.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        proc.kill()
+    _shutdown_uvicorn(
+        proc,
+        label="e2e live_url",
+        host="127.0.0.1",
+        port=TEST_PORT,
+        log_handle=log_handle,
+        log_path=log_path,
+    )
 
 
 def _start_uvicorn(db_path: Path, port: int, extra_env: dict[str, str]) -> subprocess.Popen:
@@ -271,6 +397,8 @@ def _start_uvicorn(db_path: Path, port: int, extra_env: dict[str, str]) -> subpr
         **extra_env,
     }
 
+    log_handle = _uvicorn_log_file(f"e2e-port-{port}")
+    log_path = Path(log_handle.name)
     proc = subprocess.Popen(
         [
             sys.executable,
@@ -286,7 +414,7 @@ def _start_uvicorn(db_path: Path, port: int, extra_env: dict[str, str]) -> subpr
         ],
         cwd=REPO_ROOT,
         env=env,
-        stdout=subprocess.PIPE,
+        stdout=log_handle,
         stderr=subprocess.STDOUT,
     )
 
@@ -294,14 +422,13 @@ def _start_uvicorn(db_path: Path, port: int, extra_env: dict[str, str]) -> subpr
         _wait_for_port("127.0.0.1", port, timeout=30.0)
     except Exception:
         proc.terminate()
-        try:
-            out = proc.stdout.read(timeout=2) if proc.stdout else b""  # type: ignore[attr-defined]
-        except Exception:
-            out = b"<unreadable>"
+        log_handle.close()
         raise RuntimeError(
-            f"uvicorn did not start. output:\n{out.decode(errors='replace')}"
+            f"uvicorn did not start. output:\n{_read_log_tail(log_path)}"
         ) from None
 
+    setattr(proc, "_omaha_log_handle", log_handle)
+    setattr(proc, "_omaha_log_path", log_path)
     return proc
 
 
@@ -315,11 +442,14 @@ def live_url_short_ttl() -> str:
     )
     yield TEST_BASE_URL_SHORT_TTL
 
-    proc.terminate()
-    try:
-        proc.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        proc.kill()
+    _shutdown_uvicorn(
+        proc,
+        label="e2e live_url_short_ttl",
+        host="127.0.0.1",
+        port=TEST_PORT_SHORT_TTL,
+        log_handle=getattr(proc, "_omaha_log_handle", None),
+        log_path=getattr(proc, "_omaha_log_path", None),
+    )
 
 
 def _wipe_classes_for(profile_name: str) -> None:
@@ -341,6 +471,7 @@ def _wipe_classes_for(profile_name: str) -> None:
         return
     conn = sqlite3.connect(TEST_DB_PATH)
     try:
+        conn.execute("PRAGMA busy_timeout = 3000")
         row = conn.execute("SELECT id FROM profiles WHERE name = ?", (profile_name,)).fetchone()
         if row is None:
             return
@@ -384,6 +515,7 @@ def _wipe_classes_for_in_db(db_path: Path, profile_name: str) -> None:
         return
     conn = sqlite3.connect(db_path)
     try:
+        conn.execute("PRAGMA busy_timeout = 3000")
         row = conn.execute("SELECT id FROM profiles WHERE name = ?", (profile_name,)).fetchone()
         if row is None:
             return
@@ -480,27 +612,73 @@ def _browser():
                 "`uv run playwright install chromium --with-deps` to install "
                 "system dependencies (libnss3, libxkbcommon0, libgbm1, etc.)."
             ) from exc
+        browser_key = id(browser)
+        _BROWSER_CONTEXTS[browser_key] = []
         try:
             yield browser
         finally:
-            browser.close()
+            try:
+                browser.close()
+            except Exception as exc:
+                _log_harness(f"browser.close() failed: {exc}")
+                for context in list(_BROWSER_CONTEXTS.get(browser_key, [])):
+                    try:
+                        context.close()
+                    except Exception as context_exc:
+                        _log_harness(f"browser context fallback close failed: {context_exc}")
+            finally:
+                _BROWSER_CONTEXTS.pop(browser_key, None)
 
 
 @pytest.fixture()
-def browser_context(_browser):
+def browser_context(_browser, request: pytest.FixtureRequest):
     """Fresh chromium context per test (isolated cookies, isolated storage)."""
+    trace_dir_raw = os.environ.get(TRACE_DIR_ENV_VAR)
+    trace_dir = Path(trace_dir_raw) if trace_dir_raw else None
     context = _browser.new_context()
+    browser_key = id(_browser)
+    _BROWSER_CONTEXTS.setdefault(browser_key, []).append(context)
+    tracing_enabled = False
+    if trace_dir is not None:
+        trace_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            context.tracing.start(screenshots=True, snapshots=True)
+            tracing_enabled = True
+        except Exception as exc:
+            _log_harness(f"trace start failed for {request.node.nodeid}: {exc}")
     try:
         yield context
     finally:
-        context.close()
+        report = getattr(request.node, "_omaha_call_report", None)
+        failed = bool(report and report.failed)
+        if tracing_enabled and trace_dir is not None:
+            trace_path = _trace_artifact_path(trace_dir, request.node.nodeid)
+            try:
+                if failed:
+                    context.tracing.stop(path=str(trace_path))
+                    _log_harness(f"trace kept for failing test: {trace_path}")
+                else:
+                    context.tracing.stop()
+            except Exception as exc:
+                _log_harness(f"trace stop failed for {request.node.nodeid}: {exc}")
+        if not _browser.is_connected():
+            _log_harness(f"browser disconnected before context teardown: {request.node.nodeid}")
+        try:
+            context.close()
+        except Exception as exc:
+            _log_harness(f"browser context close failed for {request.node.nodeid}: {exc}")
+        finally:
+            contexts = _BROWSER_CONTEXTS.get(browser_key, [])
+            if context in contexts:
+                contexts.remove(context)
 
 
 @pytest.fixture()
 def page(browser_context):
     """Fresh page bound to an isolated browser context."""
-    page = browser_context.new_page()
+    raw_page = browser_context.new_page()
+    page = _HarnessPage(raw_page)
     try:
         yield page
     finally:
-        page.close()
+        raw_page.close()

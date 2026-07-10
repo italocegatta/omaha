@@ -118,7 +118,7 @@ def _add_asset_via_dashboard(
 
     page.goto(f"{base_url}/", wait_until="commit", timeout=60000)
     page.wait_for_selector(
-        f"{SELECTORS['dashboard_asset_row']}:has({SELECTORS['asset_row_name_text']}:text-is(\"{asset_name}\"))",
+        f'{SELECTORS["dashboard_asset_row"]}:has({SELECTORS["asset_row_name_text"]}:text-is("{asset_name}"))',
         state="visible",
         timeout=30000,
     )

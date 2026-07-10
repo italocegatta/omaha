@@ -63,9 +63,9 @@ Edit this table when you want to swap provider priority or change models.
 |---|------|-------------|-------------|---------|----------|--------|
 | 1 | Demand → Scope | `explore-oai` | `explore-oc` | **OAI** | OC | `openspec-explore`, `grill-me` |
 | 2 | Scope → Spec Proposed | `propose-oai` | `propose-oc` | **OAI** | OC | `openspec-propose` |
-| 3 | Spec Proposed → Applied | `apply-oai` | `apply-oc` | **OC** | OAI | `openspec-apply-change` |
+| 3 | Spec Proposed → Applied | `apply-oai` | `apply-oc` | **OAI** | OC | `openspec-apply-change` |
 | 4 | Applied → Reviewed | `review-oai` | `review-oc` | **OAI** | OC | `code-review` |
-| 5 | Reviewed → Finalized | `finalize-oai` | `finalize-oc` | **OC** | OAI | `openspec-sync-specs`, `openspec-archive-change` |
+| 5 | Reviewed → Finalized | `finalize-oai` | `finalize-oc` | **OAI** | OC | `openspec-sync-specs`, `openspec-archive-change` |
 
 To swap a gate's primary provider: change the `Primary` column and swap the
 `subagent_type` you pass to `task()`.
@@ -74,16 +74,16 @@ To swap a gate's primary provider: change the `Primary` column and swap the
 
 | Subagent | Model |
 |----------|-------|
-| `explore-oai` | `openai/gpt-5.4` |
-| `explore-oc` | `opencode/deepseek-v4-pro` |
-| `propose-oai` | `openai/gpt-5.4` |
-| `propose-oc` | `opencode/deepseek-v4-pro` |
-| `apply-oai` | `openai/gpt-5.4-mini` |
-| `apply-oc` | `opencode/deepseek-v4-pro` |
-| `review-oai` | `openai/gpt-5.4-mini` |
-| `review-oc` | `opencode/deepseek-v4-flash` |
+| `explore-oai` | `openai/gpt-5.4-mini` |
+| `explore-oc` | `opencode-go/deepseek-v4-flash` |
+| `propose-oai` | `openai/gpt-5.4-min` |
+| `propose-oc` | `opencode-go/deepseek-v4-flash` |
+| `apply-oai` | `openai/gpt-5.4` |
+| `apply-oc` | `opencode-go/deepseek-v4-pro` |
+| `review-oai` | `openai/gpt-5.4` |
+| `review-oc` | `opencode-go/deepseek-v4-pro` |
 | `finalize-oai` | `openai/gpt-5.4-mini` |
-| `finalize-oc` | `opencode/deepseek-v4-flash` |
+| `finalize-oc` | `opencode-go/deepseek-v4-flash` |
 
 ### Rules
 

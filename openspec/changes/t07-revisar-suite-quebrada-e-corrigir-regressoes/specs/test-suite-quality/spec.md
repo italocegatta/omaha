@@ -3,7 +3,7 @@
 ### Requirement: Delivery gate requires full suite green
 Runtime changes SHALL not be considered delivered while `uv run task test` is red.
 Archive/merge must wait for a green full suite, not just a green subset.
-For this slice, the canonical regression families are BDD, e2e, visual, real CSV flow, seed-from-CSV, and rebalance glue/schema tests; a red result in any of them SHALL block delivery until the failing expectation is corrected in the owning test, runtime code, or spec.
+For this slice, the canonical regression families are BDD and e2e browser/workflow tests, including import modal and visible navigation/import flows; a red result in any of them SHALL block delivery until the failing expectation is corrected in the owning test or runtime code.
 
 #### Scenario: Full suite is red and delivery is blocked
 - **WHEN** `uv run task test` fails

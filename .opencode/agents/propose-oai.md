@@ -1,7 +1,7 @@
 ---
 description: OpenAI proposal builder for one slice
 mode: subagent
-model: openai/gpt-5.4
+model: openai/gpt-5.4-mini
 variant: high
 permission:
   read: allow

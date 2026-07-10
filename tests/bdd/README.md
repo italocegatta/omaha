@@ -12,6 +12,7 @@ at the bottom of ``conftest.py``.
 task test-bdd           # full suite (real chromium, ~30-90s)
 task test-bdd -k login  # one feature
 task test-pattern login # pytest -k substring match
+task test-bdd-single login_creates_new_profile
 ```
 
 BDD scenarios run serial — the autouse
@@ -33,6 +34,46 @@ without revisiting that fixture.
 | ``full-suite`` | ``task test`` | too risky for now | mixed browser/live-server load; use only when needed |
 
 BDD browser launch stays per-suite serial until repeated-run evidence proves safe wider reuse.
+
+## Debugging late-suite hangs
+
+Use ``task test-bdd-single <name>`` when full-suite BDD hangs only after
+many tests. Command rebuilds ``data/test_bdd.db`` from scratch
+(``alembic upgrade head`` + ``omaha.seed``), then runs one filtered
+scenario with ``--no-header -v -p no:cacheprovider`` so harness-only
+flakes are cheaper to replay.
+
+Examples:
+
+```
+task test-bdd-single login_creates_new_profile
+task test-bdd-single --trace login_creates_new_profile
+task test-bdd-single --after tests/bdd/.prefix-05.txt test_profile_switcher_header
+```
+
+- ``--trace`` keeps Playwright ``.zip`` traces for failing tests under
+  ``tmp/bdd-traces/<timestamp>/``.
+- ``--after <file>`` runs ordered prefix nodeids from file first, then
+  target in same pytest invocation. Use this to replay cumulative suite
+  pressure without re-running whole suite.
+
+Refresh collected order with:
+
+```
+uv run pytest tests/bdd/test_scenarios.py --collect-only -q > tests/bdd/.collected_order.txt
+cp tests/bdd/.collected_order.txt tests/bdd/.collected_order.baseline.txt
+```
+
+For small prefixes, copy first N lines from ``.collected_order.txt`` into
+temporary prefix file and pass file to ``--after``.
+
+Inspect these diagnostics when replay still hangs or times out:
+
+- uvicorn stdout from fixture startup/teardown failures
+- ``ps aux | grep chromium`` for orphan browser processes
+- SQLite lock state around ``data/test_bdd.db`` / ``*.db-wal`` / ``*.db-shm``
+- harness stderr lines tagged ``[omaha-test-harness]`` for kill-path,
+  port-release, trace-save, and browser-close warnings
 
 ## Architecture: workflow + wrapper pattern
 

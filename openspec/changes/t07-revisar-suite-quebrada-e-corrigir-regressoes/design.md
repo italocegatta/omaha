@@ -1,6 +1,6 @@
 ## Context
 
-Suite audit shows broad red surface across BDD, e2e, visual, CSV seed flow, and rebalance glue/schema tests. The failure mix suggests a combination of stale assertions, contract drift, and at least some genuine regressions.
+Suite audit shows red surface in BDD and e2e browser/workflow tests. The failure mix suggests stale assertions plus some genuine regressions in the visible navigation/import flows.
 
 ## Goals / Non-Goals
 
@@ -17,7 +17,7 @@ Suite audit shows broad red surface across BDD, e2e, visual, CSV seed flow, and 
 
 ## Decisions
 
-- Fix failures in dependency order: shared fixtures and glue first, then family-specific assertions, then full-suite verification.
+- Fix failures in dependency order: shared fixtures and glue first, then family-specific assertions, then focused verification.
 - Treat specs as source of truth when tests contradict them; only change specs when the current contract is actually wrong.
 - Prefer narrow edits over generalized test rewrites so the root cause stays visible.
 
@@ -25,7 +25,7 @@ Suite audit shows broad red surface across BDD, e2e, visual, CSV seed flow, and 
 
 - Multiple unrelated failures can hide each other -> address shared fixtures before per-test churn.
 - A stale test may look like a product bug -> compare against owning spec before touching runtime code.
-- Visual or BDD fixes may require baseline/data updates -> keep those changes local to the failing scenario.
+- Browser-flow fixes may require selector or wait updates -> keep those changes local to failing scenario.
 
 ## Migration Plan
 
@@ -33,7 +33,7 @@ Suite audit shows broad red surface across BDD, e2e, visual, CSV seed flow, and 
 2. Fix shared glue or fixture issues first.
 3. Repair stale expectations or runtime regressions per family.
 4. Re-run focused suites, then full suite.
-5. Update spec text or visual baselines only when the contract changed.
+5. Update spec text only when the contract changed.
 
 ## Open Questions
 

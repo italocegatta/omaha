@@ -1,7 +1,7 @@
 ---
 description: OpenCode implementation agent for one slice
 mode: subagent
-model: opencode/deepseek-v4-pro
+model: opencode-go/deepseek-v4-pro
 permission:
   read: allow
   edit: allow

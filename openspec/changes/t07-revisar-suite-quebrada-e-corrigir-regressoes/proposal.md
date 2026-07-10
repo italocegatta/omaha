@@ -4,7 +4,7 @@ The current regression suite is red across core families, so delivery signal is 
 
 ## What Changes
 
-- Triage failing BDD, e2e, visual, CSV flow, seed, and rebalance tests by root cause.
+- Triage failing BDD and e2e browser/workflow tests by root cause.
 - Fix tests when they encode stale expectations.
 - Fix runtime code when it violates existing contracts.
 - Update specs only when the source contract itself is wrong.
@@ -24,9 +24,6 @@ The current regression suite is red across core families, so delivery signal is 
 
 - `tests/bdd/`
 - `tests/e2e/`
-- `tests/visual/`
-- `tests/test_real_csv_flow.py`
-- `tests/test_seed_from_csv.py`
-- `tests/test_rebalance_glue.py`
-- `tests/test_rebalance_schemas.py`
+- `src/omaha/routes/`
+- `src/omaha/templates/`
 - `openspec/specs/test-suite-quality/spec.md`

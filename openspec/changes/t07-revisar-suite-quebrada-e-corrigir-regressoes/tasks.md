@@ -5,9 +5,9 @@
 
 ## 2. Repair regressions
 
-- [ ] 2.1 Fix shared fixture or glue issues that affect multiple families.
-- [x] 2.2 Repair BDD/e2e/visual assertions that encode stale expectations.
-- [ ] 2.3 Repair real CSV flow, seed-from-CSV, and rebalance schema/glue failures.
+- [ ] 2.1 Fix shared fixture or glue issues that affect multiple browser families.
+- [x] 2.2 Repair BDD/e2e assertions that encode stale expectations.
+- [x] 2.3 Repair import modal and visible navigation regressions in browser flows.
 
 ## 3. Verify stability
 
