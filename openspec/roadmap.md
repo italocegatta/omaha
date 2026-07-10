@@ -161,28 +161,10 @@ Goal: Alinhar buckets/tasks/hooks/CI da suite, limpar drift de markers, e
 Archive: `openspec/changes/archive/2026-07-10-t08-revisar-paralelismo-e-custo-da-suite-de-testes/`
 
 ### T09 - Revisar regressões visuais e baselines
-Status: `Applied`
-Goal: Revisar `tests/visual/*` para decidir, caso a caso, se falha vem de
-  baseline desatualizada, seletor frágil, ou regressão real de UI. Corrigir
-  menor lado correto sem esconder regressão visual verdadeira.
-Candidate OpenSpec change id: `t09-revisar-regressoes-visuais-e-baselines`
-Spec link: `openspec/changes/t09-revisar-regressoes-visuais-e-baselines/`
-Files: `tests/visual/`, `src/omaha/templates/`, `src/omaha/static/app.css`,
-  `openspec/specs/`
-Notes: Fatia criada do split de T07 após owner pedir grupos menores por janela
-  de contexto. Foco é baseline visual, screenshot drift, seletor de UI, e
-  setup que gera falso positivo/negativo. Não cobre BDD/e2e nem runtime de
-  paralelismo.
-Progress:
-  - 2026-07-09: Added from T07 split. Queue after T07 because visual drift
-    bloqueia confiança em mudanças visíveis, mas não precisa misturar com
-    browser workflow/import fixes já em andamento.
-  - 2026-07-10: Propose complete. Created `proposal.md`, `design.md`,
-    `tasks.md`, and delta spec under
-    `openspec/changes/t09-revisar-regressoes-visuais-e-baselines/`.
-    Spec verification pending.
-  - 2026-07-10: Apply complete. No UI/runtime regression found; focused visual
-    triage hardened waits and docs/spec around current baseline policy.
+Status: `Archived` — 2026-07-10
+Goal: Revisar regressões visuais e baselines para separar drift de baseline,
+  seletor frágil, ou regressão real de UI. Corrigir menor lado correto.
+Archive: `openspec/changes/archive/2026-07-10-t09-revisar-regressoes-visuais-e-baselines/`
 
 ### T10 - Revisar pipeline CSV real e seed_from_csv
 Status: `Ready`
@@ -201,6 +183,44 @@ Progress:
   - 2026-07-09: Added from T07 split. Queue after T09 because import/browser
     work atual pode revelar contrato/fixture compartilhado antes de atacar
     pipeline CSV profundo.
+
+### I03 - Regularizar plumbing do pre-push
+Status: `Applied`
+Goal: Corrigir plumbing de `pre-push` para rodar buckets canônicos de tarefa
+  sem parse quebrado de `&&`, mantendo gate intacto e sem mexer em produto.
+Candidate OpenSpec change id: `i03-regularizar-plumbing-do-pre-push`
+Spec link: `openspec/changes/i03-regularizar-plumbing-do-pre-push/`
+Files: `prek.toml`, `pyproject.toml`, `.github/workflows/ci.yml`
+Notes: Follow-up from T09 finalize. Push travou em hook parse bug, não em
+  comportamento do app. Não cobre limpeza de drift lint repo-wide.
+Progress:
+  - 2026-07-10: Added after T09 archive due to pre-push hooks blocking push on
+    repo-wide failures outside slice. Next activity to unblock delivery gate.
+  - 2026-07-10: Propose complete. Created `proposal.md`, `design.md`, `tasks.md`,
+    and empty delta-spec placeholder under
+    `openspec/changes/i03-regularizar-plumbing-do-pre-push/`. Scope confirmed:
+    split `pytest` hook into two `system` hooks (unit + integration) with
+    priority ordering. No CI/pyproject.toml/spec changes needed. Status → Spec Proposed.
+  - 2026-07-10: Apply complete. Split pre-push `pytest` hook into ordered
+    `pytest-unit` and `pytest-integration` hooks in `prek.toml`, reinstalled
+    hooks, dry-ran pre-push parsing, and re-ran canonical unit/integration
+    buckets without CI/task definition changes. Status → Applied.
+
+### I04 - Limpar drift lint repo-wide
+Status: `Ready`
+Goal: Limpar 23 erros `ruff` repo-wide revelados pelo hook de pre-push, sem
+  relaxar regras nem alterar comportamento de produto.
+Candidate OpenSpec change id: `i04-limpar-drift-lint-repo-wide`
+Spec link: `openspec/changes/i04-limpar-drift-lint-repo-wide/`
+Files: `src/omaha/rebalance/validation.py`, `src/omaha/routes/assets.py`,
+  `tests/bdd/conftest.py`, `tests/bdd/step_defs/*`, `tests/e2e/conftest.py`,
+  `tests/e2e/selectors.py`, `tests/e2e/test_*.py`, `tests/test_real_csv_flow.py`,
+  `tests/test_seed_from_csv.py`
+Notes: Follow-up from I03. Slice is lint-only cleanup after gate plumbing is
+  fixed.
+Progress:
+  - 2026-07-10: Added from push-blocker analysis. Keep separate from hook/
+    workflow plumbing.
 
 ### T11 - Revisar contratos de rebalance schema e glue
 Status: `Ready`
@@ -611,11 +631,10 @@ Progress:
 
 **Active queue:**
 
-1. T12 - Isolar hang tardio do harness browser/live-server
-2. T07 - Revisar suite quebrada e corrigir regressões
-3. T09 - Revisar regressões visuais e baselines
-4. T10 - Revisar pipeline CSV real e seed_from_csv
-5. T11 - Revisar contratos de rebalance schema e glue
+1. I03 - Regularizar plumbing do pre-push
+2. I04 - Limpar drift lint repo-wide
+3. T10 - Revisar pipeline CSV real e seed_from_csv
+4. T11 - Revisar contratos de rebalance schema e glue
 
 Order note: F19 and F20 archived after spec sync + archive flow. On
 2026-07-09 owner split broad test-triage work for context control: T07 keeps
@@ -625,7 +644,9 @@ families before T08 tackles throughput, redundancy, and parallelism. On
 documenting safe serial/reuse limits; owner then sent queue back to T07. On
 2026-07-10, T07 remained blocked by suite-wide late-run browser hang, so T12
 was added first to isolate the failing test one-by-one and stop wasting time on
-full-group reruns before root cause is known.
+full-group reruns before root cause is known. On 2026-07-10, T09 was archived;
+    push still blocked by repo-wide hook drift outside slice, so I03/I04 were
+    added as next delivery-gate cleanup slices.
 
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed, reactivation path documented above.
