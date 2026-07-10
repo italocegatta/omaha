@@ -367,9 +367,7 @@ def live_url() -> str:
     except Exception:
         proc.terminate()
         log_handle.close()
-        raise RuntimeError(
-            f"uvicorn did not start. output:\n{_read_log_tail(log_path)}"
-        ) from None
+        raise RuntimeError(f"uvicorn did not start. output:\n{_read_log_tail(log_path)}") from None
 
     yield TEST_BASE_URL
 
@@ -423,9 +421,7 @@ def _start_uvicorn(db_path: Path, port: int, extra_env: dict[str, str]) -> subpr
     except Exception:
         proc.terminate()
         log_handle.close()
-        raise RuntimeError(
-            f"uvicorn did not start. output:\n{_read_log_tail(log_path)}"
-        ) from None
+        raise RuntimeError(f"uvicorn did not start. output:\n{_read_log_tail(log_path)}") from None
 
     setattr(proc, "_omaha_log_handle", log_handle)
     setattr(proc, "_omaha_log_path", log_path)

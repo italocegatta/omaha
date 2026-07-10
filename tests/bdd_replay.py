@@ -63,8 +63,7 @@ def _resolve_target(name: str, collected: list[str]) -> str:
     if not matches:
         raise SystemExit(f"No collected BDD test matched: {name}")
     raise SystemExit(
-        "Multiple collected BDD tests matched "
-        f"{name!r}: {', '.join(matches)}. Use exact nodeid."
+        f"Multiple collected BDD tests matched {name!r}: {', '.join(matches)}. Use exact nodeid."
     )
 
 

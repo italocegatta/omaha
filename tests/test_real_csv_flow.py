@@ -117,7 +117,9 @@ def _unmatched_tickers() -> set[str]:
 def _expected_class_by_ticker() -> dict[str, str]:
     assets_by_name = {row.name: row.class_name for row in load_assets("italo")}
     out = {
-        row.broker_ticker: _dashboard_class_for_asset(assets_by_name[row.asset_name], row.asset_name)
+        row.broker_ticker: _dashboard_class_for_asset(
+            assets_by_name[row.asset_name], row.asset_name
+        )
         for row in load_positions("italo")
         if row.qty > 0
     }
@@ -207,7 +209,9 @@ class TestParseRealCsv:
         text = CSV_PATH.read_text(encoding="utf-8")
         result = parse_positions(text)
 
-        assert len(result) == len(_raw_position_rows()), f"Expected CSV row count, got {len(result)}"
+        assert len(result) == len(_raw_position_rows()), (
+            f"Expected CSV row count, got {len(result)}"
+        )
 
         # Spot-check: "Conta corrente em dólar Avenue" included with qty=0
         conta = [r for r in result if "conta corrente" in r.name.lower()]

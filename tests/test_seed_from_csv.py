@@ -475,7 +475,10 @@ def test_position_referencing_missing_asset_is_rejected(omaha_db, monkeypatch) -
         _rewrite_csv_row(
             bad_path,
             match=lambda row: row[0] == target.asset_name and row[1] == target.broker_ticker,
-            mutate=lambda row: (row.__setitem__(0, "TICKERFANTASMA"), row.__setitem__(1, "TICKERFANTASMA")),
+            mutate=lambda row: (
+                row.__setitem__(0, "TICKERFANTASMA"),
+                row.__setitem__(1, "TICKERFANTASMA"),
+            ),
         )
         r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
         assert r.returncode != 0, r.stderr
@@ -570,7 +573,10 @@ def test_reset_preserves_totals_verbatim_no_recompute(omaha_db) -> None:
         _rewrite_csv_row(
             positions_path,
             match=lambda row: row[0] == target.asset_name and row[1] == target.broker_ticker,
-            mutate=lambda row: (row.__setitem__(5, sentinel_invested), row.__setitem__(6, sentinel_current)),
+            mutate=lambda row: (
+                row.__setitem__(5, sentinel_invested),
+                row.__setitem__(6, sentinel_current),
+            ),
         )
 
         r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
@@ -831,7 +837,9 @@ def test_run_reset_populates_trade_fields_from_csv(omaha_db) -> None:
             assert a.currency_code == expected.currency_code
             if a.currency_code == "USD":
                 usd_count += 1
-        expected_usd_count = sum(1 for row in expected_assets.values() if row.currency_code == "USD")
+        expected_usd_count = sum(
+            1 for row in expected_assets.values() if row.currency_code == "USD"
+        )
         assert usd_count == expected_usd_count, (
             f"expected {expected_usd_count} USD assets, got {usd_count}"
         )
