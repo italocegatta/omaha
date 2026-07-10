@@ -102,6 +102,40 @@ jobs:
       - name: Run integration tests
         run: uv run task test-integration
 
+  test-audit-integration:
+    name: test-audit-integration
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.12"
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+
+      - name: Install dependencies
+        run: uv sync --frozen --group dev
+
+      - name: Reset database (migrate + seed from CSV)
+        env:
+          SECRET_KEY: ci-test-secret-key-not-for-production-use-1234567890abcdef
+          ADMIN_PASSWORD: distendidos
+        run: uv run task db-reset
+
+      - name: Run audit integration tests
+        run: uv run task test-audit-integration
+
   test-bdd:
     name: test-bdd
     needs: lint
@@ -168,9 +202,7 @@ jobs:
         run: uv run task db-reset
 
       - name: Generate coverage XML
-        run: |
-          mkdir -p reports
-          uv run pytest -m "unit or integration" -q --ignore=tests/e2e/_disabled
+        run: uv run task coverage
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4

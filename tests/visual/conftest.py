@@ -1,4 +1,9 @@
-"""Fixtures and helpers for page-level visual regression tests."""
+"""Fixtures and helpers for page-level visual regression tests.
+
+Browser process is session-scoped so each screenshot test still gets a
+fresh context/page but pays launch cost once per suite. That stays
+safe because visual tests never share browser state across cases.
+"""
 
 from __future__ import annotations
 
@@ -75,6 +80,32 @@ def _run_setup_command(args: list[str], env: dict[str, str]) -> None:
 
 
 @pytest.fixture(scope="session")
+def _browser():
+    """Launch one chromium process for visual suite."""
+    from playwright.sync_api import sync_playwright
+
+    executable = _resolve_chromium()
+    with sync_playwright() as p:
+        try:
+            browser = p.chromium.launch(
+                headless=True,
+                executable_path=executable,
+                args=["--no-sandbox", "--disable-dev-shm-usage"],
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to launch chromium at {executable}: {exc}. "
+                "If this looks like 'shared library not found', run "
+                "`uv run playwright install chromium --with-deps` to install "
+                "system dependencies (libnss3, libxkbcommon0, libgbm1, etc.)."
+            ) from exc
+        try:
+            yield browser
+        finally:
+            browser.close()
+
+
+@pytest.fixture(scope="session")
 def live_url_visual() -> str:
     """Start isolated visual-test server with canonical CSV-seeded DB."""
     if TEST_DB_PATH.exists():
@@ -128,26 +159,16 @@ def visual_viewport(request: pytest.FixtureRequest) -> VisualViewport:
 
 
 @pytest.fixture()
-def visual_page(visual_viewport: VisualViewport):
-    from playwright.sync_api import sync_playwright
-
-    executable = _resolve_chromium()
-    with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            executable_path=executable,
-            args=["--no-sandbox", "--disable-dev-shm-usage"],
-        )
-        context = browser.new_context(
-            viewport={"width": visual_viewport.width, "height": visual_viewport.height},
-            reduced_motion="reduce",
-        )
-        page = context.new_page()
-        try:
-            yield page
-        finally:
-            context.close()
-            browser.close()
+def visual_page(_browser, visual_viewport: VisualViewport):
+    context = _browser.new_context(
+        viewport={"width": visual_viewport.width, "height": visual_viewport.height},
+        reduced_motion="reduce",
+    )
+    page = context.new_page()
+    try:
+        yield page
+    finally:
+        context.close()
 
 
 def login_as_italo(page, base_url: str) -> None:

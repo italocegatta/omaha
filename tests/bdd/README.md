@@ -20,6 +20,20 @@ before each scenario, and sharing SQLite session-scoped under
 ``pytest-xdist`` would race the wipe. Don't add xdist here
 without revisiting that fixture.
 
+### Bucket / concurrency decision record
+
+| Bucket | Canonical task | Concurrency | Owner / note |
+|---|---|---|---|
+| ``unit`` | ``task test-unit`` | parallelizable | pre-commit + pre-push gate; pure functions only |
+| ``integration`` | ``task test-integration`` | parallelizable | pre-push + CI; DB/TestClient, no browser |
+| ``audit_integration`` | ``task test-audit-integration`` | too risky for now | CI-only heavy audit family; keep explicit owner |
+| ``bdd`` | ``task test-bdd`` | serial | live server + browser + seeded-profile wipe |
+| ``e2e`` | ``task test-e2e`` | parallelizable | isolated context/page per test, own port/db |
+| ``visual`` | ``task test-visual`` | parallelizable | session browser, fresh context/page per test |
+| ``full-suite`` | ``task test`` | too risky for now | mixed browser/live-server load; use only when needed |
+
+BDD browser launch stays per-suite serial until repeated-run evidence proves safe wider reuse.
+
 ## Architecture: workflow + wrapper pattern
 
 The suite follows the **workflow + wrapper** contract

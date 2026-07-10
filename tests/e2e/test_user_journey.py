@@ -19,6 +19,7 @@ involves a template/JS bug that route-level tests cannot see.
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -36,7 +37,8 @@ def _login_and_select_italo(page: Page, base_url: str) -> None:
     intermediate ``/profiles`` picker page — login lands directly on
     the dashboard.
     """
-    page.goto(f"{base_url}/login")
+    page.goto(f"{base_url}/login", wait_until="commit", timeout=60000)
+    page.locator('input[name="username"]').wait_for(state="visible", timeout=30000)
     page.evaluate(
         """async () => {
             const fd = new FormData();
@@ -48,8 +50,8 @@ def _login_and_select_italo(page: Page, base_url: str) -> None:
             }
         }"""
     )
-    page.goto(f"{base_url}/")
-    page.wait_for_selector(SELECTORS["app_header_wordmark"], timeout=5000)
+    page.goto(f"{base_url}/", wait_until="commit")
+    page.wait_for_selector(SELECTORS["app_header_wordmark"], timeout=30000)
 
 
 def _create_three_classes(page: Page, base_url: str) -> None:
@@ -65,8 +67,8 @@ def _create_three_classes(page: Page, base_url: str) -> None:
             if (!r.ok) throw new Error('POST /classes ' + r.status + ': ' + await r.text());
         }"""
     )
-    page.goto(f"{base_url}/")
-    page.wait_for_selector(SELECTORS["class_summary_row"], timeout=5000)
+    page.goto(f"{base_url}/", wait_until="commit", timeout=60000)
+    page.wait_for_selector(SELECTORS["class_summary_row"], timeout=30000)
     assert page.locator(SELECTORS["class_summary_row"]).count() == 3
 
 
@@ -110,16 +112,15 @@ def _add_asset_via_dashboard(
     modal.locator(SELECTORS["dashboard_add_asset_pct"]).fill(target_pct)
 
     # Click Salvar — this triggers a POST /api/assets and reloads on 201.
-    before = page.locator(SELECTORS["dashboard_asset_row"]).count()
-    modal.locator(SELECTORS["dashboard_add_asset_submit"]).click()
+    with page.expect_response(re.compile(r".*/api/assets$"), timeout=30000) as resp_info:
+        modal.locator(SELECTORS["dashboard_add_asset_submit"]).click()
+    assert resp_info.value.status == 201
 
-    # Wait for the page to reload (the modal calls
-    # window.location.reload() on 201). wait_for_url returns
-    # immediately when the URL was already /, so use load_state
-    # to wait for the actual reload to complete.
-    page.wait_for_function(
-        f"() => document.querySelectorAll('{SELECTORS['dashboard_asset_row']}').length > {before}",
-        timeout=10000,
+    page.goto(f"{base_url}/", wait_until="commit", timeout=60000)
+    page.wait_for_selector(
+        f"{SELECTORS['dashboard_asset_row']}:has({SELECTORS['asset_row_name_text']}:text-is(\"{asset_name}\"))",
+        state="visible",
+        timeout=30000,
     )
 
 

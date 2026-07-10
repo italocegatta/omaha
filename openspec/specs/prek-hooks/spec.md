@@ -35,7 +35,7 @@ The pre-commit stage SHALL run file sanity hooks: `check-merge-conflict`, `check
 - **AND** the two hooks are independent (a fail in one does not skip the other)
 
 ### Requirement: Pytest unit gate on pre-commit
-The pre-commit stage SHALL run `pytest -m unit` as a blocking gate. The hook entry MUST be `./.venv/bin/python -m pytest -m unit` with `pass_filenames = false` so the full unit subset runs.
+The pre-commit stage SHALL run `uv run task test-unit` as a blocking gate. The hook entry MUST delegate through taskipy with `pass_filenames = false` so marker selection, command text, and help text stay single-sourced in `pyproject.toml`.
 
 #### Scenario: Unit tests pass and commit lands
 - **WHEN** all unit tests pass
@@ -62,16 +62,17 @@ The pre-push stage SHALL run `ruff-format`, `ruff --fix`, `trailing-whitespace`,
 - **AND** the updated lockfile is included in the push
 
 ### Requirement: Pytest full gate on pre-push
-The pre-push stage SHALL run the pytest suite as a blocking gate, with the
-following exclusions: `tests/e2e` (run by `task test-e2e`), `tests/audit_integration`
-(run by the audit CI job), and `tests/bdd` (run by `task test-bdd`). The hook
-entry MUST use `pass_filenames = false` so the full filtered subset runs.
+The pre-push stage SHALL run the canonical non-browser gate through named task commands, not through an ad hoc raw `uv run pytest ...` expression. The selected coverage MUST match the documented local buckets for unit and integration while excluding browser-backed families (`tests/bdd`, `tests/e2e`, `tests/visual`) and any separately documented heavy family such as `tests/audit_integration`. The hook entry MUST use `pass_filenames = false`.
 
-#### Scenario: Pre-push pytest runs unit + integration, skips e2e/audit/bdd
+#### Scenario: Pre-push delegates to canonical tasks
 - **WHEN** developer runs `git push`
-- **THEN** the pre-push pytest hook executes `uv run pytest --ignore=tests/e2e --ignore=tests/audit_integration --ignore=tests/bdd`
-- **AND** the hook reports success when all selected tests pass
-- **AND** the hook reports failure when any selected test fails (push is blocked)
+- **THEN** the pre-push pytest gate executes one or more `uv run task ...` commands
+- **AND** those commands resolve to the same unit and integration buckets documented in `pyproject.toml`
+
+#### Scenario: Browser suites stay out of the pre-push gate
+- **WHEN** developer runs `git push`
+- **THEN** the pre-push pytest gate does not collect `tests/bdd/`, `tests/e2e/`, or `tests/visual/`
+- **AND** the push is not blocked on a browser-backed live-server workflow
 
 ### Requirement: Masked-pass guard on pre-push
 The pre-push stage SHALL reject diffs that introduce new masked-pass test constructs (`skip`, `skipif`, `xfail`, `pytest.skip`, empty `pass` placeholders, or `NotImplementedError` used as stand-ins for missing assertions) unless the exact file/line is explicitly allowlisted by the canonical test-quality spec or roadmap.
@@ -131,10 +132,7 @@ The prek configuration SHALL mark the ruff hooks (`ruff-format`, `ruff --fix`) a
 - **AND** the hooks become fully blocking
 
 ### Requirement: BDD scenarios run via task test-bdd, not pre-push
-BDD scenarios under `tests/bdd/` MUST run via the dedicated `task test-bdd`
-task, which orchestrates the dev server before pytest. BDD scenarios MUST
-NOT run in the pre-push pytest gate because they require a live dev server
-on `http://127.0.0.1:8766` that the pre-push hook does not start.
+BDD scenarios under `tests/bdd/` MUST run via the dedicated `task test-bdd` bucket in local verification and in CI. They MUST NOT run in the pre-push pytest gate because the suite depends on a live server and currently remains serial by contract.
 
 #### Scenario: BDD scenarios are excluded from pre-push pytest
 - **WHEN** developer runs `git push`
@@ -143,9 +141,8 @@ on `http://127.0.0.1:8766` that the pre-push hook does not start.
 
 #### Scenario: BDD scenarios run via task test-bdd in CI
 - **WHEN** CI executes the test-bdd job (or developer runs `task test-bdd`)
-- **THEN** the task orchestrates the dev server (`http://127.0.0.1:8766`) before invoking pytest
-- **AND** pytest runs `tests/bdd/` against the live server
-- **AND** the task reports per-scenario pass/fail summary
+- **THEN** the suite runs through the same named task entrypoint
+- **AND** the job reflects the serial BDD bucket contract instead of a separate ad hoc pytest command
 
 #### Scenario: Flaky BDD scenarios do not block pushes
 - **WHEN** a BDD scenario fails intermittently (e.g., 1-in-5 flake from

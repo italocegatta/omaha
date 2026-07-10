@@ -202,6 +202,7 @@ def client(_omaha_test_env: dict[str, str]) -> TestClient:
 # * tests/visual/*.py                    → no marker (Playwright, run via
 #                                          ``task test-visual``)
 # * tests/audit_integration/*            → @pytest.mark.integration
+#   (heavy audit family; owned by task test-audit-integration + CI job)
 # * explicit integration prefix list     → @pytest.mark.integration
 # * everything else in tests/*.py        → @pytest.mark.unit
 #

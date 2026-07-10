@@ -67,17 +67,19 @@ Discover them any time with `uv run task --list`.
 |--------------------|---------------------------------------------------------------------------------|
 | `serve`            | Start the dev server on `0.0.0.0:8000` with auto-reload.                        |
 | `serve-prod`       | Start the server without auto-reload (production-shaped).                      |
-| `test`             | Run the full test suite (unit + integration + e2e + BDD).                       |
+| `test`             | Run the full test suite (unit + integration + audit + e2e + visual + BDD).      |
 | `test-unit`        | Pure-function tests — no DB, no HTTP, no Playwright.                            |
-| `test-integration` | Tests requiring DB, TestClient, or audit pipeline (full S0* + T0* route families). |
+| `test-integration` | Tests requiring DB, TestClient, or external services (excludes `tests/audit_integration/`). |
+| `test-audit-integration` | Heavy audit integration tests under `tests/audit_integration/`.            |
 | `test-e2e`         | End-to-end Playwright tests under `tests/e2e/`.                                 |
-| `test-bdd`         | BDD scenarios under `tests/bdd/` (pytest-bdd, real Chromium).                   |
+| `test-visual`      | Playwright visual regression tests under `tests/visual/`.                       |
+| `test-bdd`         | BDD scenarios under `tests/bdd/` (pytest-bdd, real Chromium, serial).           |
 | `test-file`        | Run a specific test file: `task test-file tests/test_X.py`.                     |
 | `test-pattern`     | Run tests matching a name substring: `task test-pattern "smoke"`.               |
 | `test-one`         | Run a single test by node id: `task test-one tests/test_X.py::test_y`.          |
 | `lint`             | Run prek hooks: ruff format check, ruff --fix, hygiene.                         |
 | `format`           | Auto-format the codebase with ruff.                                             |
-| `check`            | CI-style gate: `lint` + unit/integration tests.                                 |
+| `check`            | CI-style gate: `lint` + unit tests.                                              |
 | `coverage`         | Run unit + integration tests with coverage report (term-missing + XML).         |
 | `mutation`         | Run mutation testing on the rebalance solver + validation (scoped via `[tool.mutmut]` `only_mutate`; first run populates `mutants/`). |
 | `mutation-report`  | Render mutation results to stdout: per-status counts + killed share.            |
