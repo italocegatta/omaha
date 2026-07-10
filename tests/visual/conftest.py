@@ -227,6 +227,13 @@ def compare_or_update_screenshot(
 
 
 def _png_pixel_diff(expected: bytes, actual: bytes) -> tuple[int, int]:
+    """Return changed-pixel count for two same-size 8-bit RGB/RGBA PNGs.
+
+    Assumes helper already handled exact-byte match short-circuit and both
+    inputs use standard browser screenshot encoding: deflate-compressed,
+    non-interlaced PNG with RGB or RGBA scanlines.
+    """
+
     exp_w, exp_h, exp_pixels = _decode_png_rgba(expected)
     act_w, act_h, act_pixels = _decode_png_rgba(actual)
     assert (act_w, act_h) == (exp_w, exp_h), (
@@ -239,6 +246,13 @@ def _png_pixel_diff(expected: bytes, actual: bytes) -> tuple[int, int]:
 
 
 def _decode_png_rgba(data: bytes) -> tuple[int, int, bytes]:
+    """Decode browser screenshot PNG into RGBA bytes.
+
+    Supported input: PNG signature, IHDR bit depth 8, color type RGB/RGBA,
+    deflate compression, standard PNG filters, no Adam7 interlace, at least
+    one IDAT chunk.
+    """
+
     if data[:8] != b"\x89PNG\r\n\x1a\n":
         raise AssertionError("not a PNG")
 
@@ -251,6 +265,7 @@ def _decode_png_rgba(data: bytes) -> tuple[int, int, bytes]:
         chunk_data = data[pos + 8 : pos + 8 + length]
         pos += 12 + length
         if chunk_type == b"IHDR":
+            assert len(chunk_data) == 13, "invalid PNG IHDR length"
             width, height, bit_depth, color_type, compression, flt, interlace = unpack(
                 ">IIBBBBB", chunk_data
             )
@@ -262,9 +277,12 @@ def _decode_png_rgba(data: bytes) -> tuple[int, int, bytes]:
             break
 
     assert width is not None and height is not None and bit_depth is not None
+    assert compressed, "PNG missing IDAT chunk"
     raw = zlib.decompress(bytes(compressed))
     channels = 4 if color_type == 6 else 3
     stride = width * channels
+    expected_raw_len = height * (stride + 1)
+    assert len(raw) == expected_raw_len, "unexpected PNG scanline length"
     out = bytearray()
     prev = bytearray(stride)
     offset = 0

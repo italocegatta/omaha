@@ -441,11 +441,18 @@ Generated review artifacts live in `tests/visual/results/` and are ignored by
 git. Snapshot names encode page/state and viewport (`*-desktop.png`,
 `*-mobile.png`) for the `1440x900` and `375x667` matrix.
 
+Visual suite launches one Chromium process per pytest session, then gives each
+test fresh context + page state. Contexts force `reduced_motion="reduce"`, and
+`page.screenshot()` uses `animations="disabled"` so motion never becomes
+baseline noise.
+
 Every screenshot test asserts structural content first: route markers,
 seeded class/table rows, BRL text, modal review tables, or stub markers. This
 prevents login redirects, empty DB state, or blank pages from becoming valid
-baselines. The comparison threshold is `0.5%` pixel difference in
-`tests/visual/conftest.py`.
+baselines. Comparison threshold stays `0.5%` pixel difference in
+`tests/visual/conftest.py`: current 20-snapshot matrix is deterministic, but
+reviewers should still inspect `tests/visual/results/` when failure hits large
+solid-color areas where ratio can understate localized drift.
 
 Intentional visual changes update affected baselines in the same change:
 

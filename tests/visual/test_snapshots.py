@@ -86,7 +86,8 @@ def test_rebalance_plan_snapshot(visual_page, live_url_visual: str, visual_viewp
         '[data-testid="rebalance-asset-table"]',
     )
     visual_page.wait_for_function(
-        "() => document.querySelectorAll('[data-testid^=\"rebalance-asset-row-\"]').length > 0"
+        "() => document.querySelectorAll('[data-testid^=\"rebalance-asset-row-\"]').length > 0",
+        timeout=10_000,
     )
     compare_or_update_screenshot(visual_page, "rebalance-plan", visual_viewport)
 
@@ -110,8 +111,12 @@ def test_import_review_snapshot(visual_page, live_url_visual: str, visual_viewpo
     visual_page.goto(f"{live_url_visual}/patrimonio")
     visual_page.click('[data-testid="dashboard-import-btn"]')
     visual_page.set_input_files('[data-testid="import-file-input"]', str(FIXTURE_PATH))
-    visual_page.wait_for_timeout(200)
     visual_page.evaluate("Alpine.store('importModal').uploadFile()")
+    visual_page.wait_for_selector(
+        '[data-testid="import-commit-btn"]',
+        state="visible",
+        timeout=10_000,
+    )
     assert_structural_content(
         visual_page,
         '[data-testid="import-commit-btn"]',

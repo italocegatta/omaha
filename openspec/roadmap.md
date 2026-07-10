@@ -147,60 +147,12 @@ Status: `Archived` — 2026-07-07
 Archive: `openspec/changes/archive/2026-07-07-t06-visual-regression-baseline/`
 
 ### T07 - Revisar suite quebrada e corrigir regressões
-Status: `Blocked`
+Status: `Archived` — 2026-07-10
 Goal: Revisar falhas atuais de `uv run task test` no grupo browser/workflow e
   fechar raiz do problema, seja corrigindo código, ajustando teste, ou
   alinhando contrato/spec quando a expectativa estiver errada. Foco: BDD,
   e2e, import modal, e fluxos visíveis de navegação/importação.
-Candidate OpenSpec change id: `t07-revisar-suite-quebrada-e-corrigir-regressoes`
-Spec link: `openspec/changes/t07-revisar-suite-quebrada-e-corrigir-regressoes/`
-Files: `tests/bdd/`, `tests/e2e/`, `src/omaha/routes/`,
-  `src/omaha/templates/`, `openspec/specs/`
-Notes: Baseline observada em 2026-07-09: `uv run task test` com 83 falhas,
-  756 passes, 4 skips. Grupos maiores: `tests/bdd/test_scenarios.py`,
-  `tests/e2e/*`, `tests/visual/*`, `tests/test_real_csv_flow.py`,
-  `tests/test_seed_from_csv.py`, `tests/test_rebalance_glue.py`,
-  `tests/test_rebalance_schemas.py`. Regra: corrigir menor lado correto;
-  se o teste estiver forçando comportamento errado, adequar o teste à fonte
-  de verdade; se o código estiver fora do contrato, corrigir código. Em
-  2026-07-09 owner pediu split por janela de contexto: visual vai para T09,
-  CSV/seed para T10, rebalance schema/glue para T11.
-Progress:
-  - 2026-07-09: Added from owner request after suite audit. Scope is
-    test-health / regression stabilization, not new product behavior.
-  - 2026-07-09: Propose complete. Created
-    `openspec/changes/t07-revisar-suite-quebrada-e-corrigir-regressoes/` with
-    `proposal.md`, `design.md`, `tasks.md`, and delta spec
-    `tests/test-suite-quality/spec.md`. Spec verification passed via
-    `openspec list --specs`. Status -> Spec Proposed.
-  - 2026-07-09: Apply started. Running minimal regression fixes inside
-    `openspec/changes/t07-revisar-suite-quebrada-e-corrigir-regressoes/`.
-  - 2026-07-09: Fixed S04 import-modal setup flake by clearing stale
-     classes before seed creation in `tests/e2e/test_import_modal.py`.
-     Verified focused import flows green; spec gate `openspec list --specs`
-     passed.
-  - 2026-07-09: Scope narrowed by owner decision for context control. T07 now
-    stays on browser/workflow regressions already in flight; remaining red
-    families split into T09/T10/T11 follow-ups.
-  - 2026-07-10: Apply pass narrowed change artifacts to browser/workflow scope
-    only (`proposal.md`, `design.md`, `tasks.md`, delta spec). Fixed stale
-    browser-flow expectations in `tests/bdd/step_defs/_workflows.py` and
-    `tests/e2e/test_user_journey.py`. Focused checks green: 14 selected BDD
-    scenarios pass; `tests/e2e/test_user_journey.py` pass. Full `uv run task
-    test-bdd` still red (7 failures / 44 passes) with late-suite
-    `create_one_class` and `login_and_land` timeout/load flakes; looks like
-    broader perf/fixture issue crossing into T08 territory. On 2026-07-10,
-    owner chose to pull T08 earlier, so T07 pauses blocked on suite-throughput /
-    fixture investigation before more browser BDD churn.
-  - 2026-07-10: Owner validated T08 and sent queue back here. Harness findings
-    from T08 are now available, so T07 resumes on browser/workflow failures.
-  - 2026-07-10: Re-ran T07 buckets after T08. Focused browser/workflow checks
-    stayed green (`tests/bdd/test_scenarios.py` selected slices,`tests/e2e/test_user_journey.py`,
-    `tests/e2e/test_import_modal.py`), but `uv run task test-bdd` still ends
-    red (7 failures / 44 passes) and `uv run task test-e2e` hangs late in suite.
-    Remaining issue looks like suite-wide browser fixture/server hang, not an
-    isolated T07 product/browser regression. Keep T07 blocked pending decision
-    on a new harness-specific follow-up slice.
+Archive: `openspec/changes/archive/2026-07-10-t07-revisar-suite-quebrada-e-corrigir-regressoes/`
 
 ### T08 - Revisar paralelismo e custo da suite de testes
 Status: `Archived` — 2026-07-10
@@ -209,7 +161,7 @@ Goal: Alinhar buckets/tasks/hooks/CI da suite, limpar drift de markers, e
 Archive: `openspec/changes/archive/2026-07-10-t08-revisar-paralelismo-e-custo-da-suite-de-testes/`
 
 ### T09 - Revisar regressões visuais e baselines
-Status: `Ready`
+Status: `Applied`
 Goal: Revisar `tests/visual/*` para decidir, caso a caso, se falha vem de
   baseline desatualizada, seletor frágil, ou regressão real de UI. Corrigir
   menor lado correto sem esconder regressão visual verdadeira.
@@ -225,6 +177,12 @@ Progress:
   - 2026-07-09: Added from T07 split. Queue after T07 because visual drift
     bloqueia confiança em mudanças visíveis, mas não precisa misturar com
     browser workflow/import fixes já em andamento.
+  - 2026-07-10: Propose complete. Created `proposal.md`, `design.md`,
+    `tasks.md`, and delta spec under
+    `openspec/changes/t09-revisar-regressoes-visuais-e-baselines/`.
+    Spec verification pending.
+  - 2026-07-10: Apply complete. No UI/runtime regression found; focused visual
+    triage hardened waits and docs/spec around current baseline policy.
 
 ### T10 - Revisar pipeline CSV real e seed_from_csv
 Status: `Ready`
@@ -262,29 +220,10 @@ Progress:
     pipeline CSV estejam estabilizados antes de revisar contratos de rebalance.
 
 ### T12 - Isolar hang tardio do harness browser/live-server
-Status: `Applied`
-Goal: Teste por teste, isolar hang/timeout tardio em BDD/e2e para descobrir
-  qual caso quebra loop browser/live-server, corrigir causa mínima e seguir
-  para próximo teste sem rodar suites inteiras antes da hora.
-Candidate OpenSpec change id: `t12-isolar-hang-tardio-do-harness-browser-live-server`
-Spec link: `openspec/changes/t12-isolar-hang-tardio-do-harness-browser-live-server/`
-Files: `tests/bdd/`, `tests/e2e/`, `tests/conftest.py`,
-  `tests/e2e/conftest.py`, `tests/bdd/README.md`
-Notes: Follow-up direto de T07/T08. Owner pediu debug one-test-at-a-time:
-  quando um teste falhar, resolver e continuar no próximo isolado, sem voltar
-  a disparar grupo inteiro antes de classificar o problema. Escopo é harness /
-  flaky-run diagnosis, não produto.
-Progress:
-  - 2026-07-10: Added from owner request after T07/T08 found suite-wide late
-    hang outside isolated browser-flow assertions.
-  - 2026-07-10: Propose complete. Created `proposal.md`, `design.md`, `tasks.md`
-    under `openspec/changes/t12-isolar-hang-tardio-do-harness-browser-live-server/`.
-    Spec verification passed via `openspec list --specs` (52 specs, no drift).
-    Status -> Spec Proposed.
-  - 2026-07-10: Apply complete. Added BDD replay helper, ordered collection,
-    teardown hardening, trace plumbing, and debug docs. Focused smoke checks
-    green; ordered replay still reproduces cross-test navigation interference,
-    so follow-up diagnosis remains before archive.
+Status: `Archived` — 2026-07-10
+Goal: Isolar e corrigir hang tardio do harness BDD/e2e com replay 1 teste por
+  vez, teardown mais seguro e diagnóstico de navegação Playwright.
+Archive: `openspec/changes/archive/2026-07-10-t12-isolar-hang-tardio-do-harness-browser-live-server/`
 
 ### I01 - Agendamento automático de backup
 Status: `Archived` — 2026-07-06
