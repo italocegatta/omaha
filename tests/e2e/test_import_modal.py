@@ -52,6 +52,16 @@ def _debug_dump(page: Page, tag: str) -> None:
 
 def _create_seed_classes(page: Page, classes: list[tuple[str, int]]) -> None:
     """Seed classes via fetch POST /classes (snapshot form), then reload."""
+    # Clear any stale rows first so this helper is deterministic even if
+    # prior state leaked into test DB.
+    page.evaluate(
+        """async () => {
+            const r = await fetch('/classes', { method: 'POST', body: new FormData() });
+            if (!r.ok && r.status !== 303) {
+                throw new Error('POST /classes clear ' + r.status + ': ' + await r.text());
+            }
+        }"""
+    )
     page.evaluate(
         """async (items) => {
             const fd = new FormData();

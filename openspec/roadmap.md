@@ -147,7 +147,7 @@ Status: `Archived` — 2026-07-07
 Archive: `openspec/changes/archive/2026-07-07-t06-visual-regression-baseline/`
 
 ### T07 - Revisar suite quebrada e corrigir regressões
-Status: `Ready`
+Status: `Applying`
 Goal: Revisar falhas atuais de `uv run task test` e fechar raiz do problema,
   seja corrigindo código, ajustando teste, ou alinhando contrato/spec quando a
   expectativa estiver errada. Foco nas famílias hoje vermelhas: BDD/e2e/visual,
@@ -165,6 +165,33 @@ Notes: Baseline observada em 2026-07-09: `uv run task test` com 83 falhas,
 Progress:
   - 2026-07-09: Added from owner request after suite audit. Scope is
     test-health / regression stabilization, not new product behavior.
+  - 2026-07-09: Propose complete. Created
+    `openspec/changes/t07-revisar-suite-quebrada-e-corrigir-regressoes/` with
+    `proposal.md`, `design.md`, `tasks.md`, and delta spec
+    `tests/test-suite-quality/spec.md`. Spec verification passed via
+    `openspec list --specs`. Status -> Spec Proposed.
+  - 2026-07-09: Apply started. Running minimal regression fixes inside
+    `openspec/changes/t07-revisar-suite-quebrada-e-corrigir-regressoes/`.
+  - 2026-07-09: Fixed S04 import-modal setup flake by clearing stale
+    classes before seed creation in `tests/e2e/test_import_modal.py`.
+    Verified focused import flows green; spec gate `openspec list --specs`
+    passed.
+
+### T08 - Revisar paralelismo e custo da suite de testes
+Status: `Ready`
+Goal: Confirmar onde suite roda em paralelo, onde roda serial, e cortar custo
+  dos testes mais lentos sem perder cobertura útil. Separar teste essencial de
+  redundante/obsoleto e corrigir drift de marker/config que distorce buckets.
+Candidate OpenSpec change id: `t08-revisar-paralelismo-e-custo-da-suite-de-testes`
+Spec link: `openspec/changes/t08-revisar-paralelismo-e-custo-da-suite-de-testes/`
+Files: `tests/conftest.py`, `tests/bdd/`, `tests/e2e/`, `tests/visual/`,
+  `pyproject.toml`, `prek.toml`, `.github/workflows/`
+Notes: Baseado em audit 2026-07-09: sem xdist, BDD serial por contrato, e
+  warnings `UnknownTestPath` indicam drift em marker/allowlist. Lentos
+  concentrados em audit/e2e/BDD. Escopo é arquitetura de testes, não produto.
+Progress:
+  - 2026-07-09: Added from owner request after audit of parallelism and slow
+    tests. This slice follows T07 in execution order.
 
 ### I01 - Agendamento automático de backup
 Status: `Archived` — 2026-07-06
@@ -553,9 +580,10 @@ Progress:
 **Active queue:**
 
 1. T07 - Revisar suite quebrada e corrigir regressões
+2. T08 - Revisar paralelismo e custo da suite de testes
 
-Order note: F19 and F20 archived after spec sync + archive flow. T07 is now
-next remaining active slice.
+Order note: F19 and F20 archived after spec sync + archive flow. T07 covers
+active regressions; T08 covers test-suite throughput and redundancy.
 
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed, reactivation path documented above.

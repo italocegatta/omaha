@@ -7,6 +7,12 @@
       "skillPath": "alpine-js/SKILL.md",
       "computedHash": "529e2ee02bf6e2adece466e7148b9288182637fefc3b5d4f3eeb18e12906445c"
     },
+    "code-review": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/code-review/SKILL.md",
+      "computedHash": "4a17d9d3e0fc87ae48544d371a820fac5a4a78f4c05e7e6b3229094fbf8a7e26"
+    },
     "code-review-excellence": {
       "source": "wshobson/agents",
       "sourceType": "github",
@@ -36,6 +42,12 @@
       "sourceType": "github",
       "skillPath": "plugins/developer-essentials/skills/git-advanced-workflows/SKILL.md",
       "computedHash": "f4d0569096237c09b1c07896770fe487d7224c549f7aab0c6551a4f330fcf160"
+    },
+    "grill-me": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/productivity/grill-me/SKILL.md",
+      "computedHash": "f321507f77702a54af1db66549ec1685fc625390d06c57d7949cdcda8eb1b5c7"
     },
     "openspec-roadmap": {
       "source": "bardaxx/skillbook",
