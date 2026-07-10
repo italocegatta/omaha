@@ -47,7 +47,7 @@ The canonical **destructive** reset for a manual import-flow test
 ```bash
 uv run task db-reset
 # expected:
-#   profile=italo mode=reset classes=6 assets=48 positions=47
+#   profile=italo mode=reset classes=6 assets=47 positions=47
 #   profile=ana   mode=reset classes=6 assets=52 positions=52
 ```
 
@@ -425,7 +425,7 @@ import-flow test:
 ```bash
 uv run task db-reset
 # expected:
-#   profile=italo mode=reset classes=6 assets=48 positions=47
+#   profile=italo mode=reset classes=6 assets=47 positions=47
 #   profile=ana   mode=reset classes=6 assets=52 positions=52
 ```
 
@@ -440,9 +440,9 @@ db-snapshot` exports the live DB to the CSV triplet under
 ```bash
 uv run task db-snapshot
 # expected:
-#   italo: 6 classes, 48 assets, 47 positions -> 3 files written
+#   italo: 6 classes, 47 assets, 47 positions -> 3 files written
 #   ana:   6 classes, 52 assets, 52 positions -> 3 files written
-#   snapshot OK: 201 rows across 6 files written
+#   snapshot OK: 210 rows across 6 files written
 ```
 
 Inspect the change with `git diff data/seed/` and commit it if the
@@ -452,10 +452,10 @@ snapshotted state from scratch.
 `total_invested` / `total_current` flow through the round-trip
 verbatim — they are the broker-published per-row totals, never
 recomputed from `qty * price` (see
-`broker-csv-import-totals`). Sentinel `qty = 1` rows (RDB / CDB /
-holding-to-maturity) get `totals = avg / cur` at seed time so the
-dashboard renders the broker-truth number; tradeable positions
-pick up totals the next time the broker CSV is imported.
+`broker-csv-import-totals`). Non-tradeable rows now use `qty = 0`
+with explicit `total_invested / total_current`; tradeable positions
+keep unit values and pick up totals the next time the broker CSV is
+imported.
 
 Then in the browser:
 
@@ -476,13 +476,12 @@ Then in the browser:
    **Importar CSV** button is in the patrimônio body (top of the
    page, post-F02 redistribution — the side panel was removed). To
    test the CSV importer:
-   - The fixture at `tests/fixtures/sample_broker.csv` is the same
-     file the e2e tests use: 48 rows, 43 auto-match against the
-     seeded assets, 5 require manual category selection in the
-     review screen.
-   - `posicao_italo.csv` (real broker export) lives in `tests/` and
-     works end-to-end too. Note: 7 CDB/RDB rows with qty=`-` are
-     dropped (parser limitation, not a bug).
+    - The canonical audit fixture is `data/seed/italo_positions.csv`;
+      `tests/test_real_csv_flow.py` uploads it as `posicao_italo.csv`
+      and documents current importer behavior against seeded data.
+    - The importer still ignores fixture `total_invested` /
+      `total_current` columns. Raw broker exports belong to the
+      separate import-preview journey tests.
 4. Confirm the import. Positions appear under each asset on the
    patrimonio; the distribution view re-renders with the new totals.
 

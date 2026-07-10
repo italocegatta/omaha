@@ -2,7 +2,8 @@
 
 ## Purpose
 
-The CSV-driven seed path (`scripts/seed_from_csv.py`) is the only
+The CSV-driven seed path (`scripts/seed_from_csv/` package,
+invoked via `python -m scripts.seed_from_csv`) is the only
 sanctioned way to create `AssetClass`, `Asset`, and `Position` rows
 (PRD §4.3; cross-references `data-driven-seed` and `seeded-state`).
 This capability describes the **internal module layout** of the

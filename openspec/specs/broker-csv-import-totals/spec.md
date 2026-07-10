@@ -71,7 +71,7 @@ dashboard calc, template).
 
 #### Scenario: portfolio total confere com footer do CSV byte-a-byte
 
-- **WHEN** `parse_positions` é chamado sobre `tests/posicao_italo.csv` e o resultado passa por `/api/import/commit`
+- **WHEN** `parse_positions` é chamado sobre `tests/fixtures/posicao_italo.csv` e o resultado passa por `/api/import/commit`
 - **THEN** `portfolio.total_invested == Decimal("1017614.61")` e `portfolio.current_value == Decimal("1101357.67")` (dentro de tolerância de R$ 0,10 do footer `R$ 1.017.614,61` / `R$ 1.101.357,67` — o broker arredonda por linha, acumulando ~R$ 0,03 de drift)
 
 #### Scenario: posição sem total (legada ou CSV sem coluna)

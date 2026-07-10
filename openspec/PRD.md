@@ -126,8 +126,9 @@ Invariantes em produção:
 
 - `sum(target_pct)` dentro de uma classe = 100.
 - `sum(target_pct)` entre classes de um perfil = 100.
-- Posição não-negociável usa sentinela `qty=1, avg=total_investido,
-  cur=total_atual` (ver `data/seed/README.md`).
+- Posição não-negociável usa `qty=0` com `avg_price=current_price=0`
+  e `total_invested/total_current` explícitos (ver
+  `data/seed/README.md`).
 - Totais do CSV de corretora entram **verbatim** no banco — sem recomputo.
 
 ### 2.3 Pipeline de dados
@@ -136,7 +137,7 @@ Invariantes em produção:
 Corretora (CSV BR)                       Resolved server-side / LAN
     │                                              │
     ▼                                              ▼
-scripts/seed_from_csv.py ──seed──▶ data/portfolio.db ──serve──▶ uvicorn 0.0.0.0:8000
+scripts/seed_from_csv ──seed──▶ data/portfolio.db ──serve──▶ uvicorn 0.0.0.0:8000
     ▲                              (SQLite, alembic)              │
     │                                                             ├──▶ /patrimonio  (perfil ativo)
     └──────── snapshot (scripts/snapshot_to_csv.py) ◀─────────────┤
@@ -305,14 +306,14 @@ Quando aplicar:
 - Adicionar/modificar ativos ou posições em código — usar o caminho CSV.
   Nova coluna em `Asset`/`Position` exige `OpenSpec change`.
 - Smoke scripts que criem ativos/posições — proibidos (a não ser via
-  `seed_from_csv.py`).
+  `python -m scripts.seed_from_csv`).
 - Carregar fixtures em testes é ok (escopo próprio).
 
-**Default test-readiness state**: ambos perfis populados (Italo: 6 classes
-+ 48 ativos + 47 posições; Ana: 6 classes + ~40 ativos + ~43 posições).
-Produzido por `task db-reset`. Se o usuário pedir explicitamente uma
-superfície sem ativos para testar o fluxo de import do zero, usar
-`task db-clear-assets` em vez de `db-reset`.
+**Default test-readiness state**: ambos perfis populados + Família
+sentinel (Italo: 6 classes + 47 ativos + 47 posições; Ana: 6 classes +
+52 ativos + 52 posições). Produzido por `task db-reset`. Se o usuário
+pedir explicitamente uma superfície sem ativos para testar o fluxo de
+import do zero, usar `task db-clear-assets` em vez de `db-reset`.
 
 ### 4.4 Alpine `<select>` + dynamic `<template x-for>` — binding gotcha
 
@@ -478,15 +479,15 @@ redundante, rode-a mesmo assim.
 
 **Compromisso (regra do usuário, 2026-07-04):** *toda* delivery browser-
 visível roda `task db-reset` **sempre** — sem exceção. O DB entregue
-deve mostrar os 2 perfis populados (Italo + Ana + F01 fixture), não
-um estado genérico / wipado. O agente que pular o reset está
-assinando uma delivery quebrada e o usuário vai abrir a URL e assumir
-que a feature está quebrada.
+deve mostrar Italo + Ana + Família sentinel, não um estado genérico /
+wipado. O agente que pular o reset está assinando uma delivery quebrada
+e o usuário vai abrir a URL e assumir que a feature está quebrada.
 
 **Rule of thumb:** default para delivery = **populado** (`db-reset` →
-Italo: 6 classes + 48 ativos + 47 posições + Italo RF2: 6/48/47;
-Ana: 6 classes + 52 ativos + 52 posições) a menos que o usuário tenha
-pedido explicitamente uma superfície sem ativos.
+Italo: 6 classes + 47 ativos + 47 posições;
+Ana: 6 classes + 52 ativos + 52 posições;
+Família sentinel presente) a menos que o usuário tenha pedido
+explicitamente uma superfície sem ativos.
 
 #### Recibo de verificação obrigatório
 
@@ -497,9 +498,9 @@ de recibo abaixo, na ordem. Sem recibo = delivery não conta como done.
 ## Recibo — delivery F01 (f01-household-cross-profile-consolidation)
 URL:     http://192.168.1.6:8000        ← `bash scripts/print_lan_url.sh`
 Healthz: ok                            ← curl $URL/healthz
-DB:      18 classes / 148 ativos / 146 posições
-         Italo 6/48/47 + Italo RF2 6/48/47 + Ana 6/52/52
-         ← sqlite count(*)
+DB:      12 classes / 99 ativos / 99 posições
+         Italo 6/47/47 + Ana 6/52/52 + Família sentinel 0/0/0
+          ← sqlite count(*)
 Dashboard seeded: "RF Dinâmica" x 12   ← curl -b cookie $URL/ | grep -c "RF Din"
 Server PID: 853621                    ← pgrep -af uvicorn omaha.main
 ```

@@ -1,11 +1,15 @@
-"""T04: Real CSV flow with posicao_italo.csv (48 positions).
+"""T04: Import-flow audit against canonical seeded positions CSV fixture.
 
-End-to-end tests using the user's real broker extract. Covers parsing,
-category suggestion, preview, commit, idempotent re-import, and
-cross-profile isolation.
+Exercises ``omaha.csv_import`` plus preview/commit endpoints by
+uploading ``data/seed/italo_positions.csv`` under broker-style
+filename ``posicao_italo.csv``. This file no longer mirrors raw broker
+export verbatim; coverage here documents current fixture behavior:
 
-Requires Bug 1 (``-`` → ``0``) and Bug 2 ("conta" removed from footer
-labels) to be applied first.
+- positive-qty seeded rows auto-match existing assets,
+- zero-qty placeholders stay unmatched until assigned,
+- the import path ignores seeded ``total_invested`` /
+  ``total_current`` columns from this fixture,
+- idempotence and profile isolation stay green.
 """
 
 from __future__ import annotations
@@ -196,15 +200,15 @@ _ASSIGNMENTS = [
 
 
 # ---------------------------------------------------------------------------
-# T1: parse_positions with real CSV
+# T1: parse_positions with seeded positions fixture uploaded as CSV
 # ---------------------------------------------------------------------------
 
 
 class TestParseRealCsv:
-    """Unit tests for parse_positions with posicao_italo.csv."""
+    """Unit tests for parse_positions with uploaded seeded positions fixture."""
 
-    def test_parse_real_csv_48_positions(self) -> None:
-        """parse_positions returns 48 RawPosition from the real CSV."""
+    def test_parse_real_csv_47_positions(self) -> None:
+        """parse_positions returns one row per uploaded fixture line."""
         from omaha.csv_import import parse_positions
 
         text = CSV_PATH.read_text(encoding="utf-8")
@@ -214,16 +218,16 @@ class TestParseRealCsv:
             f"Expected CSV row count, got {len(result)}"
         )
 
-        # Spot-check: "Conta corrente em dólar Avenue" included with qty=0
+        # Spot-check: "Conta corrente em dólar Avenue" included with qty=1
         conta = [r for r in result if "conta corrente" in r.name.lower()]
         assert len(conta) == 1, (
             "Conta corrente em dólar Avenue should be parsed (not filtered as footer)"
         )
         assert conta[0].qty == Decimal("1"), "Conta corrente qty should be 1"
 
-        # Spot-check: "48 ativos" footer is excluded
-        footer = [r for r in result if "48" in r.name]
-        assert len(footer) == 0, "Footer row '48 ativos' should be excluded"
+        # Spot-check: "47 ativos" footer is excluded
+        footer = [r for r in result if "47" in r.name]
+        assert len(footer) == 0, "Footer row '47 ativos' should be excluded"
 
         # Spot-check a normal position has positive qty
         smh = [r for r in result if r.name == "SMH"]
@@ -235,7 +239,7 @@ class TestParseRealCsv:
     def test_parse_real_csv_br_thousands_qty(self) -> None:
         """qty cells com '.' milhar (sem ',') parseiam como inteiro,
         não como decimal US. Cobre as 8 posições afetadas em
-        tests/posicao_italo.csv."""
+        ``data/seed/italo_positions.csv``."""
         from omaha.csv_import import parse_positions
 
         text = CSV_PATH.read_text(encoding="utf-8")
@@ -250,19 +254,15 @@ class TestParseRealCsv:
                 f"{ticker}: expected qty={expected_qty}, got {by_ticker[ticker].qty}"
             )
 
-    def test_parse_real_csv_total_columns_populated(self) -> None:
-        """broker-csv-import-totals 6.3: every row of the real CSV
-        carries a ``Decimal`` for ``total_invested`` and
-        ``total_current`` (the broker publishes both columns), and the
-        summed totals match the CSV footer within broker rounding
-        tolerance.
+    def test_parse_real_csv_seed_fixture_leaves_import_totals_empty(self) -> None:
+        """Current import parser ignores seed-fixture totals columns.
 
-        The broker's footer (``R$ 1.017.614,61`` / ``R$ 1.101.357,67``)
-        is its own rounded summary — NOT the arithmetic sum of the
-        per-row totals, which the broker also rounds individually.
-        Across the 48 positions the per-row rounding accumulates to
-        ~R$ 0,03 of drift vs the broker's footer; the parser is
-        correct to surface the per-row totals verbatim.
+        ``data/seed/italo_positions.csv`` carries canonical
+        ``total_invested`` / ``total_current`` fields for the seed path,
+        but ``omaha.csv_import.parse_positions`` does not read them from
+        this uploaded fixture shape. This audit pins current behavior so
+        docstrings match reality; footer-parity import work belongs in a
+        follow-up slice.
         """
         from omaha.csv_import import parse_positions
 
@@ -326,10 +326,10 @@ class TestSuggestClassId:
 
 
 class TestPreviewRealCsv:
-    """POST /api/import/preview with posicao_italo.csv."""
+    """POST /api/import/preview with uploaded seeded positions fixture."""
 
     def test_preview_real_csv_suggested_class(self, client: TestClient) -> None:
-        """Preview returns 43 auto + 5 unmatched with suggested_class_id=None."""
+        """Preview returns auto-matched seeded rows plus zero-qty unmatched rows."""
         _login_and_select(client)
         class_map = _create_asset_classes(1)
         _create_assets(class_map, _seed_assets())
@@ -347,8 +347,8 @@ class TestPreviewRealCsv:
         assert len(data["unmatched"]) == len(_unmatched_tickers())
         assert len(data["asset_classes"]) == 3
 
-        # Every unmatched row has suggested_class_id=None (no CSV category
-        # matches the class names via exact/substring/word with current algo)
+        # Every unmatched row has suggested_class_id=None (current algo
+        # does not infer seeded placeholder classes from this fixture).
         for um in data["unmatched"]:
             assert um["suggested_class_id"] is None, (
                 f"Unexpected suggestion for {um['broker_ticker']}: {um['suggested_class_id']}"
@@ -434,7 +434,7 @@ class TestReimportRealCsv:
     """Re-import after commit is idempotent (0 unmatched)."""
 
     def test_reimport_real_csv_idempotent(self, client: TestClient) -> None:
-        """After commit, re-uploading the same CSV yields 48 auto-matched, 0 unmatched."""
+        """After commit, re-uploading same fixture yields 0 unmatched rows."""
         _login_and_select(client)
         class_map = _create_asset_classes(1)
         _create_assets(class_map, _seed_assets())
@@ -461,7 +461,7 @@ class TestReimportRealCsv:
         )
         assert commit_resp.status_code == 200
 
-        # Re-upload — all 48 assets exist now
+        # Re-upload — every fixture row now has backing asset
         csv_bytes = _read_posicao_csv()
         re_resp = client.post(
             "/api/import/preview",
@@ -495,15 +495,14 @@ class TestPreviewChangesAfterAddingAssets:
     """Preview re-match reflects new assets."""
 
     def test_preview_real_csv_changes_after_adding_assets(self, client: TestClient) -> None:
-        """Initial preview shows 43 auto + 5 unmatched; after creating all 48 assets,
-        new preview shows 48 auto."""
+        """Initial preview leaves placeholders unmatched; later preview rematches all rows."""
         _login_and_select(client)
         class_map = _create_asset_classes(1)
         _create_assets(class_map, _seed_assets())
 
         csv_bytes = _read_posicao_csv()
 
-        # First preview: 43 auto, 5 unmatched
+        # First preview: positive-qty rows auto-match; zero-qty placeholders do not.
         resp1 = client.post(
             "/api/import/preview",
             files={"file": ("posicao_italo.csv", csv_bytes, "text/csv")},
@@ -540,7 +539,7 @@ class TestPreviewChangesAfterAddingAssets:
 
 
 class TestCrossProfileIsolation:
-    """Profile isolation for real CSV previews."""
+    """Profile isolation for uploaded seeded-position previews."""
 
     def test_cross_profile_isolation_real_csv(self, client: TestClient) -> None:
         """Profile 2 cannot access a preview created by Profile 1."""
@@ -565,24 +564,22 @@ class TestCrossProfileIsolation:
 
 
 class TestPortfolioTotalsFromCsv:
-    """broker-csv-import-totals 6.4: end-to-end pipeline
-    (preview + commit + dashboard) yields a ``portfolio.total_invested``
-    / ``current_value`` byte-for-byte equal to the broker's CSV
-    footer, not the recomputed ``qty * price`` total.
+    """Current import-fixture totals behavior.
 
-    The fixture CSV publishes totals that the broker rounded per row;
-    the dashboard must use those totals (not the recompute) for the
-    sum to land on the footer byte-for-byte.
+    This fixture is a seed CSV, not raw broker export. Preview/commit do
+    not carry its ``total_invested`` / ``total_current`` columns through
+    the import path, so dashboard aggregates stay zero after commit.
+    Audit keeps test behavior and fixes stale narrative only.
     """
 
-    def test_portfolio_total_matches_csv_footer(self, client: TestClient) -> None:
+    def test_portfolio_totals_remain_zero_without_import_totals(self, client: TestClient) -> None:
         from omaha.routes.pages import portfolio_aggregates
 
         _login_and_select(client, profile_id=1)
         class_map = _create_asset_classes(1)
         _create_assets(class_map, _seed_assets())
 
-        # Preview the real CSV.
+        # Preview uploaded seeded positions fixture.
         csv_bytes = _read_posicao_csv()
         preview_resp = client.post(
             "/api/import/preview",
@@ -608,6 +605,8 @@ class TestPortfolioTotalsFromCsv:
         assert commit_resp.json()["upserted"] == len(_expected_class_by_ticker())
 
         # Dashboard aggregates via the same helper the route uses.
+        # Current import path sees no explicit totals from this fixture,
+        # so both portfolio totals remain zero.
         from omaha.db import SessionLocal
         from omaha.models import AssetClass
 

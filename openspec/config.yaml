@@ -20,13 +20,13 @@ context: |
   (`{profile}_classes.csv`, `{profile}_assets.csv`,
   `{profile}_positions.csv`) is the source of truth for class
   targets, per-asset targets, and current positions. Consumed by
-  `scripts/seed_from_csv.py` (taskipy: `db-seed-from-csv`,
+  `scripts/seed_from_csv` package (taskipy: `db-seed-from-csv`,
   `db-seed-diff`, `db-seed-upsert`, `db-reset`). Three modes:
   `reset` (wipe + reseed, destructive), `upsert` (create-or-update),
   `diff` (no write). The xlsx workbooks and broker CSVs in
   `~/github/investing/input/` are bootstrap input only — NOT
-  runtime dependencies. Non-tradeable positions use the
-  `qty=1, avg=total_investido, cur=total_atual` sentinel (see
+  runtime dependencies. Non-tradeable positions use zeroed unit
+  fields plus explicit `total_invested/total_current` totals (see
   `data/seed/README.md`).
 
   See AGENTS.md for the binding project rules:

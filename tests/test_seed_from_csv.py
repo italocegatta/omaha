@@ -1,42 +1,54 @@
 """Tests for ``scripts.seed_from_csv``.
 
-Eleven test cases, each backed by its own temporary SQLite database
-via the ``omaha_db`` fixture (boots a fresh SQLite file, runs
-``alembic upgrade head``, exposes ``SessionLocal``):
+Twenty integration-style cases, each backed by its own temporary
+SQLite database via the ``omaha_db`` fixture (boots a fresh SQLite
+file, runs ``alembic upgrade head``, exposes ``SessionLocal``):
 
-1. ``test_reset_creates_full_italo_state`` — ``reset`` on a fresh
-   profile creates 6 classes + 48 assets + 47 positions for Italo
-   with ``sum(target_pct) == 100`` per profile and per class.
-2. ``test_reset_wipes_existing_state_first`` — ``reset`` on a
-   populated profile wipes positions / previews / assets / classes
-   before re-seeding the full triplet.
+1. ``test_reset_creates_full_italo_state`` — ``reset`` creates the
+   full canonical Italo state from the CSV triplet.
+2. ``test_reset_wipes_existing_state_first`` — ``reset`` deletes
+   stale rows before reseeding.
 3. ``test_reset_is_idempotent`` — running ``reset`` twice yields the
-   same DB state including positions.
+   same DB state.
 4. ``test_upsert_updates_changes_creates_missing`` — ``upsert``
-   updates a changed ``target_pct``, a changed ``current_price``,
-   and creates a missing asset + position without deleting other rows.
-5. ``test_diff_lists_changes_no_write`` — ``diff`` on a populated
-   profile lists only the changes across all three layers; no write.
-6. ``test_sum_violating_class_csv_is_rejected`` — sum-violating class
-   CSV is rejected with the validator's ``Sobra X%`` / ``Falta X%``
-   message and no DB write.
-7. ``test_asset_referencing_missing_class_is_rejected`` — asset
-   referencing a missing class aborts with the offending line number.
-8. ``test_position_referencing_missing_asset_is_rejected`` — position
-   referencing a missing asset aborts with the offending line number.
-9. ``test_non_tradeable_position_sentinel_preserves_value`` —
-    one explicit-totals position survives ``reset`` and contributes
-    its CSV values to portfolio ``current_value``.
-10. ``test_non_ascii_asset_name_round_trips`` — non-ASCII asset name
-    (``Tesouro IPCA+ 2035``) round-trips correctly.
-11. ``test_upsert_rejects_sum_violation_before_write`` — ``upsert``
-    rejects a sum-violating CSV before any DB write.
+   restores drifted rows and recreates missing asset/position rows.
+5. ``test_diff_lists_changes_no_write`` — ``diff`` reports changes
+   without mutating the DB.
+6. ``test_sum_violating_class_csv_is_rejected`` — class-sum drift
+   aborts before write.
+7. ``test_asset_referencing_missing_class_is_rejected`` — missing
+   class reference aborts with line diagnostics.
+8. ``test_position_referencing_missing_asset_is_rejected`` — missing
+   asset reference aborts with line diagnostics.
+9. ``test_reset_preserves_divergent_broker_ticker`` — ``broker_ticker``
+   stays verbatim even when it diverges from ``asset_name``.
+10. ``test_reset_preserves_totals_verbatim_no_recompute`` — explicit
+    totals survive ``reset`` unchanged.
+11. ``test_reset_null_total_cells_contribute_zero`` — empty totals
+    parse to ``None`` and therefore aggregate as zero.
+12. ``test_non_tradeable_position_explicit_totals_preserve_value`` —
+    zero-qty non-tradeable rows still contribute their explicit totals.
+13. ``test_non_ascii_asset_name_round_trips`` — non-ASCII asset names
+    survive round-trip.
+14. ``test_auto_class_fixture_loads_with_quote_kind`` — inline class
+    fixture accepts ``quote_kind=auto``.
+15. ``test_loader_rejects_unknown_quote_kind`` — invalid
+    ``quote_kind`` aborts.
+16. ``test_upsert_rejects_sum_violation_before_write`` — ``upsert``
+    aborts on invalid sums before mutating the DB.
+17. ``test_legacy_four_column_asset_header_is_rejected`` — legacy
+    asset header fails hard.
+18. ``test_invalid_currency_in_assets_csv_aborts`` — invalid
+    ``currency_code`` aborts.
+19. ``test_run_reset_populates_trade_fields_from_csv`` — trade-control
+    fields load from CSV on ``reset``.
+20. ``test_run_diff_emits_would_update_for_trade_changes`` — ``diff``
+    reports trade-field drift.
 
 The DB-targeted tests use a per-test temporary SQLite file via the
-``DATABASE_URL`` env var. ``omaha.config.settings`` is rebuilt
-lazily (``omaha.db`` reads ``DATABASE_URL`` at import time) so we
-have to drop the cached ``omaha.*`` modules and reimport them per
-test.
+``DATABASE_URL`` env var. ``omaha.config.settings`` is rebuilt lazily
+(``omaha.db`` reads ``DATABASE_URL`` at import time) so the test has
+to drop cached ``omaha.*`` modules and reimport them per case.
 """
 
 from __future__ import annotations
@@ -54,7 +66,6 @@ from scripts.seed_from_csv import load_assets, load_classes, load_positions
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SEED_DIR = REPO_ROOT / "data" / "seed"
-SEED_FROM_CSV = REPO_ROOT / "scripts" / "seed_from_csv.py"
 
 
 # ---------------------------------------------------------------------------
@@ -263,9 +274,9 @@ def test_reset_wipes_existing_state_first(omaha_db) -> None:
         # preview + 3 assets + 2 classes. After reset, all of this must be
         # gone and the canonical Italo state must replace it.
         user = session.query(User).filter(User.username == "Italo").one()
-        # F01 fixture: Italo also owns a second profile
-        # (``Italo RF2``) so the household toggle is visible in the
-        # canonical seed. Filter by name to disambiguate.
+        # Canonical seed keeps exactly one Italo profile. Filter by
+        # name anyway so future extra rows do not make this setup
+        # ambiguous.
         profile = (
             session.query(Profile).filter(Profile.user_id == user.id, Profile.name == "Italo").one()
         )
@@ -629,13 +640,13 @@ def test_reset_null_total_cells_contribute_zero(omaha_db) -> None:
         positions_path.write_text(backup, encoding="utf-8")
 
 
-def test_non_tradeable_position_sentinel_preserves_value(omaha_db) -> None:
-    """One explicit-totals position round-trips into DB unchanged.
+def test_non_tradeable_position_explicit_totals_preserve_value(omaha_db) -> None:
+    """Zero-qty non-tradeable row round-trips with explicit totals.
 
-    broker-csv-import-totals: the seed path pre-populates
-    ``total_invested = qty * avg`` and ``total_current = qty * cur``
-    so dashboard's "no-recompute" calc renders seed values
-    user typed. The row below therefore contributes exact CSV totals.
+    Current canonical CSVs do not use the old ``qty=1`` sentinel.
+    Non-tradeable rows keep zeroed unit fields and rely on
+    ``total_invested`` / ``total_current`` for broker-truth
+    aggregates.
     """
     SessionLocal = omaha_db["SessionLocal"]
     r = _run_seed("italo", "reset", db_url=omaha_db["db_url"])
@@ -652,8 +663,8 @@ def test_non_tradeable_position_sentinel_preserves_value(omaha_db) -> None:
         assert pos.total_invested == target.total_invested
         assert pos.total_current == target.total_current
 
-        # Portfolio aggregate: the sentinel contributes its totals,
-        # so portfolio total includes that exact CSV row.
+        # Portfolio aggregate uses explicit totals, so the row still
+        # contributes its broker-published current value.
         from omaha.models import AssetClass
         from omaha.routes.pages import portfolio_aggregates
 

@@ -59,23 +59,31 @@ file.
 
 The system SHALL provide, for each seeded profile, a CSV file at
 `data/seed/{profile}_assets.csv` with the header
-`class_name,name,target_pct,display_order`. The file MUST be
-UTF-8 encoded and MUST contain exactly one header row followed by
-data rows. Each data row MUST have a non-empty `class_name`, a
-non-empty `name`, a numeric `target_pct` in the range `[0, 100]`,
-and an integer `display_order >= 0`. The `name` column MUST be
-unique within a single class. The `class_name` MUST match (by
-exact string equality) a `name` in the corresponding
+`class_name,name,target_pct,display_order,buy_enabled,sell_enabled,currency_code`.
+The file MUST be UTF-8 encoded and MUST contain exactly one header row
+followed by data rows. Each data row MUST have a non-empty
+`class_name`, a non-empty `name`, a numeric `target_pct` in the range
+`[0, 100]`, an integer `display_order >= 0`, booleans for
+`buy_enabled` / `sell_enabled` (permissive `true/false/1/0/yes/no`,
+empty => `false`), and a `currency_code` in `{BRL, USD}`. The `name`
+column MUST be unique within a single class. The `class_name` MUST
+match (by exact string equality) a `name` in the corresponding
 `{profile}_classes.csv`.
 
 #### Scenario: Valid asset CSV is accepted
 
-- **WHEN** `data/seed/italo_assets.csv` contains the documented
+- **WHEN** `data/seed/italo_assets.csv` contains documented 7-column
   header and rows whose `class_name` values all appear in
-  `data/seed/italo_classes.csv` and whose `name` values are
-  unique within each class
+  `data/seed/italo_classes.csv`
 - **THEN** the seed script accepts the file and proceeds to the
   sum check
+
+#### Scenario: Legacy 4-column asset header is rejected
+
+- **WHEN** an asset CSV contains legacy header
+  `class_name,name,target_pct,display_order`
+- **THEN** the seed script aborts before any DB write and prints the
+  expected 7-column header and offending path
 
 #### Scenario: Asset referencing a missing class is rejected
 
@@ -145,8 +153,8 @@ positions=K`.
 
 - **WHEN** the profile has no classes, no assets, no positions, no
   previews, and the CSV triplet is valid
-- **THEN** `--mode reset` ends with 6 classes, 48 assets, and 47
-  positions for Italo (or 6 + 46 + 43 for Ana) — matching the CSV
+- **THEN** `--mode reset` ends with 6 classes, 47 assets, and 47
+  positions for Italo (or 6 + 52 + 52 for Ana) — matching the CSV
   triplet exactly
 
 #### Scenario: reset on a populated profile wipes first
@@ -155,7 +163,7 @@ positions=K`.
   3 assets, and 2 classes
 - **THEN** `--mode reset` deletes all 5 positions, the preview,
   the 3 assets, and the 2 classes before re-inserting from the
-  CSV triplet (the freshly seeded state has 6 + 48 + 47 for Italo
+  CSV triplet (the freshly seeded state has 6 + 47 + 47 for Italo
   regardless of what was there before)
 
 #### Scenario: reset is idempotent
@@ -215,9 +223,9 @@ layers. The script MUST NOT issue any INSERT / UPDATE / DELETE.
 
 #### Scenario: Diff on a populated DB lists only the changes
 
-- **WHEN** the DB already has 5 of 6 classes and 20 of 48 assets
+- **WHEN** the DB already has 5 of 6 classes and 20 of 47 assets
   and 30 of 47 positions matching the CSV exactly
-- **THEN** `--mode diff` prints `would-create: 1 class, 28 assets,
+- **THEN** `--mode diff` prints `would-create: 1 class, 27 assets,
   17 positions` and `would-update: 0` and `would-orphan: 0`
 
 #### Scenario: Diff aborts on invalid CSV before printing
@@ -307,24 +315,23 @@ unique key.
 
 The positions CSV MUST, for a position whose underlying asset is a
 non-tradeable instrument (RDB, CDB, treasury bond held to maturity),
-represent the position with `qty = 1`, `avg_price = total_investido`,
-and `current_price = total_atual`. This sentinel is required because
-the `Position` model declares `qty` and `avg_price` as NOT NULL and
-the dashboard computes `current_value = qty × current_price` and
-`invested = qty × avg_price`. With the sentinel, both derivations
-yield the broker-truth numbers (`total_atual` and
-`total_investido` respectively). The convention is documented in
-`data/seed/README.md`.
+represent the position with zeroed unit fields and explicit totals:
+`qty = 0`, `avg_price = 0`, `current_price = 0`,
+`total_invested = broker truth`, and `total_current = broker truth`.
+The seed path MUST store those five fields verbatim and the dashboard
+MUST use the explicit totals when present. The convention is
+documented in `data/seed/README.md`.
 
 #### Scenario: Non-tradeable position preserves current_value
 
 - **WHEN** the positions CSV contains a row for
   `RDB Pós 100% CDI 01/08/2033` with
-  `qty=1, avg_price=20000.00, current_price=26475.01`
+  `qty=0, avg_price=0, current_price=0,
+   total_invested=20000.00, total_current=27212.20`
 - **THEN** after `--mode reset`, the dashboard's
-  `portfolio.current_value` includes the R$ 26.475,01 contribution
-  from this position (i.e. the sentinel is rendered correctly, not
-  as zero)
+  `portfolio.current_value` includes the R$ 27.212,20 contribution
+  from this position (i.e. explicit totals are preserved, not
+  recomputed from unit fields)
 
 #### Scenario: Tradeable position uses raw values
 
@@ -358,8 +365,8 @@ asset's `id` from the freshly inserted assets via the row's
 
 - **WHEN** the profile has no rows and the three CSVs are valid,
   including a positions CSV with the 7-column header
-- **THEN** `--mode reset` ends with 6 classes, 48 assets, and 47
-  positions for Italo (or 6 + 46 + 43 for Ana), and every
+- **THEN** `--mode reset` ends with 6 classes, 47 assets, and 47
+  positions for Italo (or 6 + 52 + 52 for Ana), and every
   position row's `broker_ticker` equals the CSV value, and
   every non-empty `total_invested` / `total_current` cell
   survives verbatim
@@ -415,7 +422,7 @@ totals).
 The `AGENTS.md` "Seed data" rule SHALL be updated to permit
 automated creation of `Asset` AND `Position` rows when, and only
 when, the source is a CSV file under `data/seed/` consumed by
-`scripts/seed_from_csv.py`. The rule MUST still forbid inline
+`python -m scripts.seed_from_csv`. The rule MUST still forbid inline
 literal / hardcoded asset or position seeds, ad-hoc scripts, and
 demo wiring that create assets or positions outside the CSV path.
 New profiles or new asset/position schema columns still require a
@@ -436,7 +443,7 @@ change proposal.
 
 - **WHEN** a developer adds `Asset(asset_class_id=1, name=...)` or
   `Position(asset_id=1, qty=..., avg_price=..., current_price=...)`
-  to `scripts/seed_from_csv.py` as a hardcoded fallback
+  to `python -m scripts.seed_from_csv` as a hardcoded fallback
 - **THEN** code review flags the violation per the rule
 
 ### Requirement: Taskipy wiring
@@ -450,17 +457,16 @@ change proposal.
   pattern).
 - `db-seed-diff`: same command with `--mode diff`.
 - `db-seed-upsert`: same command with `--mode upsert`.
-- `db-reset`: repointed to
-  `uv run python -m scripts.seed_from_csv --profile italo
-  --mode reset` (preserves the current destructive behaviour for
-  backward compat).
+- `db-reset`: `uv run python -m scripts.reset_both_profiles`
+  (preserves current destructive behaviour for backward compat and
+  reseeds both profiles in one shot).
 
 #### Scenario: db-reset preserves prior behaviour
 
 - **WHEN** a developer runs `uv run task db-reset` after this
   change
 - **THEN** the result is identical to the pre-change behaviour:
-  Italo's classes are wiped and reseeded from the CSV with the
+  both profiles are wiped and reseeded from the CSV with the
   same destructive semantics
 
 #### Scenario: db-seed-diff is non-destructive
@@ -520,47 +526,32 @@ modify that SQL or the import flow.
   position); the seeded `Position` rows are passive data
   and do not participate in matching
 
-### Requirement: Position unit prices normalised so dashboard matches broker footer
+### Requirement: Position totals preserve broker truth verbatim
 
-The seed script MUST, for each row in `{profile}_positions.csv`
-corresponding to a tradeable asset (the row's `qty` is a real number,
-not `-`), normalise the unit prices so
-`qty × current_price == total_atual` and
-`qty × avg_price == total_investido` exactly:
-
-```
-avg_price    = total_investido / qty
-current_price = total_atual / qty
-```
-
-This compensates for broker data inconsistencies (the broker
-CSV's `Preço atual` column sometimes does not multiply back to
-the reported `Total atual`) so the dashboard's
-`portfolio.current_value` equals the broker's claimed footer total
-to within R$ 0.01.
+The seed script MUST, for each row in `{profile}_positions.csv`,
+store `broker_ticker`, `qty`, `avg_price`, `current_price`,
+`total_invested`, and `total_current` verbatim. It MUST NOT recompute
+`total_invested` from `qty × avg_price` nor `total_current` from
+`qty × current_price`. Any empty totals cells MUST parse to `NULL`
+and contribute `Decimal('0')` to the dashboard aggregate. The
+dashboard MUST use `total_invested` / `total_current` when present so
+portfolio totals preserve broker truth.
 
 The `Position.qty / avg_price / current_price` columns MUST be
-`Numeric(18, 8)` to preserve the precision of the normalised
-unit prices (the previous `Numeric(18, 4)` truncated unit prices
-and accumulated ~R$ 0.20 of error across 40 tradeable rows for
-Italo).
-
-The non-tradeable sentinel rows (both `Qtd` and `Preço médio` are
-`-` in the source) keep the original `qty=1, avg=total_investido,
-cur=total_atual` representation — no division needed because `qty=1`.
+`Numeric(18, 8)` to preserve tradeable unit precision.
 
 #### Scenario: Italo portfolio.current_value matches the broker footer
 
 - **WHEN** `--mode reset --profile italo` runs against a fresh DB
 - **THEN** the dashboard's `portfolio.current_value` for Italo
-  equals R$ 1.101.350,86 to within R$ 0.01 (the broker footer
+  equals R$ 1.132.077,30 to within R$ 0.01 (the broker footer
   total for Italo's posicao CSV)
 
 #### Scenario: Ana portfolio.current_value matches the broker footer
 
 - **WHEN** `--mode reset --profile ana` runs against a fresh DB
 - **THEN** the dashboard's `portfolio.current_value` for Ana
-  equals R$ 684.763,60 to within R$ 0.01 (the broker footer
+  equals R$ 1.123.788,74 to within R$ 0.01 (the broker footer
   total for Ana's posicao CSV)
 
 ### Requirement: db-snapshot task exports live DB state to CSVs
@@ -572,7 +563,7 @@ canonical profile (`italo`, `ana`) into the six CSV files under
 `data/seed/`. The task is a dev tool only — it is not wired into
 the FastAPI app, not exposed via the UI, and not packaged for the
 prod image. The exported CSV header MUST exactly match the
-header consumed by `seed_from_csv.py`, so the round-trip
+header consumed by `python -m scripts.seed_from_csv`, so the round-trip
 `snapshot → reset` is deterministic.
 
 #### Scenario: Snapshot writes all six CSVs

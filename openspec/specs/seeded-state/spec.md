@@ -77,7 +77,7 @@ invocation (not require two separate `task db-seed-from-csv
 The system SHALL NOT introduce inline literal, hardcoded, or
 ad-hoc code paths that create `AssetClass`, `Asset`, or
 `Position` rows outside the CSV path consumed by
-`scripts/seed_from_csv.py`. `src/omaha/seed.py` remains the
+`python -m scripts.seed_from_csv`. `src/omaha/seed.py` remains the
 canonical user + profile seed and SHALL NOT be extended to
 seed asset or position data.
 
@@ -85,7 +85,7 @@ seed asset or position data.
 
 - **WHEN** a reviewer inspects the change's diff
 - **THEN** no production code under `src/omaha/` (other than
-  `scripts/seed_from_csv.py`) creates `AssetClass`, `Asset`,
+  `python -m scripts.seed_from_csv`) creates `AssetClass`, `Asset`,
   or `Position` rows
 - **AND** no demo / smoke / pre-population script bypasses the
   CSV path
