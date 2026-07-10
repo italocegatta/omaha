@@ -94,7 +94,16 @@ To swap a gate's primary provider: change the `Primary` column and swap the
 2. Check if `openspec/roadmap.md` exists:
    - **If exists:** read it and `openspec/config.yaml`, proceed to step 3.
    - **If does not exist:** this is a **bootstrap** scenario. Ask user for PRD path or feature description. Execute bootstrap mode from `openspec-roadmap`. Create `openspec/roadmap.md`. Once bootstrap completes, read new roadmap and proceed to step 3.
-3. Decompose demand into prioritized slices, register in roadmap.
+3. Analyze the demand and propose a slice decomposition:
+   a. Break the demand into candidate slices (future OpenSpec changes).
+   b. For each candidate slice, estimate scope: what it covers, what it does NOT cover.
+   c. Present your proposed slices to the user for discussion.
+   d. **CRITICAL — discuss slice sizing with the user before registering:**
+      - A slice too large is risky (hard to implement, hard to review).
+      - A slice too small is noise (overhead of change artifacts > value delivered).
+      - Each slice should deliver one coherent, testable increment of value.
+      - Ask explicitly: "Does this slice feel right? Split further? Merge any?"
+   e. Only register slices in the roadmap after the user confirms the decomposition.
 4. For each slice, advance through the full pipeline described above.
 5. Pass each stage agent only context needed for one slice:
    - user demand / requested command
