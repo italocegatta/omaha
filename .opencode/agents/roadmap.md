@@ -44,7 +44,11 @@ For each slice, advance through gates in order:
 4. **Review** — `@review-*` reviews implementation, runs tests, produces report.
    - If **APPROVED**: proceed to Finalize.
    - If **CHANGES_REQUESTED**: loop back to Apply with review report, then Review again.
-5. **Finalize** — `@finalize-*` syncs specs, archives change, commits, pushes. Slice → `Archived`.
+5. **Finalize** — `@finalize-*` syncs specs, archives change, commits, pushes.
+6. **Validate** — orchestrator presents the completed slice to the user for manual validation.
+   - Only after user authorizes: update roadmap status to `Archived` and summarize the slice
+     following the compact historical pattern.
+   - Slice → `Archived`.
 
 Stop condition for review loop: `@review-*` returns APPROVED, or after max retries (report to user for decision).
 
@@ -61,7 +65,7 @@ Edit this table when you want to swap provider priority or change models.
 | 2 | Scope → Spec Proposed | `propose-oai` | `propose-oc` | **OAI** | OC | `openspec-propose` |
 | 3 | Spec Proposed → Applied | `apply-oai` | `apply-oc` | **OC** | OAI | `openspec-apply-change` |
 | 4 | Applied → Reviewed | `review-oai` | `review-oc` | **OAI** | OC | `code-review` |
-| 5 | Reviewed → Archived | `finalize-oai` | `finalize-oc` | **OC** | OAI | `openspec-sync-specs`, `openspec-archive-change` |
+| 5 | Reviewed → Finalized | `finalize-oai` | `finalize-oc` | **OC** | OAI | `openspec-sync-specs`, `openspec-archive-change` |
 
 To swap a gate's primary provider: change the `Primary` column and swap the
 `subagent_type` you pass to `task()`.
@@ -115,8 +119,23 @@ To swap a gate's primary provider: change the `Primary` column and swap the
    - repo constraints from `AGENTS.md` and `openspec/config.yaml`
    - exact stop condition for that stage
 6. Wait for stage result.
-7. Run required verification gates / roadmap updates after each lifecycle change.
-8. When all slices are `Archived`:
+7. Run required verification gates after each lifecycle change.
+8. After the pipeline completes for a slice (finalize done):
+   a. Present the completed slice to the user for **manual validation**.
+   b. Ask explicitly: "Slice ready. Validate and mark as delivered?"
+   c. **Only after user authorizes**, update the roadmap:
+      - Change slice status to `Archived — YYYY-MM-DD`.
+      - Summarize the slice following the compact historical pattern:
+        ```markdown
+        ### <slice-id> - <title>
+        Status: `Archived` — YYYY-MM-DD
+        Goal: one-line description of what was delivered
+        Archive: `openspec/changes/archive/YYYY-MM-DD-<change-id>/`
+        ```
+      - Remove active lifecycle fields (`Candidate OpenSpec change id`, `Spec link`,
+        `Files`, `Progress`, `Notes`).
+   d. Run spec verification.
+9. When all slices are `Archived`:
    - Verify roadmap has no pending items.
    - Produce concise executive report: what was delivered per slice, with change ids.
 
