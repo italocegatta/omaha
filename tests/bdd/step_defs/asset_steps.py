@@ -56,7 +56,10 @@ def click_add_asset(page: Page):
     before = page.locator('[data-testid="dashboard-asset-row"]').count()
     page.locator('[data-testid="dashboard-add-asset-submit"]').click()
     page.wait_for_function(
-        f"() => document.querySelectorAll('[data-testid=\"dashboard-asset-row\"]').length > {before}",
+        (
+            "() => document.querySelectorAll("
+            f"'[data-testid=\"dashboard-asset-row\"]').length > {before}"
+        ),
         timeout=10000,
     )
 

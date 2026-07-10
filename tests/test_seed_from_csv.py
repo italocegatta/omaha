@@ -49,6 +49,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
+
 from scripts.seed_from_csv import load_assets, load_classes, load_positions
 
 REPO_ROOT = Path(__file__).resolve().parent.parent

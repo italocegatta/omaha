@@ -17,6 +17,7 @@ from typing import NamedTuple
 
 import pytest
 from fastapi.testclient import TestClient
+
 from scripts.seed_from_csv import load_assets, load_positions
 
 REPO_ROOT = Path(__file__).resolve().parent.parent

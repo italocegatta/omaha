@@ -14,8 +14,8 @@ in the middle of a scenario.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 import re
+from typing import TYPE_CHECKING
 
 from pytest_bdd import parsers, then
 
@@ -104,7 +104,9 @@ def asset_ordinal_in_class(page: Page, ticker: str, ordinal: int, class_name: st
     would naturally re-sort the row elsewhere.
     """
     rows = page.locator(
-        f'[data-testid="class-summary-row"]:has([data-testid="class-section-name"]:text-is("{class_name}")) [data-testid="dashboard-asset-row"]'
+        f'[data-testid="class-summary-row"]:has('
+        f'[data-testid="class-section-name"]:text-is("{class_name}")'
+        ') [data-testid="dashboard-asset-row"]'
     )
     rows.first.wait_for(state="visible", timeout=5000)
     if ordinal < 1 or ordinal > rows.count():

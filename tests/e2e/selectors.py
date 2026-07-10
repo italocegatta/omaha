@@ -150,7 +150,6 @@ SELECTORS: dict[str, str] = {
     "rebalance_placeholder": '[data-testid="rebalance-placeholder"]',
     "rebalance_plan": '[data-testid="rebalance-plan"]',
     "rebalance_params_bar": '[data-testid="rebalance-params-bar"]',
-    "rebalance_contribution_input": '[data-testid="rebalance-contribution-input"]',
     "rebalance_threshold_abs": '[data-testid="rebalance-threshold-abs"]',
     "rebalance_threshold_pct": '[data-testid="rebalance-threshold-pct"]',
     "rebalance_class_summary": '[data-testid="rebalance-class-summary"]',

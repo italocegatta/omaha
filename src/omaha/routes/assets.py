@@ -530,9 +530,7 @@ def patch_asset(
     if "target_pct_total" in body:
         total_pct = _parse_target_pct_or_422(
             body["target_pct_total"],
-            detail=(
-                f"O alvo % total do ativo deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}."
-            ),
+            detail=(f"O alvo % total do ativo deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}."),
         )
         asset.target_pct = _target_pct_from_total_or_422(total_pct, asset.asset_class.target_pct)
 
@@ -647,7 +645,9 @@ def _parse_target_pct_or_422(
     if parsed is None or parsed < PCT_MIN or parsed > PCT_MAX:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=detail or f"A alocação do ativo deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}.",
+            detail=(
+                detail or f"A alocação do ativo deve estar entre {int(PCT_MIN)} e {int(PCT_MAX)}."
+            ),
         )
     return parsed
 
@@ -665,12 +665,18 @@ def _target_pct_from_total_or_422(total_pct: Decimal, class_target_pct: Decimal 
     if canonical < PCT_MIN or canonical > PCT_MAX:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"O alvo % total informado resulta em alvo da classe fora de {int(PCT_MIN)} a {int(PCT_MAX)}.",
+            detail=(
+                f"O alvo % total informado resulta em alvo da classe fora de"
+                f" {int(PCT_MIN)} a {int(PCT_MAX)}."
+            ),
         )
     return _normalize_target_pct(canonical)
 
 
-def _derive_target_pct_total(target_pct: Decimal | None, class_target_pct: Decimal | None) -> Decimal:
+def _derive_target_pct_total(
+    target_pct: Decimal | None,
+    class_target_pct: Decimal | None,
+) -> Decimal:
     return _normalize_target_pct(
         ((target_pct or Decimal("0")) * (class_target_pct or Decimal("0"))) / _HUNDRED
     )

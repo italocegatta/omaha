@@ -25,7 +25,6 @@ with the concatenated error messages (one per line).
 
 from __future__ import annotations
 
-import math
 from decimal import Decimal
 
 import numpy as np

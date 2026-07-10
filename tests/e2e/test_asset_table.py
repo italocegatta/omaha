@@ -491,15 +491,12 @@ class TestS10AssetTable:
             """() => {
                 const table = document.querySelector('[data-testid="asset-table"]');
                 const ths = table.querySelectorAll('thead th');
-                const tableWidth = table.getBoundingClientRect().width;
                 return {
-                    tableWidth,
                     thWidths: Array.from(ths).map(th => th.getBoundingClientRect().width),
                 };
             }"""
         )
 
-        table_width = width_data["tableWidth"]
         th_widths = width_data["thWidths"]
         assert len(th_widths) == _N_COLS, f"expected {_N_COLS} th elements, got {len(th_widths)}"
 

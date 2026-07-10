@@ -52,13 +52,14 @@ Browser lifecycle
 from __future__ import annotations
 
 import os
+import re
 import socket
 import sqlite3
 import subprocess
 import sys
 import time
 import uuid
-import re
+from contextlib import suppress
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
@@ -135,7 +136,7 @@ def _log_harness(message: str) -> None:
 
 def _remember_call_report(item: pytest.Item, report: pytest.TestReport) -> None:
     if report.when == "call":
-        setattr(item, "_omaha_call_report", report)
+        item._omaha_call_report = report
 
 
 def _trace_artifact_path(base_dir: Path, nodeid: str) -> Path:
@@ -177,10 +178,8 @@ def _shutdown_uvicorn(
     log_path: Path | None = None,
 ) -> None:
     proc.terminate()
-    try:
+    with suppress(subprocess.TimeoutExpired):
         proc.wait(timeout=3)
-    except subprocess.TimeoutExpired:
-        pass
 
     if proc.poll() is None:
         _log_harness(f"{label}: terminate timeout on {host}:{port}; sending kill()")
@@ -423,8 +422,8 @@ def _start_uvicorn(db_path: Path, port: int, extra_env: dict[str, str]) -> subpr
         log_handle.close()
         raise RuntimeError(f"uvicorn did not start. output:\n{_read_log_tail(log_path)}") from None
 
-    setattr(proc, "_omaha_log_handle", log_handle)
-    setattr(proc, "_omaha_log_path", log_path)
+    proc._omaha_log_handle = log_handle
+    proc._omaha_log_path = log_path
     return proc
 
 

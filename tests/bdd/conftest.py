@@ -28,8 +28,8 @@ from tests.e2e.conftest import (  # noqa: F401  (re-exported to step_defs)
 )
 from tests.e2e.conftest import (
     _browser,  # noqa: F401  (transitive: page → browser_context → _browser)
-    _remember_call_report,
     _read_log_tail,
+    _remember_call_report,
     _shutdown_uvicorn,
     _uvicorn_log_file,
     _wait_for_port,

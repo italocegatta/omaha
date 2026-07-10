@@ -207,7 +207,7 @@ Progress:
     buckets without CI/task definition changes. Status → Applied.
 
 ### I04 - Limpar drift lint repo-wide
-Status: `Ready`
+Status: `Spec Proposed`
 Goal: Limpar 23 erros `ruff` repo-wide revelados pelo hook de pre-push, sem
   relaxar regras nem alterar comportamento de produto.
 Candidate OpenSpec change id: `i04-limpar-drift-lint-repo-wide`
@@ -221,6 +221,9 @@ Notes: Follow-up from I03. Slice is lint-only cleanup after gate plumbing is
 Progress:
   - 2026-07-10: Added from push-blocker analysis. Keep separate from hook/
     workflow plumbing.
+  - 2026-07-10: Propose complete. Created `proposal.md`, `design.md`, and
+    `tasks.md` under `openspec/changes/i04-limpar-drift-lint-repo-wide/`.
+    Spec verification pending.
 
 ### T11 - Revisar contratos de rebalance schema e glue
 Status: `Ready`

@@ -263,7 +263,9 @@ class TestClassSectionAlignment:
                     document.querySelectorAll('[data-testid="class-summary-row"]')
                 );
                 return sections.map((section) => {
-                    const badge = section.querySelector('[data-testid="class-total-deviation-class"]');
+                    const badge = section.querySelector(
+                        '[data-testid="class-total-deviation-class"]'
+                    );
                     const table = section.querySelector('[data-testid="asset-table"]');
                     const th = table
                         ? table.querySelector('[data-testid="asset-table-th-class-deviation"]')

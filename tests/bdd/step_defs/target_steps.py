@@ -15,8 +15,8 @@ clicks both class and asset cells. This module owns the
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 import re
+from typing import TYPE_CHECKING
 
 from pytest_bdd import parsers, then
 
@@ -86,7 +86,9 @@ def asset_saved_class_target(page: Page, ticker: str, text: str):
     expected = _normalize_pct_text(text)
     page.wait_for_function(
         """({ticker, expected}) => {
-            const rows = Array.from(document.querySelectorAll('[data-testid="dashboard-asset-row"]'));
+            const rows = Array.from(
+                document.querySelectorAll('[data-testid="dashboard-asset-row"]')
+            );
             return rows.some((row) => {
                 const nameEl = row.querySelector('[data-testid="asset-row-name-text"]');
                 if (!nameEl || nameEl.textContent.trim() !== ticker) return false;
@@ -122,7 +124,9 @@ def asset_class_cell_saved(page: Page, ticker: str, text: str):
     expected = _normalize_pct_text(text)
     page.wait_for_function(
         """({ticker, expected}) => {
-            const rows = Array.from(document.querySelectorAll('[data-testid="dashboard-asset-row"]'));
+            const rows = Array.from(
+                document.querySelectorAll('[data-testid="dashboard-asset-row"]')
+            );
             return rows.some((row) => {
                 const nameEl = row.querySelector('[data-testid="asset-row-name-text"]');
                 if (!nameEl || nameEl.textContent.trim() !== ticker) return false;
@@ -152,7 +156,9 @@ def derived_pct_total(page: Page, ticker: str, text: str):
     expected = _normalize_pct_text(text)
     page.wait_for_function(
         """({ticker, expected}) => {
-            const rows = Array.from(document.querySelectorAll('[data-testid="dashboard-asset-row"]'));
+            const rows = Array.from(
+                document.querySelectorAll('[data-testid="dashboard-asset-row"]')
+            );
             return rows.some((row) => {
                 const nameEl = row.querySelector('[data-testid="asset-row-name-text"]');
                 if (!nameEl || nameEl.textContent.trim() !== ticker) return false;

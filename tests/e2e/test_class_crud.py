@@ -381,7 +381,10 @@ class TestS02ClassCRUD:
         modal.locator(SELECTORS["dashboard_add_asset_submit"]).click()
         # Wait for row to appear after reload.
         page.wait_for_function(
-            f"() => document.querySelectorAll('{SELECTORS['dashboard_asset_row']}').length > {before}",
+            (
+                "() => document.querySelectorAll("
+                f"'{SELECTORS['dashboard_asset_row']}').length > {before}"
+            ),
             timeout=10000,
         )
         page.wait_for_selector(SELECTORS["class_summary_row"], timeout=5000)

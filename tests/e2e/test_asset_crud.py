@@ -150,7 +150,10 @@ class TestS03AssetCRUD:
 
         # Wait for asset row to appear after reload.
         page.wait_for_function(
-            f"() => document.querySelectorAll('{SELECTORS['dashboard_asset_row']}').length > {before}",
+            (
+                "() => document.querySelectorAll("
+                f"'{SELECTORS['dashboard_asset_row']}').length > {before}"
+            ),
             timeout=10000,
         )
         page.wait_for_selector(SELECTORS["dashboard_asset_row"], state="attached", timeout=8000)
@@ -222,7 +225,10 @@ class TestS03AssetCRUD:
         modal.locator(SELECTORS["dashboard_add_asset_submit"]).click()
 
         page.wait_for_function(
-            f"() => document.querySelectorAll('{SELECTORS['dashboard_asset_row']}').length > {before}",
+            (
+                "() => document.querySelectorAll("
+                f"'{SELECTORS['dashboard_asset_row']}').length > {before}"
+            ),
             timeout=10000,
         )
 
