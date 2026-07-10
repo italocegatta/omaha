@@ -576,8 +576,8 @@ def _build_plan_metrics(
         "total_invested_after_rebalance": float(asset_plan["projected_value"].sum()),
         "residual_cash": residual_cash,
         "residual_cash_share": residual_cash / total_final_value if total_final_value else 0.0,
-        "total_buy_amount": float(asset_plan["buy_amount"].sum()),
-        "total_sell_amount": float(asset_plan["sell_amount"].sum()),
+        "total_buy": float(asset_plan["buy_amount"].sum()),
+        "total_sell": float(asset_plan["sell_amount"].sum()),
         "trade_count": int(
             (
                 (asset_plan["buy_amount"] > DISPLAY_TOLERANCE)

@@ -34,8 +34,8 @@ def test_plan_metrics_includes_v1_keys() -> None:
     plan = simulate_rebalance(setup, position, contribution=1000.0)
     for key in (
         "contribution",
-        "total_buy_amount",
-        "total_sell_amount",
+        "total_buy",
+        "total_sell",
         "residual_cash",
         "current_asset_deviation",
         "projected_asset_deviation",
@@ -167,8 +167,8 @@ def test_plan_metrics_correctly_reported() -> None:
     plan = simulate_rebalance(setup, position, contribution=1000.0)
     metrics = plan.metrics
     expected_minimum = metrics["contribution"]
-    maximum_buy = metrics["contribution"] + metrics["total_sell_amount"]
-    assert metrics["total_buy_amount"] <= maximum_buy + 1e-3
+    maximum_buy = metrics["contribution"] + metrics["total_sell"]
+    assert metrics["total_buy"] <= maximum_buy + 1e-3
     assert expected_minimum >= 0.0
 
 
@@ -202,8 +202,8 @@ def test_simulate_rebalance_recomputes_totals_after_threshold_suppression() -> N
     assert float(plan.asset_plan["buy_amount"].sum()) == pytest.approx(0.0)
     assert float(plan.asset_plan["sell_amount"].sum()) == pytest.approx(0.0)
     assert float(plan.asset_plan["projected_value"].sum()) == pytest.approx(10_000.0)
-    assert float(plan.metrics["total_buy_amount"]) == pytest.approx(0.0)
-    assert float(plan.metrics["total_sell_amount"]) == pytest.approx(0.0)
+    assert float(plan.metrics["total_buy"]) == pytest.approx(0.0)
+    assert float(plan.metrics["total_sell"]) == pytest.approx(0.0)
 
 
 _ = build_simple_quote_frame  # referenced by docstring import

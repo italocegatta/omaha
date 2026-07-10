@@ -167,29 +167,10 @@ Goal: Revisar regressões visuais e baselines para separar drift de baseline,
 Archive: `openspec/changes/archive/2026-07-10-t09-revisar-regressoes-visuais-e-baselines/`
 
 ### T10 - Revisar pipeline CSV real e seed_from_csv
-Status: `Applied`
-Goal: Revisar `tests/test_real_csv_flow.py` e `tests/test_seed_from_csv.py`
-  para decidir se falhas vêm de drift no contrato de importação/seed, fixture
-  obsoleta, arquivo ausente, ou bug real no pipeline CSV. Corrigir menor lado
-  correto e registrar gaps de fixture/dados quando necessário.
-Candidate OpenSpec change id: `t10-revisar-pipeline-csv-real-e-seed-from-csv`
-Spec link: `openspec/changes/t10-revisar-pipeline-csv-real-e-seed-from-csv/`
-Files: `tests/test_real_csv_flow.py`, `tests/test_seed_from_csv.py`,
-  `scripts/seed_from_csv/`, `data/seed/`, `openspec/specs/`
-Notes: Fatia criada do split de T07 após owner pedir grupos menores por janela
-  de contexto. Escopo cobre fluxo real de CSV, fixtures de seed, contratos de
-  entrada, e sanidade de dados de teste. Não cobre UI browser nem rebalance.
-Progress:
-  - 2026-07-09: Added from T07 split. Queue after T09 because import/browser
-    work atual pode revelar contrato/fixture compartilhado antes de atacar
-    pipeline CSV profundo.
-  - 2026-07-10: Propose complete. Created `proposal.md`, `design.md`, `tasks.md`,
-    and audit-style delta/spec notes under
-    `openspec/changes/t10-revisar-pipeline-csv-real-e-seed-from-csv/`.
-    Spec verification pending.
-  - 2026-07-10: Apply complete. Audited live CSV seed package/tests and fixed
-    minority-side drift in docs/tests only. No production/runtime behavior
-    change.
+Status: `Archived` — 2026-07-10
+Goal: Revisar pipeline CSV real e seed_from_csv, corrigir drift de contrato
+  entre specs, CSVs, e testes. Minoridade corrigida no lado docs/tests.
+Archive: `openspec/changes/archive/2026-07-10-t10-revisar-pipeline-csv-real-e-seed-from-csv/`
 
 ### I03 - Regularizar plumbing do pre-push
 Status: `Archived` — 2026-07-10
@@ -204,7 +185,7 @@ Goal: Limpar drift lint repo-wide revelado pelo hook de pre-push, sem relaxar
 Archive: `openspec/changes/archive/2026-07-10-i04-limpar-drift-lint-repo-wide/`
 
 ### T11 - Revisar contratos de rebalance schema e glue
-Status: `Ready`
+Status: `Applied`
 Goal: Revisar `tests/test_rebalance_glue.py` e `tests/test_rebalance_schemas.py`
   para decidir se falhas vêm de contrato/spec desatualizado, serialização
   incorreta, ou bug real no domínio de rebalance. Corrigir menor lado correto
@@ -217,8 +198,16 @@ Notes: Fatia criada do split de T07 após owner pedir grupos menores por janela
   de contexto. Domínio crítico; manter no máximo 1 fatia `Applying` nesta área.
   Não cobre tuning de paralelismo da suite.
 Progress:
-  - 2026-07-09: Added from T07 split. Queue after T10 so dados/fixtures do
-    pipeline CSV estejam estabilizados antes de revisar contratos de rebalance.
+   - 2026-07-09: Added from T07 split. Queue after T10 so dados/fixtures do
+     pipeline CSV estejam estabilizados antes de revisar contratos de rebalance.
+   - 2026-07-10: Propose complete. Created proposal, design, specs (delta),
+     tasks under `openspec/changes/t11-revisar-contratos-de-rebalance-schema-e-glue/`.
+     Scope: fix `_translate_metrics` deviation scaling (fraction → percentage),
+     align postprocessing dict keys (`total_buy_amount`/`total_sell_amount` →
+     `total_buy`/`total_sell`), update test assertions. No spec changes needed
+      (spec already mandates percentage 0-100). Status → Spec Proposed.
+  - 2026-07-10: Apply complete. Fixed deviation scaling (fraction → %), aligned
+    postprocessing dict keys, cleaned key refs in test. 81 rebalance tests green.
 
 ### T12 - Isolar hang tardio do harness browser/live-server
 Status: `Archived` — 2026-07-10
@@ -612,8 +601,7 @@ Progress:
 
 **Active queue:**
 
-1. T10 - Revisar pipeline CSV real e seed_from_csv
-2. T11 - Revisar contratos de rebalance schema e glue
+1. T11 - Revisar contratos de rebalance schema e glue
 
 Order note: F19 and F20 archived after spec sync + archive flow. On
 2026-07-09 owner split broad test-triage work for context control: T07 keeps

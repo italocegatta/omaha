@@ -174,11 +174,11 @@ def _translate_asset_classes(
 def _translate_metrics(metrics: dict) -> RebalancePlanMetricsNative:
     return RebalancePlanMetricsNative(
         contribution=float(metrics.get("contribution", 0.0)),
-        total_buy=float(metrics.get("total_buy_amount", 0.0)),
-        total_sell=float(metrics.get("total_sell_amount", 0.0)),
+        total_buy=float(metrics.get("total_buy", 0.0)),
+        total_sell=float(metrics.get("total_sell", 0.0)),
         residual_cash=float(metrics.get("residual_cash", 0.0)),
-        current_deviation_pct=float(metrics.get("current_asset_deviation", 0.0)),
-        projected_deviation_pct=float(metrics.get("projected_asset_deviation", 0.0)),
+        current_deviation_pct=float(metrics.get("current_asset_deviation", 0.0)) * 100,
+        projected_deviation_pct=float(metrics.get("projected_asset_deviation", 0.0)) * 100,
     )
 
 
