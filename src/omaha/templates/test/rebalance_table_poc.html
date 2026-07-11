@@ -17,131 +17,101 @@
            aria-label="Plano por ativo — POC">
     <h3 class="rebalance-section-title">Plano por ativo (POC)</h3>
 
-    {# Filter bar #}
-    <div class="rebalance-filter-bar" data-testid="poc-filter-bar">
-      <div class="rebalance-filter-group" x-data="{open: false}">
-        <button @click="open = !open" class="rebalance-filter-trigger" type="button"
-                data-testid="poc-filter-class-trigger">
-          Classe <span x-text="selectedClasses.length === 0 ? '(todas)' : selectedClasses.length + ' selecionada(s)'"></span>
-        </button>
-        <div class="rebalance-filter-panel" x-show="open" x-cloak @click.outside="open = false">
-          <label class="rebalance-filter-option">
-            <input type="checkbox" @change="toggleAllClasses()" :checked="selectedClasses.length === 0">
-            <span>Todas</span>
-          </label>
-          <template x-for="cls in uniqueClasses" :key="cls">
-            <label class="rebalance-filter-option">
-              <input type="checkbox" :checked="isClassSelected(cls)" @change="toggleClassFilter(cls)">
-              <span x-text="cls"></span>
-            </label>
-          </template>
-        </div>
-      </div>
-      <div class="rebalance-filter-group" x-data="{open: false}">
-        <button @click="open = !open" class="rebalance-filter-trigger" type="button"
-                data-testid="poc-filter-action-trigger">
-          Ação <span x-text="selectedActions.length === 0 ? '(todas)' : selectedActions.length + ' selecionada(s)'"></span>
-        </button>
-        <div class="rebalance-filter-panel" x-show="open" x-cloak @click.outside="open = false">
-          <label class="rebalance-filter-option">
-            <input type="checkbox" @change="toggleAllActions()" :checked="selectedActions.length === 0">
-            <span>Todas</span>
-          </label>
-          <template x-for="act in uniqueActions" :key="act">
-            <label class="rebalance-filter-option">
-              <input type="checkbox" :checked="isActionSelected(act)" @change="toggleActionFilter(act)">
-              <span x-text="act"></span>
-            </label>
-          </template>
-        </div>
-      </div>
-      <input type="search" placeholder="Buscar ativo..."
-             x-model="searchTerm" data-testid="poc-filter-search"
-             class="rebalance-filter-search">
-    </div>
-
     <div class="rebalance-table-shell">
     <table class="rebalance-table"
            data-testid="poc-asset-table">
       <thead>
         <tr>
-          <th class="rebalance-table-th"
-              data-testid="poc-asset-th-category"
-              @click="sortBy('category_name')">
-            <span class="rebalance-table-th-label">Classe</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicator('category_name')"></span>
-          </th>
-          <th class="rebalance-table-th"
-              data-testid="poc-asset-th-name"
-              @click="sortBy('asset_name')">
-            <span class="rebalance-table-th-label">Ativo</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicator('asset_name')"></span>
-          </th>
-          <th class="rebalance-table-th rebalance-table-th--num"
-              data-testid="poc-asset-th-current-value"
-              @click="sortBy('current_value')">
-            <span class="rebalance-table-th-label">Valor atual</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicator('current_value')"></span>
-          </th>
-          <th class="rebalance-table-th rebalance-table-th--num"
-              data-testid="poc-asset-th-target-value"
-              @click="sortBy('target_value')">
-            <span class="rebalance-table-th-label">Alvo</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicator('target_value')"></span>
-          </th>
-          <th class="rebalance-table-th rebalance-table-th--num"
-              data-testid="poc-asset-th-deviation-value"
-              @click="sortBy('deviation_value')">
-            <span class="rebalance-table-th-label">Desvio (R$)</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicator('deviation_value')"></span>
-          </th>
-          <th class="rebalance-table-th rebalance-table-th--num"
-              data-testid="poc-asset-th-deviation-pct"
-              @click="sortBy('deviation_pct')">
-            <span class="rebalance-table-th-label">Desvio (%)</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicator('deviation_pct')"></span>
-          </th>
-          <th class="rebalance-table-th rebalance-table-th--num"
-              data-testid="poc-asset-th-buy"
-              @click="sortBy('buy_amount')">
-            <span class="rebalance-table-th-label">Compra</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicator('buy_amount')"></span>
-          </th>
-           <th class="rebalance-table-th rebalance-table-th--num"
-               data-testid="poc-asset-th-sell"
-               @click="sortBy('sell_amount')">
-             <span class="rebalance-table-th-label">Venda</span>
-             <span class="rebalance-table-th-indicator"
-                   x-text="sortIndicator('sell_amount')"></span>
-           </th>
-           <th class="rebalance-table-th rebalance-table-th--num"
-               data-testid="poc-asset-th-quantity"
-               @click="sortBy('trade_quantity')">
-             <span class="rebalance-table-th-label">Qtd</span>
-             <span class="rebalance-table-th-indicator"
-                   x-text="sortIndicator('trade_quantity')"></span>
-           </th>
-           <th class="rebalance-table-th rebalance-table-th--num"
-               data-testid="poc-asset-th-projected"
-               @click="sortBy('projected_value')">
-             <span class="rebalance-table-th-label">Projetado</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicator('projected_value')"></span>
-          </th>
-          <th class="rebalance-table-th"
-              data-testid="poc-asset-th-action"
-              @click="sortBy('action')">
-            <span class="rebalance-table-th-label">Ação</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicator('action')"></span>
-          </th>
+          <template x-for="column in columns" :key="column.key">
+            <th class="rebalance-table-th rebalance-table-th--has-filter"
+                :class="column.type !== 'enum' ? 'rebalance-table-th--num' : ''"
+                :data-testid="'poc-asset-th-' + column.key"
+                @click="sortBy(column.sortKey)">
+              <span class="rebalance-table-th-label" x-text="column.label"></span>
+              <span class="rebalance-table-th-indicator"
+                    x-text="sortIndicator(column.sortKey)"></span>
+              <div class="rebalance-header-actions">
+                <button class="rebalance-header-filter-btn"
+                        :class="filterActive(column) ? 'rebalance-header-filter-btn--active' : ''"
+                        @click.stop="toggleFilterPanel(column.key)"
+                        type="button"
+                        :title="'Filtrar ' + column.label"
+                        :data-testid="'poc-header-filter-' + column.key + '-trigger'">
+                  <span class="material-symbols-outlined">filter_alt</span>
+                </button>
+                <button class="rebalance-header-clear-btn"
+                        x-show="filterActive(column)"
+                        x-cloak
+                        @click.stop="clearFilter(column.key)"
+                        type="button"
+                        :title="'Limpar filtro de ' + column.label"
+                        :data-testid="'poc-header-clear-' + column.key + '-trigger'">
+                  <span class="material-symbols-outlined">close</span>
+                </button>
+              </div>
+              <template x-if="column.type === 'enum'">
+                <div class="rebalance-filter-panel rebalance-filter-panel--header"
+                     :class="column.panelAlign === 'left' ? 'rebalance-filter-panel--left' : 'rebalance-filter-panel--right'"
+                     x-show="openFilter[column.key]" x-cloak
+                     @click.outside="openFilter[column.key] = false"
+                     @click.stop>
+                  <label class="rebalance-filter-option">
+                    <input type="checkbox" @change="clearHeaderFilter(column.key)" :checked="headerFilterCount(column.key) === 0">
+                    <span x-text="column.key === 'asset_name' ? 'Todos' : 'Todas'"></span>
+                  </label>
+                  <template x-for="val in uniqueHeaderValues(column.key)" :key="val">
+                    <label class="rebalance-filter-option">
+                      <input type="checkbox" :checked="isHeaderFilterSelected(column.key, val)" @change="toggleHeaderFilter(column.key, val)">
+                      <span x-text="headerFilterLabel(column.key, val)"></span>
+                    </label>
+                  </template>
+                </div>
+              </template>
+              <template x-if="column.type === 'range'">
+                <div class="rebalance-filter-panel rebalance-filter-panel--header"
+                     :class="column.panelAlign === 'left' ? 'rebalance-filter-panel--left' : 'rebalance-filter-panel--right'"
+                     x-show="openFilter[column.key]" x-cloak
+                     @click.outside="openFilter[column.key] = false"
+                     @click.stop>
+                  <div class="rebalance-range-slider">
+                    <div class="rebalance-range-track">
+                      <div class="rebalance-range-fill" :style="rangeFillStyle(column.key)"></div>
+                    </div>
+                    <input type="range" :min="rangeBounds(column.key).min" :max="rangeBounds(column.key).max" :step="rangeStep(column.key)" x-model.number="headerRangeFilters[column.key].min" @input="clampRangeMin(column.key)">
+                    <input type="range" :min="rangeBounds(column.key).min" :max="rangeBounds(column.key).max" :step="rangeStep(column.key)" x-model.number="headerRangeFilters[column.key].max" @input="clampRangeMax(column.key)">
+                    <div class="rebalance-range-values">
+                      <span x-text="formatRangeValue(column.key, headerRangeFilters[column.key].min, column.format)"></span>
+                      <span x-text="formatRangeValue(column.key, headerRangeFilters[column.key].max, column.format)"></span>
+                    </div>
+                  </div>
+                </div>
+              </template>
+              <template x-if="column.type === 'composite'">
+                <div class="rebalance-filter-panel rebalance-filter-panel--header"
+                     :class="column.panelAlign === 'left' ? 'rebalance-filter-panel--left' : 'rebalance-filter-panel--right'"
+                     x-show="openFilter[column.key]" x-cloak
+                     @click.outside="openFilter[column.key] = false"
+                     @click.stop>
+                  <template x-for="range in column.ranges" :key="range.key">
+                    <div class="rebalance-filter-panel-section">
+                      <span class="rebalance-filter-panel-label" x-text="range.label"></span>
+                      <div class="rebalance-range-slider">
+                        <div class="rebalance-range-track">
+                          <div class="rebalance-range-fill" :style="rangeFillStyle(range.key)"></div>
+                        </div>
+                        <input type="range" :min="rangeBounds(range.key).min" :max="rangeBounds(range.key).max" :step="rangeStep(range.key)" x-model.number="headerRangeFilters[range.key].min" @input="clampRangeMin(range.key)">
+                        <input type="range" :min="rangeBounds(range.key).min" :max="rangeBounds(range.key).max" :step="rangeStep(range.key)" x-model.number="headerRangeFilters[range.key].max" @input="clampRangeMax(range.key)">
+                        <div class="rebalance-range-values">
+                          <span x-text="formatRangeValue(range.key, headerRangeFilters[range.key].min, range.format)"></span>
+                          <span x-text="formatRangeValue(range.key, headerRangeFilters[range.key].max, range.format)"></span>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </th>
+          </template>
         </tr>
       </thead>
       <tbody>
@@ -150,35 +120,13 @@
               :class="rowClass(row)"
               :data-asset-key="row.asset_key"
               :data-testid="'poc-asset-row-' + row.asset_key">
-            <td class="rebalance-asset-cell"
-                x-text="row.category_name"></td>
-            <td class="rebalance-asset-cell"
-                x-text="row.asset_name"></td>
-            <td class="rebalance-asset-cell rebalance-asset-cell--num"
-                x-text="formatBRL(row.current_value)"></td>
-            <td class="rebalance-asset-cell rebalance-asset-cell--num"
-                x-text="formatBRL(row.target_value)"></td>
-            <td class="rebalance-asset-cell rebalance-asset-cell--num"
-                :class="row.deviation_value >= 0 ? 'rebalance-deviation--pos' : 'rebalance-deviation--neg'"
-                x-text="formatBRL(row.deviation_value)"></td>
-            <td class="rebalance-asset-cell rebalance-asset-cell--num"
-                :class="row.deviation_pct >= 0 ? 'rebalance-deviation--pos' : 'rebalance-deviation--neg'"
-                x-text="formatDeviationPp(row.deviation_pct)"></td>
-            <td class="rebalance-asset-cell rebalance-asset-cell--num"
-                x-text="formatBRL(row.buy_amount)"></td>
-            <td class="rebalance-asset-cell rebalance-asset-cell--num"
-                x-text="formatBRL(row.sell_amount)"></td>
-            <td class="rebalance-asset-cell rebalance-asset-cell--num"
-                :data-testid="'poc-asset-qty-' + row.asset_key"
-                x-text="formatQuantity(row.trade_quantity, row.asset_name)"></td>
-            <td class="rebalance-asset-cell rebalance-asset-cell--num"
-                x-text="formatBRL(row.projected_value)"></td>
-            <td class="rebalance-asset-cell rebalance-asset-cell--action">
-              <span class="rebalance-action-badge"
-                    :class="'rebalance-action-badge--' + row.action"
-                    :data-testid="'poc-action-' + row.action"
-                    x-text="actionLabel(row.action)"></span>
-            </td>
+            <template x-for="column in columns" :key="column.key">
+              <td :class="cellClass(row, column)">
+                <span :class="[cellInnerClass(column), (column.key === 'action' || column.cellFormat === 'operation') ? 'rebalance-action-badge--' + row.action : '']"
+                      :data-testid="column.key === 'action' ? 'poc-action-' + row.action : null"
+                      x-text="formatCell(row, column)"></span>
+              </td>
+            </template>
           </tr>
         </template>
       </tbody>
@@ -189,6 +137,11 @@
 
 <script>
   document.addEventListener('alpine:init', function () {
+    var operationSignedValue = function (row) {
+      if (row.action === 'buy') return Number(row.buy_amount) || 0;
+      if (row.action === 'sell') return -(Number(row.sell_amount) || 0);
+      return 0;
+    };
     var pocSortFn = function (key, dir) {
       var NUMERIC_KEYS = {
         current_value: 1,
@@ -202,7 +155,9 @@
       };
       return function (a, b) {
         var cmp = 0;
-        if (key in NUMERIC_KEYS) {
+        if (key === 'operation') {
+          cmp = operationSignedValue(a) - operationSignedValue(b);
+        } else if (key in NUMERIC_KEYS) {
           var av = Number(a[key]) || 0;
           var bv = Number(b[key]) || 0;
           cmp = av - bv;
@@ -222,9 +177,46 @@
         sortKey: 'category_name',
         sortDir: 'asc',
         displayRows: [],
-        selectedClasses: [],
-        selectedActions: [],
-        searchTerm: '',
+        columns: [
+          { key: 'action', type: 'enum', label: 'Ação', sortKey: 'action', filterKey: 'action' },
+          { key: 'category_name', type: 'enum', label: 'Classe', sortKey: 'category_name', filterKey: 'category_name' },
+          { key: 'asset_name', type: 'enum', label: 'Ativo', sortKey: 'asset_name', filterKey: 'asset_name' },
+          { key: 'current_value', type: 'range', label: 'Atual', sortKey: 'current_value', fractionDigits: 0 },
+          { key: 'target_value', type: 'range', label: 'Alvo', sortKey: 'target_value', fractionDigits: 0 },
+          { key: 'deviation', type: 'composite', label: 'Desvio', sortKey: 'deviation_value', ranges: [
+            { key: 'deviation_value', label: 'Valor (R$)', fractionDigits: 0 },
+            { key: 'deviation_pct', label: 'Percentual', format: 'deviationPp' },
+          ]},
+          { key: 'projected_value', type: 'range', label: 'Projetado', sortKey: 'projected_value' },
+          { key: 'operation', type: 'composite', label: 'Operação', sortKey: 'operation', cellFormat: 'operation', panelAlign: 'left', ranges: [
+            { key: 'buy_amount', label: 'Compra (R$)' },
+            { key: 'sell_amount', label: 'Venda (R$)' },
+          ]},
+        ],
+        headerFilters: {
+          action: [],
+          category_name: [],
+          asset_name: [],
+        },
+        openFilter: {
+          action: false,
+          category_name: false,
+          asset_name: false,
+          current_value: false,
+          target_value: false,
+          deviation: false,
+          projected_value: false,
+          operation: false,
+        },
+        headerRangeFilters: {
+          current_value: { min: null, max: null },
+          target_value: { min: null, max: null },
+          deviation_value: { min: null, max: null },
+          deviation_pct: { min: null, max: null },
+          buy_amount: { min: null, max: null },
+          sell_amount: { min: null, max: null },
+          projected_value: { min: null, max: null },
+        },
         init: function () {
           this.displayRows = this.plan.asset_plan.slice();
         },
@@ -241,19 +233,24 @@
         },
         sortIndicator: function (key) {
           if (this.sortKey !== key) return '';
-          return this.sortDir === 'asc' ? '↑' : '↓';
+          return this.sortDir === 'asc' ? '▲' : '▼';
         },
         actionLabel: function (action) {
           if (action === 'buy') return 'Comprar';
           if (action === 'sell') return 'Vender';
           return 'Manter';
         },
-        formatBRL: function (value) {
+        formatBRL: function (value, fractionDigits) {
           var n = Number(value) || 0;
-          return n.toLocaleString('pt-BR', {
+          var opts = {
             style: 'currency',
             currency: 'BRL',
-          });
+          };
+          if (fractionDigits !== undefined) {
+            opts.minimumFractionDigits = fractionDigits;
+            opts.maximumFractionDigits = fractionDigits;
+          }
+          return n.toLocaleString('pt-BR', opts);
         },
         formatPct: function (v) {
           return (Number(v) || 0).toFixed(2) + '%';
@@ -271,56 +268,231 @@
         formatDeviationPp: function (v) {
           var n = Number(v) || 0;
           var sign = n >= 0 ? '+' : '';
-          return sign + n.toFixed(2) + '%';
+          return sign + n.toFixed(0) + '%';
+        },
+        formatDeviationCombined: function (row) {
+          var value = Number(row.deviation_value) || 0;
+          var pct = Number(row.deviation_pct) || 0;
+          var valueStr = value.toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+          });
+          return valueStr + ' (' + this.formatDeviationPp(pct) + ')';
+        },
+        formatOperation: function (row) {
+          if (row.action === 'hold') return 'Manter';
+          var value = row.action === 'buy' ? Number(row.buy_amount) : Number(row.sell_amount);
+          var qty = Number(row.trade_quantity) || 0;
+          var valueStr = value.toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+          });
+          return this.actionLabel(row.action) + ' ' + valueStr + ' (' + this.formatQuantity(qty, row.asset_name) + ')';
         },
         rowClass: function (row) {
           if (row.action === 'hold') return 'rebalance-asset-row--neutral';
           if (row.action === 'buy') return 'rebalance-asset-row--buy';
           return 'rebalance-asset-row--sell';
         },
-        get uniqueClasses() {
-          return [...new Set(this.plan.asset_plan.map(function (r) { return r.category_name; }))].sort();
+        headerFilterLabel: function (key, value) {
+          if (key === 'action') {
+            if (value === 'buy') return 'Comprar';
+            if (value === 'sell') return 'Vender';
+            return 'Manter';
+          }
+          return value;
         },
-        get uniqueActions() { return ['Comprar', 'Vender', 'Manter']; },
+        uniqueHeaderValues: function (key) {
+          var self = this;
+          var raw = this.plan.asset_plan.map(function (r) {
+            return key === 'action' ? r.action : r[key];
+          });
+          return [...new Set(raw)].sort(function (a, b) {
+            var la = self.headerFilterLabel(key, a);
+            var lb = self.headerFilterLabel(key, b);
+            return String(la).localeCompare(String(lb));
+          });
+        },
+        toggleHeaderFilter: function (key, value) {
+          var arr = this.headerFilters[key];
+          var idx = arr.indexOf(value);
+          if (idx >= 0) {
+            arr.splice(idx, 1);
+          } else {
+            arr.push(value);
+          }
+        },
+        isHeaderFilterSelected: function (key, value) {
+          return this.headerFilters[key].includes(value);
+        },
+        clearHeaderFilter: function (key) {
+          this.headerFilters[key] = [];
+        },
+        headerFilterCount: function (key) {
+          return this.headerFilters[key].length;
+        },
+        columnByKey: function (key) {
+          return this.columns.find(function (c) { return c.key === key; });
+        },
+        rangeKeysFor: function (column) {
+          if (column.type === 'composite') return column.ranges.map(function (r) { return r.key; });
+          if (column.type === 'range') return [column.key];
+          return [];
+        },
+        filterActive: function (column) {
+          if (column.type === 'enum') {
+            return this.headerFilters[column.filterKey].length > 0;
+          }
+          var self = this;
+          return this.rangeKeysFor(column).some(function (key) {
+            var bounds = self.rangeBounds(key);
+            var f = self.headerRangeFilters[key];
+            if (f.min === null || f.min === '' || f.max === null || f.max === '') return false;
+            return Number(f.min) > bounds.min || Number(f.max) < bounds.max;
+          });
+        },
+        toggleFilterPanel: function (key) {
+          var self = this;
+          var column = this.columnByKey(key);
+          Object.keys(this.openFilter).forEach(function (k) {
+            if (k !== key) self.openFilter[k] = false;
+          });
+          if (!this.openFilter[key] && (column.type === 'range' || column.type === 'composite')) {
+            this.ensureColumnRangeBounds(column);
+          }
+          this.openFilter[key] = !this.openFilter[key];
+        },
+        clearFilter: function (key) {
+          var column = this.columnByKey(key);
+          if (column.type === 'enum') {
+            this.headerFilters[column.filterKey] = [];
+          } else {
+            var self = this;
+            this.rangeKeysFor(column).forEach(function (rangeKey) {
+              var bounds = self.rangeBounds(rangeKey);
+              self.headerRangeFilters[rangeKey].min = bounds.min;
+              self.headerRangeFilters[rangeKey].max = bounds.max;
+            });
+          }
+          this.openFilter[key] = false;
+        },
+        ensureColumnRangeBounds: function (column) {
+          var self = this;
+          this.rangeKeysFor(column).forEach(function (key) {
+            self.ensureRangeBounds(key);
+          });
+        },
+        rangeBounds: function (key) {
+          var values = this.plan.asset_plan.map(function (r) { return Number(r[key]) || 0; });
+          return { min: Math.min.apply(null, values), max: Math.max.apply(null, values) };
+        },
+        rangeStep: function (key) {
+          if (key === 'deviation_pct') return 0.01;
+          var bounds = this.rangeBounds(key);
+          var span = bounds.max - bounds.min;
+          if (span === 0) return 0.01;
+          var step = Math.pow(10, Math.floor(Math.log10(span)) - 2);
+          return Math.max(step, 0.01);
+        },
+        ensureRangeBounds: function (key) {
+          var bounds = this.rangeBounds(key);
+          var f = this.headerRangeFilters[key];
+          if (f.min === null || f.min === '') f.min = bounds.min;
+          if (f.max === null || f.max === '') f.max = bounds.max;
+        },
+        clampRangeMin: function (key) {
+          this.ensureRangeBounds(key);
+          var f = this.headerRangeFilters[key];
+          var bounds = this.rangeBounds(key);
+          if (Number(f.min) > Number(f.max)) f.min = f.max;
+          if (Number(f.min) < bounds.min) f.min = bounds.min;
+        },
+        clampRangeMax: function (key) {
+          this.ensureRangeBounds(key);
+          var f = this.headerRangeFilters[key];
+          var bounds = this.rangeBounds(key);
+          if (Number(f.max) < Number(f.min)) f.max = f.min;
+          if (Number(f.max) > bounds.max) f.max = bounds.max;
+        },
+        rangeFillStyle: function (key) {
+          var bounds = this.rangeBounds(key);
+          var span = bounds.max - bounds.min;
+          if (span === 0) return 'left: 0%; right: 0%;';
+          var f = this.headerRangeFilters[key];
+          var min = f.min === null || f.min === '' ? bounds.min : Number(f.min);
+          var max = f.max === null || f.max === '' ? bounds.max : Number(f.max);
+          var left = ((min - bounds.min) / span) * 100;
+          var right = ((bounds.max - max) / span) * 100;
+          return 'left: ' + left + '%; right: ' + right + '%;';
+        },
+        formatRangeValue: function (key, value, format) {
+          if (value === null || value === '') return '-';
+          if (format === 'deviationPp') return this.formatDeviationPp(value);
+          return this.formatBRL(value);
+        },
+        formatCell: function (row, column) {
+          if (column.cellFormat === 'operation') return this.formatOperation(row);
+          if (column.key === 'action') return this.actionLabel(row.action);
+          if (column.key === 'deviation') return this.formatDeviationCombined(row);
+          if (column.fractionDigits !== undefined) return this.formatBRL(row[column.key], column.fractionDigits);
+          if (column.type === 'range') return this.formatBRL(row[column.key]);
+          return row[column.key];
+        },
+        cellClass: function (row, column) {
+          var classes = 'rebalance-asset-cell';
+          if (column.type === 'range' || column.key === 'deviation') classes += ' rebalance-asset-cell--num';
+          if (column.key === 'action' || column.cellFormat === 'operation') classes += ' rebalance-asset-cell--action';
+          if (column.key === 'deviation') {
+            classes += row.deviation_value >= 0 ? ' rebalance-deviation--pos' : ' rebalance-deviation--neg';
+          }
+          return classes;
+        },
+        cellInnerClass: function (column) {
+          if (column.key === 'action' || column.cellFormat === 'operation') return 'rebalance-action-badge';
+          return '';
+        },
+
         get filteredRows() {
           var self = this;
           var rows = this.displayRows;
-          if (this.selectedClasses.length > 0) {
-            rows = rows.filter(function (r) { return self.selectedClasses.includes(r.category_name); });
-          }
-          if (this.selectedActions.length > 0) {
-            rows = rows.filter(function (r) { return self.selectedActions.includes(self.actionLabel(r.action)); });
-          }
-          if (this.searchTerm.trim()) {
-            var q = this.searchTerm.trim().toLowerCase();
-            rows = rows.filter(function (r) { return r.asset_name.toLowerCase().includes(q); });
-          }
+          this.columns.forEach(function (column) {
+            if (column.type === 'enum') {
+              var selected = self.headerFilters[column.filterKey];
+              if (selected.length > 0) {
+                rows = rows.filter(function (r) { return selected.includes(r[column.filterKey]); });
+              }
+            } else {
+              self.rangeKeysFor(column).forEach(function (key) {
+                var bounds = self.rangeBounds(key);
+                var f = self.headerRangeFilters[key];
+                var min = f.min === null || f.min === '' ? bounds.min : Number(f.min);
+                var max = f.max === null || f.max === '' ? bounds.max : Number(f.max);
+                if (column.key === 'operation') {
+                  var action = key === 'buy_amount' ? 'buy' : 'sell';
+                  if (min > bounds.min) {
+                    rows = rows.filter(function (r) { return r.action !== action || (Number(r[key]) || 0) >= min; });
+                  }
+                  if (max < bounds.max) {
+                    rows = rows.filter(function (r) { return r.action !== action || (Number(r[key]) || 0) <= max; });
+                  }
+                } else {
+                  if (min > bounds.min) {
+                    rows = rows.filter(function (r) { return (Number(r[key]) || 0) >= min; });
+                  }
+                  if (max < bounds.max) {
+                    rows = rows.filter(function (r) { return (Number(r[key]) || 0) <= max; });
+                  }
+                }
+              });
+            }
+          });
           return rows;
         },
-        toggleClassFilter: function (cls) {
-          var idx = this.selectedClasses.indexOf(cls);
-          if (idx >= 0) {
-            this.selectedClasses.splice(idx, 1);
-          } else {
-            this.selectedClasses.push(cls);
-          }
-        },
-        toggleActionFilter: function (action) {
-          var idx = this.selectedActions.indexOf(action);
-          if (idx >= 0) {
-            this.selectedActions.splice(idx, 1);
-          } else {
-            this.selectedActions.push(action);
-          }
-        },
-        isClassSelected: function (cls) {
-          return this.selectedClasses.length === 0 || this.selectedClasses.includes(cls);
-        },
-        isActionSelected: function (action) {
-          return this.selectedActions.length === 0 || this.selectedActions.includes(action);
-        },
-        toggleAllClasses: function () { this.selectedClasses = []; },
-        toggleAllActions: function () { this.selectedActions = []; },
+
       };
     };
   });

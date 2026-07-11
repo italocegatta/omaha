@@ -73,7 +73,12 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, 
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import selectinload
 
-from omaha.auth import DbSession, get_active_profile, require_active_profile, require_profile_writable, require_user
+from omaha.auth import (
+    DbSession,
+    get_active_profile,
+    require_profile_writable,
+    require_user,
+)
 from omaha.models import Asset, AssetClass, Profile, User
 from omaha.rebalance.glue import run_rebalance
 from omaha.rebalance.models import RebalanceValidationError
@@ -858,21 +863,21 @@ def get_proventos(
 def get_teste(
     request: Request,
     db: DbSession,
-    user: User = Depends(require_user),
-    profile: Profile = Depends(require_active_profile),
 ) -> Response:
     """Render the POC rebalance table page (F27 — isolated playground).
 
-    Auth-protected, stateless route. Calls ``run_rebalance(db, profile, 0)``
-    with default thresholds — no contribution persistence, no session
-    mutation, no side effects. Returns ``test/rebalance_table_poc.html``
-    with the ``RebalancePlanResponse`` in context.
-
-    F07 — Família sentinel: redirect to the family-view patrimonio.
+    Public/stateless route for rapid UI iteration. Picks the ``Italo``
+    profile (or the first non-sentinel profile) and calls
+    ``run_rebalance(db, profile, 0)`` with default thresholds — no
+    contribution persistence, no session mutation, no side effects.
+    Returns ``test/rebalance_table_poc.html`` with the
+    ``RebalancePlanResponse`` in context.
     """
-    redirect = _sentinel_redirect(request, db)
-    if redirect is not None:
-        return redirect
+    profile = (
+        db.query(Profile).filter(Profile.name == "Italo").order_by(Profile.display_order).first()
+    )
+    if profile is None:
+        profile = db.query(Profile).order_by(Profile.display_order).first()
     plan = run_rebalance(
         db,
         profile,
@@ -880,16 +885,12 @@ def get_teste(
         min_deviation_value=DEFAULT_MIN_DEVIATION_VALUE,
         min_deviation_pct=DEFAULT_MIN_DEVIATION_PCT,
     )
-    context = _common_context(request, db, user, profile)
-    context.update(
-        {
-            "plan": plan,
-            "plan_dict": plan.model_dump(mode="json"),
-        }
-    )
-    return _templates(request).TemplateResponse(
-        request, "test/rebalance_table_poc.html", context
-    )
+    context = {
+        "request": request,
+        "plan": plan,
+        "plan_dict": plan.model_dump(mode="json"),
+    }
+    return _templates(request).TemplateResponse(request, "test/rebalance_table_poc.html", context)
 
 
 __all__ = [
