@@ -30,6 +30,7 @@ Workflow:
   - If ambiguity blocks proposal, ask only questions that unblock scope.
 - Investigate only demand, constraints, dependencies, and trade-offs that affect slice scope.
 - Do not research implementation details unless they change scope or acceptance criteria.
+- If slice is still too broad, split mentally into smaller sub-slices and report that split back instead of expanding scope.
 - Produce concise handoff-ready scope, not broad research notes.
 - Stay strictly within one slice.
 
@@ -37,6 +38,7 @@ Output:
 - Clear requirements statement.
 - Acceptance criteria.
 - Boundaries (what is in scope, what is out).
+- Recommended smaller slice split if current slice is too broad.
 - Any open decisions or assumptions documented.
 - Explicit READY FOR PROPOSE or BLOCKED status.
 

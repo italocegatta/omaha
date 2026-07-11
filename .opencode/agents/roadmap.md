@@ -36,10 +36,15 @@ Load and execute `openspec-roadmap` and `grill-me` skills. Follow them exactly.
 
 ## Full pipeline per slice
 
-For each slice, advance through gates in order:
+For each slice, decide if `Explore` is needed before `Propose`:
 
-1. **Explore** — `@explore-*` clarifies requirements, asks user questions, produces scope.
-2. **Propose** — `@propose-*` creates proposal, design, tasks. Slice → `Spec Proposed`.
+- Use `@explore-*` only when scope is ambiguous, blocked, or has multiple valid approaches.
+- Skip `@explore-*` and go straight to `@propose-*` when PRD / roadmap / handoff / spec already give enough scope to propose safely.
+- When using `@explore-*`, pass only the ambiguity that blocks proposal, not broad research context.
+
+Then advance through gates in order:
+
+1. **Propose** — `@propose-*` creates proposal, design, tasks. Slice → `Spec Proposed`.
 3. **Apply** — `@apply-*` implements. Slice → `Applied`.
 4. **Review** — `@review-*` reviews implementation, runs tests, produces report.
    - If **APPROVED**: proceed to Finalize.
@@ -100,14 +105,18 @@ To swap a gate's primary provider: change the `Primary` column and swap the
    - **If does not exist:** this is a **bootstrap** scenario. Ask user for PRD path or feature description. Execute bootstrap mode from `openspec-roadmap`. Create `openspec/roadmap.md`. Once bootstrap completes, read new roadmap and proceed to step 3.
 3. Analyze the demand and propose a slice decomposition:
    a. Break the demand into candidate slices (future OpenSpec changes).
-   b. For each candidate slice, estimate scope: what it covers, what it does NOT cover.
-   c. Present your proposed slices to the user for discussion.
-   d. **CRITICAL — discuss slice sizing with the user before registering:**
-      - A slice too large is risky (hard to implement, hard to review).
+   b. Prefer small, objective slices: one problem, one coherent scope, one testable increment.
+   c. Keep slice work items tightly related; group only activities that make sense to do together in same context window.
+   d. If a slice starts to feel broad, split it into 2+ smaller slices before registering it.
+   e. For each candidate slice, estimate scope: what it covers, what it does NOT cover.
+   f. If scope is already clear enough from PRD / roadmap / handoff / spec, note that `Explore` can be skipped for that slice.
+   g. Present your proposed slices to the user for discussion.
+   h. **CRITICAL — discuss slice sizing with the user before registering:**
+      - A slice too large is risky (hard to implement, hard to review, and too much context for model window).
       - A slice too small is noise (overhead of change artifacts > value delivered).
       - Each slice should deliver one coherent, testable increment of value.
       - Ask explicitly: "Does this slice feel right? Split further? Merge any?"
-   e. Only register slices in the roadmap after the user confirms the decomposition.
+   i. Only register slices in the roadmap after the user confirms the decomposition.
 4. For each slice, advance through the full pipeline described above.
 5. Pass each stage agent only context needed for one slice:
    - user demand / requested command
@@ -117,6 +126,7 @@ To swap a gate's primary provider: change the `Primary` column and swap the
    - `Spec link`
    - files to inspect / linked change files
    - repo constraints from `AGENTS.md` and `openspec/config.yaml`
+   - if calling `explore`, pass only the unclear points that block proposal
    - exact stop condition for that stage
 6. Wait for stage result.
 7. Run required verification gates after each lifecycle change.
