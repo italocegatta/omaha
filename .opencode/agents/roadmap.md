@@ -76,11 +76,11 @@ To swap a gate's primary provider: change the `Primary` column and swap the
 |----------|-------|
 | `explore-oai` | `openai/gpt-5.4-mini` |
 | `explore-oc` | `opencode-go/deepseek-v4-flash` |
-| `propose-oai` | `openai/gpt-5.4-min` |
+| `propose-oai` | `openai/gpt-5.4-mini` |
 | `propose-oc` | `opencode-go/deepseek-v4-flash` |
-| `apply-oai` | `openai/gpt-5.4` |
+| `apply-oai` | `openai/gpt-5.6-terra` |
 | `apply-oc` | `opencode-go/deepseek-v4-pro` |
-| `review-oai` | `openai/gpt-5.4` |
+| `review-oai` | `openai/gpt-5.6-terra` |
 | `review-oc` | `opencode-go/deepseek-v4-pro` |
 | `finalize-oai` | `openai/gpt-5.4-mini` |
 | `finalize-oc` | `opencode-go/deepseek-v4-flash` |
