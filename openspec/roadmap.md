@@ -44,7 +44,60 @@ verificação for específica por comando) entre gates.
 
 ## Slices
 
-All previous slices archived or closed. F18 archived. F19 ready.
+All previous slices archived or closed. Active UI queue starts at F22.
+
+### F21 - PoC tabelas com libs na página de teste
+Status: `Archived` — 2026-07-11
+Archive: `openspec/changes/archive/2026-07-11-f21-poc-tabelas-com-libs-na-pagina-de-teste/`
+Goal: decidir lib de tabela por PoC com plano de rebalanceamento.
+Candidate OpenSpec change id: `f21-poc-tabelas-com-libs-na-pagina-de-teste`
+Notes: Owner selected AG Grid Community. PoC route/assets/tests were discarded; its delta spec is intentionally unsynced because no capability shipped.
+Progress log: `2026-07-11` archived after decision; F22 owns implementation.
+
+### F22 - Implantar lib de tabela escolhida no rebalanceamento
+Status: `Ready`
+Goal: aplicar na interface real lib de tabela escolhida na PoC, com filtros por coluna já validados.
+Candidate OpenSpec change id: `f22-implantar-lib-de-tabela-escolhida-no-rebalanceamento`
+Spec link: `openspec/changes/f22-implantar-lib-de-tabela-escolhida-no-rebalanceamento/`
+Files to inspect: `src/omaha/templates/rebalance.html`, `src/omaha/templates/_rebalance_plan.html`, `src/omaha/routes/rebalance.py`, `src/omaha/static/app.css`
+Notes: depende de F21. Decisão do owner: usar AG Grid Community. Aplicar recursos nativos: `sortable`, `floatingFilter`, `agNumberColumnFilter` nos campos numéricos, `agSetColumnFilter` nos qualitativos, e tema customizado por tokens/CSS da aplicação. Remove solução antiga depois de validar stack.
+Progress log: `2026-07-10` added from owner request; `2026-07-11` AG Grid Community selected as table library.
+
+### F23 - Rebalanceamento e importação automáticos
+Status: `Ready`
+Goal: remover `Rebalancear`, recalcular plano após qualquer edição de input, remover botão `Enviar` no import CSV, disparar upload automático e avançar próxima tela ao sucesso.
+Candidate OpenSpec change id: `f23-rebalanceamento-e-importacao-automaticos`
+Spec link: `openspec/changes/f23-rebalanceamento-e-importacao-automaticos/`
+Files to inspect: `src/omaha/routes/pages.py`, `src/omaha/routes/rebalance.py`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/templates/rebalance.html`, `src/omaha/static/app.css`
+Notes: fluxo de ação imediata, sem botão manual extra.
+Progress log: `2026-07-10` added from owner request.
+
+### F24 - Polimento de inputs e modal
+Status: `Ready`
+Goal: ampliar modal/tela em ~10%, aumentar contraste do campo `moeda`, remover steppers de inputs numéricos, e alinhar `Família` à esquerda no selector.
+Candidate OpenSpec change id: `f24-polimento-de-inputs-e-modal`
+Spec link: `openspec/changes/f24-polimento-de-inputs-e-modal/`
+Files to inspect: `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/templates/_profile_switcher.html`, `src/omaha/static/app.css`
+Notes: ajuste visual + legibilidade de inputs.
+Progress log: `2026-07-10` added from owner request.
+
+### F25 - Sistema de cards com cores de target
+Status: `Ready`
+Goal: definir linguagem visual comum para cards, remover label `CLASSE`, e colorir cards por alvo: verde acima, vermelho abaixo.
+Candidate OpenSpec change id: `f25-sistema-de-cards-com-cores-de-target`
+Spec link: `openspec/changes/f25-sistema-de-cards-com-cores-de-target/`
+Files to inspect: `src/omaha/templates/_rebalance_*`, `src/omaha/static/app.css`
+Notes: cards precisam parecer mesma família, não mesmo molde.
+Progress log: `2026-07-10` added from owner request.
+
+### F26 - Padronização de tabelas e inspeção visual
+Status: `Ready`
+Goal: aplicar padrão visual único nas tabelas e adicionar inspeção visual obrigatória para pegar wrap, overflow, desalinhamento e diferença tipográfica entre células.
+Candidate OpenSpec change id: `f26-padronizacao-de-tabelas-e-inspecao-visual`
+Spec link: `openspec/changes/f26-padronizacao-de-tabelas-e-inspecao-visual/`
+Files to inspect: `src/omaha/templates/_*.html`, `src/omaha/static/app.css`, `tests/e2e/`
+Notes: inclui correção de casos como `Atual` com fonte diferente e headers apertados.
+Progress log: `2026-07-10` added from owner request.
 
 ### F01 - Consolidação cross-profile (visão household agregada)
 Status: `Archived` (superseded by F06) — 2026-07-04
@@ -185,29 +238,10 @@ Goal: Limpar drift lint repo-wide revelado pelo hook de pre-push, sem relaxar
 Archive: `openspec/changes/archive/2026-07-10-i04-limpar-drift-lint-repo-wide/`
 
 ### T11 - Revisar contratos de rebalance schema e glue
-Status: `Applied`
-Goal: Revisar `tests/test_rebalance_glue.py` e `tests/test_rebalance_schemas.py`
-  para decidir se falhas vêm de contrato/spec desatualizado, serialização
-  incorreta, ou bug real no domínio de rebalance. Corrigir menor lado correto
-  preservando contrato canônico.
-Candidate OpenSpec change id: `t11-revisar-contratos-de-rebalance-schema-e-glue`
-Spec link: `openspec/changes/t11-revisar-contratos-de-rebalance-schema-e-glue/`
-Files: `tests/test_rebalance_glue.py`, `tests/test_rebalance_schemas.py`,
-  `src/omaha/rebalance/`, `openspec/specs/rebalance-*/spec.md`
-Notes: Fatia criada do split de T07 após owner pedir grupos menores por janela
-  de contexto. Domínio crítico; manter no máximo 1 fatia `Applying` nesta área.
-  Não cobre tuning de paralelismo da suite.
-Progress:
-   - 2026-07-09: Added from T07 split. Queue after T10 so dados/fixtures do
-     pipeline CSV estejam estabilizados antes de revisar contratos de rebalance.
-   - 2026-07-10: Propose complete. Created proposal, design, specs (delta),
-     tasks under `openspec/changes/t11-revisar-contratos-de-rebalance-schema-e-glue/`.
-     Scope: fix `_translate_metrics` deviation scaling (fraction → percentage),
-     align postprocessing dict keys (`total_buy_amount`/`total_sell_amount` →
-     `total_buy`/`total_sell`), update test assertions. No spec changes needed
-      (spec already mandates percentage 0-100). Status → Spec Proposed.
-  - 2026-07-10: Apply complete. Fixed deviation scaling (fraction → %), aligned
-    postprocessing dict keys, cleaned key refs in test. 81 rebalance tests green.
+Status: `Archived` — 2026-07-10
+Goal: Alinhar engine metrics (`current_deviation_pct`/`projected_deviation_pct`)
+  com spec percentual 0-100 e limpar chaves `total_buy_amount`/`total_sell_amount`.
+Archive: `openspec/changes/archive/2026-07-10-t11-revisar-contratos-de-rebalance-schema-e-glue/`
 
 ### T12 - Isolar hang tardio do harness browser/live-server
 Status: `Archived` — 2026-07-10
@@ -601,7 +635,11 @@ Progress:
 
 **Active queue:**
 
-1. T11 - Revisar contratos de rebalance schema e glue
+1. F22 - Implantar AG Grid Community no rebalanceamento
+2. F23 - Rebalanceamento e importação automáticos
+3. F24 - Polimento de inputs e modal
+4. F25 - Sistema de cards com cores de target
+5. F26 - Padronização de tabelas e inspeção visual
 
 Order note: F19 and F20 archived after spec sync + archive flow. On
 2026-07-09 owner split broad test-triage work for context control: T07 keeps
@@ -613,7 +651,9 @@ documenting safe serial/reuse limits; owner then sent queue back to T07. On
 was added first to isolate the failing test one-by-one and stop wasting time on
 full-group reruns before root cause is known. On 2026-07-10, T09 was archived;
     push still blocked by repo-wide hook drift outside slice, so I03/I04 were
-    added as next delivery-gate cleanup slices; both are now archived.
+    added as next delivery-gate cleanup slices; both are now archived. On
+2026-07-11, F21 selected AG Grid Community and was archived without syncing its
+discarded PoC spec; F22 is now next.
 
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed, reactivation path documented above.
