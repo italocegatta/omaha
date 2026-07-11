@@ -34,6 +34,11 @@ Routing contract
   text (F02, D6). F03 replaces the stub with the real content.
 - ``GET /proventos`` — stub page rendering "Em construção" body text
   (F02, D6). F04 replaces the stub with the real content.
+- ``GET /teste`` — isolated POC playground (F27) rendering the rebalance
+  asset table (11 cols, sortable, filterable) with active-profile data.
+  No params bar, no class deviation cards, no session persistence. Serves
+  as a sandbox for iterative table UI improvements without affecting
+  ``/rebalanceamento``.
 
 Legacy routes (F02, breaking)
 ------------------------------
@@ -68,7 +73,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, 
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import selectinload
 
-from omaha.auth import DbSession, get_active_profile, require_profile_writable, require_user
+from omaha.auth import DbSession, get_active_profile, require_active_profile, require_profile_writable, require_user
 from omaha.models import Asset, AssetClass, Profile, User
 from omaha.rebalance.glue import run_rebalance
 from omaha.rebalance.models import RebalanceValidationError
@@ -847,6 +852,44 @@ def get_proventos(
         return RedirectResponse("/login", status_code=303)
     context = _common_context(request, db, user, profile)
     return _templates(request).TemplateResponse(request, "proventos.html", context)
+
+
+@router.get("/teste", response_class=HTMLResponse, response_model=None)
+def get_teste(
+    request: Request,
+    db: DbSession,
+    user: User = Depends(require_user),
+    profile: Profile = Depends(require_active_profile),
+) -> Response:
+    """Render the POC rebalance table page (F27 — isolated playground).
+
+    Auth-protected, stateless route. Calls ``run_rebalance(db, profile, 0)``
+    with default thresholds — no contribution persistence, no session
+    mutation, no side effects. Returns ``test/rebalance_table_poc.html``
+    with the ``RebalancePlanResponse`` in context.
+
+    F07 — Família sentinel: redirect to the family-view patrimonio.
+    """
+    redirect = _sentinel_redirect(request, db)
+    if redirect is not None:
+        return redirect
+    plan = run_rebalance(
+        db,
+        profile,
+        0,
+        min_deviation_value=DEFAULT_MIN_DEVIATION_VALUE,
+        min_deviation_pct=DEFAULT_MIN_DEVIATION_PCT,
+    )
+    context = _common_context(request, db, user, profile)
+    context.update(
+        {
+            "plan": plan,
+            "plan_dict": plan.model_dump(mode="json"),
+        }
+    )
+    return _templates(request).TemplateResponse(
+        request, "test/rebalance_table_poc.html", context
+    )
 
 
 __all__ = [

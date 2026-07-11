@@ -262,6 +262,7 @@ _INTEGRATION_PREFIXES = (
     "tests/test_rebalance_page.py",
     "tests/test_rebalance_route.py",
     "tests/test_rebalance_schemas.py",
+    "tests/test_rebalance_table_poc.py",
     "tests/test_market_prices_adapter.py",
     "tests/test_seed.py",
     "tests/test_seed_from_csv.py",

@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+{% block title %}Teste — Tabela de Rebalanceamento — Omaha{% endblock %}
+{% block content %}
+{# POC page for iterative rebalance table improvements (F27).
+   Self-contained: no dependency on rebalance.html or _rebalance_plan.html.
+   No params bar, no class deviation cards, no empty/placeholder states. #}
+<script>window.__pocRebalancePlan = {{ plan_dict | tojson }};</script>
+<section class="poc-rebalance-page"
+         data-testid="poc-rebalance-page"
+         x-data="pocRebalancePage({ plan: window.__pocRebalancePlan })">
+  {# Inline JSON kept for test assertions (data-testid dependency) #}
+  <script type="application/json"
+          data-testid="poc-rebalance-plan-data">{{ plan_dict | tojson }}</script>
+
+  {# Asset plan table with filters #}
+  <section class="rebalance-asset-section"
+           aria-label="Plano por ativo — POC">
+    <h3 class="rebalance-section-title">Plano por ativo (POC)</h3>
+
+    {# Filter bar #}
+    <div class="rebalance-filter-bar" data-testid="poc-filter-bar">
+      <div class="rebalance-filter-group" x-data="{open: false}">
+        <button @click="open = !open" class="rebalance-filter-trigger" type="button"
+                data-testid="poc-filter-class-trigger">
+          Classe <span x-text="selectedClasses.length === 0 ? '(todas)' : selectedClasses.length + ' selecionada(s)'"></span>
+        </button>
+        <div class="rebalance-filter-panel" x-show="open" x-cloak @click.outside="open = false">
+          <label class="rebalance-filter-option">
+            <input type="checkbox" @change="toggleAllClasses()" :checked="selectedClasses.length === 0">
+            <span>Todas</span>
+          </label>
+          <template x-for="cls in uniqueClasses" :key="cls">
+            <label class="rebalance-filter-option">
+              <input type="checkbox" :checked="isClassSelected(cls)" @change="toggleClassFilter(cls)">
+              <span x-text="cls"></span>
+            </label>
+          </template>
+        </div>
+      </div>
+      <div class="rebalance-filter-group" x-data="{open: false}">
+        <button @click="open = !open" class="rebalance-filter-trigger" type="button"
+                data-testid="poc-filter-action-trigger">
+          Ação <span x-text="selectedActions.length === 0 ? '(todas)' : selectedActions.length + ' selecionada(s)'"></span>
+        </button>
+        <div class="rebalance-filter-panel" x-show="open" x-cloak @click.outside="open = false">
+          <label class="rebalance-filter-option">
+            <input type="checkbox" @change="toggleAllActions()" :checked="selectedActions.length === 0">
+            <span>Todas</span>
+          </label>
+          <template x-for="act in uniqueActions" :key="act">
+            <label class="rebalance-filter-option">
+              <input type="checkbox" :checked="isActionSelected(act)" @change="toggleActionFilter(act)">
+              <span x-text="act"></span>
+            </label>
+          </template>
+        </div>
+      </div>
+      <input type="search" placeholder="Buscar ativo..."
+             x-model="searchTerm" data-testid="poc-filter-search"
+             class="rebalance-filter-search">
+    </div>
+
+    <div class="rebalance-table-shell">
+    <table class="rebalance-table"
+           data-testid="poc-asset-table">
+      <thead>
+        <tr>
+          <th class="rebalance-table-th"
+              data-testid="poc-asset-th-category"
+              @click="sortBy('category_name')">
+            <span class="rebalance-table-th-label">Classe</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicator('category_name')"></span>
+          </th>
+          <th class="rebalance-table-th"
+              data-testid="poc-asset-th-name"
+              @click="sortBy('asset_name')">
+            <span class="rebalance-table-th-label">Ativo</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicator('asset_name')"></span>
+          </th>
+          <th class="rebalance-table-th rebalance-table-th--num"
+              data-testid="poc-asset-th-current-value"
+              @click="sortBy('current_value')">
+            <span class="rebalance-table-th-label">Valor atual</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicator('current_value')"></span>
+          </th>
+          <th class="rebalance-table-th rebalance-table-th--num"
+              data-testid="poc-asset-th-target-value"
+              @click="sortBy('target_value')">
+            <span class="rebalance-table-th-label">Alvo</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicator('target_value')"></span>
+          </th>
+          <th class="rebalance-table-th rebalance-table-th--num"
+              data-testid="poc-asset-th-deviation-value"
+              @click="sortBy('deviation_value')">
+            <span class="rebalance-table-th-label">Desvio (R$)</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicator('deviation_value')"></span>
+          </th>
+          <th class="rebalance-table-th rebalance-table-th--num"
+              data-testid="poc-asset-th-deviation-pct"
+              @click="sortBy('deviation_pct')">
+            <span class="rebalance-table-th-label">Desvio (%)</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicator('deviation_pct')"></span>
+          </th>
+          <th class="rebalance-table-th rebalance-table-th--num"
+              data-testid="poc-asset-th-buy"
+              @click="sortBy('buy_amount')">
+            <span class="rebalance-table-th-label">Compra</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicator('buy_amount')"></span>
+          </th>
+           <th class="rebalance-table-th rebalance-table-th--num"
+               data-testid="poc-asset-th-sell"
+               @click="sortBy('sell_amount')">
+             <span class="rebalance-table-th-label">Venda</span>
+             <span class="rebalance-table-th-indicator"
+                   x-text="sortIndicator('sell_amount')"></span>
+           </th>
+           <th class="rebalance-table-th rebalance-table-th--num"
+               data-testid="poc-asset-th-quantity"
+               @click="sortBy('trade_quantity')">
+             <span class="rebalance-table-th-label">Qtd</span>
+             <span class="rebalance-table-th-indicator"
+                   x-text="sortIndicator('trade_quantity')"></span>
+           </th>
+           <th class="rebalance-table-th rebalance-table-th--num"
+               data-testid="poc-asset-th-projected"
+               @click="sortBy('projected_value')">
+             <span class="rebalance-table-th-label">Projetado</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicator('projected_value')"></span>
+          </th>
+          <th class="rebalance-table-th"
+              data-testid="poc-asset-th-action"
+              @click="sortBy('action')">
+            <span class="rebalance-table-th-label">Ação</span>
+            <span class="rebalance-table-th-indicator"
+                  x-text="sortIndicator('action')"></span>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="(row, i) in filteredRows" :key="row.asset_key">
+          <tr class="rebalance-asset-row"
+              :class="rowClass(row)"
+              :data-asset-key="row.asset_key"
+              :data-testid="'poc-asset-row-' + row.asset_key">
+            <td class="rebalance-asset-cell"
+                x-text="row.category_name"></td>
+            <td class="rebalance-asset-cell"
+                x-text="row.asset_name"></td>
+            <td class="rebalance-asset-cell rebalance-asset-cell--num"
+                x-text="formatBRL(row.current_value)"></td>
+            <td class="rebalance-asset-cell rebalance-asset-cell--num"
+                x-text="formatBRL(row.target_value)"></td>
+            <td class="rebalance-asset-cell rebalance-asset-cell--num"
+                :class="row.deviation_value >= 0 ? 'rebalance-deviation--pos' : 'rebalance-deviation--neg'"
+                x-text="formatBRL(row.deviation_value)"></td>
+            <td class="rebalance-asset-cell rebalance-asset-cell--num"
+                :class="row.deviation_pct >= 0 ? 'rebalance-deviation--pos' : 'rebalance-deviation--neg'"
+                x-text="formatDeviationPp(row.deviation_pct)"></td>
+            <td class="rebalance-asset-cell rebalance-asset-cell--num"
+                x-text="formatBRL(row.buy_amount)"></td>
+            <td class="rebalance-asset-cell rebalance-asset-cell--num"
+                x-text="formatBRL(row.sell_amount)"></td>
+            <td class="rebalance-asset-cell rebalance-asset-cell--num"
+                :data-testid="'poc-asset-qty-' + row.asset_key"
+                x-text="formatQuantity(row.trade_quantity, row.asset_name)"></td>
+            <td class="rebalance-asset-cell rebalance-asset-cell--num"
+                x-text="formatBRL(row.projected_value)"></td>
+            <td class="rebalance-asset-cell rebalance-asset-cell--action">
+              <span class="rebalance-action-badge"
+                    :class="'rebalance-action-badge--' + row.action"
+                    :data-testid="'poc-action-' + row.action"
+                    x-text="actionLabel(row.action)"></span>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+    </div>
+  </section>
+</section>
+
+<script>
+  document.addEventListener('alpine:init', function () {
+    var pocSortFn = function (key, dir) {
+      var NUMERIC_KEYS = {
+        current_value: 1,
+        target_value: 1,
+        buy_amount: 1,
+        sell_amount: 1,
+        trade_quantity: 1,
+        projected_value: 1,
+        deviation_value: 1,
+        deviation_pct: 1,
+      };
+      return function (a, b) {
+        var cmp = 0;
+        if (key in NUMERIC_KEYS) {
+          var av = Number(a[key]) || 0;
+          var bv = Number(b[key]) || 0;
+          cmp = av - bv;
+        } else {
+          cmp = String(a[key] || '').localeCompare(String(b[key] || ''));
+        }
+        if (cmp === 0) {
+          cmp = String(a.asset_key || '').localeCompare(String(b.asset_key || ''));
+        }
+        return dir === 'asc' ? cmp : -cmp;
+      };
+    };
+
+    window.pocRebalancePage = function (initial) {
+      return {
+        plan: initial.plan,
+        sortKey: 'category_name',
+        sortDir: 'asc',
+        displayRows: [],
+        selectedClasses: [],
+        selectedActions: [],
+        searchTerm: '',
+        init: function () {
+          this.displayRows = this.plan.asset_plan.slice();
+        },
+        sortBy: function (key) {
+          if (this.sortKey === key) {
+            this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+          } else {
+            this.sortKey = key;
+            this.sortDir = 'asc';
+          }
+          this.displayRows = this.plan.asset_plan.slice().sort(
+            pocSortFn(this.sortKey, this.sortDir)
+          );
+        },
+        sortIndicator: function (key) {
+          if (this.sortKey !== key) return '';
+          return this.sortDir === 'asc' ? '↑' : '↓';
+        },
+        actionLabel: function (action) {
+          if (action === 'buy') return 'Comprar';
+          if (action === 'sell') return 'Vender';
+          return 'Manter';
+        },
+        formatBRL: function (value) {
+          var n = Number(value) || 0;
+          return n.toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+          });
+        },
+        formatPct: function (v) {
+          return (Number(v) || 0).toFixed(2) + '%';
+        },
+        formatQuantity: function (value, assetName) {
+          if (value === null || value === undefined || Number.isNaN(Number(value))) {
+            return '';
+          }
+          var normalizedAssetName = String(assetName || '').trim().toUpperCase();
+          return Number(value).toLocaleString('pt-BR', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: normalizedAssetName === 'BTC' ? 4 : 0,
+          });
+        },
+        formatDeviationPp: function (v) {
+          var n = Number(v) || 0;
+          var sign = n >= 0 ? '+' : '';
+          return sign + n.toFixed(2) + '%';
+        },
+        rowClass: function (row) {
+          if (row.action === 'hold') return 'rebalance-asset-row--neutral';
+          if (row.action === 'buy') return 'rebalance-asset-row--buy';
+          return 'rebalance-asset-row--sell';
+        },
+        get uniqueClasses() {
+          return [...new Set(this.plan.asset_plan.map(function (r) { return r.category_name; }))].sort();
+        },
+        get uniqueActions() { return ['Comprar', 'Vender', 'Manter']; },
+        get filteredRows() {
+          var self = this;
+          var rows = this.displayRows;
+          if (this.selectedClasses.length > 0) {
+            rows = rows.filter(function (r) { return self.selectedClasses.includes(r.category_name); });
+          }
+          if (this.selectedActions.length > 0) {
+            rows = rows.filter(function (r) { return self.selectedActions.includes(self.actionLabel(r.action)); });
+          }
+          if (this.searchTerm.trim()) {
+            var q = this.searchTerm.trim().toLowerCase();
+            rows = rows.filter(function (r) { return r.asset_name.toLowerCase().includes(q); });
+          }
+          return rows;
+        },
+        toggleClassFilter: function (cls) {
+          var idx = this.selectedClasses.indexOf(cls);
+          if (idx >= 0) {
+            this.selectedClasses.splice(idx, 1);
+          } else {
+            this.selectedClasses.push(cls);
+          }
+        },
+        toggleActionFilter: function (action) {
+          var idx = this.selectedActions.indexOf(action);
+          if (idx >= 0) {
+            this.selectedActions.splice(idx, 1);
+          } else {
+            this.selectedActions.push(action);
+          }
+        },
+        isClassSelected: function (cls) {
+          return this.selectedClasses.length === 0 || this.selectedClasses.includes(cls);
+        },
+        isActionSelected: function (action) {
+          return this.selectedActions.length === 0 || this.selectedActions.includes(action);
+        },
+        toggleAllClasses: function () { this.selectedClasses = []; },
+        toggleAllActions: function () { this.selectedActions = []; },
+      };
+    };
+  });
+</script>
+{% endblock %}
