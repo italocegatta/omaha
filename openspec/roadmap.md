@@ -48,15 +48,12 @@ All previous slices archived or closed. Active UI queue starts at F22.
 
 ### F21 - PoC tabelas com libs na página de teste
 Status: `Archived` — 2026-07-11
-Archive: `openspec/changes/archive/2026-07-11-f21-poc-tabelas-com-libs-na-pagina-de-teste/`
 Goal: decidir lib de tabela por PoC com plano de rebalanceamento.
-Candidate OpenSpec change id: `f21-poc-tabelas-com-libs-na-pagina-de-teste`
-Notes: Owner selected AG Grid Community. PoC route/assets/tests were discarded; its delta spec is intentionally unsynced because no capability shipped.
-Progress log: `2026-07-11` archived after decision; F22 owns implementation.
+Archive: `openspec/changes/archive/2026-07-11-f21-poc-tabelas-com-libs-na-pagina-de-teste/`
 
 ### F22 - Implantar lib de tabela escolhida no rebalanceamento
 Status: `Archived` — 2026-07-11
-Goal: aplicar na interface real tabela validada na POC F27, seguindo handoff e mantendo filtros por coluna já validados, sem AG Grid.
+Goal: aplicar na interface real tabela validada na POC F27, seguindo handoff e mantendo filtros por coluna já validados.
 Archive: `openspec/changes/archive/2026-07-11-f22-implantar-lib-de-tabela-escolhida-no-rebalanceamento/`
 
 ### F23 - Rebalanceamento e importação automáticos
@@ -264,366 +261,38 @@ Archive: `openspec/changes/archive/2026-07-07-d02-design-register-decision/`
 
 ### F14 - Catppuccin Frappe theme + component differentiation
 Status: `Archived` — 2026-07-08
+Goal: Replace warm-brown dark palette (hue 60) with Catppuccin Frappe cool blue-gray (hue ~274). Differentiate components via elevation, class-colored headers, sunk asset tables, compact rows, angular borders, and high-contrast numbers.
 Archive: `openspec/changes/archive/2026-07-08-f14-catppuccin-frappe-theme/`
-Goal: Replace warm-brown dark palette (hue 60) with Catppuccin Frappe
-  cool blue-gray (hue ~274). Differentiate components via surface
-  elevation, class-colored headers, sunk asset tables, compact rows,
-  angular borders, and high-contrast numbers.
-Candidate OpenSpec change id: `f14-catppuccin-frappe-theme`
-Spec link: `openspec/changes/f14-catppuccin-frappe-theme/`
-Spec: `openspec/specs/color-tokens/spec.md` (update),
-  `openspec/specs/component-state-language/spec.md` (update)
-Files: `src/omaha/static/app.css`, `DESIGN.md`,
-  `_patrimonio_class_section.html`, `_patrimonio_portfolio_header.html`
-Scope:
-  1. Token swap: --bg, --surface, --surface-sunk, --border, --ink,
-     --ink-muted, --accent, --positive, --negative, --error-bg/fg,
-     --class-1..6 → Catppuccin Frappe OKLCH values.
-  2. New token: --surface-elevated (portfolio header).
-  3. Class header: tinted bg (color-mix 30% class-color) + 2px solid
-     border-bottom. No swatch square — name carries the color.
-  4. Asset table: --surface-sunk background (inset feel).
-  5. Row padding: 0.55rem → 0.28rem (−50% vertical).
-  6. Border-radius: pills/toggles 999px → 4px (angular).
-  7. Trade toggle: Liberado = success green, Bloqueado = danger red.
-  8. Number contrast: all numeric cells use --ink at weight 600+.
-  9. Update DESIGN.md tokens table + color strategy section.
-  10. Update visual baselines (task test-visual).
-Notes: Mockup validated at /mockup (v4). Theme source:
-  Catppuccin Frappe (https://catppuccin.com/palette).
-  Hue 274 (periwinkle blue) replaces hue 60 (warm brown).
-  PRD §4.10 brand register: "domestic, no ornament" — theme
-  swap is palette-only, no gradient/glow/glassmorphism.
-Progress:
-  - 2026-07-08: Propose complete. All artifacts created (proposal, design,
-    specs, tasks). Change validated. Status → Spec Proposed.
-  - 2026-07-08: Apply complete. All 27 tasks implemented:
-    token swap (1.1-1.7), component differentiation (2.1-2.6),
-    class header differentiation (3.1-3.4), portfolio header elevation
-    (4.1), Python class-color sync (5.1-5.2), DESIGN.md update (6.1-6.3),
-    test updates (7.1, 7.3), mockup route removal (8.1).
-    Visual baselines (7.2) need regeneration by owner.
-    Status → Applied.
-  - 2026-07-08: Refresh-for-test complete. Server restarted at
-    http://192.168.1.6:8000. DB: 12 classes, 100 assets, 99 positions.
-    Dashboard renders correctly. Delivery receipt emitted.
 
 ### F15 - Patrimônio table redesign for class and asset metrics
 Status: `Archived` — 2026-07-08
-Goal: Rebuild class totals row + asset table on `/patrimonio` to match
-  new operator layout: ordered columns as mockup, nested `Classe`
-  (`Atual` / `Alvo` / `Desvio`) and `Carteira` (`Atual` / `Alvo` /
-  `Desvio`) groups, class totals row aligned to asset columns, split
-  internal `Ganho` subcolumns (absolute + percentual) with single-column
-  visual appearance, sortable columns across text and numeric fields,
-  per-column formatting rules, positive/negative icon+color signaling for
-  `Desvio` and `Ganho`, keep `Compra` / `Venda` / `Moeda` unchanged, and
-  remove legacy asset-row `Classe` column.
-Candidate OpenSpec change id: `f15-patrimonio-table-redesign-for-class-and-asset-metrics`
+Goal: Rebuild class totals row + asset table on `/patrimonio` with grouped columns, sortable fields, gain deviation icons, and remove legacy asset-row `Classe` column.
 Archive: `openspec/changes/archive/2026-07-08-f15-patrimonio-table-redesign-for-class-and-asset-metrics/`
-Spec: `openspec/specs/class-section-totals/spec.md` (update),
-  `openspec/specs/patrimonio-portfolio-header/spec.md` (update),
-  `openspec/specs/dashboard-inline-editing/spec.md` (update),
-  `openspec/specs/asset-trade-flags/spec.md` (confirm unchanged `Compra` /
-  `Venda` / `Moeda` behavior)
-Files: `src/omaha/templates/_patrimonio_class_section.html`,
-  `src/omaha/templates/_patrimonio_portfolio_header.html`,
-  `src/omaha/templates/_patrimonio_add_asset_modal.html`,
-  `src/omaha/routes/pages.py`, `src/omaha/static/app.css`,
-  `tests/e2e/`, `tests/integration/`, `tests/bdd/`
-Scope:
-  1. Reorder asset-table columns to match approved mockup.
-  2. Replace flat class metrics/header alignment contract with grouped
-     `Classe` and `Carteira` subheaders and aligned class totals row.
-  3. Add asset columns for aggregated quantity, average price, gain value,
-     gain %, position/current value, class current/target/deviation, and
-     portfolio current/target/deviation while preserving `Compra`,
-     `Venda`, and `Moeda`.
-  4. Make every visible column sortable (alphabetical for `Ativo`, numeric
-     asc/desc for metrics).
-  5. Define per-column formatting contract: currency prefix (`R$` / `US$`),
-     percent suffix, thousands separator, absolute-value rounding, and one
-     decimal for percentual/decimal cells.
-  6. Render signed visual state for `Desvio` and `Ganho` with directional
-     iconography and positive/negative color semantics.
-  7. Keep `Ganho` as two internal cells for alignment/formatting while
-     preserving one-column visual presentation for operator.
-  8. Remove legacy asset-row `Classe` column and migrate existing tests,
-     selectors, and alignment assertions to new contract.
-Notes: Schema check 2026-07-08: no DB slice needed right now. Current
-  models/import path already persist required source data via
-  `Position.qty`, `Position.avg_price`, `Position.total_invested`,
-  `Position.total_current`, `Asset.target_pct`, `Asset.buy_enabled`,
-  `Asset.sell_enabled`, `Asset.currency_code`, and `AssetClass.target_pct`.
-  New layout is primarily aggregation/rendering/spec work. If exact asset-level
-  broker cost basis semantics prove impossible from existing rows during
-  propose/apply, open follow-up slice instead of mutating F15 scope.
-Progress:
-  - 2026-07-08: Added from owner mockup + requirements. Positioned as next
-    feature slice after F14 archive. DB/schema review complete; no missing
-    persisted field identified for requested columns.
-  - 2026-07-08: Propose complete. Created proposal, design, tasks, and delta
-    specs under `openspec/changes/f15-patrimonio-table-redesign-for-class-and-asset-metrics/`.
-    Spec health gate passed via `openspec list --specs` (`opsx` alias not
-    present in this shell). Status -> Spec Proposed.
-  - 2026-07-08: Apply complete. Rebuilt `/patrimonio` class table into
-    16-column grouped layout (`Classe` / `Carteira`), split `Ganho`
-    into aligned absolute/% subcells, moved class totals into always-visible
-    totals row, added sign-state icons/colors for gain/deviation, removed
-    legacy asset-row `Classe` column, preserved inline target edits +
-    trade flags, and shaped new aggregate payload/placeholder behavior in
-    `src/omaha/routes/pages.py`.
-  - 2026-07-08: Verification complete. Commands: `uv run task lint`,
-    `uv run pytest tests/test_pages_routes.py tests/test_audit_inventory.py tests/e2e/test_class_section_alignment.py -q`,
-    `openspec list --specs`. Full `uv run task test-integration` still has
-    unrelated pre-existing failures in `tests/test_real_csv_flow.py`
-    because fixture file `tests/posicao_italo.csv` is absent in this
-    workspace.
-  - 2026-07-08: Refresh-for-test complete. Server restarted on LAN URL,
-    `/healthz` OK, DB unchanged (`12` classes / `100` assets / `99`
-    positions), authenticated dashboard smoke returned populated
-    patrimônio markup. Status -> Applied.
-  - 2026-07-08: Archive complete. Main specs synced, change moved to
-    `openspec/changes/archive/2026-07-08-f15-patrimonio-table-redesign-for-class-and-asset-metrics/`.
-    Status -> Archived.
 
 ### F16 - Rebalanceamento sempre pronto com aporte persistente
 Status: `Archived` — 2026-07-08
+Goal: Manter um plano de rebalanceamento sempre materializado para perfil ativo usando valor atual de `aporte`, recalculando após mutações e preservando `aporte` entre páginas na mesma execução.
 Archive: `openspec/changes/archive/2026-07-08-f16-rebalanceamento-sempre-pronto-com-aporte-persistente/`
-Goal: Manter um plano de rebalanceamento sempre materializado para perfil
-  ativo usando valor atual de `aporte` (default `0` quando app inicia ou
-  campo ainda vazio), recalculando após mutações de patrimônio/classe/alvo,
-  e preservando `aporte` enquanto usuário navega entre páginas na mesma
-  execução do app.
-Candidate OpenSpec change id: `f16-rebalanceamento-sempre-pronto-com-aporte-persistente`
-Spec link: `openspec/changes/f16-rebalanceamento-sempre-pronto-com-aporte-persistente/`
-Files: `src/omaha/routes/pages.py`, `src/omaha/routes/rebalance.py`,
-  `src/omaha/templates/rebalance.html`, `src/omaha/templates/patrimonio.html`,
-  `src/omaha/templates/_patrimonio_*.html`, `src/omaha/rebalance/`,
-  `openspec/specs/rebalance-page/spec.md`,
-  `openspec/specs/rebalance-route/spec.md`
-Notes: Scope cruza UX + estado server/browser. Owner quer eliminar estado
-  descartável atual: trocar de página, importar CSV, criar/excluir classe
-  ou ativo, e editar alocação alvo devem refletir imediatamente no plano já
-  pronto. Persistência de `aporte` só precisa durar enquanto processo/app
-  segue vivo; reinício volta para `0`. Confirmar durante propose se plano
-  persistido vive em sessão, store server-side por perfil, ou outro estado
-  efêmero equivalente sem gravar em banco.
-Progress:
-  - 2026-07-08: Added from owner request. Inserted as next feature slice
-    because change affects rebalance contract + cross-page dashboard flow,
-    not isolated bugfix. No hard dependency on deferred work.
-  - 2026-07-08: Propose complete. Created `proposal.md`, `design.md`,
-    `tasks.md`, and delta specs for `rebalance-page` + `rebalance-route`
-    under `openspec/changes/f16-rebalanceamento-sempre-pronto-com-aporte-persistente/`.
-    Spec health gate passed via `openspec list --specs`. Status -> Spec Proposed.
-  - 2026-07-08: Apply complete. Added session-backed per-profile aporte
-    helpers in `src/omaha/routes/pages.py`, materialized `GET /rebalanceamento`
-    with persisted/default-zero aporte, normalized blank POST input to zero,
-    preserved zero-class/sentinel/client-side-negative guards, and aligned
-    `RebalanceRequest.contribution` default to `0` for omitted JSON payloads.
-  - 2026-07-08: Verification complete. Commands: `uv run task lint`,
-    `uv run task test-file tests/test_rebalance_page.py tests/test_rebalance_route.py`,
-    `openspec list --specs`. Added regression coverage for per-profile aporte
-    persistence, logout reset semantics, and fresh GET recompute after DB
-    mutation.
-  - 2026-07-08: UX decision locked during apply: visible default input value
-    is literal `0`, matching the always-materialized zero-aporte plan and
-    allowing blank submit to normalize client-side without browser `required`
-    blocking.
-  - 2026-07-08: Refresh-for-test complete. Server restarted on LAN URL,
-    `/healthz` OK, read-only DB verification preserved existing state
-    (`12` classes / `99` assets / `99` positions), and authenticated
-    dashboard smoke found `6` rendered class-summary rows. No DB
-    migration/seed change required. Status -> Applied.
 
 ### F17 - Precisao canonica de alvo e atalho de percentual global
 Status: `Archived` — 2026-07-08
+Goal: Tornar `% classe` e `% ativo na classe` fontes de verdade do dominio, manter edicao de `% ativo na carteira` como atalho server-side, elevar precisao interna de `Asset.target_pct`, usar `Decimal` ate fronteira numpy/CVXPY.
 Archive: `openspec/changes/archive/2026-07-08-f17-precisao-canonica-de-alvo-e-atalho-de-percentual-global/`
-Goal: Tornar `% classe` e `% ativo na classe` fontes de verdade do dominio,
-  manter edicao de `% ativo na carteira` como atalho server-side, elevar a
-  precisao interna de `Asset.target_pct`, e ajustar pipeline de rebalance para
-  usar `Decimal` ate fronteira numpy/CVXPY sem tratar pesos globais derivados
-  como verdade independente.
-Candidate OpenSpec change id: `f17-precisao-canonica-de-alvo-e-atalho-de-percentual-global`
-Spec link: `openspec/changes/f17-precisao-canonica-de-alvo-e-atalho-de-percentual-global/`
-Files: `src/omaha/models.py`, `alembic/`, `src/omaha/routes/assets.py`,
-  `src/omaha/routes/pages.py`, `src/omaha/templates/_patrimonio_*.html`,
-  `src/omaha/rebalance/builders.py`, `src/omaha/rebalance/validation.py`,
-  `src/omaha/rebalance/solver.py`, `src/omaha/rebalance/policy.py`,
-  `src/omaha/rebalance/postprocessing.py`, `tests/test_assets_patch_legacy.py`,
-  `tests/test_rebalance_*.py`, `openspec/specs/dashboard-inline-editing/spec.md`,
-  `openspec/specs/rebalance-engine/spec.md`,
-  `openspec/specs/rebalance-route/spec.md`,
-  `openspec/specs/rebalance-page/spec.md`
-Notes: Dominio critico (`src/omaha/rebalance/`). Proposal precisa explicitar
-  limites de CVXPY/NumPy com `float`, decidir precisao interna minima para
-  `Asset.target_pct`, e separar claramente regra canonicamente validada
-  (classes + soma intra-classe) de valores globais apenas derivados/exibidos.
-  Preservar UX de edicao direta de `% carteira` sem autoajuste residual opaco.
-Progress:
-  - 2026-07-08: Added from owner bug investigation about periodic-decimal drift
-    between class target, per-asset in-class target, and derived global target.
-    Inserted after F16 because scope changes critical rebalance contract,
-    inline-edit semantics, and target precision persistence.
-  - 2026-07-08: Propose complete. Created `proposal.md`, `design.md`,
-    `tasks.md`, and delta specs for `dashboard-inline-editing`,
-    `rebalance-data-bridges`, and `rebalance-engine` under
-    `openspec/changes/f17-precisao-canonica-de-alvo-e-atalho-de-percentual-global/`.
-    Spec health gate passed via `openspec list --specs`. Status -> Spec Proposed.
-  - 2026-07-08: Apply complete. All 17/17 tasks implemented. Migration0019
-    widens `assets.target_pct` to `Numeric(9,6)`. PATCH route accepts
-    `target_pct_total` shortcut with server-side Decimal conversion. Dashboard
-    sends raw global value, re-renders from server-confirmed state. Rebalance
-    builders/validation enforce canonical Decimal closure before float boundary.
-    Unit (346 pass), integration (108 pass), lint, spec validation all green.
-    Status -> Applied. Ready for archive.
 
 ### F18 - Rebalanceamento UI: resumo por classe, filtros, desvios
 Status: `Archived` — 2026-07-09
-Goal: Redesenhar a página de rebalanceamento: substituir 6 cards de métricas
-  por resumo de desvio por classe (cards horizontais cor-coded), compactar
-  aporte + adicionar inputs de threshold de desvio mínimo (absoluto R$ e %),
-  adicionar filtros multi-select (Classe, Ação) e busca por nome na tabela de
-  ativos, incluir colunas de desvio absoluto (R$) e percentual (%) por ativo,
-  e colorir linhas/tabelas por status de desvio vs threshold.
-Candidate OpenSpec change id: `f18-rebalanceamento-ui-resumo-por-classe-filtros-desvios`
-Spec link: `openspec/changes/f18-rebalanceamento-ui-resumo-por-classe-filtros-desvios/`
-Files: `src/omaha/rebalance/schemas.py`, `src/omaha/rebalance/glue.py`,
-  `src/omaha/templates/_rebalance_plan.html`, `src/omaha/templates/rebalance.html`,
-  `src/omaha/static/app.css`
-Scope:
-  1. Schema: adicionar `target_pct`, `current_pct`, `deviation_pct` em
-     `RebalanceCategoryPlanRow`; adicionar `deviation_value`, `deviation_pct`
-     em `RebalanceAssetPlanRow`.
-  2. Glue: calcular % e desvios antes de montar response.
-  3. Template: barra de parâmetros compacta (aporte + desvio mín R$ + desvio
-     mín % + botão Rebalancear, inline, width auto).
-  4. Template: resumo por classe (cards horizontais com atual%, alvo%, Δ pp,
-     Δ R$, projetado%, cor = dentro/fora do threshold).
-  5. Template: tabela de ativos com filtros multi-select (Classe, Ação),
-     busca por nome, colunas novas Desvio(R$) e Desvio(%), todas colunas
-     ordenáveis, rows coloridas por desvio vs threshold.
-  6. Alpine: estado reativo para thresholds, filtros, computed filteredRows.
-  7. CSS: remover `.rebalance-stat-grid`, adicionar estilos para params-bar,
-     class-cards, filter-bar, deviation cells, row color-coding.
-  8. Remover footer (avisos + política aplicada).
-Notes: Decisões do owner (2026-07-08):
-  - 6 cards atuais → trocar tudo por resumo por classe.
-  - Aporte → barra compacta no topo, width auto.
-  - Filtros → multi-select com checkboxes, só na tabela de ativos.
-  - Thresholds editáveis na tela (defaults: R$ 1000, 1%).
-  - Todas colunas da tabela de ativos ordenáveis.
-  - Colunas Desvio(abs) e Desvio(%) adicionadas.
-  - Não precisa de cards clicáveis pra filtrar (filtro da tabela basta).
-Progress:
-  - 2026-07-08: Added from owner redesign request. Positioned after F16/F17
-    (both applied). Scope covers schema + glue + template + Alpine + CSS.
-    No DB migration needed (computed fields only).
-  - 2026-07-08: Propose complete. Created proposal, design, tasks, and delta
-    specs for `rebalance-page` + `rebalance-route` under
-    `openspec/changes/f18-rebalanceamento-ui-resumo-por-classe-filtros-desvios/`.
-    Spec health gate passed via `openspec list --specs`. Status -> Spec Proposed.
-  - 2026-07-09: Apply complete. All tasks implemented:
-    Backend: added deviation fields to schemas (1.1-1.2), computed in glue (1.3),
-    updated tests (1.4). Frontend: replaced stat grid with params bar (2.1-2.2),
-    replaced category table with class cards (3.1-3.3), added filter bar + desvio
-    columns (4.1-4.5), replaced CSS (5.1-5.5). Verification: lint, tests, spec
-    health all green. Status -> Applied.
-  - 2026-07-09: Follow-up UI polish per owner feedback. Improved params-bar
-    personality, expanded class cards across width, upgraded asset-table surface,
-    and removed `pp` suffix from percentual deviation display. Targeted tests,
-    lint, and live smoke on `/rebalanceamento` green.
-  - 2026-07-09: Archive complete. Specs synced to main, change moved to
-     `openspec/changes/archive/2026-07-09-f18-rebalanceamento-ui-resumo-por-classe-filtros-desvios/`.
-     Status -> Archived.
+Goal: Redesenhar a página de rebalanceamento: substituir 6 cards de métricas por resumo de desvio por classe (cards horizontais cor-coded), compactar aporte + thresholds, filtros multi-select, colunas de desvio, rows coloridas.
+Archive: `openspec/changes/archive/2026-07-09-f18-rebalanceamento-ui-resumo-por-classe-filtros-desvios/`
 
 ### F19 - Gate de compra e venda por desvio minimo no otimizador
 Status: `Archived` — 2026-07-09
-Goal: Restringir plano de rebalanceamento para só liberar `Compra` e `Venda`
-  quando desvio do ativo ultrapassar thresholds mínimos absoluto (R$) e
-  percentual (%) informados na tela de rebalanceamento, alinhando solver,
-  pós-processamento e UI com inputs já expostos ao operador.
-Candidate OpenSpec change id: `f19-gate-de-compra-e-venda-por-desvio-minimo-no-otimizador`
+Goal: Restringir plano de rebalanceamento para só liberar `Compra` e `Venda` quando desvio do ativo ultrapassar thresholds mínimos absoluto (R$) e percentual (%) informados na tela.
 Archive: `openspec/changes/archive/2026-07-09-f19-gate-de-compra-e-venda-por-desvio-minimo-no-otimizador/`
-Files: `src/omaha/rebalance/`, `src/omaha/routes/rebalance.py`,
-  `src/omaha/rebalance/schemas.py`, `src/omaha/rebalance/glue.py`,
-  `src/omaha/templates/rebalance.html`,
-  `src/omaha/templates/_rebalance_plan.html`, `tests/test_rebalance_*.py`,
-  `openspec/specs/rebalance-engine/spec.md`,
-  `openspec/specs/rebalance-route/spec.md`,
-  `openspec/specs/rebalance-page/spec.md`
-Notes: Follow-up direto de F18. Thresholds hoje afetam leitura visual e filtros,
-  mas não gateiam execução sugerida pelo motor. Proposal precisa fechar
-  semântica exata: liberar trade só quando desvio absoluto E percentual
-  ultrapassarem mínimos, ou outra combinação explicitamente aprovada. Domínio
-  crítico (`src/omaha/rebalance/`), então respeitar cap de 1 fatia `Applying`.
-Progress:
-  - 2026-07-09: Added from owner request. Inserted as next slice because
-      request extends threshold behavior already surfaced in `/rebalanceamento`
-      and likely changes critical rebalance-engine logic.
-  - 2026-07-09: Propose complete. Created `proposal.md`, `design.md`,
-    `tasks.md`, and delta specs for `rebalance-engine`, `rebalance-route`,
-     and `rebalance-page` under
-     `openspec/changes/f19-gate-de-compra-e-venda-por-desvio-minimo-no-otimizador/`.
-     Locked semantics: trade survives only when absolute and percentual
-     deviation both clear thresholds. Spec health gate passed via
-     `openspec list --specs`. Status -> Spec Proposed.
-  - 2026-07-09: Apply complete. Extended `RebalanceRequest` and page form
-    contract with `min_deviation_value` / `min_deviation_pct`, threaded both
-    fields through `routes -> glue -> engine -> solver -> postprocessing`,
-    suppressed trades failing AND semantics after solve, recomputed projected
-    totals / residual cash from gated rows, and updated rebalance templates to
-    submit and re-render threshold values with execution-gate copy.
-  - 2026-07-09: Verification complete. Commands: `uv run task lint`,
-    `uv run task test-file tests/test_rebalance_schemas.py tests/test_rebalance_route.py tests/test_rebalance_page.py tests/test_rebalance_postprocessing.py`,
-    `openspec list --specs`. All green.
-  - 2026-07-09: Refresh-for-test complete. Server restarted at
-    `http://192.168.1.6:8000`. Read-only DB verification: `12` classes,
-    `99` assets, `99` positions. `/healthz` OK. Authenticated dashboard smoke
-    found `RF Din` 5 times. Status -> Applied.
-  - 2026-07-09: Archive complete. Main specs synced, change moved to
-    `openspec/changes/archive/2026-07-09-f19-gate-de-compra-e-venda-por-desvio-minimo-no-otimizador/`.
-    Status -> Archived.
 
 ### F20 - Calculo da qtd de compra ou venda no plano de rebalanceamento
 Status: `Archived` — 2026-07-09
-Goal: Expor quantidade operacional `Qtd` na tabela do plano de
-  rebalanceamento, calculada a partir do valor de compra/venda e preço atual,
-  com conversão BRL->USD quando ativo negocia em dólar.
-Candidate OpenSpec change id: `f20-calculo-da-qtd-de-compra-ou-venda-no-plano-de-rebalanceamento`
+Goal: Expor quantidade operacional `Qtd` na tabela do plano de rebalanceamento, calculada a partir do valor de compra/venda e preço atual, com conversão BRL->USD quando ativo negocia em dólar.
 Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-venda-no-plano-de-rebalanceamento/`
-Files: `src/omaha/rebalance/`, `src/omaha/templates/_rebalance_plan.html`,
-  `tests/test_rebalance_page.py`, `tests/test_rebalance_route.py`,
-  `openspec/specs/rebalance-page/spec.md`,
-  `openspec/specs/rebalance-route/spec.md`
-Notes: Change preexistia como draft em folder `f19-*` fora do roadmap atual.
-  Renomeado para `F20` em 2026-07-09 para liberar `F19` atual sem conflitar
-  com artefato de escopo diferente.
-Progress:
-  - 2026-07-09: Change folder renomeado de
-    `f19-calculo-da-qtd-de-compra-ou-venda-no-plano-de-rebalanceamento` para
-    `f20-calculo-da-qtd-de-compra-ou-venda-no-plano-de-rebalanceamento`.
-    Artifacts já completos (`proposal.md`, `design.md`, `tasks.md`, delta
-    specs). Slice registrado como `Spec Proposed`.
-  - 2026-07-09: Apply complete. Added `trade_quantity` to rebalance wire
-    rows, reused solver quote fields (`quote_price`, `usdbrl_rate`) in
-    glue/engine translation, rendered `Qtd` column after `Venda`, and
-    extended rebalance glue/route/page/schema tests for BRL, USD, and
-    null-quantity cases.
-  - 2026-07-09: Verification complete. Commands: `uv run task test-file
-    tests/test_rebalance_glue.py tests/test_rebalance_route.py
-    tests/test_rebalance_page.py tests/test_rebalance_schemas.py`,
-    `uv run task lint`, `openspec list --specs`. Note: first `task lint`
-    run hit corrupted generated `.coverage` combine state; removed local
-    coverage artifacts and re-ran cleanly.
-  - 2026-07-09: Refresh-for-test complete. Server restarted on LAN URL,
-    `/healthz` OK, read-only DB verification preserved current state
-    (`12` classes / `99` assets / `99` positions), and authenticated
-    dashboard smoke found `5` `RF Din` matches. Status -> Applied.
-  - 2026-07-09: Archive complete. Main specs synced, change moved to
-    `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-venda-no-plano-de-rebalanceamento/`.
-    Status -> Archived.
 
 ---
 
@@ -647,7 +316,7 @@ was added first to isolate the failing test one-by-one and stop wasting time on
 full-group reruns before root cause is known. On 2026-07-10, T09 was archived;
     push still blocked by repo-wide hook drift outside slice, so I03/I04 were
     added as next delivery-gate cleanup slices; both are now archived. On
-2026-07-11, F21 selected AG Grid Community and was archived without syncing its
+2026-07-11, F21 was archived without syncing its
 discarded PoC spec; F22 is now next.
 
 **Deferred/Deprecated** (owner decides):
