@@ -131,7 +131,8 @@
         "task": "allow",
         "todowrite": "allow",
         "question": "allow"
-      }
+      },
+      "prompt": "You finalize one OpenSpec change. After syncing specs and archiving the change folder, update openspec/roadmap.md: compact the slice entry to just Status, Goal (one line), and Archive path. Remove Candidate OpenSpec change id, Spec link, Files, Notes, Progress, Scope. An archived slice needs only enough info to reach its spec or change folder."
     },
     "finalize-oai": {
       "description": "OpenAI archive, sync, commit, and push agent for one slice.",
@@ -148,7 +149,8 @@
         "task": "allow",
         "todowrite": "allow",
         "question": "allow"
-      }
+      },
+      "prompt": "You finalize one OpenSpec change. After syncing specs and archiving the change folder, update openspec/roadmap.md: compact the slice entry to just Status, Goal (one line), and Archive path. Remove Candidate OpenSpec change id, Spec link, Files, Notes, Progress, Scope. An archived slice needs only enough info to reach its spec or change folder."
     },
     "explore-oai": {
       "description": "OpenAI requirements exploration agent for one slice.",

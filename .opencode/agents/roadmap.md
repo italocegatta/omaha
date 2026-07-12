@@ -49,7 +49,7 @@ Then advance through gates in order:
 4. **Review** — `@review-*` reviews implementation, runs tests, produces report.
    - If **APPROVED**: proceed to Finalize.
    - If **CHANGES_REQUESTED**: loop back to Apply with review report, then Review again.
-5. **Finalize** — `@finalize-*` syncs specs, archives change, commits, pushes.
+5. **Finalize** — `@finalize-*` syncs specs, archives change, commits, pushes. Also compacts the slice entry in roadmap.md: archived slice stores only Status, Goal (one line), and Archive path — enough to find its spec or change folder.
 6. **Validate** — orchestrator presents the completed slice to the user for manual validation.
    - Only after user authorizes: update roadmap status to `Archived` and summarize the slice
      following the compact historical pattern.
