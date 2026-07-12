@@ -57,40 +57,72 @@ Goal: aplicar na interface real tabela validada na POC F27, seguindo handoff e m
 Archive: `openspec/changes/archive/2026-07-11-f22-implantar-lib-de-tabela-escolhida-no-rebalanceamento/`
 
 ### F23 - Rebalanceamento e importação automáticos
-Status: `Ready`
+Status: `Spec Proposed`
 Goal: remover `Rebalancear`, recalcular plano após qualquer edição de input, remover botão `Enviar` no import CSV, disparar upload automático e avançar próxima tela ao sucesso.
 Candidate OpenSpec change id: `f23-rebalanceamento-e-importacao-automaticos`
 Spec link: `openspec/changes/f23-rebalanceamento-e-importacao-automaticos/`
 Files to inspect: `src/omaha/routes/pages.py`, `src/omaha/routes/rebalance.py`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/templates/rebalance.html`, `src/omaha/static/app.css`
 Notes: fluxo de ação imediata, sem botão manual extra.
 Progress log: `2026-07-10` added from owner request.
+Progress log: `2026-07-12` proposal queued.
 
 ### F24 - Polimento de inputs e modal
-Status: `Ready`
+Status: `Spec Proposed`
 Goal: ampliar modal/tela em ~10%, aumentar contraste do campo `moeda`, remover steppers de inputs numéricos, e alinhar `Família` à esquerda no selector.
 Candidate OpenSpec change id: `f24-polimento-de-inputs-e-modal`
 Spec link: `openspec/changes/f24-polimento-de-inputs-e-modal/`
 Files to inspect: `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/templates/_profile_switcher.html`, `src/omaha/static/app.css`
 Notes: ajuste visual + legibilidade de inputs.
 Progress log: `2026-07-10` added from owner request.
+Progress log: `2026-07-12` proposal queued.
 
 ### F25 - Sistema de cards com cores de target
-Status: `Ready`
+Status: `Spec Proposed`
 Goal: definir linguagem visual comum para cards, remover label `CLASSE`, e colorir cards por alvo: verde acima, vermelho abaixo.
 Candidate OpenSpec change id: `f25-sistema-de-cards-com-cores-de-target`
 Spec link: `openspec/changes/f25-sistema-de-cards-com-cores-de-target/`
 Files to inspect: `src/omaha/templates/_rebalance_*`, `src/omaha/static/app.css`
 Notes: cards precisam parecer mesma família, não mesmo molde.
 Progress log: `2026-07-10` added from owner request.
+Progress log: `2026-07-12` proposal queued.
 
 ### F26 - Padronização de tabelas e inspeção visual
-Status: `Ready`
+Status: `Deprecated` — 2026-07-12 (split into F27-F29)
 Goal: aplicar padrão visual único nas tabelas e adicionar inspeção visual obrigatória para pegar wrap, overflow, desalinhamento e diferença tipográfica entre células.
 Candidate OpenSpec change id: `f26-padronizacao-de-tabelas-e-inspecao-visual`
 Spec link: `openspec/changes/f26-padronizacao-de-tabelas-e-inspecao-visual/`
 Files to inspect: `src/omaha/templates/_*.html`, `src/omaha/static/app.css`, `tests/e2e/`
 Notes: inclui correção de casos como `Atual` com fonte diferente e headers apertados.
 Progress log: `2026-07-10` added from owner request.
+Progress log: `2026-07-12` proposal queued.
+Progress log: `2026-07-12` split into F27-F29 per owner request.
+
+### F27 - Tabela ativos espelhada do rebalanceamento
+Status: `Ready`
+Goal: portar para tabela de ativos em patrimônio recursos de tabela do rebalanceamento: ordenação aprimorada, filtro por coluna, e consistência visual entre header e body.
+Candidate OpenSpec change id: `f27-tabela-ativos-espelhada-do-rebalanceamento`
+Spec link: `openspec/changes/f27-tabela-ativos-espelhada-do-rebalanceamento/`
+Files to inspect: `src/omaha/templates/_patrimonio*.html`, `src/omaha/templates/_rebalance*.html`, `src/omaha/static/app.css`
+Notes: slice de porta/consistência de tabela.
+Progress log: `2026-07-12` added from owner request.
+
+### F28 - Números arredondados e ganho unificado
+Status: `Ready`
+Goal: formatar campos numéricos com arredondamento para 0 casas decimais, exceto QTD de BTC com 3 casas, e reestruturar coluna ganho para mostrar valor absoluto + percentual juntos, ordenando por absoluto.
+Candidate OpenSpec change id: `f28-numeros-arredondados-e-ganho-unificado`
+Spec link: `openspec/changes/f28-numeros-arredondados-e-ganho-unificado/`
+Files to inspect: `src/omaha/templates/_patrimonio*.html`, `src/omaha/templates/_rebalance*.html`, `src/omaha/static/app.css`
+Notes: foco em densidade e leitura.
+Progress log: `2026-07-12` added from owner request.
+
+### F29 - Compra e venda com emoji toggle
+Status: `Ready`
+Goal: simplificar colunas compra e venda com emoji de acerto/bloqueio e manter clique que alterna ícone e grava novo valor no banco.
+Candidate OpenSpec change id: `f29-compra-e-venda-com-emoji-toggle`
+Spec link: `openspec/changes/f29-compra-e-venda-com-emoji-toggle/`
+Files to inspect: `src/omaha/templates/_patrimonio*.html`, `src/omaha/routes/*.py`, `src/omaha/static/app.css`
+Notes: comportamento atual permanece; só muda representação e microcopy visual.
+Progress log: `2026-07-12` added from owner request.
 
 ### F01 - Consolidação cross-profile (visão household agregada)
 Status: `Archived` (superseded by F06) — 2026-07-04
@@ -301,9 +333,11 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 **Active queue:**
 
 1. F23 - Rebalanceamento e importação automáticos
-3. F24 - Polimento de inputs e modal
-4. F25 - Sistema de cards com cores de target
-5. F26 - Padronização de tabelas e inspeção visual
+2. F24 - Polimento de inputs e modal
+3. F25 - Sistema de cards com cores de target
+4. F27 - Tabela ativos espelhada do rebalanceamento
+5. F28 - Números arredondados e ganho unificado
+6. F29 - Compra e venda com emoji toggle
 
 Order note: F19 and F20 archived after spec sync + archive flow. On
 2026-07-09 owner split broad test-triage work for context control: T07 keeps
@@ -317,7 +351,8 @@ full-group reruns before root cause is known. On 2026-07-10, T09 was archived;
     push still blocked by repo-wide hook drift outside slice, so I03/I04 were
     added as next delivery-gate cleanup slices; both are now archived. On
 2026-07-11, F21 was archived without syncing its
-discarded PoC spec; F22 is now next.
+discarded PoC spec; F22 is now next. On 2026-07-12, F26 was split into F27-F29
+to keep slices small and testable.
 
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed, reactivation path documented above.
