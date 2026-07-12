@@ -101,13 +101,15 @@ Progress log: `2026-07-12` proposal queued.
 Progress log: `2026-07-12` split into F27-F29 per owner request.
 
 ### F27 - Tabela ativos espelhada do rebalanceamento
-Status: `Ready`
+Status: `Applied`
 Goal: portar para tabela de ativos em patrimônio recursos de tabela do rebalanceamento: ordenação aprimorada, filtro por coluna, e consistência visual entre header e body.
 Candidate OpenSpec change id: `f27-tabela-ativos-espelhada-do-rebalanceamento`
 Spec link: `openspec/changes/f27-tabela-ativos-espelhada-do-rebalanceamento/`
 Files to inspect: `src/omaha/templates/_patrimonio*.html`, `src/omaha/templates/_rebalance*.html`, `src/omaha/static/app.css`
 Notes: slice de porta/consistência de tabela.
 Progress log: `2026-07-12` added from owner request.
+Progress log: `2026-07-12` proposal queued.
+Progress log: `2026-07-12` apply complete; refresh-for-test smoke OK.
 
 ### F28 - Números arredondados e ganho unificado
 Status: `Ready`
@@ -277,6 +279,33 @@ Goal: Isolar e corrigir hang tardio do harness BDD/e2e com replay 1 teste por
   vez, teardown mais seguro e diagnóstico de navegação Playwright.
 Archive: `openspec/changes/archive/2026-07-10-t12-isolar-hang-tardio-do-harness-browser-live-server/`
 
+### T13 - Cobertura fora dos browsers
+Status: `Ready`
+Goal: tirar cobertura/XML de e2e, bdd e visual; manter coverage em unit + integration e separar fast lane de browser lane.
+Candidate OpenSpec change id: `t13-cobertura-fora-dos-browsers`
+Spec link: `openspec/changes/t13-cobertura-fora-dos-browsers/`
+Files to inspect: `pyproject.toml`, `README.md`, `tests/PERFORMANCE.md`, `.github/workflows/ci.yml`
+Notes: foco em tempo de execução sem mexer em comportamento de suíte.
+Progress log: `2026-07-12` added from suite-performance investigation.
+
+### T14 - Helpers compartilhados de setup e wipe
+Status: `Ready`
+Goal: extrair bootstrap, wipe de DB e helpers de browser/fixture de `conftest` e testes para módulos de support compartilhados.
+Candidate OpenSpec change id: `t14-helpers-compartilhados-de-setup-e-wipe`
+Spec link: `openspec/changes/t14-helpers-compartilhados-de-setup-e-wipe/`
+Files to inspect: `tests/conftest.py`, `tests/e2e/conftest.py`, `tests/bdd/conftest.py`, `tests/visual/conftest.py`, `tests/e2e/test_import_user_journey.py`, `scripts/seed_from_csv/modes.py`
+Notes: foco em duplicação, isolamento e manutenção.
+Progress log: `2026-07-12` added from suite-performance investigation.
+
+### T15 - Contratos e docs da suíte
+Status: `Ready`
+Goal: alinhar README, docs de BDD e performance baseline com behavior real de tasks, markers e contratos da suíte.
+Candidate OpenSpec change id: `t15-contratos-e-docs-da-suite`
+Spec link: `openspec/changes/t15-contratos-e-docs-da-suite/`
+Files to inspect: `README.md`, `tests/bdd/README.md`, `tests/PERFORMANCE.md`, `tests/conftest.py`, `pyproject.toml`
+Notes: foco em legibilidade, estabilidade e contrato claro; baixo risco.
+Progress log: `2026-07-12` added from suite-performance investigation.
+
 ### I01 - Agendamento automático de backup
 Status: `Archived` — 2026-07-06
 Archive: `openspec/changes/archive/2026-07-06-i01-automatic-backup-scheduling/`
@@ -341,6 +370,9 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 4. F27 - Tabela ativos espelhada do rebalanceamento
 5. F28 - Números arredondados e ganho unificado
 6. F29 - Compra e venda com emoji toggle
+7. T13 - Cobertura fora dos browsers
+8. T14 - Helpers compartilhados de setup e wipe
+9. T15 - Contratos e docs da suíte
 
 Order note: F19 and F20 archived after spec sync + archive flow. On
 2026-07-09 owner split broad test-triage work for context control: T07 keeps
@@ -351,11 +383,12 @@ documenting safe serial/reuse limits; owner then sent queue back to T07. On
 2026-07-10, T07 remained blocked by suite-wide late-run browser hang, so T12
 was added first to isolate the failing test one-by-one and stop wasting time on
 full-group reruns before root cause is known. On 2026-07-10, T09 was archived;
-    push still blocked by repo-wide hook drift outside slice, so I03/I04 were
-    added as next delivery-gate cleanup slices; both are now archived. On
-2026-07-11, F21 was archived without syncing its
-discarded PoC spec; F22 is now next. On 2026-07-12, F26 was split into F27-F29
-to keep slices small and testable.
+  push still blocked by repo-wide hook drift outside slice, so I03/I04 were
+  added as next delivery-gate cleanup slices; both are now archived. On
+  2026-07-11, F21 was archived without syncing its
+  discarded PoC spec; F22 is now next. On 2026-07-12, F26 was split into F27-F29
+  to keep slices small and testable. On 2026-07-12, suite investigation added
+  T13-T15 to separate runtime wins, harness cleanup, and docs/contract drift.
 
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed, reactivation path documented above.
