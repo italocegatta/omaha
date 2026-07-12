@@ -171,79 +171,40 @@ exists any more; see `dashboard-sidebar` REMOVED delta).
   "Saques serão suportados em versão futura. Por enquanto,
   deixe o aporte em zero ou positivo."
 
-### Requirement: Asset plan table renders ten visible columns plus a data attribute
+### Requirement: Asset plan table renders eight POC-parity columns plus a data attribute
 
-The system SHALL render the asset plan table with eleven visible `<th>`
-cells: Classe, Ativo, Valor atual, Alvo, Desvio (R$), Desvio (%), Compra,
-Venda, Qtd, Projetado, Ação.
-Each row carries a `data-asset-key` attribute holding the wire's
-`asset_key` field (used by tests; not visible to the operator).
+The system SHALL render the rebalance asset plan with a single declarative Alpine column model. The `<thead>` and `<tbody>` SHALL be generated from that model via `<template x-for>`, with no duplicated header/body markup. The table SHALL expose F27 POC's eight visible columns, in order: Ação, Classe, Ativo, Atual, Alvo, Desvio, Projetado, Operação. `Desvio` SHALL combine value and percentage; `Operação` SHALL combine action, value, and quantity.
 
-The `Qtd` column SHALL appear immediately after `Venda`. It SHALL show
-the calculated trade quantity only for assets with negociação em bolsa
-and finite market price. Rows that are not tradeable or lack an apt
-price SHALL render the `Qtd` cell empty without shifting the column map.
+The table container SHALL keep `data-testid="rebalance-asset-table"` so existing tests can target the plan surface. Each rendered row SHALL retain a stable `data-asset-key` attribute equal to `asset_key`.
 
-#### Scenario: Asset plan table has eleven visible columns
+When `plan.asset_plan` is empty, the page SHALL keep the existing empty-state behavior instead of rendering an empty table.
+
+#### Scenario: Declarative table renders eight POC-parity columns
 
 - **WHEN** the plan renders
-- **THEN** the asset plan `<table>` has exactly eleven `<th>`
-  elements in `<thead>`
-- **AND** `Qtd` appears after `Venda` and before `Projetado`
-- **AND** each `<tbody> <tr>` has the
-  `data-asset-key="..."` attribute matching the row's
-  `asset_key`
+- **THEN** `data-testid="rebalance-asset-table"` exposes eight visible columns in POC order
+- **AND** each rendered row carries `data-asset-key`
 
-#### Scenario: Desvio columns show deviation values
+#### Scenario: Empty plan still renders empty state
 
-- **WHEN** an asset has `current_value = 5000` and `target_value = 5500`
-- **THEN** the Desvio (R$) cell shows `-R$ 500,00`
-- **AND** the Desvio (%) cell shows `-9.1%`
+- **WHEN** `plan.asset_plan` is empty
+- **THEN** the empty-state copy renders instead of an empty grid
 
 ### Requirement: Sortable asset plan table
 
-The system SHALL make the asset plan table sortable by
-clicking the `<th>` cells. Click cycles `asc → desc → asc`
-on the same column. Default order is the solver's native
-order (by `category_order`, then `asset_order`).
+The system SHALL sort and filter rebalance asset plan rows client-side in Alpine. Clicking a column header SHALL toggle `asc → desc → asc` on the same column. Categorical columns SHALL use multi-select enum filters. Numeric columns SHALL use range filters with min/max bounds. Composite columns SHALL expose multiple range controls within the same filter panel.
 
-The asset plan table SHALL also expose a client-side filter bar
-with a class multi-select, an action multi-select, and a text
-search input. Filtering happens entirely in Alpine, without
-server round-trips.
+The page SHALL keep PT-BR labels and SHALL NOT render legacy handcrafted table/filter controls that are no longer part of the declarative surface.
 
-#### Scenario: Clicking a column header sorts ascending
+#### Scenario: Clicking a numeric column sorts ascending
 
-- **WHEN** the user clicks the "Valor atual" `<th>`
-- **THEN** the rows are reordered by `current_value` ascending
-- **AND** the clicked `<th>` shows a `↑` indicator
+- **WHEN** the user clicks the `Atual` header
+- **THEN** rows are reordered by `current_value` ascending
 
-#### Scenario: Second click on same column sorts descending
+#### Scenario: Filters compose with AND logic
 
-- **WHEN** the user clicks "Valor atual" twice
-- **THEN** the rows are reordered by `current_value` descending
-- **AND** the `<th>` shows a `↓` indicator
-
-#### Scenario: Filtering by class shows only matching assets
-
-- **WHEN** the operator deselects all classes except "Ações BR"
-- **THEN** only assets with `category_name = "Ações BR"` are visible
-
-#### Scenario: Filtering by action shows only matching assets
-
-- **WHEN** the operator selects only "Comprar"
-- **THEN** only assets with `action = "buy"` are visible
-
-#### Scenario: Text search filters by asset name
-
-- **WHEN** the operator types "PETR" in the search input
-- **THEN** only assets whose `asset_name` contains "PETR"
-  (case-insensitive) are visible
-
-#### Scenario: Filters compose (AND logic)
-
-- **WHEN** class filter is "Ações BR" AND action filter is "Comprar"
-- **THEN** only assets matching BOTH criteria are visible
+- **WHEN** class filter selects `Renda Fixa` AND action filter selects `Comprar`
+- **THEN** only rows matching all criteria remain visible
 
 ### Requirement: Action column renders translated badges
 

@@ -215,8 +215,6 @@ def test_get_teste_has_eight_columns(client: TestClient, _omaha_test_env: dict[s
     assert "key: 'operation'" in body
 
 
-
-
 def test_get_teste_uses_existing_css_classes(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:

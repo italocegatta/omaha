@@ -55,13 +55,9 @@ Notes: Owner selected AG Grid Community. PoC route/assets/tests were discarded; 
 Progress log: `2026-07-11` archived after decision; F22 owns implementation.
 
 ### F22 - Implantar lib de tabela escolhida no rebalanceamento
-Status: `Ready`
-Goal: aplicar na interface real lib de tabela escolhida na PoC, com filtros por coluna já validados.
-Candidate OpenSpec change id: `f22-implantar-lib-de-tabela-escolhida-no-rebalanceamento`
-Spec link: `openspec/changes/f22-implantar-lib-de-tabela-escolhida-no-rebalanceamento/`
-Files to inspect: `src/omaha/templates/rebalance.html`, `src/omaha/templates/_rebalance_plan.html`, `src/omaha/routes/rebalance.py`, `src/omaha/static/app.css`
-Notes: depende de F21. Decisão do owner: usar AG Grid Community. Aplicar recursos nativos: `sortable`, `floatingFilter`, `agNumberColumnFilter` nos campos numéricos, `agSetColumnFilter` nos qualitativos, e tema customizado por tokens/CSS da aplicação. Remove solução antiga depois de validar stack.
-Progress log: `2026-07-10` added from owner request; `2026-07-11` AG Grid Community selected as table library.
+Status: `Archived` — 2026-07-11
+Goal: aplicar na interface real tabela validada na POC F27, seguindo handoff e mantendo filtros por coluna já validados, sem AG Grid.
+Archive: `openspec/changes/archive/2026-07-11-f22-implantar-lib-de-tabela-escolhida-no-rebalanceamento/`
 
 ### F23 - Rebalanceamento e importação automáticos
 Status: `Ready`
@@ -635,8 +631,7 @@ Progress:
 
 **Active queue:**
 
-1. F22 - Implantar AG Grid Community no rebalanceamento
-2. F23 - Rebalanceamento e importação automáticos
+1. F23 - Rebalanceamento e importação automáticos
 3. F24 - Polimento de inputs e modal
 4. F25 - Sistema de cards com cores de target
 5. F26 - Padronização de tabelas e inspeção visual

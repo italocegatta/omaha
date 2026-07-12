@@ -27,6 +27,8 @@ here keeps the file focused on a single user-visible surface.
 from __future__ import annotations
 
 import re
+import sqlite3
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -54,6 +56,14 @@ def _debug_dump(page: Page, tag: str) -> None:
             f.write(page.locator("main").inner_text())
         except Exception as exc:
             f.write(f"main inner_text failed: {exc}\n")
+
+
+def _disable_quotes_for_rebalance_fixture() -> None:
+    """Keep synthetic E2E tickers off external quote lookup."""
+    db_path = Path(__file__).resolve().parent.parent.parent / "data" / "test_e2e.db"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("UPDATE asset_classes SET quote_kind = 'none'")
+        connection.commit()
 
 
 class TestRebalancePage:
@@ -182,13 +192,12 @@ class TestRebalancePage:
 
         page.wait_for_selector(SELECTORS["rebalance_plan"], timeout=10000)
 
-        # Plan layout: 6 metric cards visible.
+        # Plan layout controls remain visible after submission.
         for key in (
             "rebalance_stat_contribution",
             "rebalance_stat_total_buy",
             "rebalance_stat_total_sell",
             "rebalance_stat_residual_cash",
-            "rebalance_stat_current_deviation",
             "rebalance_stat_projected_deviation",
         ):
             assert page.locator(SELECTORS[key]).count() == 1, f"missing metric: {key}"
@@ -204,12 +213,12 @@ class TestRebalancePage:
         assert asset_rows.count() >= 1, "asset plan table is empty"
 
         assert page.locator(SELECTORS["rebalance_class_summary"]).count() == 1
-        assert page.locator(SELECTORS["rebalance_filter_bar"]).count() == 1
 
-    def test_asset_table_sort_by_current_value(self, page: Page, live_url: str) -> None:
-        """Clicking the "Valor atual" <th> sorts ascending then descending."""
+    def test_asset_table_poc_parity_interactions(self, page: Page, live_url: str) -> None:
+        """POC-format table sorts and filters hydrated Alpine rows."""
         _login_and_select_italo(page, live_url)
         _create_three_classes(page, live_url)
+        _disable_quotes_for_rebalance_fixture()
         _seed_assets_with_positions_via_import(
             page,
             live_url,
@@ -219,9 +228,9 @@ class TestRebalancePage:
                 ("Reserva", "SORT_C"),
             ],
             positions={
-                "SORT_A": (100.0, 100.0),
-                "SORT_B": (100.0, 100.0),
-                "SORT_C": (100.0, 100.0),
+                "SORT_A": (1.0, 100.0),
+                "SORT_B": (1.0, 200.0),
+                "SORT_C": (1.0, 300.0),
             },
         )
         # CSV import leaves target_pct=0; CVXPY rejects that. Patch
@@ -233,11 +242,18 @@ class TestRebalancePage:
         # Navigate via the top nav, fill, submit.
         page.click(SELECTORS["app_tab_btn_rebalanceamento"])
         page.wait_for_url(re.compile(r"/rebalanceamento$"))
-        page.wait_for_selector(SELECTORS["rebalance_form"], timeout=5000)
+        try:
+            page.wait_for_selector(SELECTORS["rebalance_form"], timeout=5000)
+        except Exception:
+            _debug_dump(page, "rebalance-form-missing")
+            raise
 
         page.fill(SELECTORS["rebalance_contribution_input"], "5000")
         page.evaluate("() => document.querySelector('[data-testid=\"rebalance-form\"]').submit()")
-        page.wait_for_selector(SELECTORS["rebalance_plan"], timeout=10000)
+        page.wait_for_function(
+            "() => document.querySelector('[data-testid=\"rebalance-plan\"]') !== null",
+            timeout=10000,
+        )
         # Wait for Alpine hydration so the click handler is bound
         # and the rows are rendered.
         rows_ready_js = (
@@ -255,21 +271,57 @@ class TestRebalancePage:
             ").click()"
         )
 
-        # First click: ascending → ↑ indicator.
+        # First click: ascending → ▲ indicator and numeric order.
         page.evaluate(click_js)
         page.wait_for_function(
             "() => document.querySelector("
             "'[data-testid=\"rebalance-asset-th-current-value\"]'"
-            ").textContent.includes('↑')",
+            ").textContent.includes('▲')",
+            timeout=5000,
+        )
+        ascending_values = page.evaluate(
+            """() => Alpine.$data(document.querySelector('[data-testid="rebalance-plan"]'))
+              .filteredRows.map((row) => Number(row.current_value))"""
+        )
+        assert ascending_values == sorted(ascending_values)
+
+        # Second click: descending → ▼ indicator and reversed numeric order.
+        page.evaluate(click_js)
+        page.wait_for_function(
+            "() => document.querySelector("
+            "'[data-testid=\"rebalance-asset-th-current-value\"]'"
+            ").textContent.includes('▼')",
+            timeout=5000,
+        )
+        descending_values = page.evaluate(
+            """() => Alpine.$data(document.querySelector('[data-testid="rebalance-plan"]'))
+              .filteredRows.map((row) => Number(row.current_value))"""
+        )
+        assert descending_values == sorted(descending_values, reverse=True)
+
+        # Header enum filter updates declarative table rows.
+        row_count = page.locator('[data-testid^="rebalance-asset-row-"]').count()
+        category_filter = page.locator(
+            '[data-testid="rebalance-header-filter-category_name-trigger"]'
+        )
+        category_filter.click()
+        category_panel = page.locator(
+            '[data-testid="rebalance-asset-th-category"] .rebalance-filter-panel'
+        )
+        page.wait_for_selector(
+            '[data-testid="rebalance-asset-th-category"] .rebalance-filter-panel', timeout=5000
+        )
+        category_panel.locator('input[type="checkbox"]').nth(1).check()
+        row_sel = '[data-testid^="rebalance-asset-row-"]'
+        page.wait_for_function(
+            f"() => document.querySelectorAll('{row_sel}').length > 0"
+            f" && document.querySelectorAll('{row_sel}').length < {row_count}",
             timeout=5000,
         )
 
-        # Second click: descending → ↓ indicator.
-        page.evaluate(click_js)
+        page.locator('[data-testid="rebalance-header-clear-category_name-trigger"]').click()
         page.wait_for_function(
-            "() => document.querySelector("
-            "'[data-testid=\"rebalance-asset-th-current-value\"]'"
-            ").textContent.includes('↓')",
+            f"() => document.querySelectorAll('{row_sel}').length === {row_count}",
             timeout=5000,
         )
 

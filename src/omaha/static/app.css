@@ -2962,46 +2962,6 @@ td.editing {
   font-weight: 700;
 }
 
-/* Filter bar */
-.rebalance-filter-bar {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  margin: 0.9rem 0 0.85rem;
-  flex-wrap: wrap;
-  padding: 0.9rem 1rem;
-  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--surface-sunk) 72%, transparent);
-}
-.rebalance-filter-group {
-  position: relative;
-}
-.rebalance-filter-trigger {
-  min-height: 2.6rem;
-  padding: 0.35rem 0.9rem;
-  font-size: 0.85rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 14%, var(--border));
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--surface) 80%, white 20%);
-  color: var(--ink);
-  cursor: pointer;
-  font-weight: 600;
-}
-.rebalance-filter-panel {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 20;
-  min-width: 180px;
-  padding: 0.5rem;
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-  max-height: 240px;
-  overflow-y: auto;
-}
 .rebalance-filter-option {
   display: flex;
   align-items: center;
@@ -3011,18 +2971,6 @@ td.editing {
   color: var(--ink);
   cursor: pointer;
 }
-.rebalance-filter-search {
-  flex: 1;
-  min-width: 240px;
-  min-height: 2.6rem;
-  padding: 0.35rem 0.85rem;
-  font-size: 0.85rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 14%, var(--border));
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--surface) 80%, white 20%);
-  color: var(--ink);
-}
-
 /* Sortable table — mirrors .asset-table's hairline style. */
 .rebalance-section-title {
   margin: 1.2rem 0 0.65rem 0;
@@ -3034,7 +2982,7 @@ td.editing {
 
 .rebalance-table-shell {
   border-radius: 14px;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
   background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 80%, white 20%), var(--surface));
   box-shadow: 0 18px 34px rgba(8, 10, 20, 0.14);
@@ -3290,12 +3238,12 @@ td.editing {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.poc-rebalance-page .rebalance-table-shell {
-  overflow: visible;
-}
 .poc-rebalance-page .rebalance-table-th,
 .poc-rebalance-page .rebalance-asset-cell,
-.poc-rebalance-page .rebalance-asset-cell--num {
+.poc-rebalance-page .rebalance-asset-cell--num,
+.rebalance-plan .rebalance-table-th,
+.rebalance-plan .rebalance-asset-cell,
+.rebalance-plan .rebalance-asset-cell--num {
   text-align: left;
 }
 

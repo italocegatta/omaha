@@ -309,8 +309,7 @@ def test_post_rebalanceamento_valid_contribution_renders_plan(
     assert 'data-testid="rebalance-asset-table"' in body
     # Class deviation summary renders.
     assert 'data-testid="rebalance-class-summary"' in body
-    # Filter bar renders.
-    assert 'data-testid="rebalance-filter-bar"' in body
+    assert 'data-testid="rebalance-filter-bar"' not in body
 
 
 def test_post_rebalanceamento_thresholds_round_trip_into_rendered_plan(
@@ -500,14 +499,14 @@ def test_post_rebalanceamento_solver_validation_error_renders_inline(
 
 
 # ---------------------------------------------------------------------------
-# §"Asset plan table renders eleven visible columns plus a data attribute"
+# §"Asset plan table renders eight POC-parity columns plus a data attribute"
 # ---------------------------------------------------------------------------
 
 
-def test_asset_plan_table_has_eleven_visible_columns(
+def test_asset_plan_table_has_eight_poc_parity_columns(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
-    """The asset plan <thead> has exactly 11 <th> cells."""
+    """The declarative column model preserves F27's eight-column order."""
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
@@ -515,32 +514,36 @@ def test_asset_plan_table_has_eleven_visible_columns(
     assert response.status_code == 200
     body = response.text
 
-    asset_th_keys = [
-        "rebalance-asset-th-name",
-        "rebalance-asset-th-category",
-        "rebalance-asset-th-current-value",
-        "rebalance-asset-th-target-value",
-        "rebalance-asset-th-deviation-value",
-        "rebalance-asset-th-deviation-pct",
-        "rebalance-asset-th-buy",
-        "rebalance-asset-th-sell",
-        "rebalance-asset-th-quantity",
-        "rebalance-asset-th-projected",
-        "rebalance-asset-th-action",
+    columns = [
+        ("action", "Ação"),
+        ("category_name", "Classe"),
+        ("asset_name", "Ativo"),
+        ("current_value", "Atual"),
+        ("target_value", "Alvo"),
+        ("deviation", "Desvio"),
+        ("projected_value", "Projetado"),
+        ("operation", "Operação"),
     ]
-    for key in asset_th_keys:
-        assert f'data-testid="{key}"' in body, f"missing asset table column: {key}"
-    assert (
-        body.index('data-testid="rebalance-asset-th-sell"')
-        < body.index('data-testid="rebalance-asset-th-quantity"')
-        < body.index('data-testid="rebalance-asset-th-projected"')
-    )
+    assert body.count('<template x-for="column in columns" :key="column.key">') == 2
+    for key, label in columns:
+        assert f"key: '{key}'" in body, f"missing declarative table column: {key}"
+        assert f"label: '{label}'" in body, f"missing PT-BR label for {key}"
+    column_positions = [body.index(f"key: '{key}'") for key, _ in columns]
+    assert column_positions == sorted(column_positions)
+    assert "label: 'Compra'," not in body
+    assert "label: 'Venda'," not in body
+    assert "label: 'Qtd'," not in body
+    assert ':data-asset-key="row.asset_key"' in body
+    assert "headerFilters:" in body
+    assert "headerRangeFilters:" in body
+    assert "searchTerm" not in body
+    assert "rebalance-filter-search" not in body
 
 
-def test_asset_plan_renders_trade_quantity_and_blank_ineligible_cell(
+def test_asset_plan_operation_cell_includes_trade_quantity(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, _omaha_test_env: dict[str, str]
 ) -> None:
-    """Page ships `Qtd` header plus payload/template contract for null rows."""
+    """POC-parity Operação cell formats amount and available quantity."""
     from omaha.rebalance.schemas import (
         RebalanceAssetPlanRow,
         RebalanceCategoryPlanRow,
@@ -606,8 +609,12 @@ def test_asset_plan_renders_trade_quantity_and_blank_ineligible_cell(
     assert response.status_code == 200
     body = response.text
 
-    assert 'data-testid="rebalance-asset-th-quantity"' in body
-    assert 'x-text="formatQuantity(row.trade_quantity, row.asset_name)"' in body
+    assert "key: 'operation'" in body
+    assert "cellFormat: 'operation'" in body
+    assert "formatOperation: function (row)" in body
+    assert "this.formatQuantity(row.trade_quantity, row.asset_name)" in body
+    assert "formatDeviationCombined: function (row)" in body
+    assert "return this.formatBRL(row.deviation_value, 0)" in body
     assert '"trade_quantity": 50.0' in body or '"trade_quantity":50.0' in body
     assert '"trade_quantity": null' in body or '"trade_quantity":null' in body
 

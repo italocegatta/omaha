@@ -1,5 +1,5 @@
 {# Main plan layout — params bar (aporte + thresholds) + class deviation
-   summary (horizontal cards) + asset plan table (10 cols, sortable,
+   summary (horizontal cards) + POC-parity asset plan table (8 cols, sortable,
    filterable) + footer (policy line + stub banner + warnings).
 
    Alpine scope: a local ``rebalancePage({plan: ...})`` component on
@@ -90,166 +90,100 @@
     <h3 class="rebalance-section-title">Plano por ativo</h3>
     {% if plan.asset_plan %}
 
-    {# Filter bar #}
-    <div class="rebalance-filter-bar" data-testid="rebalance-filter-bar">
-      <div class="rebalance-filter-group" x-data="{open: false}">
-        <button @click="open = !open" class="rebalance-filter-trigger" type="button">
-          Classe <span x-text="selectedClasses.length === 0 ? '(todas)' : selectedClasses.length + ' selecionada(s)'"></span>
-        </button>
-        <div class="rebalance-filter-panel" x-show="open" x-cloak @click.outside="open = false">
-          <label class="rebalance-filter-option">
-            <input type="checkbox" @change="toggleAllClasses()" :checked="selectedClasses.length === 0">
-            <span>Todas</span>
-          </label>
-          <template x-for="cls in uniqueClasses" :key="cls">
-            <label class="rebalance-filter-option">
-              <input type="checkbox" :checked="isClassSelected(cls)" @change="toggleClassFilter(cls)">
-              <span x-text="cls"></span>
-            </label>
-          </template>
-        </div>
-      </div>
-      <div class="rebalance-filter-group" x-data="{open: false}">
-        <button @click="open = !open" class="rebalance-filter-trigger" type="button">
-          Ação <span x-text="selectedActions.length === 0 ? '(todas)' : selectedActions.length + ' selecionada(s)'"></span>
-        </button>
-        <div class="rebalance-filter-panel" x-show="open" x-cloak @click.outside="open = false">
-          <label class="rebalance-filter-option">
-            <input type="checkbox" @change="toggleAllActions()" :checked="selectedActions.length === 0">
-            <span>Todas</span>
-          </label>
-          <template x-for="act in uniqueActions" :key="act">
-            <label class="rebalance-filter-option">
-              <input type="checkbox" :checked="isActionSelected(act)" @change="toggleActionFilter(act)">
-              <span x-text="act"></span>
-            </label>
-          </template>
-        </div>
-      </div>
-      <input type="search" placeholder="Buscar ativo..."
-             x-model="searchTerm" data-testid="rebalance-filter-search"
-             class="rebalance-filter-search">
-    </div>
-
     <div class="rebalance-table-shell">
     <table class="rebalance-table"
            data-testid="rebalance-asset-table">
       <thead>
         <tr>
-          <th class="rebalance-table-th"
-              data-testid="rebalance-asset-th-category"
-              @click="sortBy('category_name')">
-            <span class="rebalance-table-th-label">Classe</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicator('category_name')"></span>
-          </th>
-          <th class="rebalance-table-th"
-              data-testid="rebalance-asset-th-name"
-              @click="sortBy('asset_name')">
-            <span class="rebalance-table-th-label">Ativo</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicator('asset_name')"></span>
-          </th>
-          <th class="rebalance-table-th rebalance-table-th--num"
-              data-testid="rebalance-asset-th-current-value"
-              @click="sortBy('current_value')">
-            <span class="rebalance-table-th-label">Valor atual</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicator('current_value')"></span>
-          </th>
-          <th class="rebalance-table-th rebalance-table-th--num"
-              data-testid="rebalance-asset-th-target-value"
-              @click="sortBy('target_value')">
-            <span class="rebalance-table-th-label">Alvo</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicator('target_value')"></span>
-          </th>
-          <th class="rebalance-table-th rebalance-table-th--num"
-              data-testid="rebalance-asset-th-deviation-value"
-              @click="sortBy('deviation_value')">
-            <span class="rebalance-table-th-label">Desvio (R$)</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicator('deviation_value')"></span>
-          </th>
-          <th class="rebalance-table-th rebalance-table-th--num"
-              data-testid="rebalance-asset-th-deviation-pct"
-              @click="sortBy('deviation_pct')">
-            <span class="rebalance-table-th-label">Desvio (%)</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicator('deviation_pct')"></span>
-          </th>
-          <th class="rebalance-table-th rebalance-table-th--num"
-              data-testid="rebalance-asset-th-buy"
-              @click="sortBy('buy_amount')">
-            <span class="rebalance-table-th-label">Compra</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicator('buy_amount')"></span>
-          </th>
-           <th class="rebalance-table-th rebalance-table-th--num"
-               data-testid="rebalance-asset-th-sell"
-               @click="sortBy('sell_amount')">
-             <span class="rebalance-table-th-label">Venda</span>
-             <span class="rebalance-table-th-indicator"
-                   x-text="sortIndicator('sell_amount')"></span>
-           </th>
-           <th class="rebalance-table-th rebalance-table-th--num"
-               data-testid="rebalance-asset-th-quantity"
-               @click="sortBy('trade_quantity')">
-             <span class="rebalance-table-th-label">Qtd</span>
-             <span class="rebalance-table-th-indicator"
-                   x-text="sortIndicator('trade_quantity')"></span>
-           </th>
-           <th class="rebalance-table-th rebalance-table-th--num"
-               data-testid="rebalance-asset-th-projected"
-               @click="sortBy('projected_value')">
-             <span class="rebalance-table-th-label">Projetado</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicator('projected_value')"></span>
-          </th>
-          <th class="rebalance-table-th"
-              data-testid="rebalance-asset-th-action"
-              @click="sortBy('action')">
-            <span class="rebalance-table-th-label">Ação</span>
-            <span class="rebalance-table-th-indicator"
-                  x-text="sortIndicator('action')"></span>
-          </th>
+          <template x-for="column in columns" :key="column.key">
+            <th class="rebalance-table-th rebalance-table-th--has-filter"
+                :class="column.type !== 'enum' ? 'rebalance-table-th--num' : ''"
+                :data-testid="'rebalance-asset-th-' + column.testId"
+                @click="sortBy(column.sortKey)">
+              <span class="rebalance-table-th-label" x-text="column.label"></span>
+              <span class="rebalance-table-th-indicator" x-text="sortIndicator(column.sortKey)"></span>
+              <div class="rebalance-header-actions">
+                <button class="rebalance-header-filter-btn"
+                        :class="filterActive(column) ? 'rebalance-header-filter-btn--active' : ''"
+                        @click.stop="toggleFilterPanel(column.key)"
+                        type="button"
+                        :title="'Filtrar ' + column.label"
+                        :data-testid="'rebalance-header-filter-' + column.key + '-trigger'">
+                  <span class="material-symbols-outlined">filter_alt</span>
+                </button>
+                <button class="rebalance-header-clear-btn"
+                        x-show="filterActive(column)" x-cloak
+                        @click.stop="clearFilter(column.key)" type="button"
+                        :title="'Limpar filtro de ' + column.label"
+                        :data-testid="'rebalance-header-clear-' + column.key + '-trigger'">
+                  <span class="material-symbols-outlined">close</span>
+                </button>
+              </div>
+              <template x-if="column.type === 'enum'">
+                <div class="rebalance-filter-panel rebalance-filter-panel--header"
+                     :class="column.panelAlign === 'left' ? 'rebalance-filter-panel--left' : 'rebalance-filter-panel--right'"
+                     x-show="openFilter[column.key]" x-cloak
+                     @click.outside="openFilter[column.key] = false" @click.stop>
+                  <label class="rebalance-filter-option">
+                    <input type="checkbox" @change="clearHeaderFilter(column.key)"
+                           :checked="headerFilterCount(column.key) === 0">
+                    <span x-text="column.key === 'asset_name' ? 'Todos' : 'Todas'"></span>
+                  </label>
+                  <template x-for="value in uniqueHeaderValues(column.key)" :key="value">
+                    <label class="rebalance-filter-option">
+                      <input type="checkbox" :checked="isHeaderFilterSelected(column.key, value)"
+                             @change="toggleHeaderFilter(column.key, value)">
+                      <span x-text="headerFilterLabel(column.key, value)"></span>
+                    </label>
+                  </template>
+                </div>
+              </template>
+              <template x-if="column.type === 'range'">
+                <div class="rebalance-filter-panel rebalance-filter-panel--header"
+                     :class="column.panelAlign === 'left' ? 'rebalance-filter-panel--left' : 'rebalance-filter-panel--right'"
+                     x-show="openFilter[column.key]" x-cloak
+                     @click.outside="openFilter[column.key] = false" @click.stop>
+                  <div class="rebalance-range-slider">
+                    <div class="rebalance-range-track"><div class="rebalance-range-fill" :style="rangeFillStyle(column.key)"></div></div>
+                    <input type="range" :min="rangeBounds(column.key).min" :max="rangeBounds(column.key).max" :step="rangeStep(column.key)" x-model.number="headerRangeFilters[column.key].min" @input="clampRangeMin(column.key)">
+                    <input type="range" :min="rangeBounds(column.key).min" :max="rangeBounds(column.key).max" :step="rangeStep(column.key)" x-model.number="headerRangeFilters[column.key].max" @input="clampRangeMax(column.key)">
+                    <div class="rebalance-range-values"><span x-text="formatRangeValue(column.key, headerRangeFilters[column.key].min, column.format)"></span><span x-text="formatRangeValue(column.key, headerRangeFilters[column.key].max, column.format)"></span></div>
+                  </div>
+                </div>
+              </template>
+              <template x-if="column.type === 'composite'">
+                <div class="rebalance-filter-panel rebalance-filter-panel--header"
+                     :class="column.panelAlign === 'left' ? 'rebalance-filter-panel--left' : 'rebalance-filter-panel--right'"
+                     x-show="openFilter[column.key]" x-cloak
+                     @click.outside="openFilter[column.key] = false" @click.stop>
+                  <template x-for="range in column.ranges" :key="range.key">
+                    <div class="rebalance-filter-panel-section">
+                      <span class="rebalance-filter-panel-label" x-text="range.label"></span>
+                      <div class="rebalance-range-slider">
+                        <div class="rebalance-range-track"><div class="rebalance-range-fill" :style="rangeFillStyle(range.key)"></div></div>
+                        <input type="range" :min="rangeBounds(range.key).min" :max="rangeBounds(range.key).max" :step="rangeStep(range.key)" x-model.number="headerRangeFilters[range.key].min" @input="clampRangeMin(range.key)">
+                        <input type="range" :min="rangeBounds(range.key).min" :max="rangeBounds(range.key).max" :step="rangeStep(range.key)" x-model.number="headerRangeFilters[range.key].max" @input="clampRangeMax(range.key)">
+                        <div class="rebalance-range-values"><span x-text="formatRangeValue(range.key, headerRangeFilters[range.key].min, range.format)"></span><span x-text="formatRangeValue(range.key, headerRangeFilters[range.key].max, range.format)"></span></div>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </th>
+          </template>
         </tr>
       </thead>
       <tbody>
-        <template x-for="(row, i) in filteredRows" :key="row.asset_key">
-          <tr class="rebalance-asset-row"
-              :class="rowClass(row)"
-              :data-asset-key="row.asset_key"
-              :data-testid="'rebalance-asset-row-' + row.asset_key">
-            <td class="rebalance-asset-cell"
-                x-text="row.category_name"></td>
-            <td class="rebalance-asset-cell"
-                x-text="row.asset_name"></td>
-            <td class="rebalance-asset-cell rebalance-asset-cell--num"
-                x-text="formatBRL(row.current_value)"></td>
-            <td class="rebalance-asset-cell rebalance-asset-cell--num"
-                x-text="formatBRL(row.target_value)"></td>
-            <td class="rebalance-asset-cell rebalance-asset-cell--num"
-                :class="row.deviation_value >= 0 ? 'rebalance-deviation--pos' : 'rebalance-deviation--neg'"
-                x-text="formatBRL(row.deviation_value)"></td>
-            <td class="rebalance-asset-cell rebalance-asset-cell--num"
-                :class="row.deviation_pct >= 0 ? 'rebalance-deviation--pos' : 'rebalance-deviation--neg'"
-                x-text="formatDeviationPp(row.deviation_pct)"></td>
-            <td class="rebalance-asset-cell rebalance-asset-cell--num"
-                x-text="formatBRL(row.buy_amount)"></td>
-            <td class="rebalance-asset-cell rebalance-asset-cell--num"
-                x-text="formatBRL(row.sell_amount)"></td>
-            <td class="rebalance-asset-cell rebalance-asset-cell--num"
-                :data-testid="'rebalance-asset-qty-' + row.asset_key"
-                x-text="formatQuantity(row.trade_quantity, row.asset_name)"></td>
-            <td class="rebalance-asset-cell rebalance-asset-cell--num"
-                x-text="formatBRL(row.projected_value)"></td>
-            <td class="rebalance-asset-cell rebalance-asset-cell--action">
-              <span class="rebalance-action-badge"
-                    :class="'rebalance-action-badge--' + row.action"
-                    :data-testid="'rebalance-action-' + row.action"
-                    x-text="actionLabel(row.action)"></span>
-            </td>
+        <template x-for="row in filteredRows" :key="row.asset_key">
+          <tr class="rebalance-asset-row" :class="rowClass(row)"
+              :data-asset-key="row.asset_key" :data-testid="'rebalance-asset-row-' + row.asset_key">
+            <template x-for="column in columns" :key="column.key">
+              <td :class="cellClass(row, column)">
+                <span :class="[cellInnerClass(column), (column.key === 'action' || column.cellFormat === 'operation') ? 'rebalance-action-badge--' + row.action : '']"
+                      :data-testid="column.key === 'action' ? 'rebalance-action-' + row.action : null"
+                      x-text="formatCell(row, column)"></span>
+              </td>
+            </template>
           </tr>
         </template>
       </tbody>

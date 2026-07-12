@@ -86,6 +86,12 @@
   })();
 
   document.addEventListener('alpine:init', function () {
+    function operationSignedValue(row) {
+      if (row.action === 'buy') return Number(row.buy_amount) || 0;
+      if (row.action === 'sell') return -(Number(row.sell_amount) || 0);
+      return 0;
+    }
+
     function rebalanceSortFn(key, dir) {
       var NUMERIC_KEYS = {
         current_value: 1,
@@ -99,7 +105,9 @@
       };
       return function (a, b) {
         var cmp = 0;
-        if (key in NUMERIC_KEYS) {
+        if (key === 'operation') {
+          cmp = operationSignedValue(a) - operationSignedValue(b);
+        } else if (key in NUMERIC_KEYS) {
           var av = Number(a[key]) || 0;
           var bv = Number(b[key]) || 0;
           cmp = av - bv;
@@ -149,12 +157,48 @@
         sortKey: 'category_name',
         sortDir: 'asc',
         displayRows: [],
+        columns: [
+          { key: 'action', type: 'enum', label: 'Ação', sortKey: 'action', testId: 'action' },
+          { key: 'category_name', type: 'enum', label: 'Classe', sortKey: 'category_name', testId: 'category' },
+          { key: 'asset_name', type: 'enum', label: 'Ativo', sortKey: 'asset_name', testId: 'name' },
+          { key: 'current_value', type: 'range', label: 'Atual', sortKey: 'current_value', testId: 'current-value', fractionDigits: 0 },
+          { key: 'target_value', type: 'range', label: 'Alvo', sortKey: 'target_value', testId: 'target-value', fractionDigits: 0 },
+          { key: 'deviation', type: 'composite', label: 'Desvio', sortKey: 'deviation_value', testId: 'deviation', ranges: [
+            { key: 'deviation_value', label: 'Valor (R$)', fractionDigits: 0 },
+            { key: 'deviation_pct', label: 'Percentual', format: 'deviationPp' },
+          ] },
+          { key: 'projected_value', type: 'range', label: 'Projetado', sortKey: 'projected_value', testId: 'projected', fractionDigits: 0 },
+          { key: 'operation', type: 'composite', label: 'Operação', sortKey: 'operation', testId: 'operation', cellFormat: 'operation', panelAlign: 'left', ranges: [
+            { key: 'buy_amount', label: 'Compra (R$)', fractionDigits: 0 },
+            { key: 'sell_amount', label: 'Venda (R$)', fractionDigits: 0 },
+          ] },
+        ],
+        headerFilters: {
+          category_name: [],
+          asset_name: [],
+          action: [],
+        },
+        openFilter: {
+          category_name: false,
+          asset_name: false,
+          current_value: false,
+          target_value: false,
+          deviation: false,
+          projected_value: false,
+          operation: false,
+        },
+        headerRangeFilters: {
+          current_value: { min: null, max: null },
+          target_value: { min: null, max: null },
+          deviation_value: { min: null, max: null },
+          deviation_pct: { min: null, max: null },
+          buy_amount: { min: null, max: null },
+          sell_amount: { min: null, max: null },
+          projected_value: { min: null, max: null },
+        },
         categorySortKey: 'category_name',
         categorySortDir: 'asc',
         displayCategories: [],
-        selectedClasses: [],
-        selectedActions: [],
-        searchTerm: '',
         init: function () {
           this.displayRows = this.plan.asset_plan.slice();
           this._computeCategories();
@@ -195,7 +239,7 @@
         },
         sortIndicator: function (key) {
           if (this.sortKey !== key) return '';
-          return this.sortDir === 'asc' ? '↑' : '↓';
+          return this.sortDir === 'asc' ? '▲' : '▼';
         },
         sortIndicatorCategory: function (key) {
           if (this.categorySortKey !== key) return '';
@@ -206,12 +250,17 @@
           if (action === 'sell') return 'Vender';
           return 'Manter';
         },
-        formatBRL: function (value) {
+        formatBRL: function (value, fractionDigits) {
           var n = Number(value) || 0;
-          return n.toLocaleString('pt-BR', {
+          var options = {
             style: 'currency',
             currency: 'BRL',
-          });
+          };
+          if (fractionDigits !== undefined) {
+            options.minimumFractionDigits = fractionDigits;
+            options.maximumFractionDigits = fractionDigits;
+          }
+          return n.toLocaleString('pt-BR', options);
         },
         formatPct: function (v) {
           return (Number(v) || 0).toFixed(2) + '%';
@@ -229,7 +278,17 @@
         formatDeviationPp: function (v) {
           var n = Number(v) || 0;
           var sign = n >= 0 ? '+' : '';
-          return sign + n.toFixed(2) + '%';
+          return sign + n.toFixed(0) + '%';
+        },
+        formatDeviationCombined: function (row) {
+          return this.formatBRL(row.deviation_value, 0) + ' (' +
+            this.formatDeviationPp(row.deviation_pct) + ')';
+        },
+        formatOperation: function (row) {
+          if (row.action === 'hold') return 'Manter';
+          var amount = row.action === 'buy' ? row.buy_amount : row.sell_amount;
+          return this.actionLabel(row.action) + ' ' + this.formatBRL(amount, 0) +
+            ' (' + this.formatQuantity(row.trade_quantity, row.asset_name) + ')';
         },
         classCardClass: function (c) {
           if (Math.abs(c.deviation_pct) >= this.thresholdPct) {
@@ -242,49 +301,171 @@
           if (row.action === 'buy') return 'rebalance-asset-row--buy';
           return 'rebalance-asset-row--sell';
         },
-        get uniqueClasses() {
-          return [...new Set(this.plan.asset_plan.map(function (r) { return r.category_name; }))].sort();
+        headerFilterLabel: function (key, value) {
+          return key === 'action' ? this.actionLabel(value) : value;
         },
-        get uniqueActions() { return ['Comprar', 'Vender', 'Manter']; },
+        uniqueHeaderValues: function (key) {
+          var self = this;
+          return [...new Set(this.plan.asset_plan.map(function (row) { return row[key]; }))].sort(
+            function (a, b) {
+              return String(self.headerFilterLabel(key, a)).localeCompare(
+                String(self.headerFilterLabel(key, b))
+              );
+            }
+          );
+        },
+        toggleHeaderFilter: function (key, value) {
+          var selected = this.headerFilters[key];
+          var index = selected.indexOf(value);
+          if (index >= 0) selected.splice(index, 1);
+          else selected.push(value);
+        },
+        isHeaderFilterSelected: function (key, value) {
+          return this.headerFilters[key].includes(value);
+        },
+        clearHeaderFilter: function (key) {
+          this.headerFilters[key] = [];
+        },
+        headerFilterCount: function (key) {
+          return this.headerFilters[key].length;
+        },
+        columnByKey: function (key) {
+          return this.columns.find(function (column) { return column.key === key; });
+        },
+        rangeKeysFor: function (column) {
+          if (column.type === 'composite') return column.ranges.map(function (range) { return range.key; });
+          return column.type === 'range' ? [column.key] : [];
+        },
+        filterActive: function (column) {
+          var self = this;
+          if (column.type === 'enum') return this.headerFilters[column.key].length > 0;
+          return this.rangeKeysFor(column).some(function (key) {
+            var bounds = self.rangeBounds(key);
+            var filter = self.headerRangeFilters[key];
+            return filter.min !== null && filter.min !== '' && filter.max !== null && filter.max !== '' &&
+              (Number(filter.min) > bounds.min || Number(filter.max) < bounds.max);
+          });
+        },
+        toggleFilterPanel: function (key) {
+          var self = this;
+          var column = this.columnByKey(key);
+          Object.keys(this.openFilter).forEach(function (filterKey) {
+            if (filterKey !== key) self.openFilter[filterKey] = false;
+          });
+          if (!this.openFilter[key] && column.type !== 'enum') this.ensureColumnRangeBounds(column);
+          this.openFilter[key] = !this.openFilter[key];
+        },
+        clearFilter: function (key) {
+          var column = this.columnByKey(key);
+          var self = this;
+          if (column.type === 'enum') this.clearHeaderFilter(key);
+          else this.rangeKeysFor(column).forEach(function (rangeKey) {
+            var bounds = self.rangeBounds(rangeKey);
+            self.headerRangeFilters[rangeKey].min = bounds.min;
+            self.headerRangeFilters[rangeKey].max = bounds.max;
+          });
+          this.openFilter[key] = false;
+        },
+        ensureColumnRangeBounds: function (column) {
+          var self = this;
+          this.rangeKeysFor(column).forEach(function (key) { self.ensureRangeBounds(key); });
+        },
+        rangeBounds: function (key) {
+          var values = this.plan.asset_plan.map(function (row) { return Number(row[key]) || 0; });
+          return { min: Math.min.apply(null, values), max: Math.max.apply(null, values) };
+        },
+        rangeStep: function (key) {
+          if (key === 'deviation_pct') return 0.01;
+          var bounds = this.rangeBounds(key);
+          var span = bounds.max - bounds.min;
+          return span === 0 ? 0.01 : Math.max(Math.pow(10, Math.floor(Math.log10(span)) - 2), 0.01);
+        },
+        ensureRangeBounds: function (key) {
+          var bounds = this.rangeBounds(key);
+          var filter = this.headerRangeFilters[key];
+          if (filter.min === null || filter.min === '') filter.min = bounds.min;
+          if (filter.max === null || filter.max === '') filter.max = bounds.max;
+        },
+        clampRangeMin: function (key) {
+          this.ensureRangeBounds(key);
+          var bounds = this.rangeBounds(key);
+          var filter = this.headerRangeFilters[key];
+          if (Number(filter.min) > Number(filter.max)) filter.min = filter.max;
+          if (Number(filter.min) < bounds.min) filter.min = bounds.min;
+        },
+        clampRangeMax: function (key) {
+          this.ensureRangeBounds(key);
+          var bounds = this.rangeBounds(key);
+          var filter = this.headerRangeFilters[key];
+          if (Number(filter.max) < Number(filter.min)) filter.max = filter.min;
+          if (Number(filter.max) > bounds.max) filter.max = bounds.max;
+        },
+        rangeFillStyle: function (key) {
+          var bounds = this.rangeBounds(key);
+          var span = bounds.max - bounds.min;
+          if (span === 0) return 'left: 0%; right: 0%;';
+          var filter = this.headerRangeFilters[key];
+          var min = filter.min === null || filter.min === '' ? bounds.min : Number(filter.min);
+          var max = filter.max === null || filter.max === '' ? bounds.max : Number(filter.max);
+          return 'left: ' + ((min - bounds.min) / span) * 100 + '%; right: ' +
+            ((bounds.max - max) / span) * 100 + '%;';
+        },
+        formatRangeValue: function (key, value, format) {
+          if (value === null || value === '') return '-';
+          return format === 'deviationPp' ? this.formatDeviationPp(value) : this.formatBRL(value);
+        },
+        formatCell: function (row, column) {
+          if (column.cellFormat === 'operation') return this.formatOperation(row);
+          if (column.key === 'action') return this.actionLabel(row.action);
+          if (column.key === 'deviation') return this.formatDeviationCombined(row);
+          if (column.type === 'enum') return row[column.key];
+          return this.formatBRL(row[column.key], column.fractionDigits);
+        },
+        cellClass: function (row, column) {
+          var classes = 'rebalance-asset-cell';
+          if (column.type !== 'enum') classes += ' rebalance-asset-cell--num';
+          if (column.key === 'action' || column.cellFormat === 'operation') {
+            classes += ' rebalance-asset-cell--action';
+          }
+          if (column.key === 'deviation') {
+            classes += Number(row.deviation_value) >= 0 ? ' rebalance-deviation--pos' : ' rebalance-deviation--neg';
+          }
+          return classes;
+        },
+        cellInnerClass: function (column) {
+          return column.key === 'action' || column.cellFormat === 'operation'
+            ? 'rebalance-action-badge' : '';
+        },
         get filteredRows() {
           var self = this;
           var rows = this.displayRows;
-          if (this.selectedClasses.length > 0) {
-            rows = rows.filter(function (r) { return self.selectedClasses.includes(r.category_name); });
-          }
-          if (this.selectedActions.length > 0) {
-            rows = rows.filter(function (r) { return self.selectedActions.includes(self.actionLabel(r.action)); });
-          }
-          if (this.searchTerm.trim()) {
-            var q = this.searchTerm.trim().toLowerCase();
-            rows = rows.filter(function (r) { return r.asset_name.toLowerCase().includes(q); });
-          }
+          this.columns.forEach(function (column) {
+            if (column.type === 'enum') {
+              var selected = self.headerFilters[column.key];
+              if (selected.length > 0) rows = rows.filter(function (row) { return selected.includes(row[column.key]); });
+              return;
+            }
+            self.rangeKeysFor(column).forEach(function (key) {
+              var bounds = self.rangeBounds(key);
+              var filter = self.headerRangeFilters[key];
+              var min = filter.min === null || filter.min === '' ? bounds.min : Number(filter.min);
+              var max = filter.max === null || filter.max === '' ? bounds.max : Number(filter.max);
+              if (column.key === 'operation') {
+                var action = key === 'buy_amount' ? 'buy' : 'sell';
+                if (min > bounds.min) rows = rows.filter(function (row) {
+                  return row.action !== action || (Number(row[key]) || 0) >= min;
+                });
+                if (max < bounds.max) rows = rows.filter(function (row) {
+                  return row.action !== action || (Number(row[key]) || 0) <= max;
+                });
+              } else {
+                if (min > bounds.min) rows = rows.filter(function (row) { return (Number(row[key]) || 0) >= min; });
+                if (max < bounds.max) rows = rows.filter(function (row) { return (Number(row[key]) || 0) <= max; });
+              }
+            });
+          });
           return rows;
         },
-        toggleClassFilter: function (cls) {
-          var idx = this.selectedClasses.indexOf(cls);
-          if (idx >= 0) {
-            this.selectedClasses.splice(idx, 1);
-          } else {
-            this.selectedClasses.push(cls);
-          }
-        },
-        toggleActionFilter: function (action) {
-          var idx = this.selectedActions.indexOf(action);
-          if (idx >= 0) {
-            this.selectedActions.splice(idx, 1);
-          } else {
-            this.selectedActions.push(action);
-          }
-        },
-        isClassSelected: function (cls) {
-          return this.selectedClasses.length === 0 || this.selectedClasses.includes(cls);
-        },
-        isActionSelected: function (action) {
-          return this.selectedActions.length === 0 || this.selectedActions.includes(action);
-        },
-        toggleAllClasses: function () { this.selectedClasses = []; },
-        toggleAllActions: function () { this.selectedActions = []; },
       };
     };
   });
