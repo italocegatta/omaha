@@ -76,8 +76,13 @@ def test_rebalance_plan_snapshot(visual_page, live_url_visual: str, visual_viewp
     login_as_italo(visual_page, live_url_visual)
     visual_page.goto(f"{live_url_visual}/rebalanceamento")
     visual_page.fill('[data-testid="rebalance-contribution-input"]', "5000")
-    visual_page.evaluate(
-        "() => document.querySelector('[data-testid=\"rebalance-form\"]').submit()"
+    visual_page.press('[data-testid="rebalance-contribution-input"]', "Enter")
+    visual_page.wait_for_function(
+        """() => {
+            const el = document.querySelector('[data-testid="rebalance-plan-data"]');
+            return el && JSON.parse(el.textContent).metrics.contribution === 5000;
+        }""",
+        timeout=10_000,
     )
     assert_structural_content(
         visual_page,
@@ -100,8 +105,7 @@ def test_import_form_snapshot(visual_page, live_url_visual: str, visual_viewport
         visual_page,
         '[data-testid="import-modal-overlay"]',
         '[data-testid="import-file-input"]',
-        '[data-testid="import-upload-btn"]',
-        text="Importar CSV",
+        text="Selecione um arquivo CSV",
     )
     compare_or_update_screenshot(visual_page, "import-form", visual_viewport)
 
@@ -111,7 +115,6 @@ def test_import_review_snapshot(visual_page, live_url_visual: str, visual_viewpo
     visual_page.goto(f"{live_url_visual}/patrimonio")
     visual_page.click('[data-testid="dashboard-import-btn"]')
     visual_page.set_input_files('[data-testid="import-file-input"]', str(FIXTURE_PATH))
-    visual_page.evaluate("Alpine.store('importModal').uploadFile()")
     visual_page.wait_for_selector(
         '[data-testid="import-commit-btn"]',
         state="visible",

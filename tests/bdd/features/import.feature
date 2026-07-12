@@ -9,13 +9,12 @@ Funcionalidade: Importação de posições via modal
     E o banco de dados de teste foi inicializado com a senha compartilhada
     E os perfis "Italo" e "Ana" existem e estão sem classes e sem ativos
 
-  Esquema do Cenário: Import 4-row CSV happy (auto-match por categoria)
+  Esquema do Cenário: Import 4-row CSV happy (revisão de classe sugerida)
     Dado que estou logado como "<profile>"
     E criei as 2 classes padrão RF Pós 50% e RF Dinâmica 50%
     Quando abro o modal "Importar posições"
     E seleciono o arquivo "tiny_portfolio.csv"
-    E clico em "Enviar"
-    Então o modal mostra 0 linhas não correspondidas
+    Então o modal mostra 4 linhas não correspondidas
     Quando clico em "Confirmar"
     Então o dashboard mostra 4 linhas de ativos
     E a seção "RF Pós" contém 2 ativos
@@ -30,7 +29,6 @@ Funcionalidade: Importação de posições via modal
     Dado que estou logado como "<profile>"
     Quando abro o modal "Importar posições"
     E seleciono o arquivo "tiny_empty.csv"
-    E clico em "Enviar"
     Então o modal mostra a mensagem de erro "reconhecida"
 
     Exemplos:

@@ -2,19 +2,15 @@
 
 The import modal (``import-modal-overlay``) is opened from the
 dashboard's ``dashboard-import-btn``. The user picks a file
-(``import-file-input``), clicks ``import-upload-btn``, and
-then clicks ``import-commit-btn``. The matcher auto-assigns
-each row to a class whose name matches the row's
-``Minha Categoria`` cell — for the tiny fixture (4 rows from
-``posicao_italo.csv``) the row categories are ``RF Pós`` and
-``RF Dinâmica``, which match the dashboard classes one-for-one
-(``pytest_bdd`` tier-1 exact match) so the modal shows zero
-unmatched rows and the user just confirms.
+(``import-file-input``), which uploads automatically, and then
+clicks ``import-commit-btn``. The preview marks the tiny fixture's four
+rows as unmatched and suggests a class from each row's ``Minha Categoria``
+cell. The review keeps suggestions editable, then lets user confirm without
+assigning every row manually.
 
-A manual-assignment path is not exercised here because the
-fixture categories are deliberately chosen to match the test
-class names — the user wants the import flow to be a single
-confirm step, not a per-row assignment.
+A manual-assignment path is not exercised here because fixture categories
+receive valid suggested classes. This scenario covers review followed by a
+single confirmation, not per-row edits.
 """
 
 from __future__ import annotations
@@ -53,14 +49,15 @@ def select_import_file(page: Page, filename: str):
     for path in candidates:
         if path.exists():
             page.locator('[data-testid="import-file-input"]').set_input_files(str(path))
+            page.wait_for_function(
+                """() => {
+                    const store = Alpine.store('importModal');
+                    return store.step === 2 || Boolean(store.step1Error);
+                }""",
+                timeout=15000,
+            )
             return
     raise FileNotFoundError(f"fixture {filename!r} não encontrada em tests/fixtures/")
-
-
-@when(parsers.parse('clico em "Enviar"'))
-def click_upload(page: Page):
-    page.locator('[data-testid="import-upload-btn"]').click()
-    page.wait_for_selector('[data-testid="import-commit-btn"]', timeout=15000)
 
 
 @when(parsers.parse('atribuo "{class_name}" ao ticker "{ticker}"'))

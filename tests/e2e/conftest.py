@@ -252,8 +252,6 @@ def _seed_assets_with_positions_via_import(
     page.wait_for_selector('[data-testid="import-modal-overlay"]', state="visible", timeout=5000)
     page.wait_for_timeout(300)  # Alpine modal mounts
     page.set_input_files(IMPORT_SELECTORS["import_file_input"], str(csv_path))
-    page.wait_for_timeout(300)  # Alpine @change fires
-    page.click(IMPORT_SELECTORS["import_upload_btn"], force=True)
     page.wait_for_selector(IMPORT_SELECTORS["import_commit_btn"], timeout=10000)
     # No unmatched — direct commit
     page.click(IMPORT_SELECTORS["import_commit_btn"], force=True)

@@ -243,12 +243,8 @@ class TestS06PosicaoItaloImport:
         page.wait_for_selector(SELECTORS["import_modal_overlay"], state="visible", timeout=5000)
 
         page.set_input_files(SELECTORS["import_file_input"], str(FIXTURE_PATH))
-        page.wait_for_timeout(300)
 
-        # Upload via the Alpine store.
-        page.evaluate("Alpine.store('importModal').uploadFile()")
-
-        # Wait for the modal to transition to step 2 (review).
+        # File selection automatically advances the modal to step 2 (review).
         # The matched summary is hidden by Alpine x-show when there are
         # 0 auto-matched rows (no pre-existing assets), so we wait for
         # the unmatched table which is always visible in step 2.

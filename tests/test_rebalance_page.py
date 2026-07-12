@@ -171,6 +171,7 @@ def test_get_rebalanceamento_populated_profile_renders_zero_plan(
     assert 'value="1.0"' in body or 'value="1"' in body
     # In-body form is present and not inert (profile has classes).
     assert 'data-testid="rebalance-form"' in body
+    assert 'data-testid="rebalance-submit-btn"' not in body
 
 
 def test_get_rentabilidade_renders_stub(client: TestClient) -> None:
@@ -303,8 +304,11 @@ def test_post_rebalanceamento_valid_contribution_renders_plan(
     body = response.text
     # Plan layout rendered.
     assert 'data-testid="rebalance-plan"' in body
-    # Params bar (aporte + thresholds + submit).
+    # Params bar (aporte + thresholds, submitted with Enter).
     assert 'data-testid="rebalance-params-bar"' in body
+    assert 'data-testid="rebalance-submit-btn"' not in body
+    assert body.count('@keydown.enter.prevent="$el.form.requestSubmit()"') == 3
+    assert '@input.debounce.300ms="$el.form.requestSubmit()"' not in body
     # Asset plan table renders (stub fixture has at least 1 asset_plan row).
     assert 'data-testid="rebalance-asset-table"' in body
     # Class deviation summary renders.
@@ -353,7 +357,7 @@ def test_post_rebalanceamento_negative_threshold_renders_form_error(
 
     assert response.status_code == 200
     body = response.text
-    assert 'data-testid="rebalance-form-error"' in body
+    assert 'data-testid="rebalance-server-error"' in body
     assert "zero ou positivo" in body
 
 
@@ -391,7 +395,7 @@ def test_post_rebalanceamento_negative_contribution_renders_form_error(
 
     assert response.status_code == 200
     body = response.text
-    assert 'data-testid="rebalance-form-error"' in body
+    assert 'data-testid="rebalance-server-error"' in body
     assert "negativo" in body
     assert 'data-testid="rebalance-plan"' not in body
 
@@ -408,7 +412,7 @@ def test_post_rebalanceamento_missing_contribution_renders_zero_plan(
     assert response.status_code == 200
     body = response.text
     assert 'data-testid="rebalance-plan"' in body
-    assert 'data-testid="rebalance-form-error"' not in body
+    assert 'data-testid="rebalance-server-error"' not in body
     assert '"contribution": 0.0' in body or '"contribution":0.0' in body
 
 
@@ -467,7 +471,7 @@ def test_post_rebalanceamento_invalid_contribution_renders_form_error(
 
     assert response.status_code == 200
     body = response.text
-    assert 'data-testid="rebalance-form-error"' in body
+    assert 'data-testid="rebalance-server-error"' in body
     assert "Valor inválido" in body
 
 
@@ -494,7 +498,7 @@ def test_post_rebalanceamento_solver_validation_error_renders_inline(
 
     assert response.status_code == 200
     body = response.text
-    assert 'data-testid="rebalance-form-error"' in body
+    assert 'data-testid="rebalance-server-error"' in body
     assert "Classes devem somar 100%" in body
 
 

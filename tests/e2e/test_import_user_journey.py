@@ -318,11 +318,8 @@ class TestS04ImportJourney:
 
         # Upload the CSV via the modal file input.
         page.set_input_files(SELECTORS["import_file_input"], str(FIXTURE_PATH))
-        page.wait_for_timeout(300)  # Alpine @change fires, sets $store.importModal.file
-        # Use force=True because the button may be within the Alpine transition scope.
-        page.click(SELECTORS["import_upload_btn"], force=True)
 
-        # Wait for the modal to transition to step 2 (review).
+        # File selection automatically advances the modal to step 2 (review).
         # The Alpine store sets step=2 on successful upload; the
         # commit button becomes visible.
         page.wait_for_selector(SELECTORS["import_commit_btn"], timeout=10000)
@@ -398,8 +395,6 @@ class TestS04ImportJourney:
         )
         page.wait_for_timeout(300)
         page.set_input_files(SELECTORS["import_file_input"], str(FIXTURE_PATH))
-        page.wait_for_timeout(300)
-        page.click(SELECTORS["import_upload_btn"], force=True)
         page.wait_for_selector(SELECTORS["import_commit_btn"], timeout=10000)
 
         # Read the preview_id from the Alpine store.

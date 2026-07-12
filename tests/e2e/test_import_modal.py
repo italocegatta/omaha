@@ -34,6 +34,7 @@ from .test_import_user_journey import (
 )
 
 FIXTURE_PATH = REPO_ROOT / "tests" / "fixtures" / "sample_broker.csv"
+EMPTY_FIXTURE_PATH = REPO_ROOT / "tests" / "fixtures" / "tiny_empty.csv"
 
 
 def _debug_dump(page: Page, tag: str) -> None:
@@ -165,14 +166,6 @@ class TestS04ImportModal:
         page.wait_for_selector(SELECTORS["import_modal_overlay"], state="visible", timeout=5000)
 
         page.set_input_files(SELECTORS["import_file_input"], str(FIXTURE_PATH))
-        # Let Alpine process the @change event from set_input_files.
-        page.wait_for_timeout(200)
-
-        # Click the upload button via the Alpine store directly, since
-        # the button's :disabled binding re-enables once the store's
-        # file property is set after the set_input_files change event.
-        page.evaluate("Alpine.store('importModal').uploadFile()")
-        page.wait_for_timeout(500)
 
         # ------------------------------------------------------------------
         # Step 2: Wait for review (commit button visible = step 2 loaded)
@@ -426,6 +419,75 @@ class TestS04ImportModal:
         selected = profile_header.evaluate("el => el.value")
         assert selected, f"profile-switcher has no selected value: {selected!r}"
 
+    def test_failed_upload_clears_file_input(self, page: Page, live_url: str) -> None:
+        """An upload failure leaves input ready to select same file again."""
+        _login_and_select_italo(page, live_url)
+        page.click(SELECTORS["dashboard_import_btn"])
+        page.wait_for_selector(SELECTORS["import_modal_overlay"], state="visible", timeout=5000)
+
+        page.set_input_files(SELECTORS["import_file_input"], str(EMPTY_FIXTURE_PATH))
+        page.wait_for_selector(SELECTORS["import_upload_error"], state="visible", timeout=15000)
+
+        assert page.locator(SELECTORS["import_file_input"]).input_value() == ""
+
+    def test_newer_file_selection_ignores_stale_preview_response(
+        self, page: Page, live_url: str
+    ) -> None:
+        """Late preview for an older file cannot replace newer selection."""
+        _login_and_select_italo(page, live_url)
+
+        result: dict[str, object] = page.evaluate(
+            """async () => {
+                const store = Alpine.store('importModal');
+                const originalFetch = window.fetch;
+                const requests = [];
+                const preview = (id) => ({
+                    preview_id: id,
+                    auto_matched: [],
+                    unmatched: [],
+                    asset_classes: [],
+                });
+                const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+                window.fetch = () => new Promise(resolve => requests.push(resolve));
+
+                try {
+                    store.openModal();
+                    store.selectFile(new File(['old'], 'old.csv', {type: 'text/csv'}));
+                    await sleep(175);
+                    store.selectFile(new File(['new'], 'new.csv', {type: 'text/csv'}));
+                    await sleep(175);
+                    if (requests.length !== 2) {
+                        throw new Error('expected two preview requests, got ' + requests.length);
+                    }
+
+                    requests[0]({ok: true, json: () => Promise.resolve(preview('old'))});
+                    await sleep(0);
+                    const afterOld = {
+                        step: store.step,
+                        previewId: store.previewId,
+                        fileName: store.file && store.file.name,
+                    };
+
+                    requests[1]({ok: true, json: () => Promise.resolve(preview('new'))});
+                    await sleep(0);
+                    await sleep(0);
+                    return {
+                        afterOld,
+                        step: store.step,
+                        previewId: store.previewId,
+                        fileName: store.file && store.file.name,
+                    };
+                } finally {
+                    window.fetch = originalFetch;
+                }
+            }"""
+        )
+
+        assert result["afterOld"] == {"step": 1, "previewId": None, "fileName": "new.csv"}
+        assert result["step"] == 2
+        assert result["previewId"] == "new"
+        assert result["fileName"] == "new.csv"
+
     def test_import_modal_pending_visual(self, page: Page, live_url: str) -> None:
         """With zero AssetClasses on the profile, every row in the modal
         must render with the ``import-class-cell--pending`` modifier
@@ -450,9 +512,6 @@ class TestS04ImportModal:
         page.click(SELECTORS["dashboard_import_btn"])
         page.wait_for_selector(SELECTORS["import_modal_overlay"], state="visible", timeout=5000)
         page.set_input_files(SELECTORS["import_file_input"], str(FIXTURE_PATH))
-        page.wait_for_timeout(200)
-        page.evaluate("Alpine.store('importModal').uploadFile()")
-        page.wait_for_timeout(500)
 
         # Step 2 loads once the commit button becomes visible.
         page.wait_for_selector(SELECTORS["import_commit_btn"], state="visible", timeout=15000)

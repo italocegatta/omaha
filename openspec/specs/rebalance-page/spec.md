@@ -164,7 +164,7 @@ exists any more; see `dashboard-sidebar` REMOVED delta).
 #### Scenario: Negative aporte shows client error before submit
 
 - **WHEN** the user types `-1000` in the aporte input
-- **AND** clicks the "Rebalancear" button
+- **AND** presses Enter
 - **THEN** the form does NOT submit (no POST round-trip)
 - **AND** an element with `data-testid="rebalance-form-error"`
   (in-body, not `sidebar-form-error`) shows the message
@@ -233,11 +233,10 @@ labels: `Comprar` (green), `Vender` (red), `Manter` (neutral).
 ### Requirement: Compact parameter bar
 
 The system SHALL render a parameter bar above the class summary with
-four inline elements (not full-width):
+three inline inputs (not full-width):
 1. Aporte (R$) input — `data-testid="rebalance-contribution-input"`
 2. Desvio mínimo (R$) input — `data-testid="rebalance-threshold-abs"`
 3. Desvio mínimo (%) input — `data-testid="rebalance-threshold-pct"`
-4. Rebalancear button — `data-testid="rebalance-submit-btn"`
 
 The bar uses `data-testid="rebalance-params-bar"`.
 
@@ -246,11 +245,11 @@ the page first loads or the caller omits the threshold values, the rendered
 defaults SHALL be `1000` and `1`. The rendered plan SHALL reflect the submitted
 thresholds, not only client-side color-coding.
 
-#### Scenario: Parameter bar renders all four elements inline
+#### Scenario: Parameter bar renders inline inputs without manual button
 
 - **WHEN** the plan renders
-- **THEN** `data-testid="rebalance-params-bar"` contains the aporte
-  input, two threshold inputs, and the submit button
+- **THEN** `data-testid="rebalance-params-bar"` contains the aporte input and two threshold inputs
+- **AND** `data-testid="rebalance-submit-btn"` is not rendered
 
 #### Scenario: Threshold defaults are 1000 and 1
 
@@ -264,6 +263,19 @@ thresholds, not only client-side color-coding.
   threshold pct `2`
 - **THEN** the rendered plan reflects those threshold values
 - **AND** rows below either threshold render as non-actionable hold rows
+
+### Requirement: Rebalance inputs submit plan on Enter
+
+The system SHALL keep rebalance input edits local while operator types. It SHALL refresh plan only when operator presses Enter in aporte or threshold input with valid values. Refresh SHALL reuse existing `POST /rebalanceamento` render path and SHALL not require clicking visible manual submit button.
+
+#### Scenario: Enter submits edited aporte
+
+- **WHEN** page is showing rebalance plan
+- **AND** operator changes `contribution` from `5000` to `6000`
+- **THEN** page does not issue rebalance request while operator is typing
+- **WHEN** operator presses Enter
+- **THEN** page issues new rebalance request without button click
+- **AND** the rendered plan reflects `metrics.contribution = 6000`
 
 ### Requirement: Threshold gate affects rendered execution suggestions
 

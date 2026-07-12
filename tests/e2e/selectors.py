@@ -127,7 +127,6 @@ SELECTORS: dict[str, str] = {
     "dashboard_import_btn": '[data-testid="dashboard-import-btn"]',
     "import_modal_overlay": '[data-testid="import-modal-overlay"]',
     "import_file_input": '[data-testid="import-file-input"]',
-    "import_upload_btn": '[data-testid="import-upload-btn"]',
     "import_modal_error": '[data-testid="import-upload-error"]',
     "import_upload_error": '[data-testid="import-upload-error"]',
     "import_commit_btn": '[data-testid="import-commit-btn"]',
@@ -144,7 +143,6 @@ SELECTORS: dict[str, str] = {
     # ── Rebalance page (in-body form, F02 D9) ──────────────────────
     "rebalance_form": '[data-testid="rebalance-form"]',
     "rebalance_contribution_input": '[data-testid="rebalance-contribution-input"]',
-    "rebalance_submit_btn": '[data-testid="rebalance-submit-btn"]',
     "rebalance_card": '[data-testid="rebalance-card"]',
     "rebalance_empty_state": '[data-testid="rebalance-empty-state"]',
     "rebalance_placeholder": '[data-testid="rebalance-placeholder"]',
@@ -160,7 +158,6 @@ SELECTORS: dict[str, str] = {
     "rebalance_stat_contribution": '[data-testid="rebalance-contribution-input"]',
     "rebalance_stat_total_buy": '[data-testid="rebalance-threshold-abs"]',
     "rebalance_stat_total_sell": '[data-testid="rebalance-threshold-pct"]',
-    "rebalance_stat_residual_cash": '[data-testid="rebalance-submit-btn"]',
     "rebalance_stat_projected_deviation": '[data-testid="rebalance-asset-table"]',
 }
 
@@ -187,7 +184,6 @@ DASHBOARD_SELECTORS: dict[str, str] = {
         # /rebalanceamento-only surface.
         "rebalance_form",
         "rebalance_contribution_input",
-        "rebalance_submit_btn",
         "rebalance_card",
         "rebalance_empty_state",
         "rebalance_placeholder",
@@ -196,7 +192,6 @@ DASHBOARD_SELECTORS: dict[str, str] = {
         "rebalance_stat_contribution",
         "rebalance_stat_total_buy",
         "rebalance_stat_total_sell",
-        "rebalance_stat_residual_cash",
         "rebalance_stat_projected_deviation",
         "rebalance_params_bar",
         "rebalance_threshold_abs",
@@ -209,7 +204,6 @@ DASHBOARD_SELECTORS: dict[str, str] = {
         # is true. The smoke does not open it.
         "import_modal_overlay",
         "import_file_input",
-        "import_upload_btn",
         "import_modal_error",
         "import_upload_error",
         "import_commit_btn",

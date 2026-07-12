@@ -57,14 +57,17 @@ Goal: aplicar na interface real tabela validada na POC F27, seguindo handoff e m
 Archive: `openspec/changes/archive/2026-07-11-f22-implantar-lib-de-tabela-escolhida-no-rebalanceamento/`
 
 ### F23 - Rebalanceamento e importação automáticos
-Status: `Spec Proposed`
-Goal: remover `Rebalancear`, recalcular plano após qualquer edição de input, remover botão `Enviar` no import CSV, disparar upload automático e avançar próxima tela ao sucesso.
+Status: `Archived` — 2026-07-12
+Goal: remover `Rebalancear`, recalcular plano após Enter em input, remover botão `Enviar` no import CSV, disparar upload automático e avançar próxima tela ao sucesso.
 Candidate OpenSpec change id: `f23-rebalanceamento-e-importacao-automaticos`
-Spec link: `openspec/changes/f23-rebalanceamento-e-importacao-automaticos/`
+Archive: `openspec/changes/archive/2026-07-12-f23-rebalanceamento-e-importacao-automaticos/`
 Files to inspect: `src/omaha/routes/pages.py`, `src/omaha/routes/rebalance.py`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/templates/rebalance.html`, `src/omaha/static/app.css`
 Notes: fluxo de ação imediata, sem botão manual extra.
 Progress log: `2026-07-10` added from owner request.
 Progress log: `2026-07-12` proposal queued.
+Progress log: `2026-07-12` implementation applied; targeted integration, browser, BDD, and visual checks pass.
+Progress log: `2026-07-12` review repair: Enter-only rebalance submit, persistent negative-input error, stale preview-response guard.
+Progress log: `2026-07-12` archived after spec sync and roadmap closeout.
 
 ### F24 - Polimento de inputs e modal
 Status: `Spec Proposed`

@@ -21,19 +21,18 @@ markup.
 - **WHEN** usuário está no dashboard com classes cadastradas
 - **THEN** o botão "Importar CSV" (data-testid="dashboard-import-btn") está visível
 - **AND** ao clicar, o modal de import (data-testid="import-modal-overlay") abre
-- **AND** o modal exibe o step 1 (upload de arquivo) com input file + botão Enviar
+- **AND** o modal exibe o step 1 (upload de arquivo) com input file
 
 ### Requirement: Upload de CSV no modal (Step 1)
 
-O modal SHALL permitir upload de arquivo CSV via input file e enviar para
-`POST /api/import/preview`. O preview retorna JSON com `preview_id`, `auto_matched`,
-`unmatched`, e `asset_classes`.
+O modal SHALL permitir upload de arquivo CSV via input file e enviar automaticamente
+para `POST /api/import/preview` quando o usuário selecionar um arquivo. O preview
+retorna JSON com `preview_id`, `auto_matched`, `unmatched`, e `asset_classes`.
 
-#### Scenario: Upload bem-sucedido avança para Step 2
+#### Scenario: Upload bem-sucedido avança para Step 2 sem botão manual
 
 - **WHEN** usuário seleciona um arquivo CSV
-- **AND** clica "Enviar"
-- **THEN** o modal faz POST /api/import/preview com FormData
+- **THEN** o modal faz POST /api/import/preview com FormData sem precisar de clique em "Enviar"
 - **AND** em caso de sucesso (200), avança para step 2 (review)
 - **AND** exibe resumo de auto-matched + tabela de linhas unmatched
 - **AND** exibe mensagem de erro (data-testid="import-upload-error") em caso de falha

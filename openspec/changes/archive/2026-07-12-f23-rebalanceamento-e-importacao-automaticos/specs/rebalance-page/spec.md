@@ -25,11 +25,11 @@ Threshold inputs SHALL be real form fields submitted with the page request. When
 
 ### Requirement: Client-side validation rejects negative aporte
 
-The system SHALL block automatic plan refresh when `contribution < 0` on the client side, displaying an inline error before any POST round-trip. Server-side accepts negative (per the `rebalance-route` contract extension), but the page UI is more restrictive for v1.
+The system SHALL block form submission when `contribution < 0` on the client side, displaying an inline error before any POST round-trip. Server-side accepts negative (per the `rebalance-route` contract extension), but the page UI is more restrictive for v1.
 
 The error renders inside the in-body form (no sidebar element exists any more; see `dashboard-sidebar` REMOVED delta).
 
-#### Scenario: Negative aporte shows client error before auto-refresh
+#### Scenario: Negative aporte shows client error before form submit
 
 - **WHEN** the user types `-1000` in the aporte input
 - **THEN** the form does NOT trigger a POST round-trip
@@ -38,13 +38,15 @@ The error renders inside the in-body form (no sidebar element exists any more; s
 
 ## ADDED Requirements
 
-### Requirement: Rebalance inputs auto-refresh the plan
+### Requirement: Rebalance inputs submit plan on Enter
 
-The system SHALL refresh the rebalance plan automatically when the operator changes aporte or threshold inputs to valid values. Refresh SHALL reuse the existing `POST /rebalanceamento` render path and SHALL not require clicking a manual submit button.
+The system SHALL keep rebalance input edits local while operator types. It SHALL refresh plan only when operator presses Enter in aporte or threshold input with valid values. Refresh SHALL reuse existing `POST /rebalanceamento` render path and SHALL not require clicking visible manual submit button.
 
-#### Scenario: Editing aporte refreshes plan automatically
+#### Scenario: Enter submits edited aporte
 
-- **WHEN** the page is showing a rebalance plan
-- **AND** the operator changes `contribution` from `5000` to `6000`
-- **THEN** the page issues a new rebalance request without a button click
+- **WHEN** page is showing rebalance plan
+- **AND** operator changes `contribution` from `5000` to `6000`
+- **THEN** page does not issue rebalance request while operator is typing
+- **WHEN** operator presses Enter
+- **THEN** page issues new rebalance request without button click
 - **AND** the rendered plan reflects `metrics.contribution = 6000`

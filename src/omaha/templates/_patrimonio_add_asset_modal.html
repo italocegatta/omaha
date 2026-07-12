@@ -191,18 +191,13 @@
           Selecione um arquivo CSV com as posições do seu corretor
         </p>
         <input type="file"
-               accept=".csv"
-               data-testid="import-file-input"
-               @change="$store.importModal.file = $event.target.files[0]; $store.importModal.error = ''"
+                accept=".csv"
+                data-testid="import-file-input"
+                @change="$store.importModal.selectFile($event.target.files[0], $event.target)"
                :disabled="$store.importModal.uploading">
-        <button type="button"
-                class="import-btn import-btn-primary"
-                data-testid="import-upload-btn"
-                @click="$store.importModal.uploadFile()"
-                :disabled="!$store.importModal.file || $store.importModal.uploading">
-          <span x-show="!$store.importModal.uploading">Enviar</span>
-          <span x-show="$store.importModal.uploading">Enviando...</span>
-        </button>
+        <p class="import-modal-upload-status"
+           x-show="$store.importModal.uploading"
+           x-cloak>Enviando arquivo...</p>
       </div>
       <p class="import-modal-error"
          x-show="$store.importModal.step1Error"
@@ -1382,6 +1377,7 @@
       step1Error: '',
       previewError: false,
       assignments: {},
+      previewRequest: 0,
 
       getAssetName: function (ticker) {
         var a = this.assignments[ticker];
@@ -1443,26 +1439,57 @@
       resetState: function () {
         this.step = 1;
         this.file = null;
-        this.previewId = null;
-        this.autoMatched = [];
-        this.unmatched = [];
-        this.assetClasses = [];
+        this.clearPreview();
         this.uploading = false;
         this.committing = false;
         this.error = '';
         this.step1Error = '';
-        this.previewError = false;
-        this.assignments = {};
       },
 
-      uploadFile: function () {
-        if (!this.file) return;
+      clearPreview: function () {
+        // Invalidate any in-flight preview before clearing its state. A late
+        // response must never replace a newer file selection or closed modal.
+        this.previewRequest += 1;
+        this.previewId = null;
+        this.autoMatched = [];
+        this.unmatched = [];
+        this.assetClasses = [];
+        this.assignments = {};
+        this.previewError = false;
+      },
+
+      selectFile: function (file, input) {
+        this.file = file || null;
+        // Clear native selection after retaining File reference so choosing
+        // same file again fires change after preview failure.
+        if (input) input.value = '';
+        this.clearPreview();
+        this.uploading = false;
+        this.step1Error = '';
+        this.error = '';
+        if (this.file) {
+          // Let the native file picker finish its change cycle before
+          // serializing the selected File into FormData.
+          var self = this;
+          var requestId = this.previewRequest;
+          var selectedFile = this.file;
+          window.setTimeout(function () {
+            self.uploadFile(selectedFile, requestId);
+          }, 150);
+        }
+      },
+
+      uploadFile: function (file, requestId) {
+        var selectedFile = file || this.file;
+        if (!selectedFile) return;
         var self = this;
+        var activeRequest = requestId === undefined ? ++self.previewRequest : requestId;
+        if (activeRequest !== self.previewRequest) return;
         self.uploading = true;
         self.step1Error = '';
         self.error = '';
         var fd = new FormData();
-        fd.append('file', self.file);
+        fd.append('file', selectedFile);
         fetch('/api/import/preview', { method: 'POST', body: fd })
           .then(function (r) {
             if (r.ok) return r.json();
@@ -1471,6 +1498,7 @@
             });
           })
           .then(function (data) {
+            if (activeRequest !== self.previewRequest) return;
             self.previewId = data.preview_id;
             self.autoMatched = data.auto_matched || [];
             self.unmatched = data.unmatched || [];
@@ -1517,10 +1545,11 @@
             self.step = 2;
           })
           .catch(function (err) {
+            if (activeRequest !== self.previewRequest) return;
             self.step1Error = err && err.message ? err.message : 'Erro ao processar o arquivo';
           })
           .then(function () {
-            self.uploading = false;
+            if (activeRequest === self.previewRequest) self.uploading = false;
           });
       },
 

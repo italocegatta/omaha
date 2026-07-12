@@ -4,7 +4,7 @@ Drives a headless chromium against a live uvicorn instance to
 verify the user-facing surface of the new page:
 
   login → select profile → dashboard sidebar exposes the
-  "Rebalancear" form → click button with aporte 5000 →
+        rebalance form → Enter with aporte 5000 →
   navigation to ``/rebalance`` → page renders the plan with
   metric cards, sortable asset table, and stub banner → click
   a sortable header reverses the order → click the "Dashboard"
@@ -152,8 +152,10 @@ class TestRebalancePage:
         active = page.locator('[data-testid="app-tab-btn-patrimonio"][aria-current="true"]')
         assert active.count() == 1
 
-    def test_submit_rebalance_navigates_to_plan(self, page: Page, live_url: str) -> None:
-        """Typing an aporte and clicking Rebalancear navigates to /rebalanceamento."""
+    def test_editing_contribution_refreshes_plan_automatically(
+        self, page: Page, live_url: str
+    ) -> None:
+        """Typing stays local; Enter refreshes server-rendered plan."""
         _login_and_select_italo(page, live_url)
         _create_three_classes(page, live_url)
         # Rebalance needs positions (not just assets). Seed via the
@@ -186,18 +188,34 @@ class TestRebalancePage:
         page.wait_for_url(re.compile(r"/rebalanceamento$"))
         page.wait_for_selector(SELECTORS["rebalance_form"], timeout=5000)
 
-        # Fill the in-body form and submit.
-        page.fill(SELECTORS["rebalance_contribution_input"], "5000")
-        page.evaluate("() => document.querySelector('[data-testid=\"rebalance-form\"]').submit()")
-
-        page.wait_for_selector(SELECTORS["rebalance_plan"], timeout=10000)
+        # Typing does not run solver. Enter preserves normal form-submit semantics.
+        post_requests: list[str] = []
+        page.on(
+            "request",
+            lambda request: (
+                post_requests.append(request.url)
+                if request.method == "POST" and request.url.endswith("/rebalanceamento")
+                else None
+            ),
+        )
+        contribution = page.locator(SELECTORS["rebalance_contribution_input"])
+        contribution.fill("5000")
+        page.wait_for_timeout(500)
+        assert post_requests == []
+        contribution.press("Enter")
+        page.wait_for_function(
+            """() => {
+                const el = document.querySelector('[data-testid="rebalance-plan-data"]');
+                return el && JSON.parse(el.textContent).metrics.contribution === 5000;
+            }""",
+            timeout=10000,
+        )
 
         # Plan layout controls remain visible after submission.
         for key in (
             "rebalance_stat_contribution",
             "rebalance_stat_total_buy",
             "rebalance_stat_total_sell",
-            "rebalance_stat_residual_cash",
             "rebalance_stat_projected_deviation",
         ):
             assert page.locator(SELECTORS[key]).count() == 1, f"missing metric: {key}"
@@ -239,7 +257,7 @@ class TestRebalancePage:
             {"SORT_A": 100.0, "SORT_B": 100.0, "SORT_C": 100.0},
         )
 
-        # Navigate via the top nav, fill, submit.
+        # Navigate via the top nav, then submit input with Enter.
         page.click(SELECTORS["app_tab_btn_rebalanceamento"])
         page.wait_for_url(re.compile(r"/rebalanceamento$"))
         try:
@@ -248,10 +266,14 @@ class TestRebalancePage:
             _debug_dump(page, "rebalance-form-missing")
             raise
 
-        page.fill(SELECTORS["rebalance_contribution_input"], "5000")
-        page.evaluate("() => document.querySelector('[data-testid=\"rebalance-form\"]').submit()")
+        contribution = page.locator(SELECTORS["rebalance_contribution_input"])
+        contribution.fill("5000")
+        contribution.press("Enter")
         page.wait_for_function(
-            "() => document.querySelector('[data-testid=\"rebalance-plan\"]') !== null",
+            """() => {
+                const el = document.querySelector('[data-testid="rebalance-plan-data"]');
+                return el && JSON.parse(el.textContent).metrics.contribution === 5000;
+            }""",
             timeout=10000,
         )
         # Wait for Alpine hydration so the click handler is bound
@@ -379,16 +401,15 @@ class TestRebalancePage:
         assert empty.is_visible()
         assert "Nenhuma classe cadastrada" in empty.inner_text()
 
-        # In-body form input + button carry the disabled attribute.
+        # In-body form input remains inert and has no manual submit button.
         input_disabled = page.locator(SELECTORS["rebalance_contribution_input"]).get_attribute(
             "disabled"
         )
         assert input_disabled is not None, "expected aporte input to be disabled"
-        btn_disabled = page.locator(SELECTORS["rebalance_submit_btn"]).get_attribute("disabled")
-        assert btn_disabled is not None, "expected Rebalancear button to be disabled"
+        assert page.locator('[data-testid="rebalance-submit-btn"]').count() == 0
 
     def test_negative_aporte_shows_client_side_error(self, page: Page, live_url: str) -> None:
-        """Typing -500 + clicking Rebalancear shows inline error and stays put."""
+        """Typing negative aporte shows inline error without a recalculation."""
         _login_and_select_italo(page, live_url)
         _create_three_classes(page, live_url)
 
@@ -401,15 +422,26 @@ class TestRebalancePage:
             "() => window.Alpine && document.querySelector('[data-testid=\"rebalance-form\"]')"
         )
 
-        page.fill(SELECTORS["rebalance_contribution_input"], "-500")
-        page.click(SELECTORS["rebalance_submit_btn"], force=True)
-
-        # Inline error appears, page does NOT navigate.
-        page.wait_for_selector(
-            '[data-testid="rebalance-form-error-inline"]', state="visible", timeout=3000
+        contribution = page.locator(SELECTORS["rebalance_contribution_input"])
+        post_requests: list[str] = []
+        page.on(
+            "request",
+            lambda request: (
+                post_requests.append(request.url)
+                if request.method == "POST" and request.url.endswith("/rebalanceamento")
+                else None
+            ),
         )
-        error_text = page.locator('[data-testid="rebalance-form-error-inline"]').inner_text()
+        contribution.fill("-500")
+
+        # Feedback appears during input. Negative edits do not run the solver.
+        page.wait_for_selector(
+            '[data-testid="rebalance-form-error"]', state="visible", timeout=3000
+        )
+        error_text = page.locator('[data-testid="rebalance-form-error"]').inner_text()
         assert "Saques serão suportados" in error_text
+        page.wait_for_timeout(500)
+        assert post_requests == []
         # URL did not change.
         assert page.url.rstrip("/").endswith((live_url + "/rebalanceamento").rstrip("/"))
 

@@ -11,7 +11,7 @@
 
     {% if form_error %}
     <div class="rebalance-form-error-banner"
-         data-testid="rebalance-form-error"
+         data-testid="rebalance-server-error"
          role="alert">
       {{ form_error }}
     </div>
@@ -34,27 +34,17 @@
           <span class="input-prefix">R$</span>
           <input type="number"
                  step="any"
-                 name="contribution"
-                 id="rebalance-contribution"
-                 x-model="contribution"
-                 inputmode="decimal"
-                 data-testid="rebalance-contribution-input"
-                 :class="{'rebalance-form-input--error': error}"
-                 :disabled="inert" />
+                  name="contribution"
+                   id="rebalance-contribution"
+                   x-model="contribution"
+                   @input="validateContribution($event.target.value)"
+                   @keydown.enter.prevent="$el.form.requestSubmit()"
+                  inputmode="decimal"
+                  data-testid="rebalance-contribution-input"
+                  :class="{'rebalance-form-input--error': error}"
+                  :disabled="inert" />
         </label>
-        <button type="submit"
-                class="btn btn-primary rebalance-form-submit"
-                data-testid="rebalance-submit-btn"
-                :disabled="inert || computing">
-          <span x-show="!computing">Rebalancear</span>
-          <span x-show="computing">Calculando...</span>
-        </button>
       </div>
-      <p class="rebalance-form-error"
-         data-testid="rebalance-form-error-inline"
-         x-show="error"
-         x-cloak
-         x-text="error"></p>
       {% endif %}
 
       {% if zero_classes %}
@@ -64,6 +54,12 @@
       {% else %}
         {% include "_rebalance_placeholder.html" %}
       {% endif %}
+
+      <p class="rebalance-form-error"
+           data-testid="rebalance-form-error"
+           x-show="error"
+          x-cloak
+          x-text="error"></p>
 
     </form>
 

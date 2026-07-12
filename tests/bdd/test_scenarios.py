@@ -128,7 +128,7 @@ def test_row_pin_preserves_visual_position():
 
 @scenario(
     "import.feature",
-    "Import 4-row CSV happy (auto-match por categoria)",
+    "Import 4-row CSV happy (revisão de classe sugerida)",
     features_base_dir="tests/bdd/features",
 )
 def test_import_happy_auto_match():

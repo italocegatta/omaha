@@ -10,35 +10,30 @@
   <script type="application/json"
            data-testid="rebalance-plan-data">{{ plan_dict | tojson }}</script>
 
-  {# Params bar — compact inline: aporte + thresholds + submit #}
+  {# Params bar — compact inline inputs commit through form submission on Enter. #}
   <div class="rebalance-params-bar" data-testid="rebalance-params-bar">
     <div class="rebalance-form-group">
-      <label for="rebalance-contribution">Aporte (R$)</label>
-      <input type="number" step="any" name="contribution" id="rebalance-contribution"
-             x-model="contribution" inputmode="decimal"
-             data-testid="rebalance-contribution-input" />
+       <label for="rebalance-contribution">Aporte (R$)</label>
+       <input type="number" step="any" name="contribution" id="rebalance-contribution"
+               x-model="contribution" @input="validateContribution($event.target.value)"
+               @keydown.enter.prevent="$el.form.requestSubmit()" inputmode="decimal"
+               data-testid="rebalance-contribution-input"
+               :class="{'rebalance-form-input--error': error}" />
     </div>
     <div class="rebalance-form-group">
       <label for="rebalance-threshold-abs">Desvio mín. (R$)</label>
       <input type="number" step="any" id="rebalance-threshold-abs" name="min_deviation_value"
-             value="{{ min_deviation_value }}"
-             x-model.number="thresholdAbs" inputmode="decimal"
+              value="{{ min_deviation_value }}"
+              x-model.number="thresholdAbs" @keydown.enter.prevent="$el.form.requestSubmit()" inputmode="decimal"
               data-testid="rebalance-threshold-abs" />
     </div>
     <div class="rebalance-form-group">
       <label for="rebalance-threshold-pct">Desvio mín. (%)</label>
       <input type="number" step="any" id="rebalance-threshold-pct" name="min_deviation_pct"
-             value="{{ min_deviation_pct }}"
-             x-model.number="thresholdPct" inputmode="decimal"
+              value="{{ min_deviation_pct }}"
+              x-model.number="thresholdPct" @keydown.enter.prevent="$el.form.requestSubmit()" inputmode="decimal"
               data-testid="rebalance-threshold-pct" />
     </div>
-    <button type="submit"
-            class="btn btn-primary rebalance-form-submit"
-            data-testid="rebalance-submit-btn"
-            :disabled="computing">
-      <span x-show="!computing">Rebalancear</span>
-      <span x-show="computing">Calculando...</span>
-    </button>
   </div>
   <p class="rebalance-params-note">Sugestões abaixo dos mínimos viram Manter.</p>
 

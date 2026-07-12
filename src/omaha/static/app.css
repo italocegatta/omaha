@@ -2511,11 +2511,10 @@ td.editing {
   cursor: pointer;
 }
 
-.import-modal-upload-area .import-btn {
-  width: min(100%, 28rem);
-  justify-content: center;
-  padding-block: 0.7rem;
-  margin: 0 auto;
+.import-modal-upload-status {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.85rem;
 }
 
 .import-modal-actions {
@@ -2818,10 +2817,10 @@ td.editing {
   font-size: 0.9rem;
 }
 
-/* Params bar — compact inline form: aporte + thresholds + submit */
+/* Params bar — compact inline form: aporte + thresholds. */
 .rebalance-params-bar {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) repeat(2, minmax(11rem, 0.8fr)) auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: end;
   gap: 1rem;
   margin: 1rem 0 1.35rem;
@@ -2863,13 +2862,6 @@ td.editing {
   border-color: color-mix(in srgb, var(--accent) 70%, white 30%);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
-.rebalance-params-bar .rebalance-form-submit {
-  min-height: 3rem;
-  padding-inline: 1.35rem;
-  border-radius: 10px;
-  font-weight: 700;
-}
-
 @media (max-width: 1040px) {
   .rebalance-params-bar {
     grid-template-columns: repeat(2, minmax(0, 1fr));

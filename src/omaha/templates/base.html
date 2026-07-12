@@ -24,8 +24,8 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined">
   <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script>
-    /* rebalance-page — the "Rebalancear" form component. Defined on
-       the base template because the page flow owns the same
+    /* rebalance-page form component. Defined on the base template because
+       page flow owns same
        client-side gate for ``contribution < 0`` everywhere
        (``rebalance-page` spec, REMOVED "Sidebar carries the rebalance
        form" requirement). ``validate()`` blocks negative client-side
@@ -38,31 +38,38 @@
           contribution: initial && initial.contribution !== undefined && initial.contribution !== null
             ? String(initial.contribution)
             : '',
-          computing: false,
-          error: '',
-          inert: !!(initial && initial.inert),
-          validate: function (event) {
-            this.error = '';
-            var raw = this.contribution;
-            if (raw === '' || raw === null || raw === undefined) {
-              this.contribution = '0';
-              return;
-            }
-            var parsed = Number(raw);
-            if (!isFinite(parsed)) {
-              event.preventDefault();
-              this.error = 'Valor inválido. Use um número finito.';
-              return;
-            }
-            if (parsed < 0) {
-              event.preventDefault();
-              this.error =
-                'Saques serão suportados em versão futura. Por enquanto, ' +
-                'deixe o aporte em zero ou positivo.';
-              return;
-            }
-            // Submission proceeds; the server picks the form up and
-            // re-renders the page. No client-side fetch.
+           computing: false,
+           error: '',
+           inert: !!(initial && initial.inert),
+           validateContribution: function (raw) {
+             this.error = '';
+             if (raw === '' || raw === null || raw === undefined) {
+               return true;
+             }
+             var parsed = Number(raw);
+             if (!isFinite(parsed)) {
+               this.error = 'Valor inválido. Use um número finito.';
+               return false;
+             }
+             if (parsed < 0) {
+               this.error =
+                 'Saques serão suportados em versão futura. Por enquanto, ' +
+                 'deixe o aporte em zero ou positivo.';
+               return false;
+             }
+             return true;
+           },
+           validate: function (event) {
+             if (this.contribution === '' || this.contribution === null ||
+                 this.contribution === undefined) {
+               this.contribution = '0';
+             }
+             if (!this.validateContribution(this.contribution)) {
+               event.preventDefault();
+               return;
+             }
+             // Submission proceeds; the server picks the form up and
+             // re-renders the page. No client-side fetch.
           },
         };
       };
