@@ -101,15 +101,16 @@ Progress log: `2026-07-12` proposal queued.
 Progress log: `2026-07-12` split into F27-F29 per owner request.
 
 ### F27 - Tabela ativos espelhada do rebalanceamento
-Status: `Applied`
+Status: `Archived` — 2026-07-12
 Goal: portar para tabela de ativos em patrimônio recursos de tabela do rebalanceamento: ordenação aprimorada, filtro por coluna, e consistência visual entre header e body.
 Candidate OpenSpec change id: `f27-tabela-ativos-espelhada-do-rebalanceamento`
-Spec link: `openspec/changes/f27-tabela-ativos-espelhada-do-rebalanceamento/`
+Archive: `openspec/changes/archive/2026-07-12-f27-tabela-ativos-espelhada-do-rebalanceamento/`
 Files to inspect: `src/omaha/templates/_patrimonio*.html`, `src/omaha/templates/_rebalance*.html`, `src/omaha/static/app.css`
 Notes: slice de porta/consistência de tabela.
 Progress log: `2026-07-12` added from owner request.
 Progress log: `2026-07-12` proposal queued.
 Progress log: `2026-07-12` apply complete; refresh-for-test smoke OK.
+Progress log: `2026-07-12` archived after spec sync and closeout.
 
 ### F28 - Números arredondados e ganho unificado
 Status: `Ready`
