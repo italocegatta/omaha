@@ -9,10 +9,10 @@ at the bottom of ``conftest.py``.
 ## Running
 
 ```
-task test-bdd           # full suite (real chromium, ~30-90s)
-task test-bdd -k login  # one feature
-task test-pattern login # pytest -k substring match
-task test-bdd-single login_creates_new_profile
+uv run task test-bdd                     # full suite (real Chromium, serial)
+uv run task test-bdd -- -k login         # filtered scenarios
+uv run task test-pattern login           # pytest -k substring match
+uv run task test-bdd-single login_creates_new_profile
 ```
 
 BDD scenarios run serial — the autouse
@@ -25,19 +25,19 @@ without revisiting that fixture.
 
 | Bucket | Canonical task | Concurrency | Owner / note |
 |---|---|---|---|
-| ``unit`` | ``task test-unit`` | parallelizable | pre-commit + pre-push gate; pure functions only |
-| ``integration`` | ``task test-integration`` | parallelizable | pre-push + CI; DB/TestClient, no browser |
-| ``audit_integration`` | ``task test-audit-integration`` | too risky for now | CI-only heavy audit family; keep explicit owner |
-| ``bdd`` | ``task test-bdd`` | serial | live server + browser + seeded-profile wipe |
-| ``e2e`` | ``task test-e2e`` | parallelizable | isolated context/page per test, own port/db |
-| ``visual`` | ``task test-visual`` | parallelizable | session browser, fresh context/page per test |
-| ``full-suite`` | ``task test`` | too risky for now | mixed browser/live-server load; use only when needed |
+| ``unit`` | ``uv run task test-unit`` | parallelizable | pre-commit + pre-push gate; pure functions only |
+| ``integration`` | ``uv run task test-integration`` | parallelizable | pre-push + CI; DB/TestClient, no browser |
+| ``audit_integration`` | ``uv run task test-audit-integration`` | too risky for now | CI-only heavy audit family; keep explicit owner |
+| ``bdd`` | ``uv run task test-bdd`` | serial | live server + browser + seeded-profile wipe |
+| ``e2e`` | ``uv run task test-e2e`` | serial (xdist unsafe) | session DB/ports collide; needs per-worker isolation first |
+| ``visual`` | ``uv run task test-visual`` | serial (xdist unsafe) | session browser/state reuse; needs per-worker isolation first |
+| ``full-suite`` | ``uv run task test`` | too risky for now | unit + integration + audit + e2e + visual + BDD |
 
 BDD browser launch stays per-suite serial until repeated-run evidence proves safe wider reuse.
 
 ## Debugging late-suite hangs
 
-Use ``task test-bdd-single <name>`` when full-suite BDD hangs only after
+Use ``uv run task test-bdd-single <name>`` when full-suite BDD hangs only after
 many tests. Command rebuilds ``data/test_bdd.db`` from scratch
 (``alembic upgrade head`` + ``omaha.seed``), then runs one filtered
 scenario with ``--no-header -v -p no:cacheprovider`` so harness-only
@@ -46,9 +46,9 @@ flakes are cheaper to replay.
 Examples:
 
 ```
-task test-bdd-single login_creates_new_profile
-task test-bdd-single --trace login_creates_new_profile
-task test-bdd-single --after tests/bdd/.prefix-05.txt test_profile_switcher_header
+uv run task test-bdd-single login_creates_new_profile
+uv run task test-bdd-single --trace login_creates_new_profile
+uv run task test-bdd-single --after tests/bdd/.prefix-05.txt test_profile_switcher_header
 ```
 
 - ``--trace`` keeps Playwright ``.zip`` traces for failing tests under
@@ -60,7 +60,7 @@ task test-bdd-single --after tests/bdd/.prefix-05.txt test_profile_switcher_head
 Refresh collected order with:
 
 ```
-uv run pytest tests/bdd/test_scenarios.py --collect-only -q > tests/bdd/.collected_order.txt
+uv run task test-bdd -- --collect-only -q > tests/bdd/.collected_order.txt
 cp tests/bdd/.collected_order.txt tests/bdd/.collected_order.baseline.txt
 ```
 
@@ -154,7 +154,7 @@ re-evaluate whether the suite really shares that much structure.
    def test_new_scenario():
        pass
    ```
-4. Run ``task test-bdd -k class_crud`` before pushing.
+4. Run ``uv run task test-bdd -- -k class_crud`` before pushing.
 
 ## Adding a new workflow
 
@@ -164,7 +164,7 @@ re-evaluate whether the suite really shares that much structure.
    - explicit ``RuntimeError`` on pre-condition failure
 2. Add a ``_w_<name>`` wrapper in the relevant
    ``step_defs/<area>_steps.py`` that calls the workflow.
-3. Run ``task test-unit`` — ``test_wrappers_delegate_to_workflows``
+3. Run ``uv run task test-unit`` — ``test_wrappers_delegate_to_workflows``
    asserts the wrapper actually delegates.
 
 ## Carve-out

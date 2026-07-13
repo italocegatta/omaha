@@ -74,6 +74,7 @@ Discover them any time with `uv run task --list`.
 | `test-e2e`         | End-to-end Playwright tests under `tests/e2e/`.                                 |
 | `test-visual`      | Playwright visual regression tests under `tests/visual/`.                       |
 | `test-bdd`         | BDD scenarios under `tests/bdd/` (pytest-bdd, real Chromium, serial).           |
+| `test-bdd-single`  | Rebuild BDD test DB, then replay one scenario or ordered prefix.                 |
 | `test-file`        | Run a specific test file: `task test-file tests/test_X.py`.                     |
 | `test-pattern`     | Run tests matching a name substring: `task test-pattern "smoke"`.               |
 | `test-one`         | Run a single test by node id: `task test-one tests/test_X.py::test_y`.          |
@@ -116,6 +117,8 @@ A few things worth knowing:
 - `test-file`, `test-pattern`, and `test-one` accept the target as a
   positional arg appended to the command — taskipy just appends
   whatever follows the task name.
+- `test-bdd -- -k login` filters scenarios by substring; it does not mean
+  “one feature” in the strict Gherkin sense.
 - `serve` binds `0.0.0.0` so the app is reachable from other machines
   on the LAN. See **Network access** below for the LAN IP to use.
 - `clean` only touches `__pycache__`, `.pytest_cache`, and
@@ -497,20 +500,28 @@ Health check: `curl "$(bash scripts/print_lan_url.sh)/healthz"` returns
 ## Tests
 
 The shortcut manager (see **Development tasks** above) wraps the
-canonical test commands:
+canonical test commands. CI separates a fast lane from a browser lane:
+
+- **Fast lane:** unit + integration. Run `uv run task coverage` when a
+  coverage report is required; it is the only canonical command that writes
+  `reports/coverage.xml`.
+- **Browser lane:** e2e, BDD, and visual. These commands run without coverage
+  and do not write `reports/coverage.xml`.
 
 ```bash
-uv run task test           # full suite (unit + integration + e2e)
-uv run task test-unit      # unit + integration only (faster, no browser)
+uv run task test           # full suite (unit + integration + audit + e2e + visual + BDD)
+uv run task test-unit      # pure unit tests (fast lane)
+uv run task test-integration # integration tests (fast lane)
+uv run task coverage       # unit + integration with term-missing + coverage XML
 uv run task test-e2e       # Playwright browser tests
+uv run task test-bdd       # BDD browser scenarios
+uv run task test-visual    # visual-regression browser tests
 uv run task test-file tests/test_X.py   # single file
 uv run task test-pattern "smoke"          # name-substring match
 uv run task lint           # ruff + format check + hygiene
 ```
 
-The e2e suite needs Playwright + a one-time `uv run task install-e2e`
-(or `playwright install chromium` directly — see `pyproject.toml` dev
-deps).
+The e2e suite needs Playwright + a one-time `uv run task install-e2e`.
 
 ---
 

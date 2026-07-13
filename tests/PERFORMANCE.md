@@ -1,131 +1,158 @@
 # Performance baseline — Omaha test suite
 
-Date: 2026-06-23
-Environment: Linux x86_64, Python 3.12.13, uv 0.11.21, SQLite
-Branch: `bdd-refactor-login`
+Data da coleta: 2026-07-12
+Ambiente: Linux x86_64, Python 3.12.13, uv 0.11.21, SQLite
+Branch: `main` (commit `8fea2b0`)
+
+> Snapshot de baseline: contagens e tempos registrados abaixo servem para
+> triagem de regressão nesta coleta; não são contrato de duração.
 
 ## Commands
 
 ```bash
-uv run pytest -m unit              # 124 passed, 2 skipped
-uv run pytest -m integration       # 192 passed
-uv run pytest tests/e2e -v         # 28 passed
-uv run pytest tests/bdd -v         # 38 passed, 1 failed
-uv run pytest --durations=0 -q     # full suite (see Revisão de testes for status)
+uv run task test-unit              # lane rápida: unit
+uv run task test-integration       # lane rápida: integration
+uv run task test-audit-integration # audit pesado, separado
+uv run task coverage               # unit + integration; único comando que grava reports/coverage.xml
+uv run task test-e2e               # lane de navegador: e2e
+uv run task test-bdd               # lane de navegador: BDD serial
+uv run task test-visual            # lane de navegador: regressão visual
+uv run task test                   # suite completa: unit + integration + audit + e2e + visual + BDD
 ```
 
-## Summary per group
+## Resumo por grupo
 
-| Grupo          | Coletados | Passaram | Falharam | Erro | Pulados | Tempo total |
-|----------------|-----------|----------|----------|------|---------|-------------|
-| unit           | 127       | 124      | 0        | 0    | 2       | ~1.3 s      |
-| integration    | 192       | 192      | 0        | 0    | 0       | ~58 s       |
-| e2e            | 28        | 28       | 0        | 0    | 0       | ~86 s       |
-| bdd            | 39        | 38       | 1        | 0    | 0       | ~110 s      |
-| **full suite** | **386**   | **355**  | **1**    | **28*** | **2**  | **~256 s** (sem erros de infra) |
+| Grupo | Comando observado | Coletados | Passaram | Falharam | Pulados | Tempo total |
+|---|---|---:|---:|---:|---:|---:|
+| unit | `uv run task test-unit` | 869 | 349 | 0 | 2 | 16,82 s |
+| integration | `uv run task test-integration` | 856 | 386 | 0 | 2 | 219,26 s |
+| audit integration | `uv run task test-audit-integration` | 13 | 13 | 0 | 0 | 22,53 s |
+| e2e | `uv run task test-e2e` | 49 | 48 | 1 | 0 | 195,31 s |
+| BDD | `uv run task test-bdd` | 51 | 51 | 0 | 0 | 198,00 s |
+| visual | `uv run task test-visual` | 20 | 20 | 0 | 0 | 82,24 s |
 
-*Os 28 erros no full suite são de infraestrutura: o Playwright Sync API falha quando o pytest roda e2e junto com outros grupos porque já existe um asyncio event loop em execução. Rodados isolados, os e2e passam.
+Na coleta original, `uv run task test-e2e` teve uma falha em
+`tests/e2e/test_user_journey_rebalance.py::TestS05DashboardJourney::test_dashboard_full_journey_renders_s05_polish`
+por `KeyError: 'import_upload_btn'`. Correção posterior removeu a interação
+obsoleta: selecionar arquivo dispara upload automático e aguarda a prévia.
+
+## Lanes de execução
+
+A **lane rápida** cobre unit + integration. Quando coverage é necessária, o
+comando canônico é `uv run task coverage`; ele é o único que gera
+`reports/coverage.xml` para esse grupo. Audit integration fica em task
+separada pelo custo alto.
+
+A **lane de navegador** roda `uv run task test-e2e`, `uv run task test-bdd` e
+`uv run task test-visual` isoladamente. BDD é serial: compartilha SQLite
+semeado e o wipe autouse entre cenários. Essas suítes validam fluxo e visual,
+não produzem coverage XML e não devem pagar custo de instrumentação.
 
 ## Top 20 mais lentos — unit
 
 | Tempo | Teste |
 |-------|-------|
-| 0.08s | tests/test_phase02_tokens.py::test_class_swatches_against_bg[4] |
-| 0.08s | tests/test_t06_dockerfile.py::test_prod_yml_is_valid_yaml |
-| 0.06s | tests/test_phase02_tokens.py::test_legacy_aliases_intact |
-| 0.05s | tests/test_phase02_tokens.py::test_class_swatches_against_bg[2] |
-| 0.04s | tests/test_phase02_tokens.py::test_class_swatches_against_bg[3] |
-| 0.04s | tests/test_phase02_tokens.py::test_class_swatches_against_bg[5] |
-| 0.04s | tests/test_phase02_tokens.py::test_positive_ink_on_positive_passes_aa |
-| 0.04s | tests/test_phase02_tokens.py::test_negative_ink_on_negative_passes_aa |
-| 0.04s | tests/test_phase02_tokens.py::test_class_swatches_against_bg[6] |
-| 0.04s | tests/test_phase02_tokens.py::test_error_fg_on_error_bg_passes_aa |
-| 0.04s | tests/test_phase02_tokens.py::test_class_swatches_against_bg[1] |
-| 0.03s | tests/test_phase02_tokens.py::test_documented_pairs_pass |
-| 0.02s | setup tests/test_audit_report.py::test_render_report_contains_substring[Inventário de contraste — Omaha-title] |
-| 0.01s | call tests/test_audit_report.py::test_render_report_no_failures_shows_empty_state |
-| 0.01s | call tests/bdd/test_workflow_contracts.py::test_wrappers_delegate_to_workflows |
+| 0.40s | tests/test_rebalance_postprocessing.py::test_simulate_rebalance_recomputes_totals_after_threshold_suppression |
+| 0.39s | tests/test_db_mutations.py::test_asset_delete_api_writes_audit_and_snapshot |
+| 0.38s | tests/test_db_mutations.py::test_import_commit_writes_audit_and_snapshot |
+| 0.37s | tests/test_db_mutations.py::test_class_delete_form_writes_audit_and_snapshot |
+| 0.37s | tests/test_db_mutations.py::test_audit_count_equals_one_per_destructive_op |
+| 0.35s | tests/test_db_mutations.py::test_asset_delete_form_writes_audit_and_snapshot |
+| 0.34s | tests/test_db_mutations.py::test_class_delete_api_writes_audit_and_snapshot |
+| 0.33s | tests/test_db_mutations.py::test_snapshot_replace_writes_audit_and_snapshot |
+| 0.33s | tests/test_dark_mode_tokens.py::test_color_focus_against_bg_passes_3to1 |
+| 0.32s | tests/test_rebalance_engine_regression.py::test_phase2_does_not_sell_asset_at_target_when_category_receives_contribution |
+| 0.32s | tests/test_db_mutations.py::test_snapshot_file_is_valid_sqlite_with_pre_mutation_state |
+| 0.32s | tests/test_admin_recovery.py::test_admin_restore_happy_path_copies_and_returns_202 |
+| 0.32s | tests/test_rebalance_engine_regression.py::test_phase1_does_not_drain_underweight_category_even_with_internal_overweights |
+| 0.32s | tests/test_admin_recovery.py::test_admin_snapshots_lists_platform_snapshots |
+| 0.31s | tests/test_admin_recovery.py::test_admin_audit_paginates_with_since |
+| 0.31s | tests/test_dark_mode_tokens.py::test_class_colors_tuple_parity_with_class_3 |
+| 0.30s | tests/test_admin_recovery.py::test_admin_snapshots_skips_missing_files |
+| 0.29s | tests/test_dark_mode_tokens.py::test_negative_ink_on_negative_passes_aa |
+| 0.28s | tests/test_admin_recovery.py::test_admin_audit_returns_recorded_mutations |
+| 0.27s | tests/test_dark_mode_tokens.py::test_legacy_aliases_intact |
 
 ## Top 20 mais lentos — integration
 
 | Tempo | Teste |
 |-------|-------|
-| 3.73s | tests/audit_integration/test_report_pipeline.py::test_generate_report_writes_file |
-| 3.69s | tests/audit_integration/test_report_pipeline.py::test_cli_writes_report |
-| 3.68s | tests/audit_integration/test_report_pipeline.py::test_generate_report_is_self_contained |
-| 2.03s | tests/test_audit_inventory.py::test_inventory_for_dashboard_produces_rows |
-| 2.02s | tests/test_audit_inventory.py::test_inventory_rows_carry_template_field |
-| 1.12s | setup tests/audit_integration/test_logging_middleware.py::test_access_log_middleware_emits_http_request_line_for_get_healthz |
-| 0.64s | setup tests/test_t01_assets_model.py::test_deleting_asset_class_cascades_to_assets |
-| 0.64s | setup tests/test_t01_positions_model.py::test_unique_constraint_rejects_duplicate_ticker_per_asset |
-| 0.64s | setup tests/test_t01_assets_model.py::test_alembic_upgrade_creates_assets_table |
-| 0.63s | setup tests/test_t01_positions_model.py::test_deleting_asset_cascades_to_positions |
-| 0.63s | setup tests/test_t01_classes_model.py::test_alembic_upgrade_creates_asset_classes_table |
-| 0.63s | setup tests/test_t01_assets_model.py::test_repr_round_trip |
-| 0.63s | setup tests/test_t01_classes_model.py::test_unique_constraint_rejects_duplicate_name |
-| 0.63s | setup tests/test_t01_positions_model.py::test_deleting_profile_cascades_to_positions |
-| 0.63s | setup tests/test_t01_assets_model.py::test_unique_constraint_rejects_duplicate_name_in_class |
-| 0.62s | setup tests/test_t01_positions_model.py::test_alembic_upgrade_creates_positions_table |
-| 0.62s | setup tests/test_t01_positions_model.py::test_repr_round_trip |
-| 0.61s | setup tests/test_t01_classes_model.py::test_deleting_profile_cascades_to_asset_classes |
-| 0.61s | setup tests/test_t01_assets_model.py::test_deleting_profile_cascades_to_assets |
-| 0.61s | setup tests/test_t01_classes_model.py::test_repr_round_trip |
+| 11.35s | tests/test_audit_inventory.py::test_inventory_rows_carry_template_field |
+| 8.85s | tests/test_audit_inventory.py::test_inventory_for_patrimonio_produces_rows |
+| 4.51s | tests/test_db_reset_both_profiles.py::test_reset_both_profiles_seeds_both_profiles |
+| 3.51s | tests/test_assets_trade_flags.py::test_alembic_downgrade_then_upgrade_round_trip |
+| 3.07s | tests/test_seed_from_csv.py::test_upsert_updates_changes_creates_missing |
+| 2.17s | setup tests/test_seed_from_csv.py::test_reset_is_idempotent |
+| 2.14s | setup tests/test_seed_from_csv.py::test_loader_rejects_unknown_quote_kind |
+| 2.04s | tests/test_seed_from_csv.py::test_diff_lists_changes_no_write |
+| 2.02s | setup tests/test_seed_from_csv.py::test_non_ascii_asset_name_round_trips |
+| 1.93s | setup tests/test_seed_from_csv.py::test_sum_violating_class_csv_is_rejected |
+| 1.90s | setup tests/test_seed_from_csv.py::test_non_tradeable_position_explicit_totals_preserve_value |
+| 1.90s | tests/test_seed_from_csv.py::test_reset_is_idempotent |
+| 1.89s | tests/test_seed_from_csv.py::test_upsert_rejects_sum_violation_before_write |
+| 1.88s | setup tests/test_seed_from_csv.py::test_legacy_four_column_asset_header_is_rejected |
+| 1.86s | setup tests/test_seed_from_csv.py::test_reset_preserves_totals_verbatim_no_recompute |
+| 1.85s | setup tests/test_seed_from_csv.py::test_reset_preserves_divergent_broker_ticker |
+| 1.83s | setup tests/test_seed_from_csv.py::test_diff_lists_changes_no_write |
+| 1.82s | setup tests/test_seed_from_csv.py::test_invalid_currency_in_assets_csv_aborts |
+| 1.78s | setup tests/test_seed_from_csv.py::test_run_reset_populates_trade_fields_from_csv |
+| 1.77s | setup tests/test_seed_from_csv.py::test_position_referencing_missing_asset_is_rejected |
 
 ## Top 20 mais lentos — e2e
 
 | Tempo | Teste |
 |-------|-------|
-| 7.22s | tests/e2e/test_s05_user_journey.py::TestS05DashboardJourney::test_dashboard_full_journey_renders_s05_polish |
-| 6.04s | setup tests/e2e/test_s01_inline_edit.py::TestS01InlineEdit::test_inline_edit_asset_target |
-| 5.52s | tests/e2e/test_s04_import_modal.py::TestS04ImportModal::test_import_modal_happy_path |
-| 5.51s | tests/e2e/test_s04_user_journey.py::TestS04ImportJourney::test_import_journey_43_matched_5_unmatched_5_assigned_confirm_dashboard |
-| 4.56s | tests/e2e/test_s10_asset_table.py::TestS10AssetTable::test_table_sort_by_each_column |
-| 4.43s | tests/e2e/test_s03_user_journey.py::TestS03UserJourney::test_full_crud_journey_classes_assets_delete |
-| 3.91s | tests/e2e/test_s06_full_journey.py::TestS06PosicaoItaloImport::test_import_posicao_italo_with_class_association |
-| 3.77s | tests/e2e/test_s03_asset_crud.py::TestS03AssetCRUD::test_full_asset_crud_journey |
-| 3.35s | tests/e2e/test_s01_inline_edit.py::TestS01InlineEdit::test_inline_edit_asset_target |
-| 3.04s | tests/e2e/test_s02_class_crud.py::TestS02ClassCRUD::test_delete_class_with_assets_shows_409 |
-| 2.67s | tests/e2e/test_s10_asset_table.py::TestS10AssetTable::test_modal_add_asset_flow |
-| 2.66s | tests/e2e/test_s02_class_crud.py::TestS02ClassCRUD::test_delete_class_via_confirm_dialog |
-| 2.60s | tests/e2e/test_s03_asset_crud.py::TestS03AssetCRUD::test_add_asset_via_modal |
-| 2.50s | tests/e2e/test_s03_asset_crud.py::TestS03AssetCRUD::test_delete_asset_via_x_button |
-| 2.47s | tests/e2e/test_s04_user_journey.py::TestS04ImportJourney::test_expired_preview_shows_expirado |
-| 2.44s | tests/e2e/test_s04_import_modal.py::TestS04ImportModal::test_import_modal_pending_visual |
-| 2.25s | tests/e2e/test_s02_class_crud.py::TestS02ClassCRUD::test_create_first_class_from_empty_state |
-| 2.07s | tests/e2e/test_s10_asset_table.py::TestS10AssetTable::test_edit_alvo_pct_total_updates_class_sum_and_alert |
-| 2.03s | tests/e2e/test_s10_asset_table.py::TestS10AssetTable::test_alert_card_disappears_on_convergence |
-| 1.74s | tests/e2e/test_s05_visual_gate.py::TestS05VisualGate::test_capture_dashboard_polish_screenshot |
+| 6.72s | tests/e2e/test_import_user_journey.py::TestS04ImportJourney::test_import_journey_43_matched_5_unmatched_5_assigned_confirm_dashboard |
+| 6.19s | tests/e2e/test_import_modal.py::TestS04ImportModal::test_import_modal_happy_path |
+| 5.88s | tests/e2e/test_rebalance_page.py::TestRebalancePage::test_editing_contribution_refreshes_plan_automatically |
+| 5.77s | setup tests/e2e/test_import_user_journey.py::TestS04ImportJourney::test_expired_preview_shows_expirado |
+| 5.69s | setup tests/e2e/test_asset_crud.py::TestS03AssetCRUD::test_assets_route_redirects_to_dashboard |
+| 5.52s | tests/e2e/test_asset_table.py::TestS10AssetTable::test_table_sort_by_each_column |
+| 5.02s | tests/e2e/test_asset_table.py::TestS10AssetTable::test_edit_alvo_pct_total_updates_class_sum_and_alert |
+| 4.71s | tests/e2e/test_user_journey_rebalance.py::TestS05DashboardJourney::test_dashboard_full_journey_renders_s05_polish |
+| 4.31s | tests/e2e/test_rebalance_page.py::TestRebalancePage::test_asset_table_poc_parity_interactions |
+| 4.00s | tests/e2e/test_full_journey.py::TestS06PosicaoItaloImport::test_import_posicao_italo_with_class_association |
+| 3.99s | tests/e2e/test_user_journey.py::TestS03UserJourney::test_full_crud_journey_classes_assets_delete |
+| 3.81s | tests/e2e/test_import_user_journey.py::TestS04ImportJourney::test_expired_preview_shows_expirado |
+| 3.35s | tests/e2e/test_asset_table.py::TestS10AssetTable::test_patch_does_not_reorder_rows |
+| 3.22s | tests/e2e/test_asset_table.py::TestS10AssetTable::test_modal_add_asset_flow |
+| 3.19s | tests/e2e/test_asset_table.py::TestS10AssetTable::test_alert_card_disappears_on_convergence |
+| 3.04s | tests/e2e/test_class_crud.py::TestS02ClassCRUD::test_delete_class_with_assets_shows_409 |
+| 2.98s | tests/e2e/test_asset_table.py::TestS10AssetTable::test_class_header_toggle_collapses_and_expands_assets |
+| 2.88s | tests/e2e/test_inline_edit.py::TestS01InlineEdit::test_dashboard_displays_four_percentages_per_asset |
+| 2.82s | tests/e2e/test_asset_table.py::TestS10AssetTable::test_alert_card_shows_severity_for_small_and_large_deviations |
+| 2.77s | tests/e2e/test_asset_crud.py::TestS03AssetCRUD::test_full_asset_crud_journey |
 
 ## Top 20 mais lentos — bdd
 
 | Tempo | Teste |
 |-------|-------|
-| 8.29s | tests/bdd/test_scenarios.py::test_login_ok[Italo] |
-| 5.20s | tests/bdd/test_scenarios.py::test_manual_add_4_assets_unequal[Italo] |
-| 5.08s | tests/bdd/test_scenarios.py::test_manual_add_4_assets_unequal[Ana] |
-| 4.20s | tests/bdd/test_scenarios.py::test_row_pin_preserves_visual_position[Italo] |
-| 3.99s | tests/bdd/test_scenarios.py::test_row_pin_preserves_visual_position[Ana] |
-| 3.96s | tests/bdd/test_scenarios.py::test_per_class_sum_off_100_accepted[Ana] |
-| 3.54s | tests/bdd/test_scenarios.py::test_import_happy_auto_match[Ana] |
-| 3.43s | tests/bdd/test_scenarios.py::test_per_class_sum_off_100_accepted[Italo] |
-| 3.42s | tests/bdd/test_scenarios.py::test_inline_create_2_classes_soma_100[Italo] |
-| 3.31s | tests/bdd/test_scenarios.py::test_per_class_sum_off_100_accepted_target_pct[Ana] |
-| 3.27s | tests/bdd/test_scenarios.py::test_per_class_sum_off_100_accepted_target_pct[Italo] |
-| 3.18s | tests/bdd/test_scenarios.py::test_import_happy_auto_match[Italo] |
-| 3.00s | tests/bdd/test_scenarios.py::test_derived_recomputes_on_asset_patch[Italo] |
-| 2.88s | tests/bdd/test_scenarios.py::test_patch_per_asset_target[Ana] |
-| 2.80s | tests/bdd/test_scenarios.py::test_derived_recomputes_on_class_patch[Ana] |
-| 2.79s | tests/bdd/test_scenarios.py::test_derived_recomputes_on_asset_patch[Ana] |
-| 2.76s | tests/bdd/test_scenarios.py::test_inline_create_2_classes_soma_110[Italo] |
-| 2.66s | tests/bdd/test_scenarios.py::test_inline_create_2_classes_soma_90[Ana] |
-| 2.61s | tests/bdd/test_scenarios.py::test_inline_create_2_classes_soma_110[Ana] |
-| 2.60s | tests/bdd/test_scenarios.py::test_patch_per_asset_target[Italo] |
+| 13.77s | tests/bdd/test_scenarios.py::test_ana_sees_italo_classes_after_switch |
+| 8.86s | tests/bdd/test_scenarios.py::test_italo_sees_ana_classes_after_switch |
+| 7.96s | tests/bdd/test_scenarios.py::test_duplicate_class_name_409[Ana] |
+| 7.89s | tests/bdd/test_scenarios.py::test_duplicate_class_name_409[Italo] |
+| 6.76s | tests/bdd/test_scenarios.py::test_login_ok |
+| 5.14s | tests/bdd/test_scenarios.py::test_manual_add_4_assets_unequal[Ana] |
+| 5.06s | tests/bdd/test_scenarios.py::test_manual_add_4_assets_unequal[Italo] |
+| 4.69s | tests/bdd/test_scenarios.py::test_inline_create_2_classes_soma_110[Ana] |
+| 4.68s | tests/bdd/test_scenarios.py::test_row_pin_preserves_visual_position[Ana] |
+| 4.10s | tests/bdd/test_scenarios.py::test_import_happy_auto_match[Italo] |
+| 3.96s | tests/bdd/test_scenarios.py::test_row_pin_preserves_visual_position[Italo] |
+| 3.95s | tests/bdd/test_scenarios.py::test_import_happy_auto_match[Ana] |
+| 3.75s | tests/bdd/test_scenarios.py::test_derived_recomputes_on_asset_patch[Italo] |
+| 3.67s | tests/bdd/test_scenarios.py::test_inline_add_with_patch_target[Italo] |
+| 3.63s | tests/bdd/test_scenarios.py::test_per_class_sum_off_100_accepted_target_pct[Italo] |
+| 3.53s | tests/bdd/test_scenarios.py::test_click_asset_class_cell_focuses_input[Italo] |
+| 3.51s | tests/bdd/test_scenarios.py::test_clear_asset_class_target_enter_saves_zero[Ana] |
+| 3.50s | tests/bdd/test_scenarios.py::test_per_class_sum_off_100_accepted_target_pct[Ana] |
+| 3.43s | tests/bdd/test_scenarios.py::test_derived_recomputes_on_class_patch[Ana] |
+| 3.40s | tests/bdd/test_scenarios.py::test_clear_asset_class_target_enter_saves_zero[Italo] |
 
 ## Oportunidades de paralelização
 
-1. **Separar e2e e BDD do resto**: os testes de navegador (e2e + bdd) já representam ~196 s dos ~256 s totais (77%). Rodá-los em jobs separados do CI reduz o feedback loop da parte rápida (unit + integration ≈ 60 s) para menos de 1 minuto.
+1. **Separar navegador do resto**: e2e + BDD + visual pertencem à lane de navegador. Rodá-los em jobs separados do CI reduz o feedback loop da lane rápida (unit + integration).
 
-2. **pytest-xdist em unit/integration**: unit é barato (1.3 s) e não vale o overhead. Integration (~58 s) pode ganhar com `pytest-xdist -n auto` porque os testes usam um banco SQLite por sessão compartilhado; porém o fixture `client` é function-scoped e reutiliza o mesmo DB, então paralelização só é segura se cada worker tiver seu próprio banco de testes (fixture de escopo `session` por worker ou mudança para banco em memória por worker).
+2. **pytest-xdist em unit/integration**: unit ainda é curto (16,82 s total) e não vale muito overhead. Integration já bate ~219,26 s e pode ganhar com `pytest-xdist -n auto`, porém os testes usam um banco SQLite por sessão compartilhado; paralelização só é segura se cada worker tiver seu próprio banco de testes (fixture de escopo `session` por worker ou mudança para banco em memória por worker).
 
 3. **BDD serial obrigatório**: o `clean_seeded_profiles` do BDD é autouse e compartilha o arquivo SQLite `data/test_bdd.db`. Não adicionar `pytest-xdist` ao BDD sem isolar o banco por worker.
 

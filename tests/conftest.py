@@ -206,10 +206,11 @@ def client(_omaha_test_env: dict[str, str]) -> TestClient:
 # * explicit integration prefix list     → @pytest.mark.integration
 # * everything else in tests/*.py        → @pytest.mark.unit
 #
-# The explicit integration prefix list (see ``_INTEGRATION_PREFIXES`` below)
-# is the single source of truth: any new ``tests/test_*.py`` that hits DB
-# or TestClient MUST be added there, or it silently gets the ``unit``
-# marker and pollutes the unit subset.
+# The explicit allow-lists below (``_INTEGRATION_PREFIXES`` and
+# ``_UNIT_FILES``) are the marker contract; no filename-pattern heuristic
+# decides a test's lane. Any new ``tests/test_*.py`` that hits DB or
+# TestClient MUST be added to ``_INTEGRATION_PREFIXES``, or it is tagged
+# ``unit`` and pollutes the fast subset.
 #
 # A new file in ``tests/*.py`` that matches neither set triggers a
 # ``UnknownTestPath`` warning so future drift is loud.
@@ -217,10 +218,10 @@ def client(_omaha_test_env: dict[str, str]) -> TestClient:
 
 class UnknownTestPath(UserWarning):
     """Raised when a ``tests/*.py`` file matches neither the integration
-    prefix list nor the e2e carve-out.  This is a soft warning, not a
-    hard error: the file is still tagged ``unit`` so the test runs, but
-    the next agent will see the warning and decide whether the prefix
-    list needs updating.
+    explicit marker allow-list nor a browser-path carve-out. This is a
+    soft warning, not a hard error: the file is still tagged ``unit`` so
+    the test runs, but the next agent must decide whether either
+    allow-list needs updating.
     """
 
 
@@ -315,10 +316,11 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     Files in ``tests/e2e/`` and ``tests/visual/`` are left un-marker'd
     (Playwright tests are filtered separately by path). Files in
     ``tests/audit_integration/`` and any path matching
-    ``_INTEGRATION_PREFIXES`` are tagged ``integration``. Everything
-    else in ``tests/*.py`` is tagged ``unit`` — and if it does not
-    match any of the prefixes above, a ``UnknownTestPath`` warning
-    is emitted so the operator can update the prefix list.
+    ``_INTEGRATION_PREFIXES`` are tagged ``integration``. Those prefixes
+    win even when a file also appears in ``_UNIT_FILES``. Files listed in
+    ``_UNIT_FILES`` are tagged ``unit``. Everything else in ``tests/*.py``
+    is tagged ``unit`` and emits ``UnknownTestPath`` so the operator can
+    update an explicit allow-list.
     """
     warned_paths: set[str] = set()
     for item in items:
