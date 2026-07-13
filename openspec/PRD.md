@@ -99,9 +99,9 @@ Esta seção apenas lista e agrupa — nenhum comportamento é definido aqui.
 | **Tema visual**  | `color-tokens`, `typography-tokens`, `component-state-language`, `iconography-tokens`, `design-register-decision`                                                                                                                                                                                                                                        |
 | **Dados**        | `data-driven-seed`, `seeded-state`, `csv-seed-internals`                                                                                                                                                                                                                                                                                                 |
 | **Infra/ops**    | `backup-scheduling`, `tls-cert-renewal`, `admin-recovery`, `db-mutation-safety`, `readme-freshness`                                                                                                                                                                                                                                                      |
-| **Qualidade**    | `route-test-alignment`, `test-suite-quality`, `unit-test-effectiveness`, `e2e-rework`, `e2e-fixture-isolation`, `e2e-selector-pinning`, `bdd-workflow-reuse`, `bdd-step-def-aliases`, `visual-regression-baseline`, `dev-tasks`, `prek-hooks`                                                                                                              |
+| **Qualidade**    | `route-test-alignment`, `test-suite-quality`, `shared-test-support`, `unit-test-effectiveness`, `e2e-rework`, `e2e-fixture-isolation`, `e2e-selector-pinning`, `bdd-workflow-reuse`, `bdd-step-def-aliases`, `visual-regression-baseline`, `dev-tasks`, `prek-hooks`                                                                                                              |
 
-Total: **52 specs**, todos estáveis (todos os `OpenSpec changes` foram
+Total: **53 specs**, todos estáveis (todos os `OpenSpec changes` foram
 arquivados e sincronizados).
 
 ### 2.2 Modelo de dados

@@ -8,10 +8,8 @@ safe because visual tests never share browser state across cases.
 from __future__ import annotations
 
 import os
-import socket
 import subprocess
 import sys
-import time
 import zlib
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,7 +18,16 @@ from typing import Literal
 
 import pytest
 
-from tests.e2e.conftest import _resolve_chromium
+from tests.support.browser import (
+    compose_server_env,
+    launch_chromium,
+    read_log_tail,
+    resolve_chromium,
+    run_setup_command,
+    shutdown_uvicorn,
+    uvicorn_log_file,
+    wait_for_port,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 TEST_DB_PATH = REPO_ROOT / "data" / "test_visual.db"
@@ -49,34 +56,17 @@ VIEWPORTS: tuple[VisualViewport, ...] = (
 )
 
 
-def _wait_for_port(host: str, port: int, timeout: float = 30.0) -> None:
-    deadline = time.monotonic() + timeout
-    last_err: Exception | None = None
-    while time.monotonic() < deadline:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.settimeout(0.5)
-            try:
-                sock.connect((host, port))
-                return
-            except OSError as exc:
-                last_err = exc
-                time.sleep(0.1)
-    raise RuntimeError(f"server on {host}:{port} did not become ready: {last_err}")
-
-
 def _visual_env() -> dict[str, str]:
-    return {
-        **os.environ,
-        "DATABASE_URL": f"sqlite:///{TEST_DB_PATH}",
-        "ADMIN_PASSWORD": TEST_ADMIN_PASSWORD,
-        "SECRET_KEY": TEST_SECRET_KEY,
-        "QUOTE_PROVIDER": "stub",
-        "OMAHA_SKIP_STARTUP": "1",
-    }
+    return compose_server_env(
+        TEST_DB_PATH,
+        admin_password=TEST_ADMIN_PASSWORD,
+        secret_key=TEST_SECRET_KEY,
+        extra={"QUOTE_PROVIDER": "stub", "OMAHA_SKIP_STARTUP": "1"},
+    )
 
 
 def _run_setup_command(args: list[str], env: dict[str, str]) -> None:
-    subprocess.run(args, cwd=REPO_ROOT, env=env, check=True)
+    run_setup_command(args, repo_root=REPO_ROOT, env=env)
 
 
 @pytest.fixture(scope="session")
@@ -84,21 +74,9 @@ def _browser():
     """Launch one chromium process for visual suite."""
     from playwright.sync_api import sync_playwright
 
-    executable = _resolve_chromium()
+    executable = resolve_chromium()
     with sync_playwright() as p:
-        try:
-            browser = p.chromium.launch(
-                headless=True,
-                executable_path=executable,
-                args=["--no-sandbox", "--disable-dev-shm-usage"],
-            )
-        except Exception as exc:
-            raise RuntimeError(
-                f"Failed to launch chromium at {executable}: {exc}. "
-                "If this looks like 'shared library not found', run "
-                "`uv run playwright install chromium --with-deps` to install "
-                "system dependencies (libnss3, libxkbcommon0, libgbm1, etc.)."
-            ) from exc
+        browser = launch_chromium(p, executable)
         try:
             yield browser
         finally:
@@ -117,6 +95,8 @@ def live_url_visual() -> str:
     _run_setup_command([sys.executable, "-m", "omaha.seed"], migrate_env)
     _run_setup_command([sys.executable, "-m", "scripts.reset_both_profiles"], migrate_env)
 
+    log_handle = uvicorn_log_file(REPO_ROOT, "visual-live-url")
+    log_path = Path(log_handle.name)
     proc = subprocess.Popen(
         [
             sys.executable,
@@ -132,25 +112,26 @@ def live_url_visual() -> str:
         ],
         cwd=REPO_ROOT,
         env=env,
-        stdout=subprocess.PIPE,
+        stdout=log_handle,
         stderr=subprocess.STDOUT,
     )
     try:
-        _wait_for_port("127.0.0.1", TEST_PORT)
+        wait_for_port("127.0.0.1", TEST_PORT, timeout=30.0)
     except Exception:
         proc.terminate()
-        out = proc.stdout.read() if proc.stdout else b""
-        raise RuntimeError(
-            f"uvicorn did not start. output:\n{out.decode(errors='replace')}"
-        ) from None
+        log_handle.close()
+        raise RuntimeError(f"uvicorn did not start. output:\n{read_log_tail(log_path)}") from None
 
     yield TEST_BASE_URL
 
-    proc.terminate()
-    try:
-        proc.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        proc.kill()
+    shutdown_uvicorn(
+        proc,
+        label="visual live_url",
+        host="127.0.0.1",
+        port=TEST_PORT,
+        log_handle=log_handle,
+        log_path=log_path,
+    )
 
 
 @pytest.fixture(params=VIEWPORTS, ids=[v.name for v in VIEWPORTS])

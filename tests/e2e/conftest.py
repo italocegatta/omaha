@@ -53,21 +53,40 @@ from __future__ import annotations
 
 import os
 import re
-import socket
 import sqlite3
 import subprocess
 import sys
-import time
 import uuid
-from contextlib import suppress
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 from typing import Any
 
 import pytest
 from playwright.sync_api import Error as PlaywrightError
 
 from tests.e2e.test_import_user_journey import SELECTORS as IMPORT_SELECTORS
+from tests.support.browser import (
+    compose_server_env,
+    launch_chromium,
+)
+from tests.support.browser import (
+    log_harness as _log_harness,
+)
+from tests.support.browser import (
+    read_log_tail as _read_log_tail,
+)
+from tests.support.browser import (
+    resolve_chromium as _resolve_chromium,
+)
+from tests.support.browser import (
+    shutdown_uvicorn as _shutdown_uvicorn,
+)
+from tests.support.browser import (
+    uvicorn_log_file as _uvicorn_log_file,
+)
+from tests.support.browser import (
+    wait_for_port as _wait_for_port,
+)
+from tests.support.db import wipe_profile_in_sqlite
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 TEST_DB_PATH = REPO_ROOT / "data" / "test_e2e.db"
@@ -130,10 +149,6 @@ class _HarnessPage:
             return None
 
 
-def _log_harness(message: str) -> None:
-    print(f"[omaha-test-harness] {message}", file=sys.stderr, flush=True)
-
-
 def _remember_call_report(item: pytest.Item, report: pytest.TestReport) -> None:
     if report.when == "call":
         item._omaha_call_report = report
@@ -142,60 +157,6 @@ def _remember_call_report(item: pytest.Item, report: pytest.TestReport) -> None:
 def _trace_artifact_path(base_dir: Path, nodeid: str) -> Path:
     slug = re.sub(r"[^A-Za-z0-9._-]+", "_", nodeid).strip("_") or "trace"
     return base_dir / f"{slug}.zip"
-
-
-def _port_is_free(host: str, port: int) -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            sock.bind((host, port))
-        except OSError:
-            return False
-    return True
-
-
-def _uvicorn_log_file(label: str):
-    log_dir = REPO_ROOT / "tmp" / "uvicorn-logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", label).strip("-") or "uvicorn"
-    return NamedTemporaryFile(prefix=f"{slug}-", suffix=".log", dir=log_dir, delete=False)
-
-
-def _read_log_tail(log_path: Path, max_bytes: int = 4000) -> str:
-    if not log_path.exists():
-        return "<missing log file>"
-    data = log_path.read_bytes()
-    return data[-max_bytes:].decode(errors="replace")
-
-
-def _shutdown_uvicorn(
-    proc: subprocess.Popen[bytes],
-    *,
-    label: str,
-    host: str,
-    port: int,
-    log_handle: Any | None = None,
-    log_path: Path | None = None,
-) -> None:
-    proc.terminate()
-    with suppress(subprocess.TimeoutExpired):
-        proc.wait(timeout=3)
-
-    if proc.poll() is None:
-        _log_harness(f"{label}: terminate timeout on {host}:{port}; sending kill()")
-        proc.kill()
-        try:
-            proc.wait(timeout=2)
-        except subprocess.TimeoutExpired:
-            _log_harness(f"{label}: process still alive after kill() on {host}:{port}")
-
-    if not _port_is_free(host, port):
-        _log_harness(f"{label}: port {port} still bound after teardown")
-
-    if log_handle is not None:
-        log_handle.close()
-    if log_path is not None and proc.returncode not in (0, -15):
-        _log_harness(f"{label}: uvicorn log tail\n{_read_log_tail(log_path)}")
 
 
 def _seed_assets_with_positions_via_import(
@@ -296,24 +257,6 @@ def _set_asset_target_pcts_via_db(
         conn.close()
 
 
-def _wait_for_port(host: str, port: int, timeout: float = 20.0) -> None:
-    """Block until ``host:port`` accepts a TCP connection or raise."""
-    deadline = time.monotonic() + timeout
-    last_err: Exception | None = None
-    while time.monotonic() < deadline:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(0.5)
-            try:
-                s.connect((host, port))
-                return
-            except OSError as exc:
-                last_err = exc
-                time.sleep(0.1)
-    raise RuntimeError(
-        f"server on {host}:{port} did not become ready in {timeout}s (last error: {last_err})"
-    )
-
-
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]):
     outcome = yield
@@ -327,18 +270,19 @@ def live_url() -> str:
     if TEST_DB_PATH.exists():
         TEST_DB_PATH.unlink()
 
-    env = {
-        **os.environ,
-        "DATABASE_URL": f"sqlite:///{TEST_DB_PATH}",
-        "ADMIN_PASSWORD": TEST_ADMIN_PASSWORD,
-        "SECRET_KEY": TEST_SECRET_KEY,
-        # Empty string means "not set" to the app's check
-        # (``os.environ.get(...) != "1"``), so the startup hook
-        # runs alembic + seed against the test DB.
-        "OMAHA_SKIP_STARTUP": "",
-    }
+    env = compose_server_env(
+        TEST_DB_PATH,
+        admin_password=TEST_ADMIN_PASSWORD,
+        secret_key=TEST_SECRET_KEY,
+        extra={
+            # Empty string means "not set" to the app's check
+            # (``os.environ.get(...) != "1"``), so the startup hook
+            # runs alembic + seed against the test DB.
+            "OMAHA_SKIP_STARTUP": "",
+        },
+    )
 
-    log_handle = _uvicorn_log_file("e2e-live-url")
+    log_handle = _uvicorn_log_file(REPO_ROOT, "e2e-live-url")
     log_path = Path(log_handle.name)
     proc = subprocess.Popen(
         [
@@ -383,16 +327,14 @@ def _start_uvicorn(db_path: Path, port: int, extra_env: dict[str, str]) -> subpr
     if db_path.exists():
         db_path.unlink()
 
-    env = {
-        **os.environ,
-        "DATABASE_URL": f"sqlite:///{db_path}",
-        "ADMIN_PASSWORD": TEST_ADMIN_PASSWORD,
-        "SECRET_KEY": TEST_SECRET_KEY,
-        "OMAHA_SKIP_STARTUP": "",
-        **extra_env,
-    }
+    env = compose_server_env(
+        db_path,
+        admin_password=TEST_ADMIN_PASSWORD,
+        secret_key=TEST_SECRET_KEY,
+        extra={"OMAHA_SKIP_STARTUP": "", **extra_env},
+    )
 
-    log_handle = _uvicorn_log_file(f"e2e-port-{port}")
+    log_handle = _uvicorn_log_file(REPO_ROOT, f"e2e-port-{port}")
     log_path = Path(log_handle.name)
     proc = subprocess.Popen(
         [
@@ -445,138 +387,19 @@ def live_url_short_ttl() -> str:
     )
 
 
-def _wipe_classes_for(profile_name: str) -> None:
-    """Delete every AssetClass (and cascading Asset) for ``profile_name``.
-
-    The assets table has ``ON DELETE CASCADE`` on its FK to
-    asset_classes (see 0003_assets), but SQLite does NOT enforce
-    FK constraints unless ``PRAGMA foreign_keys = ON`` is set on
-    the connection — and SQLAlchemy does not enable it by default.
-    A bare ``DELETE FROM asset_classes`` would leave orphan assets
-    behind, and the next test would see them because the editor
-    renders every asset in the table (not just the ones whose
-    class still exists). Wipe both tables explicitly. (L005 — the
-    S04 T04 happy-path test surfaced this latent bug. S03's
-    tests passed because each one re-creates its own assets and
-    the residue is never visible from inside a single test.)
-    """
-    if not TEST_DB_PATH.exists():
-        return
-    conn = sqlite3.connect(TEST_DB_PATH)
-    try:
-        conn.execute("PRAGMA busy_timeout = 3000")
-        row = conn.execute("SELECT id FROM profiles WHERE name = ?", (profile_name,)).fetchone()
-        if row is None:
-            return
-        pid = row[0]
-        # Wipe positions first — SQLite without PRAGMA foreign_keys=ON
-        # does not cascade, and orphan position rows collide with the
-        # UNIQUE (asset_id, broker_ticker) constraint in later tests.
-        conn.execute(
-            "DELETE FROM positions WHERE asset_id IN "
-            "(SELECT a.id FROM assets a "
-            " JOIN asset_classes ac ON a.asset_class_id = ac.id "
-            " WHERE ac.profile_id = ?)",
-            (pid,),
-        )
-        conn.execute(
-            "DELETE FROM assets WHERE asset_class_id IN "
-            "(SELECT id FROM asset_classes WHERE profile_id = ?)",
-            (pid,),
-        )
-        conn.execute("DELETE FROM asset_classes WHERE profile_id = ?", (pid,))
-        # Wipe import previews for this profile too — the S04 test
-        # backdates them via direct SQL and a previous test's
-        # preview could pollute the next one's session.
-        conn.execute("DELETE FROM import_previews WHERE profile_id = ?", (pid,))
-        conn.commit()
-    finally:
-        conn.close()
-
-
 @pytest.fixture(autouse=True)
 def clean_italo() -> None:
     """Wipe ``Italo``'s classes (and their assets) before each test."""
-    _wipe_classes_for("Italo")
+    wipe_profile_in_sqlite(TEST_DB_PATH, "Italo")
     yield
     # No teardown — the next test's autouse invocation re-cleans.
-
-
-def _wipe_classes_for_in_db(db_path: Path, profile_name: str) -> None:
-    """Variant of ``_wipe_classes_for`` that targets an arbitrary DB file."""
-    if not db_path.exists():
-        return
-    conn = sqlite3.connect(db_path)
-    try:
-        conn.execute("PRAGMA busy_timeout = 3000")
-        row = conn.execute("SELECT id FROM profiles WHERE name = ?", (profile_name,)).fetchone()
-        if row is None:
-            return
-        pid = row[0]
-        conn.execute(
-            "DELETE FROM positions WHERE asset_id IN "
-            "(SELECT a.id FROM assets a "
-            " JOIN asset_classes ac ON a.asset_class_id = ac.id "
-            " WHERE ac.profile_id = ?)",
-            (pid,),
-        )
-        conn.execute(
-            "DELETE FROM assets WHERE asset_class_id IN "
-            "(SELECT id FROM asset_classes WHERE profile_id = ?)",
-            (pid,),
-        )
-        conn.execute("DELETE FROM asset_classes WHERE profile_id = ?", (pid,))
-        conn.execute("DELETE FROM import_previews WHERE profile_id = ?", (pid,))
-        conn.commit()
-    finally:
-        conn.close()
 
 
 @pytest.fixture(autouse=True)
 def clean_italo_short_ttl() -> None:
     """Wipe ``Italo``'s classes in the short-TTL test DB before each test."""
-    _wipe_classes_for_in_db(TEST_DB_PATH_SHORT_TTL, "Italo")
+    wipe_profile_in_sqlite(TEST_DB_PATH_SHORT_TTL, "Italo")
     yield
-
-
-def _resolve_chromium() -> str:
-    """Find a usable chromium binary on this host.
-
-    Search order:
-        1. ``$E2E_CHROMIUM_PATH`` if set and the file exists
-        2. ``~/.cache/ms-playwright/chromium-*/chrome-linux*/chrome``
-           (the binary installed by ``playwright install chromium``)
-        3. ``/usr/bin/chromium-browser`` (legacy system chromium)
-
-    Returns the first match as a string path. Raises RuntimeError
-    with an actionable message if nothing is found.
-    """
-    candidates: list[Path] = []
-    env = os.environ.get("E2E_CHROMIUM_PATH")
-    if env:
-        candidates.append(Path(env))
-
-    cache = Path.home() / ".cache" / "ms-playwright"
-    if cache.exists():
-        # Sort newest first so we pick the latest installed revision
-        # when multiple are present.
-        candidates.extend(sorted(cache.glob("chromium-*/chrome-linux*/chrome"), reverse=True))
-        candidates.extend(
-            sorted(cache.glob("chromium-*/chrome-linux*/headless_shell"), reverse=True)
-        )
-
-    candidates.append(Path("/usr/bin/chromium-browser"))
-
-    for cand in candidates:
-        if cand.is_file() and os.access(cand, os.X_OK):
-            return str(cand)
-
-    raise RuntimeError(
-        "chromium binary not found. Tried: "
-        + ", ".join(str(c) for c in candidates if not str(c).startswith("~"))
-        + ". Run `uv run playwright install chromium --with-deps` "
-        "or set E2E_CHROMIUM_PATH=/path/to/chrome."
-    )
 
 
 @pytest.fixture(scope="function")
@@ -592,19 +415,7 @@ def _browser():
 
     executable = _resolve_chromium()
     with sync_playwright() as p:
-        try:
-            browser = p.chromium.launch(
-                headless=True,
-                executable_path=executable,
-                args=["--no-sandbox", "--disable-dev-shm-usage"],
-            )
-        except Exception as exc:
-            raise RuntimeError(
-                f"Failed to launch chromium at {executable}: {exc}. "
-                "If this looks like 'shared library not found', run "
-                "`uv run playwright install chromium --with-deps` to install "
-                "system dependencies (libnss3, libxkbcommon0, libgbm1, etc.)."
-            ) from exc
+        browser = launch_chromium(p, executable)
         browser_key = id(browser)
         _BROWSER_CONTEXTS[browser_key] = []
         try:

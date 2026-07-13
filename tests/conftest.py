@@ -50,43 +50,20 @@ from __future__ import annotations
 # `import pytest` and BEFORE pytest discovers test modules. Keep this
 # block at the very top of the file.
 import os
-import subprocess
-import sys
-import tempfile
 from pathlib import Path
+
+from tests.support.db import (
+    prepare_safe_test_database,
+    run_alembic_upgrade,
+    verify_session_local_is_safe,
+)
 
 # Per-session safe DB — created via tempfile.mkdtemp so it survives the
 # full pytest session even when tests use tmp_path fixtures internally.
-_SAFE_DB_DIR = Path(tempfile.mkdtemp(prefix="omaha-conftest-safe-"))
-_SAFE_DB_FILE = _SAFE_DB_DIR / "portfolio.db"
-_SAFE_SNAPSHOT_DIR = _SAFE_DB_DIR / "snapshots"
-_SAFE_SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
-
-os.environ.setdefault("DATABASE_URL", f"sqlite:///{_SAFE_DB_FILE}")
-os.environ.setdefault("SNAPSHOT_SOURCE", str(_SAFE_DB_FILE))
-os.environ.setdefault("SNAPSHOT_DEST_DIR", str(_SAFE_SNAPSHOT_DIR))
-os.environ.setdefault("SECRET_KEY", "test-secret-do-not-use")
-os.environ.setdefault("ADMIN_PASSWORD", "test-password")
-os.environ.setdefault("OMAHA_SKIP_STARTUP", "1")
-os.environ.setdefault("OMAHA_ENV", "development")
-
-# Force-import omaha.config + omaha.db NOW so SessionLocal is bound to
-# the safe DB. Any subsequent `from omaha.db import SessionLocal` in
-# test modules resolves to this same instance.
-import omaha.config  # noqa: F401, E402 — populates ``settings``
-import omaha.db  # noqa: F401, E402 — populates engine + SessionLocal
-
-# Run alembic migrations against the safe DB so schema exists when tests
-# query. Idempotent — safe to run even if the DB is empty.
 _REPO_ROOT_FOR_ALEMBIC = Path(__file__).resolve().parent.parent
-subprocess.run(
-    [sys.executable, "-m", "alembic", "upgrade", "head"],
-    cwd=str(_REPO_ROOT_FOR_ALEMBIC),
-    env={**os.environ},
-    check=True,
-    capture_output=True,
-    text=True,
-)
+_SAFE_DATABASE = prepare_safe_test_database(_REPO_ROOT_FOR_ALEMBIC)
+_SAFE_DB_FILE = _SAFE_DATABASE.path
+_SAFE_SNAPSHOT_DIR = _SAFE_DATABASE.snapshot_dir
 
 # NOW we can import pytest + fastapi. Anything below this line runs
 # AFTER SessionLocal is bound to the safe DB.
@@ -94,16 +71,6 @@ import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-TEST_SECRET_KEY = "test-secret-do-not-use"
-TEST_ADMIN_PASSWORD = "test-password"
-
-
-# Seed users + profiles in the safe DB so tests that query for
-# "Italo" / "Ana" / "Família" find them. Idempotent — no-op if users
-# already present (e.g. when `_omaha_test_env` fixture runs again).
-import omaha.seed  # noqa: E402
-
-omaha.seed.seed()
 
 
 def _verify_session_local_is_safe() -> None:
@@ -114,21 +81,7 @@ def _verify_session_local_is_safe() -> None:
     module-load block above guarantees this never happens in a normal
     pytest run; this guard exists to make regressions LOUD.
     """
-    from omaha.db import SessionLocal
-
-    probe = SessionLocal()
-    try:
-        bind = probe.get_bind()
-        url = str(bind.url) if bind is not None else ""
-        if "data/portfolio.db" in url or url.endswith("/data/portfolio.db"):
-            raise RuntimeError(
-                f"PROD-DB ISOLATION BROKEN: SessionLocal is bound to "
-                f"prod DB ({url!r}). Conftest env isolation failed — "
-                f"refusing to run any test that would wipe/seed prod. "
-                f"See conftest.py module-load block."
-            )
-    finally:
-        probe.close()
+    verify_session_local_is_safe()
 
 
 def _run_alembic_upgrade(db_url: str) -> None:
@@ -139,22 +92,7 @@ def _run_alembic_upgrade(db_url: str) -> None:
     environment, and SQLAlchemy's engine inside the parent process is
     bound at import time.
     """
-    result = subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=REPO_ROOT,
-        env={
-            **os.environ,
-            "DATABASE_URL": db_url,
-            "ADMIN_PASSWORD": TEST_ADMIN_PASSWORD,
-            "SECRET_KEY": TEST_SECRET_KEY,
-        },
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, (
-        f"alembic upgrade head failed: stdout={result.stdout!r} stderr={result.stderr!r}"
-    )
+    run_alembic_upgrade(REPO_ROOT, db_url)
 
 
 @pytest.fixture(scope="session", autouse=True)

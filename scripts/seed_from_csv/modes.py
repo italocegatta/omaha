@@ -22,7 +22,6 @@ falls back to ``qty * price`` (see ``broker-csv-import-totals``).
 
 from __future__ import annotations
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from omaha.models import Asset, AssetClass, Position
@@ -32,52 +31,7 @@ from scripts.seed_from_csv.loaders import (
     PositionRow,
 )
 from scripts.seed_from_csv.profiles import get_profile_id
-
-
-def _wipe_profile(db: Session, profile_id: int) -> None:
-    """Mirror the destructive wipe from ``scripts/dev_reset.py:39-62``.
-
-    SQLite has ``PRAGMA foreign_keys=OFF`` by default, so we wipe
-    explicitly in dependency order. The asset-id snapshot is scoped
-    to this profile only — broker tickers like ``"SMH"`` may appear
-    in multiple profiles' CSVs, so deleting by ticker would leak
-    across profiles.
-
-    We also delete **orphan positions**: positions whose ``asset_id``
-    no longer references any asset row. These are leftovers from
-    past runs that called ``scripts.clear_assets`` (which deletes
-    assets out-of-band, leaving positions orphaned because FK
-    enforcement is off). SQLite's ``INTEGER PRIMARY KEY`` ROWID may
-    reuse the freed id when the next insert happens, so an orphan
-    position with ``asset_id=46`` would collide with a freshly
-    inserted position for the same asset name.
-    """
-    db.execute(
-        text(
-            "DELETE FROM positions WHERE asset_id IN "
-            "(SELECT id FROM assets WHERE asset_class_id IN "
-            "(SELECT id FROM asset_classes WHERE profile_id = :pid))"
-        ),
-        {"pid": profile_id},
-    )
-    db.execute(
-        text("DELETE FROM positions WHERE asset_id NOT IN (SELECT id FROM assets)"),
-    )
-    db.execute(
-        text("DELETE FROM import_previews WHERE profile_id = :pid"),
-        {"pid": profile_id},
-    )
-    db.execute(
-        text(
-            "DELETE FROM assets WHERE asset_class_id IN "
-            "(SELECT id FROM asset_classes WHERE profile_id = :pid)"
-        ),
-        {"pid": profile_id},
-    )
-    db.execute(
-        text("DELETE FROM asset_classes WHERE profile_id = :pid"),
-        {"pid": profile_id},
-    )
+from scripts.seed_from_csv.wipe import wipe_profile as _wipe_profile
 
 
 def run_reset(

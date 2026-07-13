@@ -15,6 +15,10 @@ The CSV schema, validation rules, abort messages, exit codes, and
 operator-facing CLI are pinned by `data-driven-seed` and stay
 unchanged by this capability.
 
+The destructive wipe logic shared by seed modes and test support now
+lives in `scripts/seed_from_csv/wipe.py`; `modes.py` keeps only thin
+orchestration around that primitive.
+
 ## Requirements
 
 ### Requirement: Seed script is organised as a Python package
@@ -71,9 +75,13 @@ following the section headers present in the pre-refactor single file:
 - `scripts/seed_from_csv/profiles.py` — `PROFILES`,
   `PROFILE_OWNER_TO_NAME`, and `get_profile_id` (profile
   resolution).
-- `scripts/seed_from_csv/modes.py` — `_wipe_profile`,
-  `run_reset`, `run_upsert`, `run_diff` (the three mode
-  implementations).
+- `scripts/seed_from_csv/wipe.py` — shared destructive wipe
+  primitives for positions, assets, asset_classes,
+  import_previews, and orphan cleanup, reusable by seed modes and
+  test harness support.
+- `scripts/seed_from_csv/modes.py` — `run_reset`, `run_upsert`,
+  `run_diff`, and thin orchestration that composes wipe
+  primitives.
 - `scripts/seed_from_csv/__main__.py` — `parse_args` and `main`
   (the CLI driver that makes `python -m` resolve).
 
@@ -82,9 +90,10 @@ following the section headers present in the pre-refactor single file:
 - **WHEN** a future contributor adds a new CSV column to the
   triplet
 - **THEN** the contributor edits exactly one of `loaders.py`
-  (parser), `validation.py` (rule), `modes.py` (DB write), or
-  `__init__.py` (header re-export) — the per-concern split makes
-  the affected file obvious from the section header
+  (parser), `validation.py` (rule), `wipe.py` (destructive
+  cleanup), `modes.py` (DB write), or `__init__.py` (header
+  re-export) — the per-concern split makes the affected file
+  obvious from the section header
 
 #### Scenario: Internal imports stay acyclic
 

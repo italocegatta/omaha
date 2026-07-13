@@ -24,272 +24,39 @@ works.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
+from tests.support.import_flow import (
+    ACOES_NAMES,
+    MATCHED_NAMES,
+    RESERVA_NAMES,
+    RF_POS_NAMES,
+    UNMATCHED_NAMES,
+)
+from tests.support.import_flow import (
+    create_three_classes as _create_three_classes,
+)
+from tests.support.import_flow import (
+    debug_dump as _debug_dump,
+)
+from tests.support.import_flow import (
+    login_and_select_italo as _login_and_select_italo,
+)
+from tests.support.import_flow import (
+    seed_43_assets as _seed_43_assets,
+)
+
 from .selectors import SELECTORS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 FIXTURE_PATH = REPO_ROOT / "tests" / "fixtures" / "sample_broker.csv"
 
-# The exact 48 names the fixture produces (header + banner + 48
-# data rows, of which 1 is the empty-ticker phantom and 1 is the
-# Total footer — both consumed by the parser — leaving 46 rows
-# the user has to act on: 43 auto + 5 unmatched, but wait: 48
-# RawPositions out of 48 data rows because the phantom is
-# skipped by the parser's empty-ticker rule, not counted as a
-# data row; the footer is consumed by the known-footer rule;
-# so 48 - 1 phantom - 1 footer = 46... no, the test_t02 fixture
-# asserts len(positions) == 48, so 48 RawPositions out, of which
-# 5 are unmatched. The 5 unmatched names are pinned by
-# test_csv_import.UNMATCHED_NAMES.
-UNMATCHED_NAMES = ["MXRF11", "BPAC11", "HGLG11", "XPLG11", "VINO11"]
-
-# 48 total - 5 unmatched = 43 assets the test must seed so the
-# auto-matcher picks them up. The list is the exact order they
-# appear in the fixture (col 1 of each data row).
-MATCHED_NAMES: list[str] = [
-    "PETR4",
-    "VALE3",
-    "ITUB4",
-    "BBDC4",
-    "ABEV3",
-    "MGLU3",
-    "BBAS3",
-    "WEGE3",
-    "RENT3",
-    "LREN3",
-    "B3SA3",
-    "SUZB3",
-    "CSAN3",
-    "PETR3",
-    "VBBR3",
-    "PRIO3",
-    "IVVB11",
-    "IVV",
-    "VOO",
-    "QQQ",
-    "SMH",
-    "SOXX",
-    "VTI",
-    "SPY",
-    "VT",
-    "HASH11",
-    "BTLG11",
-    "KNCR11",
-    "IRDM11",
-    "XPML11",
-    "VISC11",
-    "BRCR11",
-    "TORD11",
-    "MALL11",
-    "DEVA11",
-    "RBVA11",
-    "VRTA11",
-    "BPRP11",
-    "PVBI11",
-    "HCTR11",
-    "XPIN11",
-    "Tesouro Selic 2029",
-    "Tesouro IPCA+ 2035",
-]
-assert len(MATCHED_NAMES) == 43, f"expected 43 matched names, got {len(MATCHED_NAMES)}"
-
-# Class assignment map for the 43 matched assets. The class labels
-# below ("RF Pós", "Acoes", "Reserva") reflect the post-D011
-# contract: the S04 suggester does exact + one-way substring match
-# on normalized class names, no keyword map. "RF Pós" is the exact
-# class name that the broker file's "Minha Categoria" column
-# (e.g. MXRF11 → "RF Pós") pre-selects in the review screen, and
-# "Acoes" matches the broker's "Ações" via normalize_name's
-# accent-strip + lower. The percentages (60/30/10) are the S04
-# demo target but the test does not assert on them — only on the
-# import flow succeeding.
-RF_POS_NAMES = {
-    "HASH11",
-    "BTLG11",
-    "KNCR11",
-    "IRDM11",
-    "XPML11",
-    "VISC11",
-    "BRCR11",
-    "TORD11",
-    "MALL11",
-    "DEVA11",
-    "RBVA11",
-    "VRTA11",
-    "BPRP11",
-    "PVBI11",
-    "HCTR11",
-    "XPIN11",
-    "Tesouro Selic 2029",
-    "Tesouro IPCA+ 2035",
-}
-ACOES_NAMES = {  # noqa: E305 — needs to follow RF_POS_NAMES
-    "PETR4",
-    "VALE3",
-    "ITUB4",
-    "BBDC4",
-    "ABEV3",
-    "MGLU3",
-    "BBAS3",
-    "WEGE3",
-    "RENT3",
-    "LREN3",
-    "B3SA3",
-    "SUZB3",
-    "CSAN3",
-    "PETR3",
-    "VBBR3",
-    "PRIO3",
-    "IVVB11",
-}
-RESERVA_NAMES = {
-    "IVV",
-    "VOO",
-    "QQQ",
-    "SMH",
-    "SOXX",
-    "VTI",
-    "SPY",
-    "VT",
-}
 assert len(RF_POS_NAMES) + len(ACOES_NAMES) + len(RESERVA_NAMES) == 43
-
-
-def _login_and_select_italo(page: Page, base_url: str) -> None:
-    """Drive the direct-landing login flow.
-
-    direct-landing-with-header-profile-switcher: ``POST /login``
-    auto-binds ``active_profile_id`` to the logged-in user's first
-    profile (by ``display_order``) and 303s to ``/``. There is no
-    intermediate ``/profiles`` picker page — login lands directly on
-    the dashboard.
-    """
-    page.goto(f"{base_url}/login")
-    page.fill(SELECTORS["login_user"], "Italo")
-    page.fill(SELECTORS["login_pass"], "test-password")
-    page.click(SELECTORS["login_submit"])
-    page.wait_for_url(re.compile(r"/$"))
-
-
-def _create_classes_via_form(page: Page, base_url: str, classes: list[tuple[str, int]]) -> None:
-    """Submit the snapshot class editor form via the browser's fetch API.
-
-    The ``POST /classes`` endpoint uses snapshot semantics (parallel
-    ``name[]`` / ``target_pct[]`` form arrays) and requires the per-profile
-    sum to equal 100. The browser must be logged in — ``fetch`` inherits
-    the page's cookies.
-    """
-    page.evaluate(
-        """async ({ url, cls }) => {
-            const fd = new FormData();
-            for (const [name, pct] of cls) {
-                fd.append('name[]', name);
-                fd.append('target_pct[]', String(pct));
-            }
-            const r = await fetch(url, { method: 'POST', body: fd });
-            if (!r.ok) {
-                throw new Error('POST /classes ' + r.status + ': ' + await r.text());
-            }
-        }""",
-        {"url": f"{base_url}/classes", "cls": classes},
-    )
-
-
-def _create_three_classes(page: Page, base_url: str) -> None:
-    """Create RF Pós 60 / Acoes 30 / Reserva 10 via the snapshot form.
-
-    Uses ``POST /classes`` (form-based, parallel arrays). The browser
-    must be logged in — ``fetch`` inherits the page's cookies.
-
-    "RF Pós" is the post-D011 class name: the broker file's "Minha
-    Categoria" column carries "RF Pós" for the fixed-income rows and
-    "Ações" for the equity rows, so the import review pre-selects these
-    exact class names (no keyword map translates "RF Pós" → "Renda Fixa"
-    any more).
-    """
-    _create_classes_via_form(
-        page,
-        base_url,
-        [("RF Pós", 60), ("Acoes", 30), ("Reserva", 10)],
-    )
-    # Reload the dashboard to pick up the new classes.
-    page.goto(f"{base_url}/")
-    page.wait_for_selector(SELECTORS["class_summary_row"], timeout=5000)
-    assert page.locator(SELECTORS["class_summary_row"]).count() == 3
-
-
-def _seed_43_assets(page: Page) -> None:
-    """Seed 43 assets via the JSON API for speed.
-
-    Uses ``page.evaluate()`` to call ``POST /api/assets`` once per asset,
-    with the correct class id extracted from the DOM. This is much faster
-    than creating 43 assets through the inline dashboard form.
-    """
-    # Read the class IDs from the dashboard DOM.
-    class_ids: dict[str, int] = page.evaluate(
-        """() => {
-            const rows = document.querySelectorAll('[data-testid="class-summary-row"]');
-            const result = {};
-            for (const row of rows) {
-                const nameEl = row.querySelector('[data-testid="class-section-name"]');
-                const name = nameEl ? nameEl.textContent.trim() : '';
-                result[name] = parseInt(row.getAttribute('data-class-id'), 10);
-            }
-            return result;
-        }"""
-    )
-    assert "RF Pós" in class_ids, f"RF Pós not found in class_ids: {class_ids}"
-    assert "Acoes" in class_ids, f"Acoes not found in class_ids: {class_ids}"
-    assert "Reserva" in class_ids, f"Reserva not found in class_ids: {class_ids}"
-
-    # Map asset name → class_id.
-    def _class_id_for(name: str) -> int:
-        if name in RF_POS_NAMES:
-            return class_ids["RF Pós"]
-        elif name in ACOES_NAMES:
-            return class_ids["Acoes"]
-        else:
-            return class_ids["Reserva"]
-
-    # Create assets one at a time via the JSON API.
-    for asset_name in MATCHED_NAMES:
-        success = page.evaluate(
-            """async ({ name, class_id }) => {
-                const r = await fetch('/api/assets', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, asset_class_id: class_id }),
-                });
-                return r.status === 201;
-            }""",
-            {"name": asset_name, "class_id": _class_id_for(asset_name)},
-        )
-        assert success, f"Failed to create asset {asset_name!r} via API"
-
-    # Reload to pick up the new assets on the dashboard.
-    page.goto(page.url)
-    page.wait_for_selector(SELECTORS["class_summary_row"], timeout=5000)
-
-
-def _debug_dump(page: Page, tag: str) -> None:
-    """Write a screenshot + main-text + URL to /tmp for post-mortem."""
-    import os
-
-    os.makedirs("/tmp/s04_e2e_debug", exist_ok=True)
-    page.screenshot(path=f"/tmp/s04_e2e_debug/{tag}.png", full_page=True)
-    with open(f"/tmp/s04_e2e_debug/{tag}.txt", "w") as f:
-        f.write(f"URL: {page.url}\n\n")
-        try:
-            f.write("MAIN TEXT:\n")
-            f.write(page.locator("main").inner_text())
-        except Exception as exc:
-            f.write(f"main inner_text failed: {exc}\n")
+assert len(MATCHED_NAMES) == 43
 
 
 class TestS04ImportJourney:

@@ -17,7 +17,6 @@ failing immediately.
 from __future__ import annotations
 
 import os
-import sqlite3
 import subprocess
 import sys
 
@@ -36,6 +35,8 @@ from tests.e2e.conftest import (
     browser_context,  # noqa: F401
     page,  # noqa: F401
 )
+from tests.support.browser import compose_server_env
+from tests.support.db import wipe_profile_in_sqlite
 
 BDD_DB_PATH = _E2E_REPO_ROOT / "data" / "test_bdd.db"
 BDD_PORT = 8766
@@ -68,58 +69,20 @@ def _wait_for_bdd_port(
     _wait_for_port(host, port, timeout=timeout)
 
 
-def _wipe_profile(profile_name: str) -> None:
-    """Wipe classes + assets + import_previews for ``profile_name``.
-
-    Mirrors :func:`tests.e2e.conftest._wipe_classes_for` — SQLite
-    does not enforce FK constraints without ``PRAGMA
-    foreign_keys = ON``, so we wipe ``positions`` /
-    ``assets`` / ``asset_classes`` / ``import_previews`` in that
-    order to avoid orphan rows in the next test.
-    """
-    if not BDD_DB_PATH.exists():
-        return
-    conn = sqlite3.connect(BDD_DB_PATH)
-    try:
-        conn.execute("PRAGMA busy_timeout = 3000")
-        row = conn.execute("SELECT id FROM profiles WHERE name = ?", (profile_name,)).fetchone()
-        if row is None:
-            return
-        pid = row[0]
-        conn.execute(
-            "DELETE FROM positions WHERE asset_id IN "
-            "(SELECT a.id FROM assets a "
-            " JOIN asset_classes ac ON a.asset_class_id = ac.id "
-            " WHERE ac.profile_id = ?)",
-            (pid,),
-        )
-        conn.execute(
-            "DELETE FROM assets WHERE asset_class_id IN "
-            "(SELECT id FROM asset_classes WHERE profile_id = ?)",
-            (pid,),
-        )
-        conn.execute("DELETE FROM asset_classes WHERE profile_id = ?", (pid,))
-        conn.execute("DELETE FROM import_previews WHERE profile_id = ?", (pid,))
-        conn.commit()
-    finally:
-        conn.close()
-
-
 @pytest.fixture(scope="session")
 def live_url() -> str:
     """Start a real uvicorn for the BDD suite on port 8766."""
     if BDD_DB_PATH.exists():
         BDD_DB_PATH.unlink()
 
-    env = {
-        **os.environ,
-        "DATABASE_URL": f"sqlite:///{BDD_DB_PATH}",
-        "ADMIN_PASSWORD": TEST_ADMIN_PASSWORD,
-        "SECRET_KEY": TEST_SECRET_KEY,
-        "OMAHA_SKIP_STARTUP": "",
-    }
+    env = compose_server_env(
+        BDD_DB_PATH,
+        admin_password=TEST_ADMIN_PASSWORD,
+        secret_key=TEST_SECRET_KEY,
+        extra={"OMAHA_SKIP_STARTUP": ""},
+    )
 
-    log_handle = _uvicorn_log_file("bdd-live-url")
+    log_handle = _uvicorn_log_file(_E2E_REPO_ROOT, "bdd-live-url")
     log_path = _E2E_REPO_ROOT / "tmp" / "uvicorn-logs" / os.path.basename(log_handle.name)
     proc = subprocess.Popen(
         [
@@ -177,7 +140,7 @@ def clean_seeded_profiles() -> None:
     BOTH profiles regardless of the parametrization pick.
     """
     for profile in BDD_SEEDED_PROFILES:
-        _wipe_profile(profile)
+        wipe_profile_in_sqlite(BDD_DB_PATH, profile)
     yield
 
 
