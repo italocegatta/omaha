@@ -94,11 +94,12 @@ exclude_lines = [
 ]
 
 [tool.mutmut]
-# Mutation testing for the rebalance solver (PRD §4.4 critical area).
+# Mutation testing for the full rebalance module (PRD §4.4 critical area).
 # mutmut3 reads this block on first `mutmut run` invocation. Scope is
 # restricted via `only_mutate` — the auto-guess would otherwise walk all
-# of `src/`, which is broader than we want for the first slice (D-T03.3).
-# Adding more files is a follow-up slice (R/T), not a config flip here.
+# of `src/`, which is broader than we want. T19 expanded from solver+validation
+# to all critical rebalance files. Parallelism via num_workers=3 keeps
+# wall-clock under 20 min for ~2500-3400 mutants.
 #
 # `also_copy` mirrors the tree dependencies our integration tests need
 # at the `mutants/` cwd (mutmut runs pytest under that subdir). Without
@@ -106,9 +107,16 @@ exclude_lines = [
 # import fails at collection, and alembic can't locate `alembic.ini`.
 # See `mutmut/__main__.py` `also_copy` defaults for the upstream rules.
 source_paths = ["src"]
+num_workers = 3
 only_mutate = [
     "src/omaha/rebalance/solver.py",
     "src/omaha/rebalance/validation.py",
+    "src/omaha/rebalance/engine.py",
+    "src/omaha/rebalance/policy.py",
+    "src/omaha/rebalance/postprocessing.py",
+    "src/omaha/rebalance/builders.py",
+    "src/omaha/rebalance/glue.py",
+    "src/omaha/rebalance/constants.py",
 ]
 also_copy = [
     "scripts/",
@@ -157,6 +165,11 @@ pytest_add_cli_args_test_selection = [
     "tests/test_rebalance_postprocessing.py",
     "tests/test_rebalance_solver.py",
     "tests/test_rebalance_validation.py",
+    "tests/test_rebalance_builders.py",
+    "tests/test_rebalance_engine_glue.py",
+    "tests/test_rebalance_glue.py",
+    "tests/test_rebalance_schemas.py",
+    "tests/test_rebalance_table_poc.py",
 ]
 
 [tool.pyright]
@@ -272,12 +285,12 @@ prod-rebuild = { cmd = "docker build -t omaha:prod . && docker compose -f prod.y
 
 # ── Code quality ────────────────────────────────────────────────────────────
 coverage     = { cmd = "uv run pytest -m 'unit or integration' --ignore=tests/audit_integration --cov=src/omaha --cov-report=term-missing --cov-report=xml:reports/coverage.xml", help = "Run unit + integration tests with coverage report (term-missing + XML; audit/e2e/bdd/visual excluded for speed)" }
-# Mutation testing — scope is `rebalance.engine` + `rebalance.data_bridges`
-# only (D-T03.3). Config lives in `[tool.mutmut]` in this file; mutmut
-# reads it on first `mutmut run` invocation. First execution may take
-# 5–15 min; report + baseline live as separate tasks so the cache is
-# reusable across calls.
-mutation          = { cmd = "uv run mutmut run", help = "Run mutation testing on the rebalance solver + validation (scoped via [tool.mutmut] only_mutate; first run populates mutants/)" }
+# Mutation testing — scope is the full rebalance module (T19 expanded from
+# solver+validation to engine, policy, postprocessing, builders, glue,
+# constants). Config lives in `[tool.mutmut]` in this file; mutmut reads
+# it on first `mutmut run` invocation. First execution may take 15–20 min;
+# report + baseline live as separate tasks so the cache is reusable.
+mutation          = { cmd = "uv run mutmut run", help = "Run mutation testing on the rebalance module (scoped via [tool.mutmut] only_mutate; first run populates mutants/)" }
 mutation-report   = { cmd = "uv run python -m scripts.mutation_report", help = "Render mutation results to stdout: per-status counts + killed share (errors if mutants/ has no .meta files)" }
 mutation-baseline = { cmd = "uv run python -m scripts.mutation_baseline", help = "Capture the current mutation score to .mutmut-baseline (killed, survived, no_tests, timeout, skipped, killed_share, generated_at)" }
 update       = { cmd = "uv sync --upgrade",                                 help = "Upgrade all dependencies within version constraints" }

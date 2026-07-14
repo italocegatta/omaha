@@ -363,24 +363,20 @@ Archive: `openspec/changes/archive/2026-07-14-t17-paralelizar-integration-com-db
 ### T18 - Cortar setup repetido dos hotspots
 Status: `Archived` — 2026-07-14
 Goal: reduzir custo de bootstrap/alembic/seed nos testes mais caros de integration, focando helpers compartilhados e fixtures session-scoped.
-Candidate OpenSpec change id: `t18-cortar-setup-repetido-dos-hotspots`
 Archive: `openspec/changes/archive/2026-07-14-t18-cortar-setup-repetido-dos-hotspots/`
-Files to inspect: `tests/test_audit_inventory.py`, `tests/test_db_reset_both_profiles.py`, `tests/test_seed_from_csv.py`, `tests/support/db.py`, `tests/conftest.py`
-Notes: hotspots confirmados no rerun: `test_audit_inventory` (~11s), `db_reset_both_profiles` (~4.5s), `seed_from_csv` (~3s+).
-Progress log: `2026-07-13` added from rerun of test timing baseline.
-Progress log: `2026-07-14` proposal generated; 14 tasks across 5 groups.
-Progress log: `2026-07-14` implementation applied; 19/19 tasks, shared helpers created, session-scoped fixtures, integration 4:31, unit 14.7s.
-Progress log: `2026-07-14` review approved; no prod code touched, ruff clean.
 Progress log: `2026-07-14` archived after spec sync and closeout.
 
 ### T19 - Expandir mutation testing para módulo rebalance completo
-Status: `Ready`
+Status: `Archived` — 2026-07-14
 Goal: estender escopo de mutmut de `solver.py` + `validation.py` para todos os arquivos críticos do módulo `rebalance/` (engine, policy, postprocessing, builders, glue), mantendo tempo total < 20min via parallelismo.
 Candidate OpenSpec change id: `t19-expandir-mutation-testing-para-modulo-rebalance-completo`
-Spec link: `openspec/changes/t19-expandir-mutation-testing-para-modulo-rebalance-completo/`
+Archive: `openspec/changes/archive/2026-07-14-t19-expandir-mutation-testing-para-modulo-rebalance-completo/`
 Files to inspect: `pyproject.toml` (`[tool.mutmut]`), `src/omaha/rebalance/engine.py`, `src/omaha/rebalance/policy.py`, `src/omaha/rebalance/postprocessing.py`, `src/omaha/rebalance/builders.py`, `src/omaha/rebalance/glue.py`, `src/omaha/rebalance/constants.py`
 Notes: baseline atual (2026-07-06): 869 mutants, 64.9% killed, escopo solver+validation. Arquivos novos somam ~2.7K LOC. Estimativa: 1500-2500 mutants adicionais. Usar `mutmut run` com cache do baseline anterior.
 Progress log: `2026-07-14` added from performance analysis.
+Progress log: `2026-07-14` proposal generated; 12 tasks, 4 design decisions.
+Progress log: `2026-07-14` proposal queued.
+Progress log: `2026-07-14` archived after spec sync and closeout.
 
 ### T20 - Baseline automático de mutation no CI
 Status: `Ready`
@@ -449,20 +445,20 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 
 **Active queue:**
 
-1. T19 - Expandir mutation testing para módulo rebalance completo
-2. T20 - Baseline automático de mutation no CI *(depends: T19)*
-3. F29 - Compra e venda com emoji toggle
-4. R30 - Extrair padrão CSS compartilhado de tabelas
-5. R31 - Padronizar filter panel e header de tabelas
-6. R33 - Refatorar formatters e comportamentos de tabela para reutilização
-7. F32 - Aplicar padrão de tabela rebalance em portfolio
+1. T20 - Baseline automático de mutation no CI *(next)*
+2. F29 - Compra e venda com emoji toggle
+3. R30 - Extrair padrão CSS compartilhado de tabelas
+4. R31 - Padronizar filter panel e header de tabelas
+5. R33 - Refatorar formatters e comportamentos de tabela para reutilização
+6. F32 - Aplicar padrão de tabela rebalance em portfolio
 
 Order note: T17-T20 are test infrastructure slices. T17 archived
 (2026-07-14): integration 5:34→2:44 via DB-per-worker isolation. T18 archived
-(2026-07-14): cuts hot-spot setup cost. T19 expands mutation scope from 2 to ~8 rebalance files.
-T20 adds CI baseline automation (depends on T19). R30-R33 added 2026-07-14
-for table standardization: R30 is foundation (shared CSS variables), R31
-unifies filter panels, R33 extracts shared JS formatters/sign logic/row
+(2026-07-14): shared helpers + session-scoped fixtures cut hot-spot setup cost.
+T19 archived (2026-07-14): mutation scope expanded 2→8 files, kill rate
+64.9%→94.5% (3867 mutants). T20 adds CI baseline automation. R30-R33 added
+2026-07-14 for table standardization: R30 is foundation (shared CSS variables),
+R31 unifies filter panels, R33 extracts shared JS formatters/sign logic/row
 classes, F32 ports visual design to portfolio. R30 → R31 → R33 → F32
 dependency chain.
 F19 and F20 archived after spec sync + archive flow. On
