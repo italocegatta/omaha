@@ -113,10 +113,10 @@ Progress log: `2026-07-12` apply complete; refresh-for-test smoke OK.
 Progress log: `2026-07-12` archived after spec sync and closeout.
 
 ### F28 - Números arredondados e ganho unificado
-Status: `Applied`
+Status: `Archived` — 2026-07-13
 Goal: formatar campos numéricos com arredondamento para 0 casas decimais, exceto QTD de BTC com 3 casas, e reestruturar coluna ganho para mostrar valor absoluto + percentual juntos, ordenando por absoluto.
 Candidate OpenSpec change id: `f28-numeros-arredondados-e-ganho-unificado`
-Spec link: `openspec/changes/f28-numeros-arredondados-e-ganho-unificado/`
+Archive: `openspec/changes/archive/2026-07-13-f28-numeros-arredondados-e-ganho-unificado/`
 Files to inspect: `src/omaha/templates/_patrimonio*.html`, `src/omaha/templates/_rebalance*.html`, `src/omaha/static/app.css`
 Notes: foco em densidade e leitura.
 Progress log: `2026-07-12` added from owner request.
@@ -137,13 +137,14 @@ Progress log: `2026-07-13` fourth-review repair applied; header filter uses cata
 Progress log: `2026-07-13` fifth-review repair applied; exact numeric asset targets use `0%` in Classe / Alvo and Carteira / Alvo, while `—` remains absent/invalid-only. Focused browser regression, unit suite, lint, OpenSpec validation, and refresh smoke passed. Ready for final review.
 
 ### F29 - Compra e venda com emoji toggle
-Status: `Ready`
+Status: `Spec Proposed`
 Goal: simplificar colunas compra e venda com emoji de acerto/bloqueio e manter clique que alterna ícone e grava novo valor no banco.
 Candidate OpenSpec change id: `f29-compra-e-venda-com-emoji-toggle`
 Spec link: `openspec/changes/f29-compra-e-venda-com-emoji-toggle/`
 Files to inspect: `src/omaha/templates/_patrimonio*.html`, `src/omaha/routes/*.py`, `src/omaha/static/app.css`
 Notes: comportamento atual permanece; só muda representação e microcopy visual.
 Progress log: `2026-07-12` added from owner request.
+Progress log: `2026-07-14` proposal generated.
 
 ### F01 - Consolidação cross-profile (visão household agregada)
 Status: `Archived` (superseded by F06) — 2026-07-04
@@ -296,13 +297,14 @@ Goal: Isolar e corrigir hang tardio do harness BDD/e2e com replay 1 teste por
 Archive: `openspec/changes/archive/2026-07-10-t12-isolar-hang-tardio-do-harness-browser-live-server/`
 
 ### T13 - Cobertura fora dos browsers
-Status: `Ready`
+Status: `Applied`
 Goal: tirar cobertura/XML de e2e, bdd e visual; manter coverage em unit + integration e separar fast lane de browser lane.
 Candidate OpenSpec change id: `t13-cobertura-fora-dos-browsers`
 Spec link: `openspec/changes/t13-cobertura-fora-dos-browsers/`
 Files to inspect: `pyproject.toml`, `README.md`, `tests/PERFORMANCE.md`, `.github/workflows/ci.yml`
 Notes: foco em tempo de execução sem mexer em comportamento de suíte.
 Progress log: `2026-07-12` added from suite-performance investigation.
+Progress log: `2026-07-14` implementation applied; pyproject.toml tasks 1-3 verified, validation unit pass with coverage XML, docs already correct.
 
 ### T14 - Helpers compartilhados de setup e wipe
 Status: `Ready`
@@ -407,18 +409,13 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 
 **Active queue:**
 
-1. F23 - Rebalanceamento e importação automáticos
-2. F24 - Polimento de inputs e modal
-3. F25 - Sistema de cards com cores de target
-4. F27 - Tabela ativos espelhada do rebalanceamento
-5. F28 - Números arredondados e ganho unificado
-6. F29 - Compra e venda com emoji toggle
-7. T13 - Cobertura fora dos browsers
-8. T14 - Helpers compartilhados de setup e wipe
-9. T15 - Contratos e docs da suíte
-10. T16 - Gate pré-merge sub-2m
-11. T17 - Paralelizar integration com DB por worker
-12. T18 - Cortar setup repetido dos hotspots
+1. T13 - Cobertura fora dos browsers
+2. T14 - Helpers compartilhados de setup e wipe
+3. T15 - Contratos e docs da suíte
+4. T16 - Gate pré-merge sub-2m
+5. T17 - Paralelizar integration com DB por worker
+6. T18 - Cortar setup repetido dos hotspots
+7. F29 - Compra e venda com emoji toggle
 
 Order note: F19 and F20 archived after spec sync + archive flow. On
 2026-07-09 owner split broad test-triage work for context control: T07 keeps
