@@ -147,13 +147,14 @@ Progress log: `2026-07-12` added from owner request.
 Progress log: `2026-07-14` proposal generated.
 
 ### R30 - Extrair padrão CSS compartilhado de tabelas
-Status: `Ready`
+Status: `Spec Proposed`
 Goal: extrair estilos comuns de tabelas (shell, header, rows, cells) em classes base `.data-table-*` com variáveis CSS para troca de tema; rebalance e portfolio herdam dessas bases.
 Candidate OpenSpec change id: `r30-extrair-padrao-css-compartilhado-de-tabelas`
 Spec link: `openspec/changes/r30-extrair-padrao-css-compartilhado-de-tabelas/`
 Files to inspect: `src/omaha/static/app.css`, `src/omaha/templates/_rebalance_plan.html`, `src/omaha/templates/_patrimonio_class_section.html`
 Notes: fundação para padronização visual. Variáveis de tema (`--table-*`) devem permitir troca de paleta sem duplicar regras.
 Progress log: `2026-07-14` added from owner request.
+Progress log: `2026-07-14` proposal queued.
 
 ### R31 - Padronizar filter panel e header de tabelas
 Status: `Ready`
@@ -344,7 +345,7 @@ Goal: definir lane pré-merge rápida abaixo de 2 min, separando fast gate de br
 Archive: `openspec/changes/archive/2026-07-14-t16-gate-pre-merge-sub-2m/`
 
 ### T17 - Paralelizar integration com DB por worker
-Status: `Spec Proposed`
+Status: `Applied`
 Goal: habilitar paralelismo seguro no lane integration via isolamento de banco por worker para reduzir wall-clock sem corromper estado compartilhado.
 Candidate OpenSpec change id: `t17-paralelizar-integration-com-db-por-worker`
 Spec link: `openspec/changes/t17-paralelizar-integration-com-db-por-worker/`
@@ -352,6 +353,7 @@ Files to inspect: `tests/conftest.py`, `tests/support/db.py`, `pyproject.toml`, 
 Notes: xdist só entra se worker ganhar DB próprio; rerun mostrou integration ainda >3 min e continua principal gargalo.
 Progress log: `2026-07-13` added from rerun of test timing baseline.
 Progress log: `2026-07-14` proposal generated.
+Progress log: `2026-07-14` implementation applied; integration 5:34→2:44 (~2×), unit 349 pass, no prod code touched.
 
 ### T18 - Cortar setup repetido dos hotspots
 Status: `Ready`
