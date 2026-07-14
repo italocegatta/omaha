@@ -146,6 +146,33 @@ Notes: comportamento atual permanece; só muda representação e microcopy visua
 Progress log: `2026-07-12` added from owner request.
 Progress log: `2026-07-14` proposal generated.
 
+### R30 - Extrair padrão CSS compartilhado de tabelas
+Status: `Ready`
+Goal: extrair estilos comuns de tabelas (shell, header, rows, cells) em classes base `.data-table-*` com variáveis CSS para troca de tema; rebalance e portfolio herdam dessas bases.
+Candidate OpenSpec change id: `r30-extrair-padrao-css-compartilhado-de-tabelas`
+Spec link: `openspec/changes/r30-extrair-padrao-css-compartilhado-de-tabelas/`
+Files to inspect: `src/omaha/static/app.css`, `src/omaha/templates/_rebalance_plan.html`, `src/omaha/templates/_patrimonio_class_section.html`
+Notes: fundação para padronização visual. Variáveis de tema (`--table-*`) devem permitir troca de paleta sem duplicar regras.
+Progress log: `2026-07-14` added from owner request.
+
+### R31 - Padronizar filter panel e header de tabelas
+Status: `Ready`
+Goal: unificar filter panel (teleport vs inline), transformar macro `asset_filter_controls` em componente reutilizável, e alinhar UX de filtros entre rebalance e portfolio.
+Candidate OpenSpec change id: `r31-padronizar-filter-panel-e-header-de-tabelas`
+Spec link: `openspec/changes/r31-padronizar-filter-panel-e-header-de-tabelas/`
+Files to inspect: `src/omaha/templates/_patrimonio_class_section.html`, `src/omaha/templates/_rebalance_plan.html`, `src/omaha/static/app.css`
+Notes: rebalance usa filter inline no `<th>`; portfolio usa x-teleport="body". Unificar padrão.
+Progress log: `2026-07-14` added from owner request.
+
+### F32 - Aplicar padrão de tabela rebalance em portfolio
+Status: `Ready`
+Goal: portar design visual (cores, font, efeitos, tema) da tabela rebalance para tabelas de ativos em portfolio, incluindo linha de resumo por classe como exceção documentada.
+Candidate OpenSpec change id: `f32-aplicar-padrao-de-tabela-rebalance-em-portfolio`
+Spec link: `openspec/changes/f32-aplicar-padrao-de-tabela-rebalance-em-portfolio/`
+Files to inspect: `src/omaha/templates/_patrimonio_class_section.html`, `src/omaha/templates/_patrimonio_distribution.html`, `src/omaha/static/app.css`
+Notes: portfolio mantém particularidades (header 2 níveis, linha de resumo, buy/sell toggle). Foco: visual consistency, não behavior change.
+Progress log: `2026-07-14` added from owner request.
+
 ### F01 - Consolidação cross-profile (visão household agregada)
 Status: `Archived` (superseded by F06) — 2026-07-04
 Archive: `openspec/changes/archive/2026-07-04-f01-household-cross-profile-consolidation/`
@@ -317,13 +344,14 @@ Goal: definir lane pré-merge rápida abaixo de 2 min, separando fast gate de br
 Archive: `openspec/changes/archive/2026-07-14-t16-gate-pre-merge-sub-2m/`
 
 ### T17 - Paralelizar integration com DB por worker
-Status: `Ready`
+Status: `Spec Proposed`
 Goal: habilitar paralelismo seguro no lane integration via isolamento de banco por worker para reduzir wall-clock sem corromper estado compartilhado.
 Candidate OpenSpec change id: `t17-paralelizar-integration-com-db-por-worker`
 Spec link: `openspec/changes/t17-paralelizar-integration-com-db-por-worker/`
 Files to inspect: `tests/conftest.py`, `tests/support/db.py`, `pyproject.toml`, `.github/workflows/`
 Notes: xdist só entra se worker ganhar DB próprio; rerun mostrou integration ainda >3 min e continua principal gargalo.
 Progress log: `2026-07-13` added from rerun of test timing baseline.
+Progress log: `2026-07-14` proposal generated.
 
 ### T18 - Cortar setup repetido dos hotspots
 Status: `Ready`
@@ -395,8 +423,14 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 1. T17 - Paralelizar integration com DB por worker
 2. T18 - Cortar setup repetido dos hotspots
 3. F29 - Compra e venda com emoji toggle
+4. R30 - Extrair padrão CSS compartilhado de tabelas
+5. R31 - Padronizar filter panel e header de tabelas
+6. F32 - Aplicar padrão de tabela rebalance em portfolio
 
-Order note: F19 and F20 archived after spec sync + archive flow. On
+Order note: R30-R32 added 2026-07-14 for table standardization. R30 is
+foundation (shared CSS variables), R31 unifies filter panels, F32 ports
+visual design to portfolio. All three depend on prior queue items completing.
+F19 and F20 archived after spec sync + archive flow. On
 2026-07-09 owner split broad test-triage work for context control: T07 keeps
 browser/workflow failures already in flight; T09/T10/T11 isolate remaining red
 families before T08 tackles throughput, redundancy, and parallelism. On
