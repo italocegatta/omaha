@@ -297,14 +297,9 @@ Goal: Isolar e corrigir hang tardio do harness BDD/e2e com replay 1 teste por
 Archive: `openspec/changes/archive/2026-07-10-t12-isolar-hang-tardio-do-harness-browser-live-server/`
 
 ### T13 - Cobertura fora dos browsers
-Status: `Applied`
+Status: `Archived` — 2026-07-14
 Goal: tirar cobertura/XML de e2e, bdd e visual; manter coverage em unit + integration e separar fast lane de browser lane.
-Candidate OpenSpec change id: `t13-cobertura-fora-dos-browsers`
-Spec link: `openspec/changes/t13-cobertura-fora-dos-browsers/`
-Files to inspect: `pyproject.toml`, `README.md`, `tests/PERFORMANCE.md`, `.github/workflows/ci.yml`
-Notes: foco em tempo de execução sem mexer em comportamento de suíte.
-Progress log: `2026-07-12` added from suite-performance investigation.
-Progress log: `2026-07-14` implementation applied; pyproject.toml tasks 1-3 verified, validation unit pass with coverage XML, docs already correct.
+Archive: `openspec/changes/archive/2026-07-14-t13-cobertura-fora-dos-browsers/`
 
 ### T14 - Helpers compartilhados de setup e wipe
 Status: `Ready`
