@@ -224,7 +224,8 @@ test-one         = { cmd = "uv run pytest -v",                                  
 # ── Lint / format ───────────────────────────────────────────────────────────
 lint    = { cmd = "uv run prek run --all-files",  help = "Run prek hooks: ruff format check, ruff --fix, hygiene" }
 format  = { cmd = "uv run ruff format .",          help = "Auto-format the codebase with ruff" }
-check   = { cmd = "task lint && task test-unit",   help = "CI-style gate: lint + unit tests" }
+check   = { cmd = "task lint && task test-unit",   help = "CI-style gate: lint + unit tests (deprecated — use gate-fast)" }
+gate-fast = { cmd = "uv run prek run --all-files && uv run pytest -m unit --cov=src/omaha --cov-report=xml:reports/coverage.xml", help = "Pre-merge fast gate: lint + unit tests, target < 2 min wall-clock" }
 
 # ── Database ────────────────────────────────────────────────────────────────
 # Alembic migrations are run automatically on startup, but having an explicit

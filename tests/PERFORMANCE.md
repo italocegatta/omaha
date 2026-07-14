@@ -10,6 +10,7 @@ Branch: `main` (commit `8fea2b0`)
 ## Commands
 
 ```bash
+uv run task gate-fast             # fast gate pré-merge: lint + unit (< 2 min)
 uv run task test-unit              # lane rápida: unit
 uv run task test-integration       # lane rápida: integration
 uv run task test-audit-integration # audit pesado, separado
@@ -52,6 +53,37 @@ A **lane de navegador** roda `uv run task test-e2e`, `uv run task test-bdd` e
 `uv run task test-visual` isoladamente. BDD é serial: compartilha SQLite
 semeado e o wipe autouse entre cenários. Essas suítes validam fluxo e visual,
 não produzem coverage XML e não devem pagar custo de instrumentação.
+
+## Gate definitions
+
+### Fast gate (`task gate-fast`)
+
+**Comando:** `uv run prek run --all-files && uv run pytest -m unit --cov=src/omaha --cov-report=xml:reports/coverage.xml`
+
+Roda lint (prek hooks: ruff format, ruff --fix, hygiene) + testes unitários
+com coverage XML. Exclui integration, e2e, BDD, visual, audit integration.
+
+**Target:** < 2 min wall-clock. **Baseline:** ~30 s (lint ~5 s + unit ~17 s).
+
+Gate pré-merge para PRs. Coverage XML vai para `reports/coverage.xml`.
+
+### Full suite (`task test`)
+
+**Comando:** `uv run pytest`
+
+Roda tudo: unit + integration + audit integration + e2e + visual + BDD.
+
+**Baseline:** ~10+ min. Usar em CI noturno ou antes de merge em main.
+
+### Browser lanes
+
+| Lane | Comando | Requisito | Parte do fast gate? |
+|------|---------|-----------|---------------------|
+| e2e | `task test-e2e` | Playwright + Chromium | Não |
+| BDD | `task test-bdd` | Playwright + Chromium, serial | Não |
+| visual | `task test-visual` | Playwright + Chromium | Não |
+
+Browser lanes rodam assíncrono no CI. Não participam do fast gate.
 
 ## Top 20 mais lentos — unit
 
