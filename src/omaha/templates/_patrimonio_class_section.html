@@ -1,3 +1,61 @@
+{% macro asset_filter_controls(key, label) %}
+<div class="rebalance-header-actions">
+  <button class="rebalance-header-filter-btn"
+          :class="filterActive('{{ key }}') ? 'rebalance-header-filter-btn--active' : ''"
+          @click.stop="toggleFilterPanel('{{ key }}', $event)"
+          type="button"
+          title="Filtrar {{ label }}"
+          data-testid="asset-header-filter-{{ key }}-trigger">
+    <span class="icon icon--sm" aria-hidden="true">expand_more</span>
+  </button>
+  <button class="rebalance-header-clear-btn"
+          x-show="filterActive('{{ key }}')" x-cloak
+          @click.stop="clearFilter('{{ key }}')" type="button"
+          title="Limpar filtro de {{ label }}"
+          data-testid="asset-header-clear-{{ key }}-trigger">
+    <span class="icon icon--sm" aria-hidden="true">close</span>
+  </button>
+</div>
+<template x-if="filterKind('{{ key }}') === 'enum'">
+  <template x-teleport="body">
+    <div class="rebalance-filter-panel rebalance-filter-panel--header rebalance-filter-panel--left"
+         x-show="openFilter['{{ key }}']" x-cloak
+         :style="filterPanelStyle('{{ key }}')"
+         @click.outside="openFilter['{{ key }}'] = false" @click.stop
+         data-testid="asset-header-filter-{{ key }}-panel">
+      <label class="rebalance-filter-option">
+        <input type="checkbox" @change="clearHeaderFilter('{{ key }}')"
+               :checked="headerFilterCount('{{ key }}') === 0">
+        <span>Todos</span>
+      </label>
+      <template x-for="value in uniqueHeaderValues('{{ key }}')" :key="String(value)">
+        <label class="rebalance-filter-option">
+          <input type="checkbox" :checked="isHeaderFilterSelected('{{ key }}', value)"
+                 @change="toggleHeaderFilter('{{ key }}', value)">
+          <span x-text="headerFilterLabel('{{ key }}', value)"></span>
+        </label>
+      </template>
+    </div>
+  </template>
+</template>
+<template x-if="filterKind('{{ key }}') === 'range'">
+  <template x-teleport="body">
+    <div class="rebalance-filter-panel rebalance-filter-panel--header rebalance-filter-panel--left"
+         x-show="openFilter['{{ key }}']" x-cloak
+         :style="filterPanelStyle('{{ key }}')"
+         @click.outside="openFilter['{{ key }}'] = false" @click.stop
+         data-testid="asset-header-filter-{{ key }}-panel">
+      <div class="rebalance-range-slider">
+        <div class="rebalance-range-track"><div class="rebalance-range-fill" :style="rangeFillStyle(rangeKeyFor('{{ key }}'))"></div></div>
+         <input type="range" :min="rangeBounds(rangeKeyFor('{{ key }}')).min" :max="rangeBounds(rangeKeyFor('{{ key }}')).max" :step="rangeStep(rangeKeyFor('{{ key }}'))" x-model.number="headerRangeFilters[rangeKeyFor('{{ key }}')].min" @input="clampRangeMin(rangeKeyFor('{{ key }}'))">
+         <input type="range" :min="rangeBounds(rangeKeyFor('{{ key }}')).min" :max="rangeBounds(rangeKeyFor('{{ key }}')).max" :step="rangeStep(rangeKeyFor('{{ key }}'))" x-model.number="headerRangeFilters[rangeKeyFor('{{ key }}')].max" @input="clampRangeMax(rangeKeyFor('{{ key }}'))">
+         <div class="rebalance-range-values"><span x-text="formatRangeValue(rangeKeyFor('{{ key }}'), headerRangeFilters[rangeKeyFor('{{ key }}')].min, rangeFormatFor('{{ key }}'), 'min')"></span><span x-text="formatRangeValue(rangeKeyFor('{{ key }}'), headerRangeFilters[rangeKeyFor('{{ key }}')].max, rangeFormatFor('{{ key }}'), 'max')"></span></div>
+      </div>
+    </div>
+  </template>
+</template>
+{% endmacro %}
+
 {% for c in class_aggregates %}
       {% set class_data = {
         "id": c.id,
@@ -85,8 +143,7 @@
             <col class="col-ativo">
             <col class="col-qtd">
             <col class="col-avg-price">
-            <col class="col-gain-value">
-            <col class="col-gain-pct">
+            <col class="col-gain">
             <col class="col-position">
             <col class="col-position-deviation">
             <col class="col-class-current">
@@ -101,27 +158,25 @@
           </colgroup>
           <thead>
             <tr class="asset-table-group-row">
-              <th rowspan="2" data-testid="asset-table-th-name" @click.stop="sortBy('name')">Ativo <span data-testid="asset-table-sort-name" x-text="sortIndicator('name')"></span></th>
-              <th rowspan="2" data-testid="asset-table-th-qty" @click.stop="sortBy('qty')">Qtd <span data-testid="asset-table-sort-qty" x-text="sortIndicator('qty')"></span></th>
-              <th rowspan="2" data-testid="asset-table-th-avg-price" @click.stop="sortBy('avg-price')">Preço médio <span data-testid="asset-table-sort-avg-price" x-text="sortIndicator('avg-price')"></span></th>
-              <th colspan="2" data-testid="asset-table-th-gain" @click.stop="sortBy('gain')">Ganho <span data-testid="asset-table-sort-gain" x-text="sortIndicator('gain')"></span></th>
-              <th rowspan="2" data-testid="asset-table-th-position" @click.stop="sortBy('position')"><span data-testid="asset-table-th-current-value"><span>Posição</span></span> <span data-testid="asset-table-sort-position" x-text="sortIndicator('position')"></span></th>
-              <th rowspan="2" data-testid="asset-table-th-position-deviation" @click.stop="sortBy('position-deviation')">Desvio <span data-testid="asset-table-sort-position-deviation" x-text="sortIndicator('position-deviation')"></span></th>
+              <th rowspan="2" class="asset-table-header-filter" data-testid="asset-table-th-name" @click.stop="sortBy('name')">Ativo <span data-testid="asset-table-sort-name" x-text="sortIndicator('name')"></span>{{ asset_filter_controls('name', 'Ativo') }}</th>
+              <th rowspan="2" class="asset-table-header-filter" data-testid="asset-table-th-qty" @click.stop="sortBy('qty')">Qtd <span data-testid="asset-table-sort-qty" x-text="sortIndicator('qty')"></span>{{ asset_filter_controls('qty', 'Qtd') }}</th>
+              <th rowspan="2" class="asset-table-header-filter" data-testid="asset-table-th-avg-price" @click.stop="sortBy('avg-price')">Preço médio <span data-testid="asset-table-sort-avg-price" x-text="sortIndicator('avg-price')"></span>{{ asset_filter_controls('avg-price', 'Preço médio') }}</th>
+              <th rowspan="2" class="asset-table-header-filter" data-testid="asset-table-th-gain" @click.stop="sortBy('gain')">Ganho <span data-testid="asset-table-sort-gain" x-text="sortIndicator('gain')"></span>{{ asset_filter_controls('gain', 'Ganho') }}</th>
+              <th rowspan="2" class="asset-table-header-filter" data-testid="asset-table-th-position" @click.stop="sortBy('position')"><span data-testid="asset-table-th-current-value"><span>Posição</span></span> <span data-testid="asset-table-sort-position" x-text="sortIndicator('position')"></span>{{ asset_filter_controls('position', 'Posição') }}</th>
+              <th rowspan="2" class="asset-table-header-filter" data-testid="asset-table-th-position-deviation" @click.stop="sortBy('position-deviation')">Desvio <span data-testid="asset-table-sort-position-deviation" x-text="sortIndicator('position-deviation')"></span>{{ asset_filter_controls('position-deviation', 'Desvio') }}</th>
               <th colspan="3">Classe</th>
               <th colspan="3">Carteira</th>
-              <th rowspan="2" data-testid="asset-table-th-buy" @click.stop="sortBy('buy')">Compra <span data-testid="asset-table-sort-buy" x-text="sortIndicator('buy')"></span></th>
-              <th rowspan="2" data-testid="asset-table-th-sell" @click.stop="sortBy('sell')">Venda <span data-testid="asset-table-sort-sell" x-text="sortIndicator('sell')"></span></th>
-              <th rowspan="2" data-testid="asset-table-th-currency" @click.stop="sortBy('currency')">Moeda <span data-testid="asset-table-sort-currency" x-text="sortIndicator('currency')"></span></th>
+              <th rowspan="2" class="asset-table-header-filter" data-testid="asset-table-th-buy" @click.stop="sortBy('buy')">Compra <span data-testid="asset-table-sort-buy" x-text="sortIndicator('buy')"></span>{{ asset_filter_controls('buy', 'Compra') }}</th>
+              <th rowspan="2" class="asset-table-header-filter" data-testid="asset-table-th-sell" @click.stop="sortBy('sell')">Venda <span data-testid="asset-table-sort-sell" x-text="sortIndicator('sell')"></span>{{ asset_filter_controls('sell', 'Venda') }}</th>
+              <th rowspan="2" class="asset-table-header-filter" data-testid="asset-table-th-currency" @click.stop="sortBy('currency')">Moeda <span data-testid="asset-table-sort-currency" x-text="sortIndicator('currency')"></span>{{ asset_filter_controls('currency', 'Moeda') }}</th>
             </tr>
             <tr class="asset-table-subhead-row">
-              <th class="asset-table-subhead asset-table-subhead--ghost"></th>
-              <th class="asset-table-subhead asset-table-subhead--ghost"></th>
-              <th data-testid="asset-table-th-class-current" @click.stop="sortBy('class-current')">Atual <span data-testid="asset-table-sort-class-current" x-text="sortIndicator('class-current')"></span></th>
-              <th data-testid="asset-table-th-class-target" @click.stop="sortBy('class-target')"><span data-testid="asset-table-th-target-pct-class">Alvo</span> <span data-testid="asset-table-sort-class-target" x-text="sortIndicator('class-target')"></span></th>
-              <th data-testid="asset-table-th-class-deviation" @click.stop="sortBy('class-deviation')">Desvio <span data-testid="asset-table-sort-class-deviation" x-text="sortIndicator('class-deviation')"></span></th>
-              <th data-testid="asset-table-th-portfolio-current" @click.stop="sortBy('portfolio-current')"><span data-testid="asset-table-th-current-pct-total">Atual</span> <span data-testid="asset-table-sort-portfolio-current" x-text="sortIndicator('portfolio-current')"></span></th>
-              <th data-testid="asset-table-th-portfolio-target" @click.stop="sortBy('portfolio-target')"><span data-testid="asset-table-th-target-pct-total">Alvo</span> <span data-testid="asset-table-sort-portfolio-target" x-text="sortIndicator('portfolio-target')"></span></th>
-              <th data-testid="asset-table-th-portfolio-deviation" @click.stop="sortBy('portfolio-deviation')">Desvio <span data-testid="asset-table-sort-portfolio-deviation" x-text="sortIndicator('portfolio-deviation')"></span></th>
+              <th class="asset-table-header-filter" data-testid="asset-table-th-class-current" @click.stop="sortBy('class-current')">Atual <span data-testid="asset-table-sort-class-current" x-text="sortIndicator('class-current')"></span>{{ asset_filter_controls('class-current', 'Classe / Atual') }}</th>
+              <th class="asset-table-header-filter" data-testid="asset-table-th-class-target" @click.stop="sortBy('class-target')"><span data-testid="asset-table-th-target-pct-class">Alvo</span> <span data-testid="asset-table-sort-class-target" x-text="sortIndicator('class-target')"></span>{{ asset_filter_controls('class-target', 'Classe / Alvo') }}</th>
+              <th class="asset-table-header-filter" data-testid="asset-table-th-class-deviation" @click.stop="sortBy('class-deviation')">Desvio <span data-testid="asset-table-sort-class-deviation" x-text="sortIndicator('class-deviation')"></span>{{ asset_filter_controls('class-deviation', 'Classe / Desvio') }}</th>
+              <th class="asset-table-header-filter" data-testid="asset-table-th-portfolio-current" @click.stop="sortBy('portfolio-current')"><span data-testid="asset-table-th-current-pct-total">Atual</span> <span data-testid="asset-table-sort-portfolio-current" x-text="sortIndicator('portfolio-current')"></span>{{ asset_filter_controls('portfolio-current', 'Carteira / Atual') }}</th>
+              <th class="asset-table-header-filter" data-testid="asset-table-th-portfolio-target" @click.stop="sortBy('portfolio-target')"><span data-testid="asset-table-th-target-pct-total">Alvo</span> <span data-testid="asset-table-sort-portfolio-target" x-text="sortIndicator('portfolio-target')"></span>{{ asset_filter_controls('portfolio-target', 'Carteira / Alvo') }}</th>
+              <th class="asset-table-header-filter" data-testid="asset-table-th-portfolio-deviation" @click.stop="sortBy('portfolio-deviation')">Desvio <span data-testid="asset-table-sort-portfolio-deviation" x-text="sortIndicator('portfolio-deviation')"></span>{{ asset_filter_controls('portfolio-deviation', 'Carteira / Desvio') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -133,13 +188,13 @@
                 <div class="metric-stack metric-stack--gain">
                   <span class="icon icon--sm metric-sign" x-text="signIcon(classGainValue)" aria-hidden="true"></span>
                   <span data-testid="class-total-gain-value" x-text="formatMoney(classGainValue)"></span>
+                  <span class="gain-cell-pct" x-text="'(' + formatPctRounded(classGainPct) + ')'"></span>
                 </div>
               </td>
-              <td class="gain-cell gain-cell--pct" :class="signClass(classGainValue)" x-text="formatPct(classGainPct)"></td>
               <td data-testid="class-total-current-value"><span class="hdr-valor" data-testid="class-total-value" x-text="formatMoney(classCurrentValue)"></span></td>
               <td></td>
-              <td data-testid="class-total-current-pct-class" x-text="formatPct(classCurrentPctClass)"></td>
-              <td data-testid="class-total-target-pct-class" x-text="formatPct(classTargetPctClass)"></td>
+              <td data-testid="class-total-current-pct-class" x-text="formatPctRounded(classCurrentPctClass)"></td>
+              <td data-testid="class-total-target-pct-class" x-text="formatPctRounded(classTargetPctClass)"></td>
               <td data-testid="class-total-deviation-class" :class="signClass(classDeviationPctClass)">
                 <span class="pct-delta-pill pct-delta-pill--long" data-testid="class-delta-badge" x-show="classDeltaMessage" x-text="classDeltaMessage"></span>
                 <span class="metric-stack" x-show="!classDeltaMessage">
@@ -148,7 +203,7 @@
                 </span>
               </td>
               <td data-testid="class-total-current-pct-portfolio">
-                <span class="pct-current-pill" data-testid="class-current-pct" x-text="formatPct(classCurrentPct)"></span>
+                <span class="pct-current-pill" data-testid="class-current-pct" x-text="formatPctRounded(classCurrentPct)"></span>
               </td>
               <td data-testid="class-total-target-pct-portfolio">
                 {% if view == 'profile' %}
@@ -158,7 +213,7 @@
                         x-show="!editingClassPct"
                         @click.stop="startEditClassPct()"
                         title="Clique para editar">
-                  <span x-text="formatPct(classTargetPct)"></span>
+                  <span x-text="formatPctRounded(classTargetPct)"></span>
                 </button>
                 <span class="asset-pct-cell asset-pct-cell--editing asset-pct-cell--inline"
                       data-testid="class-target-pct-edit"
@@ -190,7 +245,7 @@
               <td data-testid="class-total-deviation-portfolio" :class="signClass(classPortfolioDeviationPct)">
                 <span class="metric-stack">
                   <span class="icon icon--sm metric-sign" x-text="signIcon(classPortfolioDeviationPct)" aria-hidden="true"></span>
-                  <span x-text="formatPct(classPortfolioDeviationPct)"></span>
+                  <span x-text="formatPctRounded(classPortfolioDeviationPct)"></span>
                 </span>
               </td>
               <td></td>
@@ -201,7 +256,7 @@
           <template x-if="isOpen && displayAssets.length === 0">
             <tbody class="class-section-body" :class="{'class-section-body--collapsed': !isOpen}">
               <tr>
-                <td colspan="16">
+                <td colspan="15">
                   <div class="empty-state empty-state--inline" data-testid="empty-assets">
                     <p>Nenhum ativo nesta classe.</p>
                   </div>
@@ -209,7 +264,7 @@
               </tr>
             </tbody>
           </template>
-            <template x-for="a in displayAssets" :key="a.id">
+            <template x-for="a in filteredAssets" :key="a.id">
               <tbody class="class-section-body" :class="{'class-section-body--collapsed': !isOpen}" x-show="isOpen">
                 <tr data-testid="dashboard-asset-row" :data-asset-id="a.id" :data-position-count="a.position_count" :data-asset-class-name="a.class_name">
                   <td data-testid="asset-row-name">
@@ -224,15 +279,15 @@
                               title="Remover ativo"><span class="icon icon--sm" aria-hidden="true">close</span></button>
                     </div>
                   </td>
-                  <td data-testid="asset-position-count" x-text="formatQty(a.qty)"></td>
+                  <td data-testid="asset-position-count" x-text="formatQty(a.qty, a.name)"></td>
                   <td data-testid="asset-avg-price" x-text="formatMoney(a.avg_price, a.currency_code)"></td>
                   <td class="gain-cell" data-testid="asset-row-gain" :class="signClass(a.gain_value)">
                     <div class="metric-stack metric-stack--gain">
                       <span class="icon icon--sm metric-sign" x-text="signIcon(a.gain_value)" aria-hidden="true"></span>
                       <span x-text="formatMoney(a.gain_value, a.currency_code)"></span>
+                      <span class="gain-cell-pct" x-text="'(' + formatPctRounded(a.gain_pct) + ')'"></span>
                     </div>
                   </td>
-                  <td class="gain-cell gain-cell--pct" :class="signClass(a.gain_value)" x-text="formatPct(a.gain_pct)"></td>
                   <td data-testid="asset-current-value" x-text="formatMoney(a.current_value, a.currency_code)"></td>
                   <td data-testid="asset-position-deviation" :class="signClass(a.position_deviation_value)">
                     <span class="metric-stack">
@@ -240,19 +295,19 @@
                       <span x-text="formatMoney(a.position_deviation_value, a.currency_code)"></span>
                     </span>
                   </td>
-                  <td data-testid="asset-current-pct-class"><span data-testid="asset-pct" hidden x-text="a.current_pct_class"></span><span x-text="formatPct(a.current_pct_class)"></span></td>
+                  <td data-testid="asset-current-pct-class"><span data-testid="asset-pct" hidden x-text="a.current_pct_class"></span><span x-text="formatPctRounded(a.current_pct_class)"></span></td>
                   <td data-testid="asset-target-pct-class">
                     <button type="button"
                             class="asset-pct-cell asset-pct-cell--editable asset-pct-cell--inline"
                             @click="startEdit(a.id)"
                             x-show="editingAssetId !== a.id && !readOnly"
                             title="Clique para editar">
-                      <span x-text="formatPctOrDash(a.target_pct)"></span>
+                      <span x-text="formatPctRounded(a.target_pct)"></span>
                     </button>
                     <span class="asset-pct-cell asset-pct-cell--inline"
                           data-testid="asset-target-pct-class-static"
                           x-show="editingAssetId !== a.id && readOnly"
-                          x-cloak><span x-text="formatPctOrDash(a.target_pct)"></span></span>
+                           x-cloak><span x-text="formatPctRounded(a.target_pct)"></span></span>
                     <div class="asset-pct-cell asset-pct-cell--editing asset-pct-cell--inline"
                          data-testid="asset-target-pct-class-editing"
                          x-show="editingAssetId === a.id"
@@ -280,19 +335,19 @@
                       <span x-text="formatPct(a.class_deviation_pct)"></span>
                     </span>
                   </td>
-                  <td data-testid="asset-current-pct-total" x-text="formatPct(a.current_pct_total)"></td>
+                  <td data-testid="asset-current-pct-total" x-text="formatPctRounded(a.current_pct_total)"></td>
                   <td data-testid="asset-target-pct-total">
                     <button type="button"
                             class="asset-pct-cell asset-pct-cell--editable asset-pct-cell--inline"
                             @click="startEditTotal(a.id)"
                             x-show="editingTotalAssetId !== a.id && !readOnly"
                             title="Clique para editar">
-                      <span x-text="formatPctOrDash(a.target_pct_total)"></span>
+                      <span x-text="formatPctRounded(a.target_pct_total)"></span>
                     </button>
                     <span class="asset-pct-cell asset-pct-cell--inline"
                           data-testid="asset-target-pct-total-static"
                           x-show="editingTotalAssetId !== a.id && readOnly"
-                           x-cloak><span x-text="formatPctOrDash(a.target_pct_total)"></span></span>
+                            x-cloak><span x-text="formatPctRounded(a.target_pct_total)"></span></span>
                     <div class="asset-pct-cell asset-pct-cell--editing asset-pct-cell--inline"
                          data-testid="asset-target-pct-total-editing"
                          x-show="editingTotalAssetId === a.id"
@@ -327,7 +382,7 @@
                   <td data-testid="asset-portfolio-deviation" :class="signClass(a.portfolio_deviation_pct)">
                     <span class="metric-stack">
                       <span class="icon icon--sm metric-sign" x-text="signIcon(a.portfolio_deviation_pct)" aria-hidden="true"></span>
-                      <span x-text="formatPct(a.portfolio_deviation_pct)"></span>
+                      <span x-text="formatPctRounded(a.portfolio_deviation_pct)"></span>
                     </span>
                   </td>
                   <td data-testid="asset-buy-cell">
@@ -364,7 +419,7 @@
                   </td>
                 </tr>
                 <tr x-show="showDeleteAssetId === a.id" x-cloak>
-                  <td colspan="16">
+                  <td colspan="15">
                     <div class="dashboard-asset-delete-confirm"
                          data-testid="dashboard-asset-delete-confirm"
                          :data-asset-id="a.id">

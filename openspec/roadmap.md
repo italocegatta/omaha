@@ -113,13 +113,28 @@ Progress log: `2026-07-12` apply complete; refresh-for-test smoke OK.
 Progress log: `2026-07-12` archived after spec sync and closeout.
 
 ### F28 - Números arredondados e ganho unificado
-Status: `Ready`
+Status: `Applied`
 Goal: formatar campos numéricos com arredondamento para 0 casas decimais, exceto QTD de BTC com 3 casas, e reestruturar coluna ganho para mostrar valor absoluto + percentual juntos, ordenando por absoluto.
 Candidate OpenSpec change id: `f28-numeros-arredondados-e-ganho-unificado`
 Spec link: `openspec/changes/f28-numeros-arredondados-e-ganho-unificado/`
 Files to inspect: `src/omaha/templates/_patrimonio*.html`, `src/omaha/templates/_rebalance*.html`, `src/omaha/static/app.css`
 Notes: foco em densidade e leitura.
 Progress log: `2026-07-12` added from owner request.
+Progress log: `2026-07-13` proposal queued.
+Progress log: `2026-07-13` implementation started.
+Progress log: `2026-07-13` apply complete; focused regressions, unit suite, lint, OpenSpec validation, and refresh-for-test smoke passed.
+Progress log: `2026-07-13` review feedback: restore asset-table advanced filter parity and round pct columns.
+Progress log: `2026-07-13` review repair applied; asset filters, pct rounding, focused browser tests, validation, and refresh smoke passed.
+Progress log: `2026-07-13` review rejected; fix filter clipping/parity and scope pct rounding to requested cells.
+Progress log: `2026-07-13` second review rejected; update stale route test, keep horizontal scroll, fix BTC range labels, zero normalization, and class desvio rounding.
+Progress log: `2026-07-13` third review rejected; fix enum mapping, boundary identity, popover scroll/resize, and empty-range safety.
+Progress log: `2026-07-13` fourth review rejected; update visual baselines and replace unregistered icon.
+Progress log: `2026-07-13` fifth review rejected; render exact zero target values as `0%`, not dash.
+Progress log: `2026-07-13` review repair applied; visible filter overlays, Qtd/Preço médio ranges, scoped pct rounding, browser coverage, lint, and OpenSpec validation pass.
+Progress log: `2026-07-13` second-review repair applied; horizontal scroll + fixed filter popovers, BTC range labels, rounded class desvio, normalized `0%`, focused browser/route checks, validation, and refresh smoke passed. Awaiting final review.
+Progress log: `2026-07-13` third-review repair applied; enum filters map to canonical asset fields, tied BTC range boundaries retain identity, teleported popovers reposition on scroll/resize, empty ranges use finite bounds. Integration passed; F28 browser coverage passed; OpenSpec validation and refresh smoke passed. Ready for final review.
+Progress log: `2026-07-13` fourth-review repair applied; header filter uses cataloged `expand_more`, intentional Patrimônio/import and rebalance visual baselines regenerated, unit + visual gates and OpenSpec validation pass; refresh smoke passed. Ready for final review.
+Progress log: `2026-07-13` fifth-review repair applied; exact numeric asset targets use `0%` in Classe / Alvo and Carteira / Alvo, while `—` remains absent/invalid-only. Focused browser regression, unit suite, lint, OpenSpec validation, and refresh smoke passed. Ready for final review.
 
 ### F29 - Compra e venda com emoji toggle
 Status: `Ready`
@@ -307,6 +322,33 @@ Files to inspect: `README.md`, `tests/bdd/README.md`, `tests/PERFORMANCE.md`, `t
 Notes: foco em legibilidade, estabilidade e contrato claro; baixo risco.
 Progress log: `2026-07-12` added from suite-performance investigation.
 
+### T16 - Gate pré-merge sub-2m
+Status: `Ready`
+Goal: definir lane pré-merge rápida abaixo de 2 min, separando fast gate de browser lanes e coverage pesada.
+Candidate OpenSpec change id: `t16-gate-pre-merge-sub-2m`
+Spec link: `openspec/changes/t16-gate-pre-merge-sub-2m/`
+Files to inspect: `pyproject.toml`, `tests/PERFORMANCE.md`, `tests/conftest.py`, `openspec/PRD.md`
+Notes: baseline rerun em 2026-07-13 mostrou unit 15.37s, integration 190.12s com falha em `tests/test_healthz.py::test_healthz_returns_503_with_db_down_when_engine_raises`, audit 25.04s, e2e 192.50s, bdd 176.87s, visual 55.36s.
+Progress log: `2026-07-13` added from rerun of test timing baseline.
+
+### T17 - Paralelizar integration com DB por worker
+Status: `Ready`
+Goal: habilitar paralelismo seguro no lane integration via isolamento de banco por worker para reduzir wall-clock sem corromper estado compartilhado.
+Candidate OpenSpec change id: `t17-paralelizar-integration-com-db-por-worker`
+Spec link: `openspec/changes/t17-paralelizar-integration-com-db-por-worker/`
+Files to inspect: `tests/conftest.py`, `tests/support/db.py`, `pyproject.toml`, `.github/workflows/`
+Notes: xdist só entra se worker ganhar DB próprio; rerun mostrou integration ainda >3 min e continua principal gargalo.
+Progress log: `2026-07-13` added from rerun of test timing baseline.
+
+### T18 - Cortar setup repetido dos hotspots
+Status: `Ready`
+Goal: reduzir custo de bootstrap/alembic/seed nos testes mais caros de integration, focando helpers compartilhados e fixtures session-scoped.
+Candidate OpenSpec change id: `t18-cortar-setup-repetido-dos-hotspots`
+Spec link: `openspec/changes/t18-cortar-setup-repetido-dos-hotspots/`
+Files to inspect: `tests/test_audit_inventory.py`, `tests/test_db_reset_both_profiles.py`, `tests/test_seed_from_csv.py`, `tests/support/db.py`, `tests/conftest.py`
+Notes: hotspots confirmados no rerun: `test_audit_inventory` (~11s), `db_reset_both_profiles` (~4.5s), `seed_from_csv` (~3s+).
+Progress log: `2026-07-13` added from rerun of test timing baseline.
+
 ### I01 - Agendamento automático de backup
 Status: `Archived` — 2026-07-06
 Archive: `openspec/changes/archive/2026-07-06-i01-automatic-backup-scheduling/`
@@ -374,6 +416,9 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 7. T13 - Cobertura fora dos browsers
 8. T14 - Helpers compartilhados de setup e wipe
 9. T15 - Contratos e docs da suíte
+10. T16 - Gate pré-merge sub-2m
+11. T17 - Paralelizar integration com DB por worker
+12. T18 - Cortar setup repetido dos hotspots
 
 Order note: F19 and F20 archived after spec sync + archive flow. On
 2026-07-09 owner split broad test-triage work for context control: T07 keeps
@@ -387,9 +432,11 @@ full-group reruns before root cause is known. On 2026-07-10, T09 was archived;
   push still blocked by repo-wide hook drift outside slice, so I03/I04 were
   added as next delivery-gate cleanup slices; both are now archived. On
   2026-07-11, F21 was archived without syncing its
-  discarded PoC spec; F22 is now next. On 2026-07-12, F26 was split into F27-F29
-  to keep slices small and testable. On 2026-07-12, suite investigation added
-  T13-T15 to separate runtime wins, harness cleanup, and docs/contract drift.
+   discarded PoC spec; F22 is now next. On 2026-07-12, F26 was split into F27-F29
+   to keep slices small and testable. On 2026-07-12, suite investigation added T13-T15 to separate runtime wins,
+   harness cleanup, and docs/contract drift. On 2026-07-13, fresh timing rerun
+   confirmed unit/bdd/visual gains but left integration as main >2m blocker,
+   so T16-T18 split pre-merge gate, worker parallelism, and hotspot setup cuts.
 
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed, reactivation path documented above.

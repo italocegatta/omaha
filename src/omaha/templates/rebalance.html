@@ -266,9 +266,10 @@
             return '';
           }
           var normalizedAssetName = String(assetName || '').trim().toUpperCase();
+          var fractionDigits = normalizedAssetName === 'BTC' ? 3 : 0;
           return Number(value).toLocaleString('pt-BR', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: normalizedAssetName === 'BTC' ? 4 : 0,
+            minimumFractionDigits: fractionDigits,
+            maximumFractionDigits: fractionDigits,
           });
         },
         formatDeviationPp: function (v) {

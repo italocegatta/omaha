@@ -1695,8 +1695,7 @@ td.editing {
   --col-ativo: 340px;
   --col-qtd: 50px;
   --col-avg-price: 90px;
-  --col-gain-value: 100px;
-  --col-gain-pct: 90px;
+  --col-gain: 145px;
   --col-position: 90px;
   --col-position-deviation: 100px;
   --col-class-current: 90px;
@@ -1749,7 +1748,7 @@ td.editing {
 
 .class-section {
   padding: 0.85rem 0.95rem 1rem;
-  overflow-x: auto;
+  overflow: visible;
 }
 
 .class-section-header {
@@ -1772,7 +1771,8 @@ td.editing {
 }
 
 .portfolio-table-shell {
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
   border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
   background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 80%, white 20%), var(--surface));
@@ -1780,7 +1780,7 @@ td.editing {
 }
 
 .asset-table {
-  min-width: 1650px;
+  min-width: 1550px;
   width: 100%;
   font-size: 0.84rem;
   background: transparent;
@@ -1792,19 +1792,18 @@ td.editing {
 .asset-table col:nth-child(1) { width: var(--col-ativo); }
 .asset-table col:nth-child(2) { width: var(--col-qtd); }
 .asset-table col:nth-child(3) { width: var(--col-avg-price); }
-.asset-table col:nth-child(4) { width: var(--col-gain-value); }
-.asset-table col:nth-child(5) { width: var(--col-gain-pct); }
-.asset-table col:nth-child(6) { width: var(--col-position); }
-.asset-table col:nth-child(7) { width: var(--col-position-deviation); }
-.asset-table col:nth-child(8) { width: var(--col-class-current); }
-.asset-table col:nth-child(9) { width: var(--col-class-target); }
-.asset-table col:nth-child(10) { width: var(--col-class-deviation); }
-.asset-table col:nth-child(11) { width: var(--col-portfolio-current); }
-.asset-table col:nth-child(12) { width: var(--col-portfolio-target); }
-.asset-table col:nth-child(13) { width: var(--col-portfolio-deviation); }
-.asset-table col:nth-child(14) { width: var(--col-buy); }
-.asset-table col:nth-child(15) { width: var(--col-sell); }
-.asset-table col:nth-child(16) { width: var(--col-currency); }
+.asset-table col:nth-child(4) { width: var(--col-gain); }
+.asset-table col:nth-child(5) { width: var(--col-position); }
+.asset-table col:nth-child(6) { width: var(--col-position-deviation); }
+.asset-table col:nth-child(7) { width: var(--col-class-current); }
+.asset-table col:nth-child(8) { width: var(--col-class-target); }
+.asset-table col:nth-child(9) { width: var(--col-class-deviation); }
+.asset-table col:nth-child(10) { width: var(--col-portfolio-current); }
+.asset-table col:nth-child(11) { width: var(--col-portfolio-target); }
+.asset-table col:nth-child(12) { width: var(--col-portfolio-deviation); }
+.asset-table col:nth-child(13) { width: var(--col-buy); }
+.asset-table col:nth-child(14) { width: var(--col-sell); }
+.asset-table col:nth-child(15) { width: var(--col-currency); }
 
 .asset-table th,
 .asset-table td {
@@ -1828,6 +1827,15 @@ td.editing {
   font-weight: 700;
 }
 
+.asset-table-header-filter {
+  position: relative;
+  padding-right: 2.9rem !important;
+}
+
+.asset-table .rebalance-filter-panel--header {
+  z-index: 100;
+}
+
 .asset-table-group-row th {
   background: color-mix(in srgb, var(--surface-sunk) 70%, var(--surface));
   border-bottom: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
@@ -1838,8 +1846,7 @@ td.editing {
   width: 100%;
 }
 
-.asset-table-group-row th[data-testid="asset-table-th-gain"],
-.asset-table-group-row th[colspan="3"] {
+.asset-table-group-row th[data-testid="asset-table-th-gain"] {
   text-align: center;
 }
 
@@ -1900,10 +1907,8 @@ td.editing {
   white-space: nowrap;
 }
 
-.gain-cell--pct {
-  border-left: none;
-  padding-left: 0.15rem;
-  font-size: inherit;
+.gain-cell-pct {
+  font-size: 0.78rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -3062,10 +3067,6 @@ td.editing {
 .rebalance-header-clear-btn:hover {
   background: color-mix(in srgb, var(--negative) 12%, transparent);
   color: var(--negative);
-}
-.rebalance-header-filter-btn .material-symbols-outlined,
-.rebalance-header-clear-btn .material-symbols-outlined {
-  font-size: 1rem;
 }
 .rebalance-filter-panel--header {
   position: absolute;
