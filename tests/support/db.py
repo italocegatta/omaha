@@ -90,6 +90,33 @@ def run_alembic_upgrade(repo_root: Path, db_url: str) -> None:
     )
 
 
+def set_asset_target_pcts_via_db(
+    assignments: dict[str, float],
+    db_path: Path | None = None,
+) -> None:
+    """Patch ``Asset.target_pct`` directly via sqlite so the
+    CVXPY rebalance engine sees a valid portfolio (assets' target_pct
+    must sum to 100 within each class).
+
+    Used by e2e tests that need the rebalance plan to render but
+    don't have a CSV import path that already encodes target_pct.
+    Direct DB write — bypasses the asset/position seed invariant
+    (PRD §4.3) because this is test-only setup.
+    """
+    if db_path is None:
+        db_path = Path(__file__).resolve().parent.parent.parent / "data" / "test_e2e.db"
+    conn = sqlite3.connect(db_path)
+    try:
+        for asset_name, target_pct in assignments.items():
+            conn.execute(
+                "UPDATE assets SET target_pct = ? WHERE name = ?",
+                (target_pct, asset_name),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def wipe_profile_in_sqlite(db_path: Path, profile_name: str) -> None:
     """Delete one profile's test data while preserving historical test ordering."""
     from scripts.seed_from_csv.wipe import wipe_profile_rows

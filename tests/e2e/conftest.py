@@ -53,46 +53,44 @@ from __future__ import annotations
 
 import os
 import re
-import sqlite3
-import subprocess
-import sys
-import uuid
 from pathlib import Path
 from typing import Any
 
 import pytest
-from playwright.sync_api import Error as PlaywrightError
 
-from tests.e2e.test_import_user_journey import SELECTORS as IMPORT_SELECTORS
 from tests.support.browser import (
-    compose_server_env,
+    HarnessPage,
     launch_chromium,
 )
 from tests.support.browser import (
     log_harness as _log_harness,
 )
-from tests.support.browser import (
-    read_log_tail as _read_log_tail,
-)
+
+# Re-export for backward compat — test files import from this module
+from tests.support.browser import read_log_tail as _read_log_tail  # noqa: E402, F401
 from tests.support.browser import (
     resolve_chromium as _resolve_chromium,
 )
-from tests.support.browser import (
-    shutdown_uvicorn as _shutdown_uvicorn,
+from tests.support.browser import shutdown_uvicorn as _shutdown_uvicorn  # noqa: E402, F401
+from tests.support.browser import uvicorn_log_file as _uvicorn_log_file  # noqa: E402, F401
+from tests.support.browser import wait_for_port as _wait_for_port  # noqa: E402, F401
+from tests.support.constants import (
+    REPO_ROOT,
+    TEST_ADMIN_PASSWORD,
+    TEST_SECRET_KEY,
 )
-from tests.support.browser import (
-    uvicorn_log_file as _uvicorn_log_file,
-)
-from tests.support.browser import (
-    wait_for_port as _wait_for_port,
+from tests.support.db import (
+    set_asset_target_pcts_via_db as _set_asset_target_pcts_via_db,  # noqa: F401  (re-exported)
 )
 from tests.support.db import wipe_profile_in_sqlite
+from tests.support.hooks import remember_call_report as _remember_call_report
+from tests.support.import_flow import (
+    seed_assets_with_positions_via_import as _seed_assets_with_positions_via_import,  # noqa: F401
+)
+from tests.support.server import run_test_server
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 TEST_DB_PATH = REPO_ROOT / "data" / "test_e2e.db"
 TEST_PORT = 8765
-TEST_ADMIN_PASSWORD = "test-password"
-TEST_SECRET_KEY = "test-secret-e2e-do-not-use-in-prod"
 TEST_BASE_URL = f"http://127.0.0.1:{TEST_PORT}"
 
 # Separate server fixture for the expired-preview test: a 1-second
@@ -112,149 +110,11 @@ TEST_BASE_URL_SHORT_TTL = f"http://127.0.0.1:{TEST_PORT_SHORT_TTL}"
 TRACE_DIR_ENV_VAR = "OMAHA_E2E_TRACE_DIR"
 
 _BROWSER_CONTEXTS: dict[int, list[Any]] = {}
-_GOTO_INTERRUPT_RE = re.compile(
-    r'Navigation to "(?P<target>[^"]+)" is interrupted by another navigation to "(?P<other>[^"]+)"'
-)
-
-
-class _HarnessPage:
-    """Thin Page proxy with retry-on-same-URL navigation guard.
-
-    Some Omaha test workflows click a UI action that triggers
-    ``window.location.reload()`` and then immediately call
-    ``page.goto()`` to the same dashboard URL. Under slower harness
-    paths (notably trace/debug runs), Playwright can surface this as
-    a same-URL navigation interruption even though the in-flight
-    reload already heads to the requested page. Treat that narrow
-    case as wait-for-completion instead of hard failure.
-    """
-
-    def __init__(self, page: Any):
-        self._page = page
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._page, name)
-
-    def goto(self, url: str, *args: Any, **kwargs: Any):
-        try:
-            return self._page.goto(url, *args, **kwargs)
-        except PlaywrightError as exc:
-            match = _GOTO_INTERRUPT_RE.search(str(exc))
-            if match is None or match.group("target") != url or match.group("other") != url:
-                raise
-            timeout = int(kwargs.get("timeout", 30_000))
-            wait_until = kwargs.get("wait_until", "load")
-            _log_harness(f"same-URL goto interrupted by in-flight reload; waiting instead: {url}")
-            self._page.wait_for_url(url, wait_until=wait_until, timeout=timeout)
-            return None
-
-
-def _remember_call_report(item: pytest.Item, report: pytest.TestReport) -> None:
-    if report.when == "call":
-        item._omaha_call_report = report
 
 
 def _trace_artifact_path(base_dir: Path, nodeid: str) -> Path:
     slug = re.sub(r"[^A-Za-z0-9._-]+", "_", nodeid).strip("_") or "trace"
     return base_dir / f"{slug}.zip"
-
-
-def _seed_assets_with_positions_via_import(
-    page,
-    live_url: str,
-    class_assignments: list[tuple[str, str]],
-    positions: dict[str, tuple[float, float]] | None = None,
-) -> None:
-    """Drive the dashboard import modal with a small inline CSV.
-
-    Builds a 1-line-header + N-data-rows CSV in /tmp, uploads via
-    dashboard import modal (existing flow), auto-matches everything
-    (no unmatched names), commits. End state: N assets with 1
-    position each, assigned to the requested classes.
-
-    Replaces _seed_one_position_for_asset and _seed_positions,
-    which violated the project's "assets come from import, never
-    from seed" rule (AGENTS.md).
-    """
-    csv_path = Path("/tmp") / f"omaha-test-{uuid.uuid4().hex[:8]}.csv"
-    with csv_path.open("w") as f:
-        f.write('"Posicao consolidada","Cliente: TEST"\n')
-        # broker-csv-import-totals: include ``Total investido`` /
-        # ``Total atual`` columns so the parsed positions carry the
-        # broker-published totals. Without these, the dashboard's
-        # portfolio header (gated on current_value > 0) hides and
-        # downstream e2e selectors that wait on it timeout. We use
-        # ``R$`` prefix + BR-milhar to exercise the parser's
-        # number-format path the same way the real broker CSV does.
-        f.write(
-            "Codigo,Ativo,Quantidade,Preco Medio,Preco Atual,"
-            "Total investido,Total atual,Minha Categoria\n"
-        )
-        for class_name, asset_name in class_assignments:
-            qty, price = (positions or {}).get(asset_name, (100.0, 100.0))
-            total_invested = qty * 100.00
-            total_current = qty * price
-
-            # Use BR-milhar formatting for prices > 1000 so the
-            # parser exercises the dot-as-thousands path.
-            def _fmt(value: float) -> str:
-                # Renders 12345.67 → "12.345,67"; small values stay
-                # as "100,00".
-                s = f"{value:,.2f}"
-                return s.replace(",", "X").replace(".", ",").replace("X", ".")
-
-            f.write(
-                f"{asset_name},{asset_name},{qty:.2f},100.00,{price:.2f},"
-                f'"R$ {_fmt(total_invested)}","R$ {_fmt(total_current)}",{class_name}\n'
-            )
-
-    # Drive the modal — reuse the flow from test_import_user_journey.py
-    page.click(IMPORT_SELECTORS["dashboard_import_btn"])
-    page.wait_for_selector('[data-testid="import-modal-overlay"]', state="visible", timeout=5000)
-    page.wait_for_timeout(300)  # Alpine modal mounts
-    page.set_input_files(IMPORT_SELECTORS["import_file_input"], str(csv_path))
-    page.wait_for_selector(IMPORT_SELECTORS["import_commit_btn"], timeout=10000)
-    # No unmatched — direct commit
-    page.click(IMPORT_SELECTORS["import_commit_btn"], force=True)
-    page.wait_for_timeout(300)
-    error_text = ""
-    try:
-        error_el = page.locator(IMPORT_SELECTORS["import_commit_error"])
-        if error_el.count() and error_el.is_visible():
-            error_text = error_el.inner_text()
-    except Exception:
-        pass
-    if error_text:
-        raise RuntimeError(f"import commit failed: {error_text}")
-    page.wait_for_selector('[data-testid="import-modal-overlay"]', state="hidden", timeout=10000)
-    csv_path.unlink(missing_ok=True)  # cleanup
-
-
-def _set_asset_target_pcts_via_db(
-    assignments: dict[str, float],
-    db_path: Path | None = None,
-) -> None:
-    """Patch ``Asset.target_pct`` directly via sqlite so the
-    CVXPY rebalance engine sees a valid portfolio (assets' target_pct
-    must sum to 100 within each class).
-
-    Used by e2e tests that need the rebalance plan to render but
-    don't have a CSV import path that already encodes target_pct.
-    Direct DB write — bypasses the asset/position seed invariant
-    (PRD §4.3) because this is test-only setup.
-    """
-    if db_path is None:
-        db_path = Path(__file__).resolve().parent.parent.parent / "data" / "test_e2e.db"
-    conn = sqlite3.connect(db_path)
-    try:
-        for asset_name, target_pct in assignments.items():
-            conn.execute(
-                "UPDATE assets SET target_pct = ? WHERE name = ?",
-                (target_pct, asset_name),
-            )
-        conn.commit()
-    finally:
-        conn.close()
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -270,121 +130,31 @@ def live_url() -> str:
     if TEST_DB_PATH.exists():
         TEST_DB_PATH.unlink()
 
-    env = compose_server_env(
+    with run_test_server(
         TEST_DB_PATH,
-        admin_password=TEST_ADMIN_PASSWORD,
+        TEST_PORT,
+        label="e2e-live-url",
         secret_key=TEST_SECRET_KEY,
-        extra={
-            # Empty string means "not set" to the app's check
-            # (``os.environ.get(...) != "1"``), so the startup hook
-            # runs alembic + seed against the test DB.
-            "OMAHA_SKIP_STARTUP": "",
-        },
-    )
-
-    log_handle = _uvicorn_log_file(REPO_ROOT, "e2e-live-url")
-    log_path = Path(log_handle.name)
-    proc = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "omaha.main:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            str(TEST_PORT),
-            "--log-level",
-            "warning",
-        ],
-        cwd=REPO_ROOT,
-        env=env,
-        stdout=log_handle,
-        stderr=subprocess.STDOUT,
-    )
-
-    try:
-        _wait_for_port("127.0.0.1", TEST_PORT, timeout=30.0)
-    except Exception:
-        proc.terminate()
-        log_handle.close()
-        raise RuntimeError(f"uvicorn did not start. output:\n{_read_log_tail(log_path)}") from None
-
-    yield TEST_BASE_URL
-
-    _shutdown_uvicorn(
-        proc,
-        label="e2e live_url",
-        host="127.0.0.1",
-        port=TEST_PORT,
-        log_handle=log_handle,
-        log_path=log_path,
-    )
-
-
-def _start_uvicorn(db_path: Path, port: int, extra_env: dict[str, str]) -> subprocess.Popen:
-    """Start a uvicorn subprocess for e2e with the given DB and env."""
-    if db_path.exists():
-        db_path.unlink()
-
-    env = compose_server_env(
-        db_path,
         admin_password=TEST_ADMIN_PASSWORD,
-        secret_key=TEST_SECRET_KEY,
-        extra={"OMAHA_SKIP_STARTUP": "", **extra_env},
-    )
-
-    log_handle = _uvicorn_log_file(REPO_ROOT, f"e2e-port-{port}")
-    log_path = Path(log_handle.name)
-    proc = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "omaha.main:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            str(port),
-            "--log-level",
-            "warning",
-        ],
-        cwd=REPO_ROOT,
-        env=env,
-        stdout=log_handle,
-        stderr=subprocess.STDOUT,
-    )
-
-    try:
-        _wait_for_port("127.0.0.1", port, timeout=30.0)
-    except Exception:
-        proc.terminate()
-        log_handle.close()
-        raise RuntimeError(f"uvicorn did not start. output:\n{_read_log_tail(log_path)}") from None
-
-    proc._omaha_log_handle = log_handle
-    proc._omaha_log_path = log_path
-    return proc
+    ) as url:
+        yield url
 
 
 @pytest.fixture(scope="session")
 def live_url_short_ttl() -> str:
     """Start a uvicorn process with a 1-second preview TTL."""
-    proc = _start_uvicorn(
+    if TEST_DB_PATH_SHORT_TTL.exists():
+        TEST_DB_PATH_SHORT_TTL.unlink()
+
+    with run_test_server(
         TEST_DB_PATH_SHORT_TTL,
         TEST_PORT_SHORT_TTL,
+        label="e2e-port-8767",
+        secret_key=TEST_SECRET_KEY,
+        admin_password=TEST_ADMIN_PASSWORD,
         extra_env={"PREVIEW_TTL_SECONDS": "1"},
-    )
-    yield TEST_BASE_URL_SHORT_TTL
-
-    _shutdown_uvicorn(
-        proc,
-        label="e2e live_url_short_ttl",
-        host="127.0.0.1",
-        port=TEST_PORT_SHORT_TTL,
-        log_handle=getattr(proc, "_omaha_log_handle", None),
-        log_path=getattr(proc, "_omaha_log_path", None),
-    )
+    ) as url:
+        yield url
 
 
 @pytest.fixture(autouse=True)
@@ -481,7 +251,7 @@ def browser_context(_browser, request: pytest.FixtureRequest):
 def page(browser_context):
     """Fresh page bound to an isolated browser context."""
     raw_page = browser_context.new_page()
-    page = _HarnessPage(raw_page)
+    page = HarnessPage(raw_page)
     try:
         yield page
     finally:

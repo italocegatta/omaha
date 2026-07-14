@@ -302,13 +302,9 @@ Goal: tirar cobertura/XML de e2e, bdd e visual; manter coverage em unit + integr
 Archive: `openspec/changes/archive/2026-07-14-t13-cobertura-fora-dos-browsers/`
 
 ### T14 - Helpers compartilhados de setup e wipe
-Status: `Ready`
+Status: `Archived` — 2026-07-14
 Goal: extrair bootstrap, wipe de DB e helpers de browser/fixture de `conftest` e testes para módulos de support compartilhados.
-Candidate OpenSpec change id: `t14-helpers-compartilhados-de-setup-e-wipe`
-Spec link: `openspec/changes/t14-helpers-compartilhados-de-setup-e-wipe/`
-Files to inspect: `tests/conftest.py`, `tests/e2e/conftest.py`, `tests/bdd/conftest.py`, `tests/visual/conftest.py`, `tests/e2e/test_import_user_journey.py`, `scripts/seed_from_csv/modes.py`
-Notes: foco em duplicação, isolamento e manutenção.
-Progress log: `2026-07-12` added from suite-performance investigation.
+Archive: `openspec/changes/archive/2026-07-14-t14-helpers-compartilhados-de-setup-e-wipe/`
 
 ### T15 - Contratos e docs da suíte
 Status: `Ready`
@@ -405,12 +401,11 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 **Active queue:**
 
 1. T13 - Cobertura fora dos browsers
-2. T14 - Helpers compartilhados de setup e wipe
-3. T15 - Contratos e docs da suíte
-4. T16 - Gate pré-merge sub-2m
-5. T17 - Paralelizar integration com DB por worker
-6. T18 - Cortar setup repetido dos hotspots
-7. F29 - Compra e venda com emoji toggle
+2. T15 - Contratos e docs da suíte
+3. T16 - Gate pré-merge sub-2m
+4. T17 - Paralelizar integration com DB por worker
+5. T18 - Cortar setup repetido dos hotspots
+6. F29 - Compra e venda com emoji toggle
 
 Order note: F19 and F20 archived after spec sync + archive flow. On
 2026-07-09 owner split broad test-triage work for context control: T07 keeps

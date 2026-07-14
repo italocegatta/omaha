@@ -146,3 +146,48 @@ def compose_server_env(
 
 def run_setup_command(args: list[str], *, repo_root: Path, env: dict[str, str]) -> None:
     subprocess.run(args, cwd=repo_root, env=env, check=True)
+
+
+# ---------------------------------------------------------------------------
+# HarnessPage — goto retry guard for same-URL navigation
+# ---------------------------------------------------------------------------
+
+_GOTO_INTERRUPT_RE = re.compile(
+    r'Navigation to "(?P<target>[^"]+)" is interrupted by another navigation to "(?P<other>[^"]+)"'
+)
+
+
+class HarnessPage:
+    """Thin Page proxy with retry-on-same-URL navigation guard.
+
+    Some Omaha test workflows click a UI action that triggers
+    ``window.location.reload()`` and then immediately call
+    ``page.goto()`` to the same dashboard URL. Under slower harness
+    paths (notably trace/debug runs), Playwright can surface this as
+    a same-URL navigation interruption even though the in-flight
+    reload already heads to the requested page. Treat that narrow
+    case as wait-for-completion instead of hard failure.
+    """
+
+    def __init__(self, page: Any):
+        self._page = page
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._page, name)
+
+    def goto(self, url: str, *args: Any, **kwargs: Any):
+        try:
+            return self._page.goto(url, *args, **kwargs)
+        except Exception as exc:
+            from playwright.sync_api import Error as PlaywrightError
+
+            if not isinstance(exc, PlaywrightError):
+                raise
+            match = _GOTO_INTERRUPT_RE.search(str(exc))
+            if match is None or match.group("target") != url or match.group("other") != url:
+                raise
+            timeout = int(kwargs.get("timeout", 30_000))
+            wait_until = kwargs.get("wait_until", "load")
+            log_harness(f"same-URL goto interrupted by in-flight reload; waiting instead: {url}")
+            self._page.wait_for_url(url, wait_until=wait_until, timeout=timeout)
+            return None

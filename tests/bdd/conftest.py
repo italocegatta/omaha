@@ -16,10 +16,6 @@ failing immediately.
 
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
-
 import pytest
 
 from tests.e2e.conftest import (  # noqa: F401  (re-exported to step_defs)
@@ -27,21 +23,19 @@ from tests.e2e.conftest import (  # noqa: F401  (re-exported to step_defs)
 )
 from tests.e2e.conftest import (
     _browser,  # noqa: F401  (transitive: page → browser_context → _browser)
-    _read_log_tail,
-    _remember_call_report,
-    _shutdown_uvicorn,
-    _uvicorn_log_file,
-    _wait_for_port,
     browser_context,  # noqa: F401
     page,  # noqa: F401
 )
-from tests.support.browser import compose_server_env
+from tests.support.constants import (
+    REPO_ROOT,
+    TEST_ADMIN_PASSWORD,
+    TEST_SECRET_KEY,
+)
 from tests.support.db import wipe_profile_in_sqlite
+from tests.support.server import run_test_server
 
-BDD_DB_PATH = _E2E_REPO_ROOT / "data" / "test_bdd.db"
+BDD_DB_PATH = REPO_ROOT / "data" / "test_bdd.db"
 BDD_PORT = 8766
-TEST_ADMIN_PASSWORD = "test-password"
-TEST_SECRET_KEY = "test-secret-bdd-do-not-use-in-prod"
 TEST_BASE_URL = f"http://127.0.0.1:{BDD_PORT}"
 
 # The seed creates exactly two profiles (see src/omaha/seed.py
@@ -57,77 +51,28 @@ TEST_BASE_URL = f"http://127.0.0.1:{BDD_PORT}"
 BDD_SEEDED_PROFILES = ("Italo", "Ana")
 
 
-def _wait_for_bdd_port(
-    host: str = "127.0.0.1", port: int = BDD_PORT, timeout: float = 30.0
-) -> None:
-    """Block until the BDD uvicorn is listening on ``host:port``.
-
-    Wraps :func:`tests.e2e.conftest._wait_for_port` with a longer
-    default timeout — the BDD suite runs after the legacy e2e
-    suite and the port may still be in TIME_WAIT briefly.
-    """
-    _wait_for_port(host, port, timeout=timeout)
-
-
 @pytest.fixture(scope="session")
 def live_url() -> str:
     """Start a real uvicorn for the BDD suite on port 8766."""
     if BDD_DB_PATH.exists():
         BDD_DB_PATH.unlink()
 
-    env = compose_server_env(
+    with run_test_server(
         BDD_DB_PATH,
-        admin_password=TEST_ADMIN_PASSWORD,
+        BDD_PORT,
+        label="bdd-live-url",
         secret_key=TEST_SECRET_KEY,
-        extra={"OMAHA_SKIP_STARTUP": ""},
-    )
-
-    log_handle = _uvicorn_log_file(_E2E_REPO_ROOT, "bdd-live-url")
-    log_path = _E2E_REPO_ROOT / "tmp" / "uvicorn-logs" / os.path.basename(log_handle.name)
-    proc = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "omaha.main:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            str(BDD_PORT),
-            "--log-level",
-            "warning",
-        ],
-        cwd=_E2E_REPO_ROOT,
-        env=env,
-        stdout=log_handle,
-        stderr=subprocess.STDOUT,
-    )
-
-    try:
-        _wait_for_bdd_port()
-    except Exception:
-        proc.terminate()
-        log_handle.close()
-        raise RuntimeError(
-            f"BDD uvicorn did not start on {TEST_BASE_URL}. output:\n{_read_log_tail(log_path)}"
-        ) from None
-
-    yield TEST_BASE_URL
-
-    _shutdown_uvicorn(
-        proc,
-        label="bdd live_url",
-        host="127.0.0.1",
-        port=BDD_PORT,
-        log_handle=log_handle,
-        log_path=log_path,
-    )
+        admin_password=TEST_ADMIN_PASSWORD,
+    ) as url:
+        yield url
 
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]):
     outcome = yield
-    _remember_call_report(item, outcome.get_result())
+    from tests.support.hooks import remember_call_report
+
+    remember_call_report(item, outcome.get_result())
 
 
 @pytest.fixture(autouse=True)

@@ -8,7 +8,6 @@ safe because visual tests never share browser state across cases.
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
 import zlib
 from dataclasses import dataclass
@@ -21,20 +20,20 @@ import pytest
 from tests.support.browser import (
     compose_server_env,
     launch_chromium,
-    read_log_tail,
     resolve_chromium,
     run_setup_command,
-    shutdown_uvicorn,
-    uvicorn_log_file,
-    wait_for_port,
 )
+from tests.support.constants import (
+    REPO_ROOT,
+    TEST_ADMIN_PASSWORD,
+    TEST_SECRET_KEY,
+)
+from tests.support.import_flow import login_as_italo  # noqa: F401  (re-exported)
+from tests.support.server import run_test_server
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 TEST_DB_PATH = REPO_ROOT / "data" / "test_visual.db"
 TEST_PORT = 8768
 TEST_BASE_URL = f"http://127.0.0.1:{TEST_PORT}"
-TEST_ADMIN_PASSWORD = "test-password"
-TEST_SECRET_KEY = "test-secret-visual-do-not-use-in-prod"
 
 BASELINE_DIR = Path(__file__).resolve().parent / "baselines"
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
@@ -95,43 +94,15 @@ def live_url_visual() -> str:
     _run_setup_command([sys.executable, "-m", "omaha.seed"], migrate_env)
     _run_setup_command([sys.executable, "-m", "scripts.reset_both_profiles"], migrate_env)
 
-    log_handle = uvicorn_log_file(REPO_ROOT, "visual-live-url")
-    log_path = Path(log_handle.name)
-    proc = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "omaha.main:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            str(TEST_PORT),
-            "--log-level",
-            "warning",
-        ],
-        cwd=REPO_ROOT,
-        env=env,
-        stdout=log_handle,
-        stderr=subprocess.STDOUT,
-    )
-    try:
-        wait_for_port("127.0.0.1", TEST_PORT, timeout=30.0)
-    except Exception:
-        proc.terminate()
-        log_handle.close()
-        raise RuntimeError(f"uvicorn did not start. output:\n{read_log_tail(log_path)}") from None
-
-    yield TEST_BASE_URL
-
-    shutdown_uvicorn(
-        proc,
-        label="visual live_url",
-        host="127.0.0.1",
-        port=TEST_PORT,
-        log_handle=log_handle,
-        log_path=log_path,
-    )
+    with run_test_server(
+        TEST_DB_PATH,
+        TEST_PORT,
+        label="visual-live-url",
+        secret_key=TEST_SECRET_KEY,
+        admin_password=TEST_ADMIN_PASSWORD,
+        extra_env={"QUOTE_PROVIDER": "stub", "OMAHA_SKIP_STARTUP": "1"},
+    ) as url:
+        yield url
 
 
 @pytest.fixture(params=VIEWPORTS, ids=[v.name for v in VIEWPORTS])
@@ -150,14 +121,6 @@ def visual_page(_browser, visual_viewport: VisualViewport):
         yield page
     finally:
         context.close()
-
-
-def login_as_italo(page, base_url: str) -> None:
-    page.goto(f"{base_url}/login")
-    page.fill('input[name="username"]', "Italo")
-    page.fill('input[name="password"]', TEST_ADMIN_PASSWORD)
-    page.click('button[type="submit"]')
-    page.wait_for_url(f"{base_url}/")
 
 
 def assert_structural_content(page, *selectors: str, text: str | None = None) -> None:
