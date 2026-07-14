@@ -28,10 +28,10 @@ Usage
     from tests.bdd.step_defs._carve_out import carve_out
 
     @carve_out(
-        files=frozenset({"login.feature", "profile_isolation.feature"}),
+        files=frozenset({"login.feature"}),
         step_regex=r"estou logado como",
     )
-    def login_and_pick_profile(page, live_url, profile, password="test-password"):
+    def login_and_land(page, live_url, profile, password="test-password"):
         ...
 """
 

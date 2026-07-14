@@ -52,9 +52,8 @@ WORKFLOWS_PATH = REPO_ROOT / "tests" / "bdd" / "step_defs" / "_workflows.py"
 STEP_DEFS_DIR = REPO_ROOT / "tests" / "bdd" / "step_defs"
 FEATURES_DIR = REPO_ROOT / "tests" / "bdd" / "features"
 LOGIN_FEATURE = "login.feature"
-PROFILE_ISOLATION_FEATURE = "profile_isolation.feature"
 
-CARVE_OUT_FEATURES = frozenset({LOGIN_FEATURE, PROFILE_ISOLATION_FEATURE})
+CARVE_OUT_FEATURES = frozenset({LOGIN_FEATURE})
 
 
 def _carve_out_decorators() -> dict[str, tuple[frozenset[str], str]]:

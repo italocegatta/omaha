@@ -179,7 +179,6 @@ _INTEGRATION_PREFIXES = (
     "tests/test_classes_patch.py",
     "tests/test_classes_post.py",
     "tests/test_classes_routes.py",
-    "tests/test_csv_import.py",
     "tests/test_db_reset_both_profiles.py",
     "tests/test_e2e.py",
     "tests/test_healthz.py",

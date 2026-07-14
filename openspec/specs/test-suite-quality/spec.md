@@ -231,3 +231,20 @@ The `tests/PERFORMANCE.md` file SHALL present benchmark data as a dated snapshot
 - **WHEN** a reader inspects the Summary or Lanes section in `tests/PERFORMANCE.md`
 - **THEN** fast lane and browser lane are separated
 - **AND** BDD serial behavior is stated where the browser lane is described
+
+### Requirement: Marker allow-lists must not overlap
+
+A test file SHALL NOT appear in both `_INTEGRATION_PREFIXES` and `_UNIT_FILES` in `tests/conftest.py`. The marker logic checks `_INTEGRATION_PREFIXES` first; a dual-listed file is silently tagged `integration` even if its tests are pure functions, defeating the fast-lane split.
+
+#### Scenario: Dual-listed file is silently tagged integration
+
+- **WHEN** a file is listed in both `_INTEGRATION_PREFIXES` and `_UNIT_FILES`
+- **THEN** the `pytest_collection_modifyitems` hook tags it `integration` because the integration check runs before the unit check
+- **AND** the file's tests are excluded from `task test-unit`
+- **AND** the overlap is a defect that MUST be resolved by removing the file from one list
+
+#### Scenario: No overlap after fix
+
+- **WHEN** a contributor inspects `tests/conftest.py`
+- **THEN** the intersection of `_INTEGRATION_PREFIXES` entries and `_UNIT_FILES` entries is empty
+- **AND** every test file in `tests/*.py` appears in at most one allow-list

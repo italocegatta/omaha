@@ -50,8 +50,8 @@ Each workflow SHALL:
   the function body with a clear ``RuntimeError`` message.
 - Have ≥2 callers across the BDD feature files.
 
-The four remaining workflows as of 2026-06-23:
-``login_and_pick_profile`` (14 callers, 7 features),
+The four remaining workflows as of 2026-06-26:
+``login_and_land`` (14 callers, 7 features),
 ``create_one_class`` (6 callers, 4 features),
 ``create_two_default_classes`` (5 callers, 4 features),
 ``add_one_asset`` (4 callers, 3 features). Workflows
@@ -118,7 +118,7 @@ The assertion SHALL:
 - **WHEN** ``create_two_default_classes`` is called
 - **AND** ``page.url`` does not end with ``"/"``
 - **THEN** the workflow raises ``RuntimeError`` with a
-  message that mentions ``login_and_pick_profile`` and the
+  message that mentions ``login_and_land`` and the
   actual URL
 
 ### Requirement: Thin step-wrapper for each workflow
@@ -132,7 +132,7 @@ in ``_workflows.py``. The wrapper SHALL:
   one positional body (typically 3 lines: call the workflow).
 - Use a PT-BR step text matching the workflow's name
   (e.g. ``Que estou logado como "<profile>"`` wraps
-  ``login_and_pick_profile``).
+  ``login_and_land``).
 - Use ``parsers.parse`` or ``parsers.re`` if the step text
   carries captured parameters; otherwise a plain string
   match.
@@ -149,7 +149,7 @@ in ``_workflows.py``. The wrapper SHALL:
 - **THEN** the scenario writes the step
   ``Dado que estou logado como "<profile>"``
 - **AND** the step invokes
-  ``login_and_pick_profile(page, live_url, profile)`` from
+  ``login_and_land(page, live_url, profile)`` from
   ``_workflows.py``
 - **AND** the scenario contains no other login-related steps
 
@@ -163,10 +163,10 @@ files test the flow itself) declares its carve-out via:
 
 ```python
 @carve_out(
-    files=frozenset({"login.feature", "profile_isolation.feature"}),
+    files=frozenset({"login.feature"}),
     step_regex=r"estou logado como",
 )
-def login_and_pick_profile(...): ...
+def login_and_land(...): ...
 ```
 
 The contract test
@@ -181,8 +181,8 @@ A scenario in a carve-out file MAY still use wrappers for
 workflows OTHER than the carved-out one.
 
 The carve-out SHALL cover at minimum:
-``login_and_pick_profile`` → carve-out:
-``login.feature``, ``profile_isolation.feature``. Other
+``login_and_land`` → carve-out:
+``login.feature``. Other
 workflows (``create_one_class``,
 ``create_two_default_classes``, ``add_one_asset``) have
 no carve-out.
@@ -215,7 +215,7 @@ automatically.
 #### Scenario: Login form change propagates via workflow
 
 - **WHEN** the login form gains a new field (e.g. 2FA token)
-- **AND** the operator edits ``login_and_pick_profile`` in
+- **AND** the operator edits ``login_and_land`` in
   ``_workflows.py`` to fill the new field
 - **THEN** every scenario that uses the
   ``estou logado como ...`` wrapper inherits the new
@@ -231,8 +231,8 @@ share enough structure to justify another workflow, or
 whether the new setup is too specific to warrant inline
 steps.
 
-As of 2026-06-23 the file exposes **4 public workflows**:
-``login_and_pick_profile``, ``create_one_class``,
+As of 2026-06-26 the file exposes **4 public workflows**:
+``login_and_land``, ``create_one_class``,
 ``create_two_default_classes``, ``add_one_asset``.
 Workflows with 0 or 1 callers are forbidden — they
 violate the "≥2 scenarios with growth trend" extraction
@@ -282,8 +282,8 @@ subject to any carve-out constraint.
 
 - **WHEN** pytest collects
   ``tests/bdd/test_workflow_contracts.py``
-- **AND** ``login_and_pick_profile`` declares
-  ``@carve_out(files={"login.feature", "profile_isolation.feature"},
+- **AND** ``login_and_land`` declares
+  ``@carve_out(files={"login.feature"},
   step_regex=r"estou logado como")``
 - **AND** ``login.feature`` contains a step matching
   ``r"estou logado como"``

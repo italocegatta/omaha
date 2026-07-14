@@ -307,13 +307,9 @@ Goal: extrair bootstrap, wipe de DB e helpers de browser/fixture de `conftest` e
 Archive: `openspec/changes/archive/2026-07-14-t14-helpers-compartilhados-de-setup-e-wipe/`
 
 ### T15 - Contratos e docs da suíte
-Status: `Ready`
+Status: `Archived` — 2026-07-14
 Goal: alinhar README, docs de BDD e performance baseline com behavior real de tasks, markers e contratos da suíte.
-Candidate OpenSpec change id: `t15-contratos-e-docs-da-suite`
-Spec link: `openspec/changes/t15-contratos-e-docs-da-suite/`
-Files to inspect: `README.md`, `tests/bdd/README.md`, `tests/PERFORMANCE.md`, `tests/conftest.py`, `pyproject.toml`
-Notes: foco em legibilidade, estabilidade e contrato claro; baixo risco.
-Progress log: `2026-07-12` added from suite-performance investigation.
+Archive: `openspec/changes/archive/2026-07-14-t15-contratos-e-docs-da-suite/`
 
 ### T16 - Gate pré-merge sub-2m
 Status: `Ready`
@@ -401,11 +397,10 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 **Active queue:**
 
 1. T13 - Cobertura fora dos browsers
-2. T15 - Contratos e docs da suíte
-3. T16 - Gate pré-merge sub-2m
-4. T17 - Paralelizar integration com DB por worker
-5. T18 - Cortar setup repetido dos hotspots
-6. F29 - Compra e venda com emoji toggle
+2. T16 - Gate pré-merge sub-2m
+3. T17 - Paralelizar integration com DB por worker
+4. T18 - Cortar setup repetido dos hotspots
+5. F29 - Compra e venda com emoji toggle
 
 Order note: F19 and F20 archived after spec sync + archive flow. On
 2026-07-09 owner split broad test-triage work for context control: T07 keeps
@@ -420,10 +415,11 @@ full-group reruns before root cause is known. On 2026-07-10, T09 was archived;
   added as next delivery-gate cleanup slices; both are now archived. On
   2026-07-11, F21 was archived without syncing its
    discarded PoC spec; F22 is now next. On 2026-07-12, F26 was split into F27-F29
-   to keep slices small and testable. On 2026-07-12, suite investigation added T13-T15 to separate runtime wins,
-   harness cleanup, and docs/contract drift. On 2026-07-13, fresh timing rerun
-   confirmed unit/bdd/visual gains but left integration as main >2m blocker,
-   so T16-T18 split pre-merge gate, worker parallelism, and hotspot setup cuts.
+    to keep slices small and testable. On 2026-07-13, fresh timing rerun
+    confirmed unit/bdd/visual gains but left integration as main >2m blocker,
+    so T16-T18 split pre-merge gate, worker parallelism, and hotspot setup cuts.
+    On 2026-07-14, T13 and T15 archived; T13 removed browser-heavy coverage scope,
+    T15 reconciled docs and spec contracts. T16 is next.
 
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed, reactivation path documented above.

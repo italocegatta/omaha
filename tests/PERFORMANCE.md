@@ -22,14 +22,19 @@ uv run task test                   # suite completa: unit + integration + audit 
 
 ## Resumo por grupo
 
-| Grupo | Comando observado | Coletados | Passaram | Falharam | Pulados | Tempo total |
-|---|---|---:|---:|---:|---:|---:|
-| unit | `uv run task test-unit` | 869 | 349 | 0 | 2 | 16,82 s |
-| integration | `uv run task test-integration` | 856 | 386 | 0 | 2 | 219,26 s |
-| audit integration | `uv run task test-audit-integration` | 13 | 13 | 0 | 0 | 22,53 s |
-| e2e | `uv run task test-e2e` | 49 | 48 | 1 | 0 | 195,31 s |
-| BDD | `uv run task test-bdd` | 51 | 51 | 0 | 0 | 198,00 s |
-| visual | `uv run task test-visual` | 20 | 20 | 0 | 0 | 82,24 s |
+| Grupo | Comando observado | Coletados | Passaram | Falharam | Pulados | Deselecionados | Tempo total |
+|---|---|---:|---:|---:|---:|---:|---:|
+| unit | `uv run task test-unit` | 869 | 349 | 0 | 2 | 518 | 16,82 s |
+| integration | `uv run task test-integration` | 856 | 386 | 0 | 2 | 468 | 219,26 s |
+| audit integration | `uv run task test-audit-integration` | 13 | 13 | 0 | 0 | 0 | 22,53 s |
+| e2e | `uv run task test-e2e` | 49 | 48 | 1 | 0 | 0 | 195,31 s |
+| BDD | `uv run task test-bdd` | 51 | 51 | 0 | 0 | 0 | 198,00 s |
+| visual | `uv run task test-visual` | 20 | 20 | 0 | 0 | 0 | 82,24 s |
+
+> **Reconciliação:** Coletados = Passaram + Falharam + Pulados + Deselecionados.
+> Deselecionados em unit/integration são testes filtrados pelo marcador
+> (`-m unit` ou `-m integration`) — cada lane vê a suíte completa coletada
+> e descarta os testes da outra lane.
 
 Na coleta original, `uv run task test-e2e` teve uma falha em
 `tests/e2e/test_user_journey_rebalance.py::TestS05DashboardJourney::test_dashboard_full_journey_renders_s05_polish`
