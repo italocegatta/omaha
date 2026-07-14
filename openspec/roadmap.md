@@ -392,11 +392,9 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 
 **Active queue:**
 
-1. T13 - Cobertura fora dos browsers
-2. T16 - Gate pré-merge sub-2m
-3. T17 - Paralelizar integration com DB por worker
-4. T18 - Cortar setup repetido dos hotspots
-5. F29 - Compra e venda com emoji toggle
+1. T17 - Paralelizar integration com DB por worker
+2. T18 - Cortar setup repetido dos hotspots
+3. F29 - Compra e venda com emoji toggle
 
 Order note: F19 and F20 archived after spec sync + archive flow. On
 2026-07-09 owner split broad test-triage work for context control: T07 keeps
@@ -415,7 +413,8 @@ full-group reruns before root cause is known. On 2026-07-10, T09 was archived;
     confirmed unit/bdd/visual gains but left integration as main >2m blocker,
     so T16-T18 split pre-merge gate, worker parallelism, and hotspot setup cuts.
     On 2026-07-14, T13 and T15 archived; T13 removed browser-heavy coverage scope,
-    T15 reconciled docs and spec contracts. T16 is next.
+    T15 reconciled docs and spec contracts. T16 archived: gate-fast runs in 40s.
+    T17 is next.
 
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed, reactivation path documented above.
