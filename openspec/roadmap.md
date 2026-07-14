@@ -175,6 +175,16 @@ Files to inspect: `src/omaha/templates/_patrimonio_class_section.html`, `src/oma
 Notes: portfolio mantém particularidades (header 2 níveis, linha de resumo, buy/sell toggle). Foco: visual consistency, não behavior change.
 Progress log: `2026-07-14` added from owner request.
 
+### R33 - Refatorar formatters e comportamentos de tabela para reutilização
+Status: `Spec Proposed`
+Goal: centralizar formatação numérica (BRL,%,Qtd), lógica de sinal (signClass/signIcon), row color-coding e cell formatting em módulo compartilhado; rebalance e portfolio consomem a mesma API.
+Candidate OpenSpec change id: `r33-refatorar-formatters-e-comportamentos-de-tabela-para-reutilizacao`
+Spec link: `openspec/changes/r33-refatorar-formatters-e-comportamentos-de-tabela-para-reutilizacao/`
+Files to inspect: `src/omaha/templates/rebalance.html`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/static/app.css`
+Notes: JS/Alpine layer — separado do CSS (R30). Formatters atuais estão duplicados ou acoplados a tabela específica. Foco: API compartilhada, não behavior change.
+Progress log: `2026-07-14` added from owner request.
+Progress log: `2026-07-14` proposal queued.
+
 ### F01 - Consolidação cross-profile (visão household agregada)
 Status: `Archived` (superseded by F06) — 2026-07-04
 Archive: `openspec/changes/archive/2026-07-04-f01-household-cross-profile-consolidation/`
@@ -429,11 +439,13 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 3. F29 - Compra e venda com emoji toggle
 4. R30 - Extrair padrão CSS compartilhado de tabelas
 5. R31 - Padronizar filter panel e header de tabelas
-6. F32 - Aplicar padrão de tabela rebalance em portfolio
+6. R33 - Refatorar formatters e comportamentos de tabela para reutilização
+7. F32 - Aplicar padrão de tabela rebalance em portfolio
 
-Order note: R30-R32 added 2026-07-14 for table standardization. R30 is
-foundation (shared CSS variables), R31 unifies filter panels, F32 ports
-visual design to portfolio. All three depend on prior queue items completing.
+Order note: R30-R33 added 2026-07-14 for table standardization. R30 is
+foundation (shared CSS variables), R31 unifies filter panels, R33 extracts
+shared JS formatters/sign logic/row classes, F32 ports visual design to
+portfolio. R30 → R31 → R33 → F32 dependency chain.
 F19 and F20 archived after spec sync + archive flow. On
 2026-07-09 owner split broad test-triage work for context control: T07 keeps
 browser/workflow failures already in flight; T09/T10/T11 isolate remaining red
