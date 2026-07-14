@@ -100,6 +100,35 @@ def verify_session_local_is_safe() -> None:
         probe.close()
 
 
+def make_test_env(
+    db_url: str,
+    *,
+    password: str = TEST_ADMIN_PASSWORD,
+) -> dict[str, str]:
+    """Return a complete env dict for subprocess tests.
+
+    Combines ``os.environ`` with the Omaha-specific variables needed to
+    point a subprocess at *db_url* with the given admin *password*.
+
+    Typical usage::
+
+        env = make_test_env(f"sqlite:///{tmp_path / 'db.sqlite'}")
+        subprocess.run([...], env=env)
+
+    Callers that need a non-default ``SECRET_KEY`` or other variables
+    can override entries on the returned dict before passing it to
+    ``subprocess.run``.
+    """
+    return {
+        **os.environ,
+        "DATABASE_URL": db_url,
+        "ADMIN_PASSWORD": password,
+        "SECRET_KEY": TEST_SECRET_KEY,
+        "OMAHA_SKIP_STARTUP": "1",
+        "OMAHA_ENV": "development",
+    }
+
+
 def run_alembic_upgrade(repo_root: Path, db_url: str) -> None:
     """Run migrations in a subprocess against ``db_url``."""
     result = subprocess.run(
@@ -117,6 +146,39 @@ def run_alembic_upgrade(repo_root: Path, db_url: str) -> None:
     )
     assert result.returncode == 0, (
         f"alembic upgrade head failed: stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
+
+
+def run_alembic_and_seed(
+    repo_root: Path,
+    db_url: str,
+    *,
+    password: str = TEST_ADMIN_PASSWORD,
+) -> None:
+    """Run alembic migrations + omaha seed in one shot.
+
+    Calls :func:`run_alembic_upgrade` then spawns ``omaha.seed`` as a
+    subprocess (so its env-bound modules see ``DATABASE_URL``).
+
+    Typical usage in a pytest fixture that needs a fresh seeded DB::
+
+        db_url = f"sqlite:///{tmp_path / 'portfolio.db'}"
+        run_alembic_and_seed(REPO_ROOT, db_url)
+
+    The caller retains full control of *db_url* and *password* while
+    the helper handles the repeated subprocess dance.
+    """
+    run_alembic_upgrade(repo_root, db_url)
+    env = make_test_env(db_url, password=password)
+    result = subprocess.run(
+        [sys.executable, "-m", "omaha.seed"],
+        cwd=str(repo_root),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (
+        f"omaha.seed failed: stdout={result.stdout!r} stderr={result.stderr!r}"
     )
 
 

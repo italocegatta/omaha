@@ -41,16 +41,23 @@ pytestmark = pytest.mark.integration
 
 
 # ---------------------------------------------------------------------------
-# Paths and fixtures (module-scoped — the production files are large)
+# Paths and fixtures (session-scoped — the production files are large
+# and immutable during a test run; parsing once per session saves ~2-3s)
 # ---------------------------------------------------------------------------
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "src" / "omaha" / "templates"
 _CSS_PATH = Path(__file__).resolve().parents[1] / "src" / "omaha" / "static" / "app.css"
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def jinja_env() -> Environment:
-    """A Jinja2 Environment pointed at the production templates."""
+    """A Jinja2 Environment pointed at the production templates.
+
+    Session-scoped: the production templates directory does not change
+    during a test run, so parsing once per session is safe and avoids
+    rebuilding the Environment per module (~1-2s savings over module scope).
+    Read-only — no test should mutate this fixture.
+    """
     env = Environment(loader=FileSystemLoader(_TEMPLATES_DIR))
 
     def _brl(value, *args, **kwargs):
@@ -60,9 +67,15 @@ def jinja_env() -> Environment:
     return env
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def stylesheet() -> Stylesheet:
-    """The parsed production app.css."""
+    """The parsed production app.css.
+
+    Session-scoped: ``app.css`` is a production file (~2500 lines) that
+    does not change during a test run.  Parsing once per session avoids
+    redundant CSS parsing per module (~2-3s savings over module scope).
+    Read-only — no test should mutate this fixture.
+    """
     return parse_stylesheet(_CSS_PATH)
 
 

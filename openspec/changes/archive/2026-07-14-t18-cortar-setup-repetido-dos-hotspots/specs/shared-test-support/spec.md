@@ -1,10 +1,4 @@
-# shared-test-support Specification
-
-## Purpose
-
-Centralizar helpers de bootstrap, cleanup de DB, lifecycle de browser e setup do fluxo de import para que `tests/conftest.py`, `tests/e2e/conftest.py`, `tests/bdd/conftest.py`, `tests/visual/conftest.py` e `tests/e2e/test_import_user_journey.py` reutilizem a mesma implementação sem mudar comportamento da suíte.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Shared DB cleanup primitives are centralized
 
@@ -85,6 +79,8 @@ The test module MAY keep only scenario orchestration and final assertions.
 - **WHEN** the import journey test runs
 - **THEN** shared helper still logs in as Italo, creates 3 classes, seeds 43 assets, and reaches same 48-row end state
 - **AND** the file-level assertions remain the source of truth
+
+## ADDED Requirements
 
 ### Requirement: Combined alembic-migration-and-seed helper
 

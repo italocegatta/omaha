@@ -54,7 +54,6 @@ to drop cached ``omaha.*`` modules and reimport them per case.
 from __future__ import annotations
 
 import csv
-import os
 import subprocess
 import sys
 from decimal import Decimal
@@ -63,6 +62,7 @@ from pathlib import Path
 import pytest
 
 from scripts.seed_from_csv import load_assets, load_classes, load_positions
+from tests.support.db import make_test_env, run_alembic_and_seed
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SEED_DIR = REPO_ROOT / "data" / "seed"
@@ -115,22 +115,7 @@ def omaha_db(
     monkeypatch.setenv("ADMIN_PASSWORD", "test-family-password")
     monkeypatch.setenv("SECRET_KEY", "test-secret-key-for-csv-seed")
 
-    result = subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=REPO_ROOT,
-        env={
-            **os.environ,
-            "DATABASE_URL": db_url,
-            "ADMIN_PASSWORD": "test-family-password",
-            "SECRET_KEY": "test-secret-key-for-csv-seed",
-        },
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, (
-        f"alembic upgrade head failed: stdout={result.stdout!r} stderr={result.stderr!r}"
-    )
+    run_alembic_and_seed(REPO_ROOT, db_url, password="test-family-password")
 
     for mod_name in list(sys.modules):
         if mod_name == "omaha" or mod_name.startswith("omaha."):
@@ -138,9 +123,6 @@ def omaha_db(
     import omaha.config  # noqa: F401
     import omaha.db
     import omaha.models  # noqa: F401
-    import omaha.seed
-
-    omaha.seed.seed()
 
     request.addfinalizer(lambda: _restore_modules(saved))
 
@@ -169,12 +151,7 @@ def _run_seed(profile: str, mode: str, *, db_url: str) -> subprocess.CompletedPr
             mode,
         ],
         cwd=REPO_ROOT,
-        env={
-            **os.environ,
-            "DATABASE_URL": db_url,
-            "ADMIN_PASSWORD": "test-family-password",
-            "SECRET_KEY": "test-secret-key-for-csv-seed",
-        },
+        env=make_test_env(db_url, password="test-family-password"),
         check=False,
         capture_output=True,
         text=True,

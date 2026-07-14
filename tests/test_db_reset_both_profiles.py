@@ -11,13 +11,14 @@ Confirms that the wrapper:
 
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine, text
+
+from tests.support.db import make_test_env, run_alembic_upgrade
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -26,38 +27,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 pytestmark = pytest.mark.xdist_group("serial")
 
 
-def _set_test_env(db_path: Path, password: str) -> dict[str, str]:
-    """Return an env dict that points omaha + the wrapper at a fresh SQLite file."""
-    return {
-        **os.environ,
-        "DATABASE_URL": f"sqlite:///{db_path}",
-        "ADMIN_PASSWORD": password,
-        "SECRET_KEY": "test-secret-key-for-11.5",
-        "OMAHA_SKIP_STARTUP": "1",
-        "OMAHA_ENV": "development",
-    }
-
-
-def _run_alembic(env: dict[str, str]) -> None:
-    """Apply alembic migrations to the fresh DB."""
-    assert (REPO_ROOT / "alembic.ini").exists()
-    result = subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=str(REPO_ROOT),
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, (
-        f"alembic failed (cwd={REPO_ROOT}): stdout={result.stdout!r} stderr={result.stderr!r}"
-    )
-
-
 def test_reset_both_profiles_seeds_both_profiles(tmp_path: Path) -> None:
     """End-to-end: fresh DB → alembic → seed → wrapper → both profiles populated."""
     db_path = tmp_path / "portfolio.db"
-    env = _set_test_env(db_path, "test-family-password")
-    _run_alembic(env)
+    db_url = f"sqlite:///{db_path}"
+    env = make_test_env(db_url, password="test-family-password")
+    run_alembic_upgrade(REPO_ROOT, db_url)
 
     # Run omaha.seed in a subprocess so its env-bound modules
     # see DATABASE_URL=test (the wrapper subprocess will pick
@@ -91,7 +66,7 @@ def test_reset_both_profiles_seeds_both_profiles(tmp_path: Path) -> None:
     # Verify with a fresh engine (not the in-process SessionLocal,
     # which was bound to the test's pre-existing DB URL at import
     # time and would mask the wrapper's writes).
-    engine = create_engine(env["DATABASE_URL"])
+    engine = create_engine(db_url)
     try:
         with engine.connect() as conn:
             rows = conn.execute(
