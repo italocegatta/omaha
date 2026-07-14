@@ -312,16 +312,9 @@ Goal: alinhar README, docs de BDD e performance baseline com behavior real de ta
 Archive: `openspec/changes/archive/2026-07-14-t15-contratos-e-docs-da-suite/`
 
 ### T16 - Gate pré-merge sub-2m
-Status: `Applied`
+Status: `Archived` — 2026-07-14
 Goal: definir lane pré-merge rápida abaixo de 2 min, separando fast gate de browser lanes e coverage pesada.
-Candidate OpenSpec change id: `t16-gate-pre-merge-sub-2m`
-Spec link: `openspec/changes/t16-gate-pre-merge-sub-2m/`
-Files to inspect: `pyproject.toml`, `tests/PERFORMANCE.md`, `tests/conftest.py`, `openspec/PRD.md`
-Notes: baseline rerun em 2026-07-13 mostrou unit 15.37s, integration 190.12s com falha em `tests/test_healthz.py::test_healthz_returns_503_with_db_down_when_engine_raises`, audit 25.04s, e2e 192.50s, bdd 176.87s, visual 55.36s.
-Progress log: `2026-07-13` added from rerun of test timing baseline.
-Progress log: `2026-07-14` proposal generated.
-Progress log: `2026-07-14` applied: gate-fast task 40.5s, lint/unit standalone OK, check backward compat OK.
-Progress log: `2026-07-14` review approved — no findings.
+Archive: `openspec/changes/archive/2026-07-14-t16-gate-pre-merge-sub-2m/`
 
 ### T17 - Paralelizar integration com DB por worker
 Status: `Ready`
