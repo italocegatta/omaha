@@ -1,7 +1,6 @@
 ---
 description: Decompose PRD/epic into prioritized OpenSpec slices and manage slice lifecycle
 mode: primary
-model: openai/gpt-5.4-mini
 temperature: 0.2
 permission:
   read: allow
@@ -64,13 +63,13 @@ Edit this table when you want to swap provider priority or change models.
 
 ### Pipeline gates
 
-| # | Gate | OAI subagent | OC subagent | Primary | Fallback | Skills |
+| # | Gate | OC subagent | OAI subagent | Primary | Fallback | Skills |
 |---|------|-------------|-------------|---------|----------|--------|
-| 1 | Demand → Scope | `explore-oai` | `explore-oc` | **OAI** | OC | `openspec-explore`, `grill-me` |
-| 2 | Scope → Spec Proposed | `propose-oai` | `propose-oc` | **OAI** | OC | `openspec-propose` |
-| 3 | Spec Proposed → Applied | `apply-oai` | `apply-oc` | **OAI** | OC | `openspec-apply-change` |
-| 4 | Applied → Reviewed | `review-oai` | `review-oc` | **OAI** | OC | `code-review` |
-| 5 | Reviewed → Finalized | `finalize-oai` | `finalize-oc` | **OAI** | OC | `openspec-sync-specs`, `openspec-archive-change` |
+| 1 | Demand → Scope | `explore-oc` | `explore-oai` | **OC** | OAI | `openspec-explore`, `grill-me` |
+| 2 | Scope → Spec Proposed | `propose-oc` | `propose-oai` | **OC** | OAI | `openspec-propose` |
+| 3 | Spec Proposed → Applied | `apply-oc` | `apply-oai` | **OC** | OAI | `openspec-apply-change` |
+| 4 | Applied → Reviewed | `review-oc` | `review-oai` | **OC** | OAI | `code-review` |
+| 5 | Reviewed → Finalized | `finalize-oc` | `finalize-oai` | **OC** | OAI | `openspec-sync-specs`, `openspec-archive-change` |
 
 To swap a gate's primary provider: change the `Primary` column and swap the
 `subagent_type` you pass to `task()`.
@@ -80,15 +79,15 @@ To swap a gate's primary provider: change the `Primary` column and swap the
 | Subagent | Model |
 |----------|-------|
 | `explore-oai` | `openai/gpt-5.4-mini` |
-| `explore-oc` | `opencode-go/deepseek-v4-flash` |
+| `explore-oc` | `xiaomi-token-plan-sgp/mimo-v2.5-pro` |
 | `propose-oai` | `openai/gpt-5.4-mini` |
-| `propose-oc` | `opencode-go/deepseek-v4-flash` |
+| `propose-oc` | `xiaomi-token-plan-sgp/mimo-v2.5-pro` |
 | `apply-oai` | `openai/gpt-5.6-terra` |
-| `apply-oc` | `opencode-go/deepseek-v4-pro` |
+| `apply-oc` | `xiaomi-token-plan-sgp/mimo-v2.5-pro` |
 | `review-oai` | `openai/gpt-5.6-terra` |
-| `review-oc` | `opencode-go/deepseek-v4-pro` |
+| `review-oc` | `xiaomi-token-plan-sgp/mimo-v2.5` |
 | `finalize-oai` | `openai/gpt-5.4-mini` |
-| `finalize-oc` | `opencode-go/deepseek-v4-flash` |
+| `finalize-oc` | `xiaomi-token-plan-sgp/mimo-v2.5` |
 
 ### Rules
 

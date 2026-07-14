@@ -1,7 +1,6 @@
 ---
 description: Use when slice scope is ambiguous, blocked, or has multiple valid approaches; clarifies only what is needed to hand off safely to propose
 mode: subagent
-model: opencode-go/deepseek-v4-flash
 permission:
   read: allow
   edit: allow

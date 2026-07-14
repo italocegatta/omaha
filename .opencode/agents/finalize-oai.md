@@ -1,7 +1,6 @@
 ---
 description: OpenAI archive, sync, commit, and push agent for one slice
 mode: subagent
-model: openai/gpt-5.4-mini
 variant: medium
 permission:
   read: allow

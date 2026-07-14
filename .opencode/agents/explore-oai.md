@@ -1,7 +1,6 @@
 ---
 description: Use when slice scope is ambiguous, blocked, or has multiple valid approaches; clarifies only what is needed to hand off safely to propose
 mode: subagent
-model: openai/gpt-5.4-mini
 variant: high
 permission:
   read: allow

@@ -1,7 +1,6 @@
 ---
 description: OpenAI implementation agent for one slice
 mode: subagent
-model: openai/gpt-5.6-terra
 variant: high
 permission:
   read: allow
