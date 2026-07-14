@@ -67,6 +67,10 @@ from scripts.seed_from_csv import load_assets, load_classes, load_positions
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SEED_DIR = REPO_ROOT / "data" / "seed"
 
+# CSV-mutating tests must run serially even under xdist — they stomp on
+# shared data/seed/*.csv files which would race across parallel workers.
+pytestmark = pytest.mark.xdist_group("serial")
+
 
 # ---------------------------------------------------------------------------
 # Fixture: omaha_db (boots a fresh SQLite + alembic; does NOT seed users)

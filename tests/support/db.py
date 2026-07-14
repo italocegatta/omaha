@@ -51,6 +51,36 @@ def prepare_safe_test_database(repo_root: Path) -> SafeTestDatabase:
     return SafeTestDatabase(path=db_path, snapshot_dir=snapshot_dir)
 
 
+def prepare_worker_database(worker_id: str, repo_root: Path) -> SafeTestDatabase:
+    """Provision an isolated SQLite database for one pytest-xdist worker.
+
+    Each worker gets its own tempdir with ``portfolio.db`` and
+    ``snapshots/``. The directory structure mirrors the session-scoped
+    layout from :func:`prepare_safe_test_database`. Uses the existing
+    :func:`run_alembic_upgrade` helper and test constants.
+    """
+    safe_dir = Path(tempfile.mkdtemp(prefix=f"omaha-worker-{worker_id}-"))
+    db_path = safe_dir / "portfolio.db"
+    snapshot_dir = safe_dir / "snapshots"
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+
+    os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"
+    os.environ["SNAPSHOT_SOURCE"] = str(db_path)
+    os.environ["SNAPSHOT_DEST_DIR"] = str(snapshot_dir)
+    os.environ["SECRET_KEY"] = TEST_SECRET_KEY
+    os.environ["ADMIN_PASSWORD"] = TEST_ADMIN_PASSWORD
+    os.environ["OMAHA_SKIP_STARTUP"] = "1"
+    os.environ["OMAHA_ENV"] = "development"
+
+    import omaha.config  # noqa: F401
+    import omaha.db  # noqa: F401
+    import omaha.seed  # noqa: F401
+
+    run_alembic_upgrade(repo_root, f"sqlite:///{db_path}")
+    omaha.seed.seed()
+    return SafeTestDatabase(path=db_path, snapshot_dir=snapshot_dir)
+
+
 def verify_session_local_is_safe() -> None:
     """Fail hard when a test session is accidentally bound to production DB."""
     from omaha.db import SessionLocal

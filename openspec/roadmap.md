@@ -157,13 +157,14 @@ Progress log: `2026-07-14` added from owner request.
 Progress log: `2026-07-14` proposal queued.
 
 ### R31 - Padronizar filter panel e header de tabelas
-Status: `Ready`
+Status: `Spec Proposed`
 Goal: unificar filter panel (teleport vs inline), transformar macro `asset_filter_controls` em componente reutilizável, e alinhar UX de filtros entre rebalance e portfolio.
 Candidate OpenSpec change id: `r31-padronizar-filter-panel-e-header-de-tabelas`
 Spec link: `openspec/changes/r31-padronizar-filter-panel-e-header-de-tabelas/`
 Files to inspect: `src/omaha/templates/_patrimonio_class_section.html`, `src/omaha/templates/_rebalance_plan.html`, `src/omaha/static/app.css`
 Notes: rebalance usa filter inline no `<th>`; portfolio usa x-teleport="body". Unificar padrão.
 Progress log: `2026-07-14` added from owner request.
+Progress log: `2026-07-14` proposal queued.
 
 ### F32 - Aplicar padrão de tabela rebalance em portfolio
 Status: `Ready`
@@ -354,6 +355,7 @@ Notes: xdist só entra se worker ganhar DB próprio; rerun mostrou integration a
 Progress log: `2026-07-13` added from rerun of test timing baseline.
 Progress log: `2026-07-14` proposal generated.
 Progress log: `2026-07-14` implementation applied; integration 5:34→2:44 (~2×), unit 349 pass, no prod code touched.
+Progress log: `2026-07-14` review approved; prod DB isolation preserved, ruff clean.
 
 ### T18 - Cortar setup repetido dos hotspots
 Status: `Ready`

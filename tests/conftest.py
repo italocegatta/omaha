@@ -54,14 +54,20 @@ from pathlib import Path
 
 from tests.support.db import (
     prepare_safe_test_database,
+    prepare_worker_database,
     run_alembic_upgrade,
     verify_session_local_is_safe,
 )
 
 # Per-session safe DB — created via tempfile.mkdtemp so it survives the
 # full pytest session even when tests use tmp_path fixtures internally.
+# When running under pytest-xdist, each worker gets its own isolated DB.
 _REPO_ROOT_FOR_ALEMBIC = Path(__file__).resolve().parent.parent
-_SAFE_DATABASE = prepare_safe_test_database(_REPO_ROOT_FOR_ALEMBIC)
+_worker_id = os.environ.get("PYTEST_XDIST_WORKER")
+if _worker_id:
+    _SAFE_DATABASE = prepare_worker_database(_worker_id, _REPO_ROOT_FOR_ALEMBIC)
+else:
+    _SAFE_DATABASE = prepare_safe_test_database(_REPO_ROOT_FOR_ALEMBIC)
 _SAFE_DB_FILE = _SAFE_DATABASE.path
 _SAFE_SNAPSHOT_DIR = _SAFE_DATABASE.snapshot_dir
 

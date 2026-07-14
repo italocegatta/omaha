@@ -16,9 +16,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from sqlalchemy import create_engine, text
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+# Runs scripts.reset_both_profiles which reads data/seed/*.csv mutated
+# by test_seed_from_csv.py.  Serialize to avoid stale/ corrupt reads.
+pytestmark = pytest.mark.xdist_group("serial")
 
 
 def _set_test_env(db_path: Path, password: str) -> dict[str, str]:

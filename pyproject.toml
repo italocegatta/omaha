@@ -41,6 +41,7 @@ dev = [
     "taskipy>=1.13",
     "pytest-bdd>=8.0,<10",
     "mutmut>=3.0,<4",
+    "pytest-xdist>=3.6",
 ]
 
 [project.scripts]
@@ -71,6 +72,7 @@ markers = [
     "unit: pure-function tests, no DB no HTTP",
     "integration: tests requiring DB, TestClient, or external services",
     "bdd: BDD e2e scenarios under tests/bdd/",
+    "xdist_group(name): group tests to run in the same xdist worker",
 ]
 
 [tool.coverage.run]
@@ -212,6 +214,7 @@ serve-prod  = { cmd = "uv run uvicorn {app_target} --host 0.0.0.0 --port 8000", 
 test             = { cmd = "uv run pytest",                                           help = "Run the full test suite (unit + integration + audit + e2e + visual + BDD)" }
 test-unit        = { cmd = "uv run pytest -m unit --cov=src/omaha --cov-report=xml:reports/coverage.xml", help = "pure-function tests, no DB no HTTP, no Playwright" }
 test-integration = { cmd = "uv run pytest -m integration --ignore=tests/audit_integration --cov=src/omaha --cov-report=xml:reports/coverage.xml", help = "tests requiring DB, TestClient, or external services (excludes tests/audit_integration/)" }
+test-integration-parallel = { cmd = "uv run pytest -m integration --ignore=tests/audit_integration -n auto --dist loadgroup --cov=src/omaha --cov-report=xml:reports/coverage.xml", help = "parallel integration tests via pytest-xdist (-n auto, loadgroup for xdist_group serialization)" }
 test-audit-integration = { cmd = "uv run pytest tests/audit_integration -v",           help = "heavy audit integration tests under tests/audit_integration/" }
 test-e2e         = { cmd = "uv run pytest tests/e2e -v --no-cov",                   help = "Playwright tests under tests/e2e/" }
 test-visual      = { cmd = "uv run pytest tests/visual -v --no-cov",                 help = "Playwright visual regression tests under tests/visual/" }

@@ -27,6 +27,10 @@ from scripts.seed_from_csv import load_assets, load_positions
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CSV_PATH = REPO_ROOT / "data" / "seed" / "italo_positions.csv"
 
+# Tests read from data/seed/*.csv which are mutated by test_seed_from_csv.py
+# and test_snapshot_to_csv.py.  Serialize to avoid stale/ corrupt reads.
+pytestmark = pytest.mark.xdist_group("serial")
+
 
 # ---------------------------------------------------------------------------
 # Fake for unit-testing suggest_class_id

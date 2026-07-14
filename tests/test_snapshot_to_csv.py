@@ -47,6 +47,10 @@ SEED_DIR = REPO_ROOT / "data" / "seed"
 SEED_FROM_CSV = REPO_ROOT / "scripts" / "seed_from_csv.py"
 SNAPSHOT_TO_CSV = REPO_ROOT / "scripts" / "snapshot_to_csv.py"
 
+# CSV-mutating tests must run serially even under xdist — they stomp on
+# shared data/seed/*.csv files which would race across parallel workers.
+pytestmark = pytest.mark.xdist_group("serial")
+
 
 # ---------------------------------------------------------------------------
 # Fixture: omaha_db (boots a fresh SQLite + alembic; does NOT seed users).
