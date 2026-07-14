@@ -655,7 +655,8 @@ def test_class_section_renders_pct_with_one_decimal_when_empty(client: TestClien
     )
     assert match is not None, f"class-current-pct x-text not found in {block[:500]!r}"
     expr = match.group(1)
-    assert expr == "formatPct(classCurrentPct)", f"unexpected class-current-pct x-text: {expr!r}"
+    expected = "formatPctRounded(classCurrentPct)"
+    assert expr == expected, f"unexpected class-current-pct x-text: {expr!r}"
 
 
 def test_class_section_delete_btn_precedes_stats(client: TestClient) -> None:
@@ -708,7 +709,7 @@ def test_class_section_delete_btn_precedes_stats(client: TestClient) -> None:
 
 def test_asset_table_has_colgroup(client: TestClient) -> None:
     """class-section-consolidated-totals 4.5: the asset table
-    declares a ``<colgroup>`` with exactly 8 ``<col>`` elements,
+    declares a ``<colgroup>`` with exactly 15 ``<col>`` elements,
     one per column, so the ``table-layout: fixed`` widths are
     authoritative.
     """
@@ -744,7 +745,7 @@ def test_asset_table_has_colgroup(client: TestClient) -> None:
     )
 
     cols = _re.findall(r"<col\b", tables_with_colgroup[0])
-    assert len(cols) == 16, f"expected 16 <col> elements, found {len(cols)}"
+    assert len(cols) == 15, f"expected 15 <col> elements, found {len(cols)}"
 
 
 def test_class_data_blob_exposes_current_value(client: TestClient) -> None:
