@@ -234,13 +234,12 @@ Candidate OpenSpec change id: `t24-corrigir-classificacao-de-arquivos-integratio
 Archive: `openspec/changes/archive/2026-07-15-t24-corrigir-classificacao-de-arquivos-integration-mal-taggeados/`
 
 ### T25 - Auditar suite completa: cada teste prova que o sistema funciona
-Status: `Ready`
-Goal: inventário final de todos os 742+ testes. Cada teste deve ter justificativa de por que prova comportamento real. Testes que só verificam import, existência de função, ou formato de output sem impacto funcional: eliminar ou reescrever como teste de comportamento.
+Status: `Archived` — 2026-07-15
+Goal: inventário final de todos os 864 testes. Cada teste deve ter justificativa de por que prova comportamento real. Testes que só verificam import, existência de função, ou formato de output sem impacto funcional: eliminar ou reescrever como teste de comportamento.
 Candidate OpenSpec change id: `t25-auditar-suite-completa-cada-teste-prova-que-o-sistema-funciona`
-Spec link: `openspec/changes/t25-auditar-suite-completa-cada-teste-prova-que-o-sistema-funciona/`
+Archive: `openspec/changes/archive/2026-07-15-t25-auditar-suite-completa-cada-teste-prova-que-o-sistema-funciona/`
 Files to inspect: `tests/`, `openspec/specs/`, `openspec/PRD.md` §4
-Notes: rodar cobertura e identificar testes com baixo mutation kill rate. Critério de manutenção: (1) exercita caminho de erro ou edge case, (2) testa integração entre módulos, (3) valida contrato de spec, ou (4) protege regressão conocida. Testes que não se encaixam em nenhum critério são removidos. Resultado: lista final de testes mantidos com justificativa.
-Progress log: `2026-07-15` added from test suite performance analysis.
+Notes: 864 testes auditados, 0 removidos. Todos atendem ao menos 1 critério de retenção (error-path, integration, spec-contract, regression-guard). `tests/AUDIT.md` com justificativas por arquivo. Nova spec `test-suite-audit` criada.
 
 ### T26 - Elevar kill rate de mutation testing em policy.py
 Status: `Ready`
@@ -514,20 +513,20 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 
 **Active queue:**
 
-1. T25 - Auditar suite completa: cada teste prova que o sistema funciona *(next)*
-2. T26 - Elevar kill rate de mutation testing em policy.py
-3. F29 - Compra e venda com emoji toggle
-4. R30 - Extrair padrão CSS compartilhado de tabelas
-5. R31 - Padronizar filter panel e header de tabelas
-6. R33 - Refatorar formatters e comportamentos de tabela para reutilização
-7. F32 - Aplicar padrão de tabela rebalance em portfolio
+1. T26 - Elevar kill rate de mutation testing em policy.py *(next)*
+2. F29 - Compra e venda com emoji toggle
+3. R30 - Extrair padrão CSS compartilhado de tabelas
+4. R31 - Padronizar filter panel e header de tabelas
+5. R33 - Refatorar formatters e comportamentos de tabela para reutilização
+6. F32 - Aplicar padrão de tabela rebalance em portfolio
 
 Order note: I05+I06 archived (hook optimization). T21 archived (test pruning).
 T22 archived (audit_inventory isolated in audit_integration job). T23 archived
 (seed_from_csv 3.7x speedup via session snapshot). T24 archived (integration
 misclassification fixed: test_admin_recovery + test_db_mutations now in
 integration lane). T23.1 archived (flaky test fixed: xdist_group("serial")
-on test_imports_routes.py). T25 audits full suite for real behavior. T26 targets
+on test_imports_routes.py). T25 archived (full suite audit: 864 tests, 0
+removed, all meet retention criteria; AUDIT.md created). T26 targets
 policy.py (145/211 survived mutations — 69% of total gap). Meta: commit < 1min,
 push < 3min, mutation kill rate > 95%. Critério transversal:
 todo teste deve provar comportamento real. R30-R33 for table standardization.

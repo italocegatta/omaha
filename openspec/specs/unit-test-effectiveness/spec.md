@@ -104,6 +104,27 @@ cleanup because the tests masked them.
   and `composite_over("#ff0000", "bad-color")` raises rather
   than silently returning `"#ff0000"`
 
+### Requirement: Every test must satisfy at least one retention criterion
+Each test function SHALL meet at least one of four retention criteria:
+1. **error-path** — exercita caminho de erro ou edge case
+2. **integration** — testa integração entre módulos
+3. **spec-contract** — valida contrato de spec
+4. **regression-guard** — protege regressão conhecida
+
+A test that matches zero criteria SHALL be removed. The canonical
+justification manifest is `tests/AUDIT.md`.
+
+#### Scenario: Test with only isinstance/import assertions is removed
+- **WHEN** a test's only assertion is `isinstance(x, SomeClass)`,
+  `import module`, or checking that a function exists
+- **AND** it matches none of the four retention criteria
+- **THEN** the test is deleted
+
+#### Scenario: Test guarding known regression is retained
+- **WHEN** a test exists because a specific bug was once present
+- **THEN** its retention category is `regression-guard`
+- **AND** the justification in `tests/AUDIT.md` names the bug or commit
+
 ### Requirement: Test markers split unit from integration
 `pyproject.toml` MUST declare three pytest markers — `unit`, `integration`, and `bdd`. `tests/conftest.py::pytest_collection_modifyitems` MUST keep the path and allowlist mapping explicit, reviewable, and loud on drift.
 
