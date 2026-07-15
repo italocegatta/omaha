@@ -207,13 +207,9 @@ Notes: pre-commit: ruff-format (priority 1) + ruff --fix (priority 2) + whitespa
 Progress log: `2026-07-15` applied: pre-commit runs ruff-format, ruff --fix, trailing-whitespace, end-of-file-fixer; pre-push runs ruff (validate-only), uv-lock, pytest-integration, commitizen-branch. Spec synced. Archived.
 
 ### T22 - Isolar audit_inventory em job CI separado
-Status: `Ready`
-Goal: `test_audit_inventory.py` (30 testes, ~48s) não bloqueia push. Mover para job CI dedicado ou seção separada do pre-push com timeout. Push não pode esperar parsing de CSS/template para validar funcionalidade.
-Candidate OpenSpec change id: `t22-isolar-audit-inventory-em-job-ci-separado`
-Spec link: `openspec/changes/t22-isolar-audit-inventory-em-job-ci-separado/`
-Files to inspect: `tests/test_audit_inventory.py`, `prek.toml`, `.github/workflows/ci.yml`
-Notes: audit_inventory lê `app.css` + templates Jinja e parseia CSS. Testes são válidos (audit real) mas não bloqueiam push. Alternativa: rodar no pre-push com `--timeout=30` e falhar silenciosamente se exceder, logando resultado para investigação posterior.
-Progress log: `2026-07-15` added from test suite performance analysis.
+Status: `Archived` — 2026-07-15
+Goal: `test_audit_inventory.py` não bloqueia push — mover para `tests/audit_integration/`, fix path depth, update PERFORMANCE.md refs.
+Archive: `openspec/changes/archive/2026-07-15-t22-isolar-audit-inventory-em-job-ci-separado/`
 
 ### T23 - Otimizar setup do test_seed_from_csv
 Status: `Ready`
@@ -241,6 +237,15 @@ Spec link: `openspec/changes/t25-auditar-suite-completa-cada-teste-prova-que-o-s
 Files to inspect: `tests/`, `openspec/specs/`, `openspec/PRD.md` §4
 Notes: rodar cobertura e identificar testes com baixo mutation kill rate. Critério de manutenção: (1) exercita caminho de erro ou edge case, (2) testa integração entre módulos, (3) valida contrato de spec, ou (4) protege regressão conocida. Testes que não se encaixam em nenhum critério são removidos. Resultado: lista final de testes mantidos com justificativa.
 Progress log: `2026-07-15` added from test suite performance analysis.
+
+### T26 - Elevar kill rate de mutation testing em policy.py
+Status: `Ready`
+Goal: reduzir sobreviventes de mutation de 145 para < 30 em `policy.py`. Baseline atual: 90% killed (3468/3867), mas `policy.py` contribui com 69% dos sobreviventes (145/211). Funções críticas sem cobertura de mutation: `evaluate_progressive_sales_stage_solution` (44 survived), `build_contribution_only_rejection_reason` (16), `calculate_solution_top_gaps` (14), `build_overweight_projected_value_floor` (13).
+Candidate OpenSpec change id: `t26-elevar-kill-rate-de-mutation-testing-em-policy`
+Spec link: `openspec/changes/t26-elevar-kill-rate-de-mutation-testing-em-policy/`
+Files to inspect: `src/omaha/rebalance/policy.py`, `tests/test_rebalance_policy.py`, `.mutmut-baseline`
+Notes: cada mutante sobrevivente significa que o teste atual não detecta a mudança no código. Critério de sucesso: `mutmut results` mostra < 30 survived em policy.py. Testes devem exercitar caminhos de decisão (if/else), edge cases (valores zero, negativos, limite), e integração com engine. Não testar implementação — testar comportamento observável.
+Progress log: `2026-07-15` added from mutation analysis: policy.py has 145 survived mutations (69% of total).
 
 ### F01 - Consolidação cross-profile (visão household agregada)
 Status: `Archived` (superseded by F06) — 2026-07-04
@@ -505,29 +510,23 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 
 **Active queue:**
 
-1. T22 - Isolar audit_inventory em job CI separado
-2. T23 - Otimizar setup do test_seed_from_csv
-3. T24 - Corrigir classificação de arquivos integration mal taggeados
-4. T25 - Auditar suite completa: cada teste prova que o sistema funciona
+1. T23 - Otimizar setup do test_seed_from_csv *(next)*
+2. T24 - Corrigir classificação de arquivos integration mal taggeados
+3. T25 - Auditar suite completa: cada teste prova que o sistema funciona
+4. T26 - Elevar kill rate de mutation testing em policy.py
 5. F29 - Compra e venda com emoji toggle
 6. R30 - Extrair padrão CSS compartilhado de tabelas
 7. R31 - Padronizar filter panel e header de tabelas
 8. R33 - Refatorar formatters e comportamentos de tabela para reutilização
 9. F32 - Aplicar padrão de tabela rebalance em portfolio
 
-Order note: I05-T25 are test performance slices. Meta: commit < 1min,
-push < 3min. Critério transversal: todo teste deve provar comportamento
-real do sistema — testes óbvios, redundantes, ou sobreviventes de mutation
-test são reescritos ou excluídos. I05 removes duplicate pytest-unit from
-pre-push (~17s saved) and switches to parallel integration (~120s saved).
-T22 moves 48s audit_inventory out of push path.
-T23 cuts seed_from_csv setup overhead via shared fixtures. T24 fixes 3 files
-misclassified as unit. T25 is the final full-suite audit: every test must
-justify its existence by proving real system behavior. R30-R33 added
-2026-07-14 for table standardization: R30 is foundation (shared CSS variables),
-R31 unifies filter panels, R33 extracts shared JS formatters/sign logic/row
-classes, F32 ports visual design to portfolio. R30 → R31 → R33 → F32
-dependency chain.
+Order note: I05+I06 archived (hook optimization). T21 archived (test pruning).
+T22 archived (audit_inventory isolated in audit_integration job). T23-T26 are
+test performance + quality slices. Meta: commit < 1min,
+push < 3min, mutation kill rate > 95%. T23 cuts seed_from_csv setup. T24 fixes
+misclassified files. T25 audits full suite for real behavior. T26 targets
+policy.py (145/211 survived mutations — 69% of total gap). Critério transversal:
+todo teste deve provar comportamento real. R30-R33 for table standardization.
 
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed, reactivation path documented above.
