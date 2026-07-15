@@ -12,6 +12,14 @@ existing pytest collection, and the resulting kill/survive counts
 are surfaced as a signal (not a gate) on the developer's local
 machine.
 
+The T19 slice expanded scope from 2 to 8 files (~3867 mutants,
+94.5% killed). The T20 slice added CI automation: a
+`mutation-baseline` GitHub Actions job runs on every push to
+`main` (not on PRs), executes `task mutation-ci`, and commits the
+updated `.mutmut-baseline` back automatically. This keeps the
+baseline fresh without manual intervention and makes score
+regressions visible via `git diff`.
+
 Per the slice's D-T03.2 decision, the killed share is read-only —
 the slice does not promote mutation score to a CI gate. Promoting
 the score to a `fail_under` threshold or a CI-blocking check is

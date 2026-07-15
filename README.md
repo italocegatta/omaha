@@ -85,6 +85,7 @@ Discover them any time with `uv run task --list`.
 | `mutation`         | Run mutation testing on the rebalance solver + validation (scoped via `[tool.mutmut]` `only_mutate`; first run populates `mutants/`). |
 | `mutation-report`  | Render mutation results to stdout: per-status counts + killed share.            |
 | `mutation-baseline`| Capture the current mutation score to `.mutmut-baseline`.                       |
+| `mutation-ci`      | Chain `mutation` + `mutation-baseline` in one command (used by CI post-merge job). |
 | `db-current`       | Show the current Alembic revision head.                                         |
 | `db-downgrade`     | Revert the last Alembic migration.                                              |
 | `db-history`       | Show the full Alembic migration timeline.                                       |
