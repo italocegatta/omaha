@@ -1,7 +1,7 @@
-killed=3644
-survived=211
+killed=3452
+survived=403
 no_tests=12
 timeout=0
 skipped=0
-killed_share=0.945
-generated_at=2026-07-14T22:24:16.429604+00:00
+killed_share=0.895
+generated_at=2026-07-15T01:45:02.665916+00:00
