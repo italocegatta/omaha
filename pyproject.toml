@@ -291,6 +291,7 @@ coverage     = { cmd = "uv run pytest -m 'unit or integration' --ignore=tests/au
 # it on first `mutmut run` invocation. First execution may take 15–20 min;
 # report + baseline live as separate tasks so the cache is reusable.
 mutation          = { cmd = "uv run mutmut run", help = "Run mutation testing on the rebalance module (scoped via [tool.mutmut] only_mutate; first run populates mutants/)" }
+mutation-ci       = { cmd = "uv run task mutation && uv run task mutation-baseline", help = "Run mutation testing and capture baseline (CI single-command)" }
 mutation-report   = { cmd = "uv run python -m scripts.mutation_report", help = "Render mutation results to stdout: per-status counts + killed share (errors if mutants/ has no .meta files)" }
 mutation-baseline = { cmd = "uv run python -m scripts.mutation_baseline", help = "Capture the current mutation score to .mutmut-baseline (killed, survived, no_tests, timeout, skipped, killed_share, generated_at)" }
 update       = { cmd = "uv sync --upgrade",                                 help = "Upgrade all dependencies within version constraints" }

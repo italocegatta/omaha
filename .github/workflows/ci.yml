@@ -277,3 +277,45 @@ jobs:
           name: coverage-report
           path: reports/coverage.xml
           retention-days: 30
+
+  mutation-baseline:
+    name: mutation-baseline
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.12"
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+
+      - name: Install dependencies
+        run: uv sync --frozen --group dev
+
+      - name: Clean mutants directory
+        run: rm -rf mutants/
+
+      - name: Run mutation testing and capture baseline
+        run: uv run task mutation-ci
+
+      - name: Commit baseline
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .mutmut-baseline
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: update mutation baseline [skip ci]"
+          git push

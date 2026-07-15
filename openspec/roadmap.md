@@ -379,13 +379,16 @@ Progress log: `2026-07-14` proposal queued.
 Progress log: `2026-07-14` archived after spec sync and closeout.
 
 ### T20 - Baseline automático de mutation no CI
-Status: `Ready`
+Status: `Archived` — 2026-07-14
 Goal: configurar `mutmut run` + `mutation-baseline` como passo CI pós-merge no `main`, gerando baseline atualizado e commit automático para detecção de regressão de mutation score.
 Candidate OpenSpec change id: `t20-baseline-automatico-de-mutation-no-ci`
-Spec link: `openspec/changes/t20-baseline-automatico-de-mutation-no-ci/`
+Archive: `openspec/changes/archive/2026-07-14-t20-baseline-automatico-de-mutation-no-ci/`
 Files to inspect: `.github/workflows/ci.yml`, `pyproject.toml` (`[tool.mutmut]`, taskipy tasks), `scripts/mutation_baseline.py`
 Notes: requer T19 (scope expansion) antes para baseline refletir módulo completo. CI deve rodar em cron ou pós-merge only (não em PR — custo alto).
 Progress log: `2026-07-14` added from performance analysis.
+Progress log: `2026-07-14` proposal generated; 4 tasks, 5 design decisions.
+Progress log: `2026-07-14` applied: added `mutation-ci` taskipy task, `mutation-baseline` CI job (post-merge only, fresh run, commit-back with [skip ci]), spec synced.
+Progress log: `2026-07-14` archived after spec sync and closeout.
 
 ### I01 - Agendamento automático de backup
 Status: `Archived` — 2026-07-06
