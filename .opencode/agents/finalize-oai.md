@@ -36,7 +36,7 @@ Git finalization:
 - Check for modified files unrelated to the change via `git status`.
 - If unrelated modified files exist: ask via `question` tool whether to include them.
 - Commit with clear message referencing the slice id.
-- `git push` to remote.
+- `git push` to remote — **use timeout 480000ms (8 minutes)**; pre-commit hooks run lint + tests on push.
 - Verify worktree is clean (`git status --porcelain` should be empty).
 
 Constraints:

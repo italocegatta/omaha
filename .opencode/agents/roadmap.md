@@ -165,3 +165,4 @@ To swap a gate's primary provider: change the `Primary` column and swap the
 - Never implement application code in orchestrator session.
 - Never proceed without a roadmap — bootstrap first, then continue.
 - NEVER delegate to `general` subagent_type for pipeline gates — only the stage agents above.
+- `git push` timeout: use **480000ms** (8 minutes). Pre-commit hooks run lint + tests on push.
