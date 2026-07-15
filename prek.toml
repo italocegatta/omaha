@@ -21,7 +21,8 @@ exclude = '''
 '''
 
 # ── pre-commit stage ─────────────────────────────────────────────────────────
-# Fast, non-mutating checks. Runs on every `git commit`.
+# Code-correction hooks (format, lint fix, whitespace, EOF) plus file-sanity
+# checks and the unit-test gate. Runs on every `git commit`.
 
 [[repos]]
 repo = "https://github.com/pre-commit/pre-commit-hooks"
@@ -50,28 +51,36 @@ hooks = [
 ]
 
 [[repos]]
-repo = "local"
-hooks = [
-    { id = "pytest-unit", name = "pytest-unit", entry = "uv run task test-unit", language = "system", pass_filenames = false, types = ["python"], stages = ["pre-commit"], priority = 4 },
-]
-
-# ── pre-push stage ───────────────────────────────────────────────────────────
-# Mutating hooks (format, fix, whitespace, EOF) and slow checks (full test
-# suite, type check, lockfile sync, branch validation). Runs on every `git push`.
-
-[[repos]]
 repo = "https://github.com/astral-sh/ruff-pre-commit"
 rev = "v0.14.3"
 hooks = [
-    { id = "ruff", stages = ["pre-push"], priority = 1 },
+    { id = "ruff-format", stages = ["pre-commit"], priority = 1 },
+    { id = "ruff", stages = ["pre-commit"], args = ["--fix"], priority = 2 },
 ]
 
 [[repos]]
 repo = "https://github.com/pre-commit/pre-commit-hooks"
 rev = "v5.0.0"
 hooks = [
-    { id = "trailing-whitespace", stages = ["pre-push"], priority = 3 },
-    { id = "end-of-file-fixer",   stages = ["pre-push"], priority = 3 },
+    { id = "trailing-whitespace", stages = ["pre-commit"], priority = 3 },
+    { id = "end-of-file-fixer",   stages = ["pre-commit"], priority = 3 },
+]
+
+[[repos]]
+repo = "local"
+hooks = [
+    { id = "pytest-unit", name = "pytest-unit", entry = "uv run task test-unit", language = "system", pass_filenames = false, types = ["python"], stages = ["pre-commit"], priority = 4 },
+]
+
+# ── pre-push stage ───────────────────────────────────────────────────────────
+# Validation-only hooks (ruff check without fix, integration tests, commitizen,
+# lockfile sync). Runs on every `git push`. No hook modifies tracked files.
+
+[[repos]]
+repo = "https://github.com/astral-sh/ruff-pre-commit"
+rev = "v0.14.3"
+hooks = [
+    { id = "ruff", stages = ["pre-push"], priority = 1 },
 ]
 
 [[repos]]

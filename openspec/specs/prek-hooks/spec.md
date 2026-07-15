@@ -5,17 +5,19 @@
 Defines the project's git-hook automation: which hooks run, on which pre-commit / pre-push / commit-msg stage, and whether they block or report-only on failure. Backed by the `prek.toml` file at the project root.
 ## Requirements
 ### Requirement: Stage-split hook layout
-The prek configuration SHALL split hooks across three stages: `pre-commit` for fast, non-mutating checks plus the unit-test gate; `pre-push` for mutating hooks and integration tests (parallel via `test-integration-parallel`); `commit-msg` for commit-message format validation.
+The prek configuration SHALL split hooks across three stages: `pre-commit` for code-correction hooks (format, lint fix, whitespace, EOF) plus file-sanity checks and the unit-test gate; `pre-push` for validation-only hooks (ruff check without fix, integration tests, commitizen, uv-lock); `commit-msg` for commit-message format validation.
 
-#### Scenario: Pre-commit stage runs only non-mutating checks
+#### Scenario: Pre-commit stage corrects code and gates commit
 - **WHEN** developer runs `git commit`
 - **THEN** the pre-commit stage hooks run in priority order
-- **AND** no hook in this stage modifies any tracked file
+- **AND** mutating hooks (`ruff-format`, `ruff --fix`, `trailing-whitespace`, `end-of-file-fixer`) may modify tracked files to correct formatting and lint issues
+- **AND** the corrected code is included in the commit
 
-#### Scenario: Pre-push stage runs mutating and slow hooks
+#### Scenario: Pre-push stage validates only, never modifies
 - **WHEN** developer runs `git push`
 - **THEN** the pre-push stage hooks run in priority order
-- **AND** mutating hooks (`ruff-format`, `ruff --fix`, `trailing-whitespace`, `end-of-file-fixer`, `uv-lock`) may modify tracked files
+- **AND** no hook in this stage modifies any tracked file (except `uv-lock` for lockfile sync)
+- **AND** `ruff` runs WITHOUT `--fix` — it only validates, failing if issues remain
 
 #### Scenario: Commit-msg stage validates message format
 - **WHEN** developer runs `git commit -m "..."` or `git commit` (with editor)
@@ -47,19 +49,33 @@ The pre-commit stage SHALL run `uv run task test-unit` as a blocking gate. The h
 - **THEN** the pre-commit hook reports failure with the failing test names
 - **AND** the `git commit` is blocked
 
-### Requirement: Mutating Python tooling on pre-push
-The pre-push stage SHALL run `ruff-format`, `ruff --fix`, `trailing-whitespace`, `end-of-file-fixer`, and `uv-lock`. `ruff-format` MUST run at priority 1, `ruff --fix` at priority 2, and the remaining mutating hooks at priority 3 (or lower).
+### Requirement: Mutating Python tooling on pre-commit
+The pre-commit stage SHALL run `ruff-format` (priority 1), `ruff --fix` (priority 2), `trailing-whitespace` (priority 3), and `end-of-file-fixer` (priority 3). These hooks correct code before the commit is finalized, so the committed code is already clean.
 
-#### Scenario: Ruff format and fix run before tests
-- **WHEN** developer runs `git push`
+#### Scenario: Ruff format runs before ruff fix
+- **WHEN** developer runs `git commit`
 - **THEN** `ruff-format` runs first (priority 1)
 - **AND** `ruff --fix` runs second (priority 2)
-- **AND** the full pytest suite runs after (priority 4+)
+- **AND** `trailing-whitespace` and `end-of-file-fixer` run third (priority 3)
+- **AND** `pytest-unit` runs after all code-correction hooks (priority 4)
 
-#### Scenario: uv-lock regenerates the lockfile when stale
-- **WHEN** `pyproject.toml` dependencies have changed since the last lock
-- **THEN** the `uv-lock` hook updates `uv.lock`
-- **AND** the updated lockfile is included in the push
+#### Scenario: Mutating hooks amend the staged commit
+- **WHEN** a mutating hook modifies a tracked file
+- **THEN** the modified file is included in the commit automatically (pre-commit amends)
+- **AND** the developer does not need to re-commit
+
+### Requirement: Validation-only ruff on pre-push
+The pre-push stage SHALL run `ruff` WITHOUT the `--fix` flag as a validation gate. If any ruff rule is violated, the push is blocked. This catches issues that slipped through pre-commit (e.g., `--no-verify` bypass).
+
+#### Scenario: Ruff validation passes
+- **WHEN** all Python files pass `ruff check` (no violations)
+- **THEN** the pre-push ruff hook reports success
+- **AND** the push proceeds
+
+#### Scenario: Ruff validation fails
+- **WHEN** one or more Python files have ruff violations
+- **THEN** the pre-push ruff hook reports the violations
+- **AND** the push is blocked
 
 ### Requirement: Pytest full gate on pre-push
 The pre-push stage SHALL run integration tests only through `uv run task test-integration-parallel` (parallel via pytest-xdist with `--dist loadgroup`). Unit tests are gated at pre-commit only and MUST NOT be duplicated at pre-push. The selected coverage MUST match the documented integration bucket while excluding browser-backed families (`tests/bdd`, `tests/e2e`, `tests/visual`) and any separately documented heavy family such as `tests/audit_integration`. The hook entry MUST use `pass_filenames = false`.

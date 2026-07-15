@@ -195,12 +195,16 @@ Status: `Archived` — 2026-07-15
 Goal: todo teste precisa validar comportamento real do sistema. Sobreviventes de mutation test (killed por acaso), testes óbvios (assert trivial), testes redundantes (mesma lógica testada 2x): reescrever com cenário real ou excluir.
 Candidate OpenSpec change id: `t21-auditar-e-podar-testes-redundantes-e-obvios`
 Archive: `openspec/changes/archive/2026-07-15-t21-auditar-e-podar-testes-redundantes-e-obvios/`
-Files to inspect: `tests/`, `tests/conftest.py`, `.mutmut-baseline`
 Notes: -4 testes (5 deletados + 1 merge). Zero código de produção. Zero seed.
-Progress log: `2026-07-15` proposal generated: delete 2 skips, merge 2 audit_inventory, delete 2 trivial. 4 tasks, 3 design decisions.
-Progress log: `2026-07-15` applied: 37 passed, 0 skipped. audit_inventory 30→27 tests, rebalance_engine_glue 0 skipped, rebalance_glue 0 skipped.
-Progress log: `2026-07-15` proposal queued.
-Progress log: `2026-07-15` archived after closeout.
+
+### I06 - Reorganizar hooks prek: modificar em pre-commit, validar em pre-push
+Status: `Archived` — 2026-07-15
+Goal: pre-commit corrige código (ruff format+fix, whitespace, EOF). Pre-push só valida (ruff check sem fix, testes, commitizen). Push nunca modifica código.
+Candidate OpenSpec change id: `i06-reorganizar-hooks-prek-modificar-em-pre-commit-validar-em-pre-push`
+Archive: `openspec/changes/archive/2026-07-15-i06-reorganizar-hooks-prek-modificar-em-pre-commit-validar-em-pre-push/`
+Files to inspect: `prek.toml`, `openspec/specs/prek-hooks/spec.md`
+Notes: pre-commit: ruff-format (priority 1) + ruff --fix (priority 2) + whitespace/EOF (priority 3). Pre-push: ruff check (validate only) + pytest-integration + commitizen-branch + uv-lock.
+Progress log: `2026-07-15` applied: pre-commit runs ruff-format, ruff --fix, trailing-whitespace, end-of-file-fixer; pre-push runs ruff (validate-only), uv-lock, pytest-integration, commitizen-branch. Spec synced. Archived.
 
 ### T22 - Isolar audit_inventory em job CI separado
 Status: `Ready`
