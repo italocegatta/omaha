@@ -185,6 +185,57 @@ Notes: JS/Alpine layer — separado do CSS (R30). Formatters atuais estão dupli
 Progress log: `2026-07-14` added from owner request.
 Progress log: `2026-07-14` proposal queued.
 
+### I05 - Otimizar hooks pre-commit e pre-push
+Status: `Archived` — 2026-07-15
+Goal: commit < 1 min, push < 3 min. Remover `pytest-unit` duplicado do pre-push (já roda no pre-commit), trocar `task test-integration` por `task test-integration-parallel` no hook pre-push.
+Archive: `openspec/changes/archive/2026-07-15-i05-otimizar-hooks-pre-commit-e-pre-push/`
+
+### T21 - Auditar e podar testes redundantes e obvios
+Status: `Ready`
+Goal: todo teste precisa validar comportamento real do sistema. Sobreviventes de mutation test (killed por acaso), testes óbvios (assert trivial), testes redundantes (mesma lógica testada 2x): reescrever com cenário real ou excluir. Meta: sem testes que só passam porque o código é trivial.
+Candidate OpenSpec change id: `t21-auditar-e-podar-testes-redundantes-e-obvios`
+Spec link: `openspec/changes/t21-auditar-e-podar-testes-redundantes-e-obvios/`
+Files to inspect: `tests/`, `tests/conftest.py`, `.mutmut-baseline`
+Notes: achados concretos da análise: (1) 2 tests skipped são redundantes — `test_rebalance_engine_glue.py:152` coberto por validation+route, `test_rebalance_glue.py:270` coberto por engine_glue. (2) `test_audit_inventory.py` tem 2 testes lentos (31s cada) que rodam `inventory_for_page("patrimonio.html")` duas vezes — duplicação óbvia, fundir em 1. (3) `test_find_interactive_empty_html_returns_empty` e `test_find_interactive_no_interactive_elements_returns_empty` são asserts triviais em strings hardcoded — não exercitam código real do sistema.
+Progress log: `2026-07-15` added from test suite performance analysis.
+Progress log: `2026-07-15` achados: 2 skips redundantes, 2 audit_inventory duplicados (62s→31s se fundidos), 2 find_interactive triviais.
+
+### T22 - Isolar audit_inventory em job CI separado
+Status: `Ready`
+Goal: `test_audit_inventory.py` (30 testes, ~48s) não bloqueia push. Mover para job CI dedicado ou seção separada do pre-push com timeout. Push não pode esperar parsing de CSS/template para validar funcionalidade.
+Candidate OpenSpec change id: `t22-isolar-audit-inventory-em-job-ci-separado`
+Spec link: `openspec/changes/t22-isolar-audit-inventory-em-job-ci-separado/`
+Files to inspect: `tests/test_audit_inventory.py`, `prek.toml`, `.github/workflows/ci.yml`
+Notes: audit_inventory lê `app.css` + templates Jinja e parseia CSS. Testes são válidos (audit real) mas não bloqueiam push. Alternativa: rodar no pre-push com `--timeout=30` e falhar silenciosamente se exceder, logando resultado para investigação posterior.
+Progress log: `2026-07-15` added from test suite performance analysis.
+
+### T23 - Otimizar setup do test_seed_from_csv
+Status: `Ready`
+Goal: reduzir overhead de setup dos 20 testes serial em `test_seed_from_csv.py` (~50s total, ~2.5s/setup). Compartilhar fixture de seed entre testes via session scope ou cache de estado SQLite.
+Candidate OpenSpec change id: `t23-otimizar-setup-do-test-seed-from-csv`
+Spec link: `openspec/changes/t23-otimizar-setup-do-test-seed-from-csv/`
+Files to inspect: `tests/test_seed_from_csv.py`, `tests/support/db.py`, `tests/conftest.py`
+Notes: testes são `xdist_group("serial")` — cada um re-executa CSV parse + DB seed no setup. Fixture session-scoped com snapshot/restore seria mais rápido. Cuidado: testes testam modos diferentes (reset, diff, upsert) que dependem de estado anterior.
+Progress log: `2026-07-15` added from test suite performance analysis.
+
+### T24 - Corrigir classificação de arquivos integration mal taggeados
+Status: `Ready`
+Goal: `test_admin_recovery.py` e `test_db_mutations.py` usam TestClient + DB mas estão marcados `unit`. Mover para `_INTEGRATION_PREFIXES` em `tests/conftest.py`. Ganho: limpeza + ~1.5s off unit suite.
+Candidate OpenSpec change id: `t24-corrigir-classificacao-de-arquivos-integration-mal-taggeados`
+Spec link: `openspec/changes/t24-corrigir-classificacao-de-arquivos-integration-mal-taggeados/`
+Files to inspect: `tests/conftest.py`, `tests/test_admin_recovery.py`, `tests/test_db_mutations.py`
+Notes: ambos os arquivos importam TestClient e manipulam DB. Atualmente rodam no pre-commit (unit) quando deveriam rodar no pre-push (integration). Também verificar `test_db_snapshot.py` — docstring diz "unit" mas pode precisar de DB.
+Progress log: `2026-07-15` added from test suite performance analysis.
+
+### T25 - Auditar suite completa: cada teste prova que o sistema funciona
+Status: `Ready`
+Goal: inventário final de todos os 742+ testes. Cada teste deve ter justificativa de por que prova comportamento real. Testes que só verificam import, existência de função, ou formato de output sem impacto funcional: eliminar ou reescrever como teste de comportamento.
+Candidate OpenSpec change id: `t25-auditar-suite-completa-cada-teste-prova-que-o-sistema-funciona`
+Spec link: `openspec/changes/t25-auditar-suite-completa-cada-teste-prova-que-o-sistema-funciona/`
+Files to inspect: `tests/`, `openspec/specs/`, `openspec/PRD.md` §4
+Notes: rodar cobertura e identificar testes com baixo mutation kill rate. Critério de manutenção: (1) exercita caminho de erro ou edge case, (2) testa integração entre módulos, (3) valida contrato de spec, ou (4) protege regressão conocida. Testes que não se encaixam em nenhum critério são removidos. Resultado: lista final de testes mantidos com justificativa.
+Progress log: `2026-07-15` added from test suite performance analysis.
+
 ### F01 - Consolidação cross-profile (visão household agregada)
 Status: `Archived` (superseded by F06) — 2026-07-04
 Archive: `openspec/changes/archive/2026-07-04-f01-household-cross-profile-consolidation/`
@@ -448,41 +499,31 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 
 **Active queue:**
 
-1. T20 - Baseline automático de mutation no CI *(next)*
-2. F29 - Compra e venda com emoji toggle
-3. R30 - Extrair padrão CSS compartilhado de tabelas
-4. R31 - Padronizar filter panel e header de tabelas
-5. R33 - Refatorar formatters e comportamentos de tabela para reutilização
-6. F32 - Aplicar padrão de tabela rebalance em portfolio
+1. T21 - Auditar e podar testes redundantes e obvios
+2. T22 - Isolar audit_inventory em job CI separado
+3. T23 - Otimizar setup do test_seed_from_csv
+4. T24 - Corrigir classificação de arquivos integration mal taggeados
+5. T25 - Auditar suite completa: cada teste prova que o sistema funciona
+6. F29 - Compra e venda com emoji toggle
+7. R30 - Extrair padrão CSS compartilhado de tabelas
+8. R31 - Padronizar filter panel e header de tabelas
+9. R33 - Refatorar formatters e comportamentos de tabela para reutilização
+10. F32 - Aplicar padrão de tabela rebalance em portfolio
 
-Order note: T17-T20 are test infrastructure slices. T17 archived
-(2026-07-14): integration 5:34→2:44 via DB-per-worker isolation. T18 archived
-(2026-07-14): shared helpers + session-scoped fixtures cut hot-spot setup cost.
-T19 archived (2026-07-14): mutation scope expanded 2→8 files, kill rate
-64.9%→94.5% (3867 mutants). T20 adds CI baseline automation. R30-R33 added
+Order note: I05-T25 are test performance slices. Meta: commit < 1min,
+push < 3min. Critério transversal: todo teste deve provar comportamento
+real do sistema — testes óbvios, redundantes, ou sobreviventes de mutation
+test são reescritos ou excluídos. I05 removes duplicate pytest-unit from
+pre-push (~17s saved) and switches to parallel integration (~120s saved).
+T21 audits test value: survivors of mutation testing that don't kill mutants
+are candidates for removal. T22 moves 48s audit_inventory out of push path.
+T23 cuts seed_from_csv setup overhead via shared fixtures. T24 fixes 3 files
+misclassified as unit. T25 is the final full-suite audit: every test must
+justify its existence by proving real system behavior. R30-R33 added
 2026-07-14 for table standardization: R30 is foundation (shared CSS variables),
 R31 unifies filter panels, R33 extracts shared JS formatters/sign logic/row
 classes, F32 ports visual design to portfolio. R30 → R31 → R33 → F32
 dependency chain.
-F19 and F20 archived after spec sync + archive flow. On
-2026-07-09 owner split broad test-triage work for context control: T07 keeps
-browser/workflow failures already in flight; T09/T10/T11 isolate remaining red
-families before T08 tackles throughput, redundancy, and parallelism. On
-2026-07-10, T08 was validated and archived after cleaning bucket drift and
-documenting safe serial/reuse limits; owner then sent queue back to T07. On
-2026-07-10, T07 remained blocked by suite-wide late-run browser hang, so T12
-was added first to isolate the failing test one-by-one and stop wasting time on
-full-group reruns before root cause is known. On 2026-07-10, T09 was archived;
-  push still blocked by repo-wide hook drift outside slice, so I03/I04 were
-  added as next delivery-gate cleanup slices; both are now archived. On
-  2026-07-11, F21 was archived without syncing its
-   discarded PoC spec; F22 is now next. On 2026-07-12, F26 was split into F27-F29
-    to keep slices small and testable. On 2026-07-13, fresh timing rerun
-    confirmed unit/bdd/visual gains but left integration as main >2m blocker,
-    so T16-T18 split pre-merge gate, worker parallelism, and hotspot setup cuts.
-    On 2026-07-14, T13 and T15 archived; T13 removed browser-heavy coverage scope,
-    T15 reconciled docs and spec contracts. T16 archived: gate-fast runs in 40s.
-    T17 is next.
 
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed, reactivation path documented above.
