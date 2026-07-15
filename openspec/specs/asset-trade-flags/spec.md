@@ -223,6 +223,14 @@ asset table, inline toggle controls for `buy_enabled` and
 the row's visual state on a 200 response. The toggle SHALL be
 disabled while the PATCH is in flight.
 
+The toggle SHALL display a Material Symbols Outlined icon
+(`check_circle` when enabled, `lock` when disabled) instead
+of a text label. Each button SHALL carry an `aria-label`
+attribute that announces the current state in Portuguese
+(e.g., "Compra: Liberado"). The button wrapper, CSS classes
+(`trade-toggle--on` / `trade-toggle--off`), `data-testid`
+attributes, and `@click` handler are unchanged.
+
 This is per-asset only — there is no bulk toggle at the
 asset-class level. The dashboard does not provide a class-
 level mechanism for setting or clearing trade-control flags
@@ -236,6 +244,20 @@ across multiple assets in one action.
   `PATCH /api/assets/{id} {"buy_enabled": <new-value>}`
   and updates the toggle's visual state to reflect the new
   value on a 200 response
+
+#### Scenario: Toggle renders icon not text
+
+- **WHEN** the dashboard renders the asset table
+- **THEN** each buy/sell toggle cell contains a Material
+  Symbols Outlined icon (`check_circle` when enabled,
+  `lock` when disabled) and no visible text label
+
+#### Scenario: Toggle has accessible label
+
+- **WHEN** the dashboard renders a buy/sell toggle
+- **THEN** the button element has an `aria-label` attribute
+  in the format `<field>: <state>` (e.g.,
+  "Compra: Liberado", "Venda: Bloqueado")
 
 #### Scenario: Currency badge is visible per asset
 

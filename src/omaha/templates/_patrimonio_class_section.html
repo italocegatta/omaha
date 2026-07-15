@@ -337,8 +337,9 @@
                             :data-buy-enabled="a.buy_enabled ? 'true' : 'false'"
                             :disabled="readOnly || (savingTrade !== null && savingTrade.assetId === a.id && savingTrade.field === 'buy_enabled')"
                             @click="toggleTradeFlag(a.id, 'buy_enabled', !a.buy_enabled)"
+                            :aria-label="a.buy_enabled ? 'Compra: Liberado' : 'Compra: Bloqueado'"
                             title="Permitir compra pelo solver">
-                      <span x-text="a.buy_enabled ? 'Liberado' : 'Bloqueado'"></span>
+                      <span class="material-symbols-outlined icon--sm" x-text="a.buy_enabled ? 'check_circle' : 'lock'"></span>
                     </button>
                   </td>
                   <td class="data-table-td" data-testid="asset-sell-cell">
@@ -350,8 +351,9 @@
                             :data-sell-enabled="a.sell_enabled ? 'true' : 'false'"
                             :disabled="readOnly || (savingTrade !== null && savingTrade.assetId === a.id && savingTrade.field === 'sell_enabled')"
                             @click="toggleTradeFlag(a.id, 'sell_enabled', !a.sell_enabled)"
+                            :aria-label="a.sell_enabled ? 'Venda: Liberado' : 'Venda: Bloqueado'"
                             title="Permitir venda pelo solver">
-                      <span x-text="a.sell_enabled ? 'Liberado' : 'Bloqueado'"></span>
+                      <span class="material-symbols-outlined icon--sm" x-text="a.sell_enabled ? 'check_circle' : 'lock'"></span>
                     </button>
                   </td>
                   <td class="data-table-td" data-testid="asset-currency-cell">

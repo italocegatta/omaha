@@ -137,7 +137,7 @@ Progress log: `2026-07-13` fourth-review repair applied; header filter uses cata
 Progress log: `2026-07-13` fifth-review repair applied; exact numeric asset targets use `0%` in Classe / Alvo and Carteira / Alvo, while `—` remains absent/invalid-only. Focused browser regression, unit suite, lint, OpenSpec validation, and refresh smoke passed. Ready for final review.
 
 ### F29 - Compra e venda com emoji toggle
-Status: `Spec Proposed`
+Status: `Applied`
 Goal: simplificar colunas compra e venda com emoji de acerto/bloqueio e manter clique que alterna ícone e grava novo valor no banco.
 Candidate OpenSpec change id: `f29-compra-e-venda-com-emoji-toggle`
 Spec link: `openspec/changes/f29-compra-e-venda-com-emoji-toggle/`
@@ -145,6 +145,8 @@ Files to inspect: `src/omaha/templates/_patrimonio*.html`, `src/omaha/routes/*.p
 Notes: comportamento atual permanece; só muda representação e microcopy visual.
 Progress log: `2026-07-12` added from owner request.
 Progress log: `2026-07-14` proposal generated.
+Progress log: `2026-07-15` applied: buy/sell text → Material Symbols icons, min-width 5.5rem→2rem, aria-labels added. Unit 434/434 pass, lint clean, spec valid.
+Progress log: `2026-07-15` review approved; one pre-existing CSS nit (--fg-muted) not introduced by F29.
 
 ### R30 - Extrair padrão CSS compartilhado de tabelas
 Status: `Archived` — 2026-07-15

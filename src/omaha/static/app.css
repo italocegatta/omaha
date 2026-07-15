@@ -1520,8 +1520,8 @@ td.editing {
 }
 
 /* asset-trade-flags: per-asset buy/sell toggle + currency badge.
-   The toggle is a small pill that swaps between "Liberado" (green)
-   and "Bloqueado" (neutral gray) based on the
+   The toggle is a small pill that swaps between check_circle (green)
+   and lock (red) Material Symbols icons based on the
    ``trade-toggle--on`` / ``trade-toggle--off`` modifier class bound
    by Alpine from the row's ``buy_enabled`` / ``sell_enabled`` value.
    The button stays full-width so the column reads as a binary state
@@ -1540,7 +1540,7 @@ td.editing {
   color: var(--fg-muted);
   cursor: pointer;
   user-select: none;
-  min-width: 5.5rem;
+  min-width: 2rem;
   text-align: center;
 }
 .trade-toggle--on {
