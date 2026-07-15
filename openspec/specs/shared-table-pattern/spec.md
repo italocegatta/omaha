@@ -4,6 +4,17 @@
 
 Define shared CSS base classes and custom properties for all data tables, enabling consistent visual styling and easy theme customization across rebalance and portfolio tables.
 
+## Canonical Reference
+
+**The rebalance page table (`_rebalance_plan.html`) is the single source of truth for functionality and visual style.** All table patterns, CSS tokens, interaction behaviors, and visual decisions originate from the rebalance table.
+
+**The portfolio page asset table (`_patrimonio_class_section.html`) is broken and MUST NOT be used as reference.** It has inconsistent class naming, duplicated rules, and misaligned visual patterns. It will be refactored to match the rebalance table standard in slice F32.
+
+When making table-related decisions:
+- Always check the rebalance table first
+- Never copy patterns from the portfolio table
+- Portfolio table deviations from rebalance are bugs, not features
+
 ## Requirements
 
 ### Requirement: Shared table base classes

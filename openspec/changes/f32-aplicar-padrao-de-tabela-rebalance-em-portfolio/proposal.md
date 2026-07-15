@@ -1,12 +1,8 @@
 ## Why
 
-After R30 (shared CSS base classes) and R31 (unified filter panels) establish the
-foundation, portfolio asset tables still use their own visual styling while
-rebalance tables have a polished design with gradient shell, uppercase headers,
-alternating row colors, and buy/sell color-coding. Users switching between
-Patrimônio and Rebalanceamento tabs see two different table "languages" for the
-same data density. This slice ports the rebalance visual design to portfolio
-tables so both pages feel like one coherent system.
+**The rebalance page table is the canonical reference for functionality and visual style.** The portfolio page asset table is broken and must not be used as reference.
+
+After R30 (shared CSS base classes) and R31 (unified filter panels) establish the foundation, portfolio asset tables still use their own visual styling while rebalance tables have a polished design with gradient shell, uppercase headers, alternating row colors, and buy/sell color-coding. Users switching between Patrimônio and Rebalanceamento tabs see two different table "languages" for the same data density. This slice ports the rebalance visual design to portfolio tables so both pages feel like one coherent system.
 
 ## What Changes
 

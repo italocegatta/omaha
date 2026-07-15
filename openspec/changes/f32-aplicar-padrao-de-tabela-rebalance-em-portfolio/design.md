@@ -1,33 +1,25 @@
 ## Context
 
-Portfolio asset tables (`_patrimonio_class_section.html`) and rebalance tables
-(`_rebalance_plan.html`) evolved independently. Rebalance tables received
-polished visual treatment in F18/F22 (gradient shell, uppercase headers,
-alternating rows, buy/sell color-coding). Portfolio tables got structural
-upgrades in F27/F28 (sorting, filtering, rounding) but retained their original
-visual language.
+**The rebalance page table (`_rebalance_plan.html`) is the canonical reference for functionality and visual style.** The portfolio page asset table (`_patrimonio_class_section.html`) is broken and MUST NOT be used as reference — it has inconsistent class naming, duplicated rules, and misaligned visual patterns.
 
-After R30 extracts shared `.data-table-*` base CSS classes and R31 unifies
-filter panels, both table families will have a common structural foundation.
-This slice applies the rebalance visual design on top of that foundation so
-portfolio tables match rebalance tables exactly in look and feel.
+Portfolio asset tables and rebalance tables evolved independently. Rebalance tables received polished visual treatment in F18/F22 (gradient shell, uppercase headers, alternating rows, buy/sell color-coding). Portfolio tables got structural upgrades in F27/F28 (sorting, filtering, rounding) but retained their original visual language and accumulated inconsistencies.
+
+After R30 extracts shared `.data-table-*` base CSS classes and R31 unifies filter panels, both table families will have a common structural foundation. This slice applies the rebalance visual design on top of that foundation so portfolio tables match rebalance tables exactly in look and feel.
 
 ### Current state (pre-F32)
 
-**Rebalance table CSS** (reference):
+**Rebalance table CSS** (canonical reference):
 - Shell: `border-radius: 14px`, gradient bg, heavy shadow
-- Headers: uppercase, `font-weight: 700`, `letter-spacing: 0.06em`, tinted
-  bg, hover accent lift
-- Rows: alternating odd/even backgrounds, hover accent tint, buy/sell/hold
-  row-level color classes
-- Cells: `padding: 0.82rem 0.75rem`, `font-variant-numeric: tabular-nums`,
-  hairline bottom borders
+- Headers: uppercase, `font-weight: 700`, `letter-spacing: 0.06em`, tinted bg, hover accent lift
+- Rows: alternating odd/even backgrounds, hover accent tint, buy/sell/hold row-level color classes
+- Cells: `padding: 0.82rem 0.75rem`, `font-variant-numeric: tabular-nums`, hairline bottom borders
 
-**Portfolio table CSS** (current):
-- Shell: similar border-radius and shadow (already close)
+**Portfolio table CSS** (broken — must be refactored):
+- Shell: similar border-radius and shadow (already close via R30 base)
 - Headers: uppercase, similar weight — but no hover effect, different bg mix
 - Rows: alternating backgrounds — but no buy/sell color-coding, no hover
 - Cells: `padding: 0.72rem 0.75rem` — slightly tighter than rebalance
+- **Do NOT copy patterns from portfolio table — it is the target of refactoring, not the source**
 
 ### Constraints
 
