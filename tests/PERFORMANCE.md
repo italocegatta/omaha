@@ -114,8 +114,8 @@ Browser lanes rodam assíncrono no CI. Não participam do fast gate.
 
 | Tempo | Teste |
 |-------|-------|
-| 11.35s | tests/test_audit_inventory.py::test_inventory_rows_carry_template_field |
-| 8.85s | tests/test_audit_inventory.py::test_inventory_for_patrimonio_produces_rows |
+| 11.35s | tests/audit_integration/test_audit_inventory.py::test_inventory_rows_carry_template_field |
+| 8.85s | tests/audit_integration/test_audit_inventory.py::test_inventory_for_patrimonio_produces_rows |
 | 4.51s | tests/test_db_reset_both_profiles.py::test_reset_both_profiles_seeds_both_profiles |
 | 3.51s | tests/test_assets_trade_flags.py::test_alembic_downgrade_then_upgrade_round_trip |
 | 3.07s | tests/test_seed_from_csv.py::test_upsert_updates_changes_creates_missing |
