@@ -170,6 +170,7 @@ class UnknownTestPath(UserWarning):
 
 
 _INTEGRATION_PREFIXES = (
+    "tests/test_admin_recovery.py",
     "tests/test_assets_delete.py",
     "tests/test_assets_e2e.py",
     "tests/test_assets_model.py",
@@ -185,6 +186,7 @@ _INTEGRATION_PREFIXES = (
     "tests/test_classes_patch.py",
     "tests/test_classes_post.py",
     "tests/test_classes_routes.py",
+    "tests/test_db_mutations.py",
     "tests/test_db_reset_both_profiles.py",
     "tests/test_e2e.py",
     "tests/test_healthz.py",

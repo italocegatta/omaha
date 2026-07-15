@@ -230,13 +230,10 @@ Notes: teste falha 100% under parallel, 100% passa isolation. Pre-existing. Bloq
 Progress log: `2026-07-15` discovered during T23 finalization.
 
 ### T24 - Corrigir classificação de arquivos integration mal taggeados
-Status: `Ready`
+Status: `Archived` — 2026-07-15
 Goal: `test_admin_recovery.py` e `test_db_mutations.py` usam TestClient + DB mas estão marcados `unit`. Mover para `_INTEGRATION_PREFIXES` em `tests/conftest.py`. Ganho: limpeza + ~1.5s off unit suite.
 Candidate OpenSpec change id: `t24-corrigir-classificacao-de-arquivos-integration-mal-taggeados`
-Spec link: `openspec/changes/t24-corrigir-classificacao-de-arquivos-integration-mal-taggeados/`
-Files to inspect: `tests/conftest.py`, `tests/test_admin_recovery.py`, `tests/test_db_mutations.py`
-Notes: ambos os arquivos importam TestClient e manipulam DB. Atualmente rodam no pre-commit (unit) quando deveriam rodar no pre-push (integration). Também verificar `test_db_snapshot.py` — docstring diz "unit" mas pode precisar de DB.
-Progress log: `2026-07-15` added from test suite performance analysis.
+Archive: `openspec/changes/archive/2026-07-15-t24-corrigir-classificacao-de-arquivos-integration-mal-taggeados/`
 
 ### T25 - Auditar suite completa: cada teste prova que o sistema funciona
 Status: `Ready`
@@ -520,8 +517,7 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 **Active queue:**
 
 1. T23.1 - Corrigir flaky test_dashboard_shows_position_counts sob xdist *(next)*
-2. T24 - Corrigir classificação de arquivos integration mal taggeados
-3. T25 - Auditar suite completa: cada teste prova que o sistema funciona
+2. T25 - Auditar suite completa: cada teste prova que o sistema funciona
 3. T26 - Elevar kill rate de mutation testing em policy.py
 4. F29 - Compra e venda com emoji toggle
 5. R30 - Extrair padrão CSS compartilhado de tabelas
@@ -531,11 +527,11 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 
 Order note: I05+I06 archived (hook optimization). T21 archived (test pruning).
 T22 archived (audit_inventory isolated in audit_integration job). T23 archived
-(seed_from_csv 3.7x speedup via session snapshot). T24-T26 are
-test performance + quality slices. Meta: commit < 1min,
-push < 3min, mutation kill rate > 95%. T23 archived (seed_from_csv 3.7x speedup via session snapshot). T24 fixes
-misclassified files. T25 audits full suite for real behavior. T26 targets
-policy.py (145/211 survived mutations — 69% of total gap). Critério transversal:
+(seed_from_csv 3.7x speedup via session snapshot). T24 archived (integration
+misclassification fixed: test_admin_recovery + test_db_mutations now in
+integration lane). T25 audits full suite for real behavior. T26 targets
+policy.py (145/211 survived mutations — 69% of total gap). Meta: commit < 1min,
+push < 3min, mutation kill rate > 95%. Critério transversal:
 todo teste deve provar comportamento real. R30-R33 for table standardization.
 
 **Deferred/Deprecated** (owner decides):
