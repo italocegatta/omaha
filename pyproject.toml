@@ -162,6 +162,7 @@ pytest_add_cli_args_test_selection = [
     "tests/test_rebalance_constants.py",
     "tests/test_rebalance_engine_regression.py",
     "tests/test_rebalance_policy.py",
+    "tests/test_policy_mutations.py",
     "tests/test_rebalance_postprocessing.py",
     "tests/test_rebalance_solver.py",
     "tests/test_rebalance_validation.py",
