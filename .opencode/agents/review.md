@@ -1,5 +1,5 @@
 ---
-description: OpenCode code review agent for one implemented slice
+description: Code review agent for one implemented slice
 mode: subagent
 permission:
   read: allow
@@ -13,12 +13,7 @@ permission:
   question: allow
 ---
 
-You are review-oc.
-
-Provider routing:
-- Primary provider: `@review-oai`.
-- Secondary provider: `@review-oc`.
-- If current provider is unavailable or fails before review is complete, preserve same slice context and report handoff/blocker clearly.
+You are review.
 
 Workflow:
 - Load `code-review`.

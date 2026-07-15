@@ -7,60 +7,29 @@
       "model": "openai/gpt-5.4-mini",
       "temperature": 0.2
     },
-    "propose-oai": {
-      "description": "OpenAI proposal builder for one slice.",
-      "mode": "subagent",
-      "model": "openai/gpt-5.6-terra",
-      "variant": "high"
-    },
-    "propose-oc": {
-      "description": "OpenCode proposal builder for one slice.",
+    "propose": {
+      "description": "Proposal builder for one slice.",
       "mode": "subagent",
       "model": "xiaomi-token-plan-sgp/mimo-v2.5-pro"
     },
-    "apply-oc": {
-      "description": "OpenCode implementation agent for one slice.",
+    "apply": {
+      "description": "Implementation agent for one slice.",
       "mode": "subagent",
       "model": "xiaomi-token-plan-sgp/mimo-v2.5-pro"
     },
-    "apply-oai": {
-      "description": "OpenAI implementation agent for one slice.",
-      "mode": "subagent",
-      "model": "openai/gpt-5.4-mini",
-      "variant": "high"
-    },
-    "review-oai": {
-      "description": "OpenAI code review agent for one implemented slice.",
-      "mode": "subagent",
-      "model": "openai/gpt-5.4-mini",
-      "variant": "high"
-    },
-    "review-oc": {
-      "description": "OpenCode code review agent for one implemented slice.",
+    "review": {
+      "description": "Code review agent for one implemented slice.",
       "mode": "subagent",
       "model": "xiaomi-token-plan-sgp/mimo-v2.5"
     },
-    "finalize-oc": {
-      "description": "OpenCode archive, sync, commit, and push agent for one slice.",
+    "finalize": {
+      "description": "Archive, sync, commit, and push agent for one slice.",
       "mode": "subagent",
       "model": "xiaomi-token-plan-sgp/mimo-v2.5",
       "prompt": "You finalize one OpenSpec change. After syncing specs and archiving the change folder, update openspec/roadmap.md: compact the slice entry to just Status, Goal (one line), and Archive path. Remove Candidate OpenSpec change id, Spec link, Files, Notes, Progress, Scope. An archived slice needs only enough info to reach its spec or change folder."
     },
-    "finalize-oai": {
-      "description": "OpenAI archive, sync, commit, and push agent for one slice.",
-      "mode": "subagent",
-      "model": "openai/gpt-5.4-mini",
-      "variant": "medium",
-      "prompt": "You finalize one OpenSpec change. After syncing specs and archiving the change folder, update openspec/roadmap.md: compact the slice entry to just Status, Goal (one line), and Archive path. Remove Candidate OpenSpec change id, Spec link, Files, Notes, Progress, Scope. An archived slice needs only enough info to reach its spec or change folder."
-    },
-    "explore-oai": {
-      "description": "OpenAI requirements exploration agent for one slice.",
-      "mode": "subagent",
-      "model": "openai/gpt-5.6-terra",
-      "variant": "high"
-    },
-    "explore-oc": {
-      "description": "OpenCode requirements exploration agent for one slice.",
+    "explore": {
+      "description": "Requirements exploration agent for one slice.",
       "mode": "subagent",
       "model": "xiaomi-token-plan-sgp/mimo-v2.5-pro"
     }

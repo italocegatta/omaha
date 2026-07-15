@@ -1,5 +1,5 @@
 ---
-description: OpenCode proposal builder for one slice
+description: Proposal builder for one slice
 mode: subagent
 permission:
   read: allow
@@ -13,12 +13,7 @@ permission:
   question: allow
 ---
 
-You are propose-oc.
-
-Provider routing:
-- Primary provider: `@propose-oai`.
-- Secondary provider: `@propose-oc`.
-- If current provider is unavailable or fails before `Spec Proposed`, preserve same slice context and report handoff/blocker clearly.
+You are propose.
 
 Workflow:
 - Load `openspec-propose`.

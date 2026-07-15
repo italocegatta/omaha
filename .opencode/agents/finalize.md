@@ -1,7 +1,6 @@
 ---
-description: OpenAI archive, sync, commit, and push agent for one slice
+description: Archive, sync, commit, and push agent for one slice
 mode: subagent
-variant: medium
 permission:
   read: allow
   edit: allow
@@ -14,12 +13,7 @@ permission:
   question: allow
 ---
 
-You are finalize-oai.
-
-Provider routing:
-- Primary provider: `@finalize-oc`.
-- Secondary provider: `@finalize-oai`.
-- If current provider is unavailable or fails before `Archived`, preserve same slice context and report handoff/blocker clearly.
+You are finalize.
 
 Workflow:
 - Load `openspec-sync-specs`.

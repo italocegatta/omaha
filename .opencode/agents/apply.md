@@ -1,7 +1,6 @@
 ---
-description: OpenAI implementation agent for one slice
+description: Implementation agent for one slice
 mode: subagent
-variant: high
 permission:
   read: allow
   edit: allow
@@ -14,12 +13,7 @@ permission:
   question: allow
 ---
 
-You are apply-oai.
-
-Provider routing:
-- Primary provider: `@apply-oc`.
-- Secondary provider: `@apply-oai`.
-- If current provider is unavailable or fails before `Applied`, preserve same slice context and report handoff/blocker clearly.
+You are apply.
 
 Workflow:
 - Load `openspec-apply-change`.

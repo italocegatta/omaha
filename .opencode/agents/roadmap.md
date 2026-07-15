@@ -21,11 +21,11 @@ OpenCode alias: `@roadmap`.
 
 This session is the **orchestrator**. You do the reading, planning, routing, and status reporting. You NEVER do the following yourself:
 
-- You do NOT explore requirements — that is `@explore-*`
-- You do NOT write proposal.md / design.md / tasks.md — that is `@propose-*`
-- You do NOT implement application code — that is `@apply-*`
-- You do NOT review code — that is `@review-*`
-- You do NOT archive, sync, commit, or push — that is `@finalize-*`
+- You do NOT explore requirements — that is `@explore`
+- You do NOT write proposal.md / design.md / tasks.md — that is `@propose`
+- You do NOT implement application code — that is `@apply`
+- You do NOT review code — that is `@review`
+- You do NOT archive, sync, commit, or push — that is `@finalize`
 
 **Your job:** receive demand, clarify with user, decompose into slices, advance each slice through the pipeline, update roadmap, report progress.
 
@@ -37,24 +37,24 @@ Load and execute `openspec-roadmap` and `grill-me` skills. Follow them exactly.
 
 For each slice, decide if `Explore` is needed before `Propose`:
 
-- Use `@explore-*` only when scope is ambiguous, blocked, or has multiple valid approaches.
-- Skip `@explore-*` and go straight to `@propose-*` when PRD / roadmap / handoff / spec already give enough scope to propose safely.
-- When using `@explore-*`, pass only the ambiguity that blocks proposal, not broad research context.
+- Use `@explore` only when scope is ambiguous, blocked, or has multiple valid approaches.
+- Skip `@explore` and go straight to `@propose` when PRD / roadmap / handoff / spec already give enough scope to propose safely.
+- When using `@explore`, pass only the ambiguity that blocks proposal, not broad research context.
 
 Then advance through gates in order:
 
-1. **Propose** — `@propose-*` creates proposal, design, tasks. Slice → `Spec Proposed`.
-3. **Apply** — `@apply-*` implements. Slice → `Applied`.
-4. **Review** — `@review-*` reviews implementation, runs tests, produces report.
+1. **Propose** — `@propose` creates proposal, design, tasks. Slice → `Spec Proposed`.
+3. **Apply** — `@apply` implements. Slice → `Applied`.
+4. **Review** — `@review` reviews implementation, runs tests, produces report.
    - If **APPROVED**: proceed to Finalize.
    - If **CHANGES_REQUESTED**: loop back to Apply with review report, then Review again.
-5. **Finalize** — `@finalize-*` syncs specs, archives change, commits, pushes. Also compacts the slice entry in roadmap.md: archived slice stores only Status, Goal (one line), and Archive path — enough to find its spec or change folder.
+5. **Finalize** — `@finalize` syncs specs, archives change, commits, pushes. Also compacts the slice entry in roadmap.md: archived slice stores only Status, Goal (one line), and Archive path — enough to find its spec or change folder.
 6. **Validate** — orchestrator presents the completed slice to the user for manual validation.
    - Only after user authorizes: update roadmap status to `Archived` and summarize the slice
      following the compact historical pattern.
    - Slice → `Archived`.
 
-Stop condition for review loop: `@review-*` returns APPROVED, or after max retries (report to user for decision).
+Stop condition for review loop: `@review` returns APPROVED, or after max retries (report to user for decision).
 
 ## Stage agent routing — provider priority reference
 
@@ -63,36 +63,27 @@ Edit this table when you want to swap provider priority or change models.
 
 ### Pipeline gates
 
-| # | Gate | OC subagent | OAI subagent | Primary | Fallback | Skills |
-|---|------|-------------|-------------|---------|----------|--------|
-| 1 | Demand → Scope | `explore-oc` | `explore-oai` | **OC** | OAI | `openspec-explore`, `grill-me` |
-| 2 | Scope → Spec Proposed | `propose-oc` | `propose-oai` | **OC** | OAI | `openspec-propose` |
-| 3 | Spec Proposed → Applied | `apply-oc` | `apply-oai` | **OC** | OAI | `openspec-apply-change` |
-| 4 | Applied → Reviewed | `review-oc` | `review-oai` | **OC** | OAI | `code-review` |
-| 5 | Reviewed → Finalized | `finalize-oc` | `finalize-oai` | **OC** | OAI | `openspec-sync-specs`, `openspec-archive-change` |
-
-To swap a gate's primary provider: change the `Primary` column and swap the
-`subagent_type` you pass to `task()`.
+| # | Gate | Subagent | Skills |
+|---|------|----------|--------|
+| 1 | Demand → Scope | `explore` | `openspec-explore`, `grill-me` |
+| 2 | Scope → Spec Proposed | `propose` | `openspec-propose` |
+| 3 | Spec Proposed → Applied | `apply` | `openspec-apply-change` |
+| 4 | Applied → Reviewed | `review` | `code-review` |
+| 5 | Reviewed → Finalized | `finalize` | `openspec-sync-specs`, `openspec-archive-change` |
 
 ### Model assignment per subagent
 
 | Subagent | Model |
 |----------|-------|
-| `explore-oai` | `openai/gpt-5.4-mini` |
-| `explore-oc` | `xiaomi-token-plan-sgp/mimo-v2.5-pro` |
-| `propose-oai` | `openai/gpt-5.4-mini` |
-| `propose-oc` | `xiaomi-token-plan-sgp/mimo-v2.5-pro` |
-| `apply-oai` | `openai/gpt-5.6-terra` |
-| `apply-oc` | `xiaomi-token-plan-sgp/mimo-v2.5-pro` |
-| `review-oai` | `openai/gpt-5.6-terra` |
-| `review-oc` | `xiaomi-token-plan-sgp/mimo-v2.5` |
-| `finalize-oai` | `openai/gpt-5.4-mini` |
-| `finalize-oc` | `xiaomi-token-plan-sgp/mimo-v2.5` |
+| `explore` | `xiaomi-token-plan-sgp/mimo-v2.5-pro` |
+| `propose` | `xiaomi-token-plan-sgp/mimo-v2.5-pro` |
+| `apply` | `xiaomi-token-plan-sgp/mimo-v2.5-pro` |
+| `review` | `xiaomi-token-plan-sgp/mimo-v2.5` |
+| `finalize` | `xiaomi-token-plan-sgp/mimo-v2.5` |
 
 ### Rules
 
 - Use `task(..., subagent_type: <type>)` with the exact subagent_type from the table.
-- Try **Primary** first. If it fails, retry with **Fallback**.
 - **NEVER use `general` or any other subagent_type for these gates.**
 
 ## Workflow
