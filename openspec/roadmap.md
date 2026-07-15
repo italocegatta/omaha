@@ -158,7 +158,7 @@ Progress log: `2026-07-14` proposal queued.
 Progress log: `2026-07-15` archived after spec sync and closeout.
 
 ### R31 - Padronizar filter panel e header de tabelas
-Status: `Spec Proposed`
+Status: `Applied`
 Goal: unificar filter panel (teleport vs inline), transformar macro `asset_filter_controls` em componente reutilizável, e alinhar UX de filtros entre rebalance e portfolio.
 Candidate OpenSpec change id: `r31-padronizar-filter-panel-e-header-de-tabelas`
 Spec link: `openspec/changes/r31-padronizar-filter-panel-e-header-de-tabelas/`
@@ -166,6 +166,7 @@ Files to inspect: `src/omaha/templates/_patrimonio_class_section.html`, `src/oma
 Notes: rebalance usa filter inline no `<th>`; portfolio usa x-teleport="body". Unificar padrão.
 Progress log: `2026-07-14` added from owner request.
 Progress log: `2026-07-14` proposal queued.
+Progress log: `2026-07-15` applied: shared macro `_filter_controls.html` created, portfolio migrated, rebalance stays inline per design. Icon `filter_alt` added. 16/19 tasks done, 3 manual/BDD pending.
 
 ### F32 - Aplicar padrão de tabela rebalance em portfolio
 Status: `Ready`
@@ -177,14 +178,16 @@ Notes: portfolio mantém particularidades (header 2 níveis, linha de resumo, bu
 Progress log: `2026-07-14` added from owner request.
 
 ### R33 - Refatorar formatters e comportamentos de tabela para reutilização
-Status: `Spec Proposed`
+Status: `Archived` — 2026-07-15
 Goal: centralizar formatação numérica (BRL,%,Qtd), lógica de sinal (signClass/signIcon), row color-coding e cell formatting em módulo compartilhado; rebalance e portfolio consomem a mesma API.
 Candidate OpenSpec change id: `r33-refatorar-formatters-e-comportamentos-de-tabela-para-reutilizacao`
-Spec link: `openspec/changes/r33-refatorar-formatters-e-comportamentos-de-tabela-para-reutilizacao/`
+Archive: `openspec/changes/archive/2026-07-15-r33-refatorar-formatters-e-comportamentos-de-tabela-para-reutilizacao/`
 Files to inspect: `src/omaha/templates/rebalance.html`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/static/app.css`
 Notes: JS/Alpine layer — separado do CSS (R30). Formatters atuais estão duplicados ou acoplados a tabela específica. Foco: API compartilhada, não behavior change.
 Progress log: `2026-07-14` added from owner request.
 Progress log: `2026-07-14` proposal queued.
+Progress log: `2026-07-15` applied: shared module `table-formatters.js` (11 functions), rebalance static import, portfolio dynamic import with fallback. Review repair: formatQty fraction digits aligned, formatBRL null handling unified.
+Progress log: `2026-07-15` archived after spec sync and closeout.
 
 ### I05 - Otimizar hooks pre-commit e pre-push
 Status: `Archived` — 2026-07-15
@@ -515,8 +518,7 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 1. F29 - Compra e venda com emoji toggle *(next)*
 3. R30 - Extrair padrão CSS compartilhado de tabelas
 4. R31 - Padronizar filter panel e header de tabelas
-5. R33 - Refatorar formatters e comportamentos de tabela para reutilização
-6. F32 - Aplicar padrão de tabela rebalance em portfolio
+5. F32 - Aplicar padrão de tabela rebalance em portfolio
 
 Order note: I05+I06 archived (hook optimization). T21 archived (test pruning).
 T22 archived (audit_inventory isolated in audit_integration job). T23 archived

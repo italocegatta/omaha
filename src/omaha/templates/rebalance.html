@@ -66,7 +66,19 @@
   </div>
 </div>
 
-<script>
+<script type="module">
+  import {
+    formatMoney as _formatMoney,
+    formatBRL as _formatBRL,
+    formatPct as _formatPct,
+    formatQty as _formatQty,
+    formatDeviationPp as _formatDeviationPp,
+    actionLabel as _actionLabel,
+    rowClass as _rowClass,
+    cellClass as _cellClass,
+    formatCell as _formatCell,
+  } from '/static/table-formatters.js';
+
   (function () {
     var dataEl = document.querySelector('[data-testid="rebalance-plan-data"]');
     if (dataEl) {
@@ -241,51 +253,20 @@
           if (this.categorySortKey !== key) return '';
           return this.categorySortDir === 'asc' ? '↑' : '↓';
         },
-        actionLabel: function (action) {
-          if (action === 'buy') return 'Comprar';
-          if (action === 'sell') return 'Vender';
-          return 'Manter';
-        },
-        formatBRL: function (value, fractionDigits) {
-          var n = Number(value) || 0;
-          var options = {
-            style: 'currency',
-            currency: 'BRL',
-          };
-          if (fractionDigits !== undefined) {
-            options.minimumFractionDigits = fractionDigits;
-            options.maximumFractionDigits = fractionDigits;
-          }
-          return n.toLocaleString('pt-BR', options);
-        },
-        formatPct: function (v) {
-          return (Number(v) || 0).toFixed(2) + '%';
-        },
-        formatQuantity: function (value, assetName) {
-          if (value === null || value === undefined || Number.isNaN(Number(value))) {
-            return '';
-          }
-          var normalizedAssetName = String(assetName || '').trim().toUpperCase();
-          var fractionDigits = normalizedAssetName === 'BTC' ? 3 : 0;
-          return Number(value).toLocaleString('pt-BR', {
-            minimumFractionDigits: fractionDigits,
-            maximumFractionDigits: fractionDigits,
-          });
-        },
-        formatDeviationPp: function (v) {
-          var n = Number(v) || 0;
-          var sign = n >= 0 ? '+' : '';
-          return sign + n.toFixed(0) + '%';
-        },
+        actionLabel: _actionLabel,
+        formatBRL: _formatBRL,
+        formatPct: _formatPct,
+        formatQuantity: _formatQty,
+        formatDeviationPp: _formatDeviationPp,
         formatDeviationCombined: function (row) {
-          return this.formatBRL(row.deviation_value, 0) + ' (' +
-            this.formatDeviationPp(row.deviation_pct) + ')';
+          return _formatBRL(row.deviation_value, 0) + ' (' +
+            _formatDeviationPp(row.deviation_pct) + ')';
         },
         formatOperation: function (row) {
           if (row.action === 'hold') return 'Manter';
           var amount = row.action === 'buy' ? row.buy_amount : row.sell_amount;
-          return this.actionLabel(row.action) + ' ' + this.formatBRL(amount, 0) +
-            ' (' + this.formatQuantity(row.trade_quantity, row.asset_name) + ')';
+          return _actionLabel(row.action) + ' ' + _formatBRL(amount, 0) +
+            ' (' + _formatQty(row.trade_quantity, row.asset_name) + ')';
         },
         classCardClass: function (c) {
           if (Math.abs(c.deviation_pct) >= this.thresholdPct) {
@@ -293,13 +274,9 @@
           }
           return 'rebalance-class-card--ok';
         },
-        rowClass: function (row) {
-          if (row.action === 'hold') return 'rebalance-asset-row--neutral';
-          if (row.action === 'buy') return 'rebalance-asset-row--buy';
-          return 'rebalance-asset-row--sell';
-        },
+        rowClass: _rowClass,
         headerFilterLabel: function (key, value) {
-          return key === 'action' ? this.actionLabel(value) : value;
+          return key === 'action' ? _actionLabel(value) : value;
         },
         uniqueHeaderValues: function (key) {
           var self = this;
@@ -409,26 +386,17 @@
         },
         formatRangeValue: function (key, value, format) {
           if (value === null || value === '') return '-';
-          return format === 'deviationPp' ? this.formatDeviationPp(value) : this.formatBRL(value);
+          return format === 'deviationPp' ? _formatDeviationPp(value) : _formatBRL(value);
         },
         formatCell: function (row, column) {
-          if (column.cellFormat === 'operation') return this.formatOperation(row);
-          if (column.key === 'action') return this.actionLabel(row.action);
-          if (column.key === 'deviation') return this.formatDeviationCombined(row);
-          if (column.type === 'enum') return row[column.key];
-          return this.formatBRL(row[column.key], column.fractionDigits);
+          var self = this;
+          return _formatCell(row, column, {
+            formatOperation: self.formatOperation,
+            formatDeviationCombined: self.formatDeviationCombined,
+            formatBRL: _formatBRL,
+          });
         },
-        cellClass: function (row, column) {
-          var classes = 'rebalance-asset-cell';
-          if (column.type !== 'enum') classes += ' rebalance-asset-cell--num';
-          if (column.key === 'action' || column.cellFormat === 'operation') {
-            classes += ' rebalance-asset-cell--action';
-          }
-          if (column.key === 'deviation') {
-            classes += Number(row.deviation_value) >= 0 ? ' rebalance-deviation--pos' : ' rebalance-deviation--neg';
-          }
-          return classes;
-        },
+        cellClass: _cellClass,
         cellInnerClass: function (column) {
           return column.key === 'action' || column.cellFormat === 'operation'
             ? 'rebalance-action-badge' : '';

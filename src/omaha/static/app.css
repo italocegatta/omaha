@@ -3709,11 +3709,11 @@ tr:focus-within .row-actions {
   padding-left: 12px;
 }
 
-/* F12 — Material Symbols Outlined icon system. Catalog scoped to 10
+/* F12 — Material Symbols Outlined icon system. Catalog scoped to 11
    names (add, add_circle, upload, logout, close, warning,
-   expand_more, expand_less, check_circle, help). Out-of-catalog
-   requests require a new OpenSpec change. See iconography-tokens
-   spec + DESIGN.md §Iconography. */
+   expand_more, expand_less, check_circle, help, filter_alt).
+   Out-of-catalog requests require a new OpenSpec change. See
+   iconography-tokens spec + DESIGN.md §Iconography. */
 .icon {
   font-family: "Material Symbols Outlined";
   font-weight: normal;

@@ -697,44 +697,36 @@
       },
 
       formatPct: function (value) {
-        if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
-        return Number(value).toFixed(2) + '%';
+        var f = window.__tableFormatters;
+        return f ? f.formatPct(value) : (value === null || value === undefined || Number.isNaN(Number(value)) ? '—' : Number(value).toFixed(2) + '%');
       },
       formatPctOrDash: function (value) {
         if (value === 0 || value === '0' || value === 0.0) return '—';
         return this.formatPct(value);
       },
       formatMoney: function (value, currency) {
-        if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
-        var code = currency || 'BRL';
-        return Number(value).toLocaleString('pt-BR', {
-          style: 'currency',
-          currency: code,
-          currencyDisplay: 'narrowSymbol',
-          minimumFractionDigits: 0,
-          maximumFractionDigits: 0,
-        });
+        var f = window.__tableFormatters;
+        return f ? f.formatMoney(value, currency) : (value === null || value === undefined || Number.isNaN(Number(value)) ? '—' : Number(value).toLocaleString('pt-BR', { style: 'currency', currency: currency || 'BRL', currencyDisplay: 'narrowSymbol', minimumFractionDigits: 0, maximumFractionDigits: 0 }));
       },
       formatBRL: function (value) {
-        return this.formatMoney(value, 'BRL');
+        var f = window.__tableFormatters;
+        return f ? f.formatMoney(value, 'BRL') : this.formatMoney(value, 'BRL');
       },
       formatBRLCompact: function (value) {
-        return this.formatMoney(value, 'BRL');
+        var f = window.__tableFormatters;
+        return f ? f.formatMoney(value, 'BRL') : this.formatMoney(value, 'BRL');
       },
       formatQty: function (value) {
-        if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
-        return Number(value).toLocaleString('pt-BR', {
-          minimumFractionDigits: 0,
-          maximumFractionDigits: 1,
-        });
+        var f = window.__tableFormatters;
+        return f ? f.formatQty(value) : (value === null || value === undefined || Number.isNaN(Number(value)) ? '—' : Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 1 }));
       },
       signClass: function (value) {
-        if (value === null || value === undefined || Math.abs(Number(value)) < 0.0001) return 'metric-neutral';
-        return Number(value) > 0 ? 'metric-positive' : 'metric-negative';
+        var f = window.__tableFormatters;
+        return f ? f.signClass(value) : (value === null || value === undefined || Math.abs(Number(value)) < 0.0001 ? 'metric-neutral' : Number(value) > 0 ? 'metric-positive' : 'metric-negative');
       },
       signIcon: function (value) {
-        if (value === null || value === undefined || Math.abs(Number(value)) < 0.0001) return 'remove';
-        return Number(value) > 0 ? 'arrow_upward' : 'arrow_downward';
+        var f = window.__tableFormatters;
+        return f ? f.signIcon(value) : (value === null || value === undefined || Math.abs(Number(value)) < 0.0001 ? 'remove' : Number(value) > 0 ? 'arrow_upward' : 'arrow_downward');
       },
 
       // asset-table-view 6.x/7.x: sortable asset table state. Lives
@@ -1242,6 +1234,10 @@
   // dashboard-actions div (which has no x-data of its own) can
   // open it via $store.importModal.openModal().
   document.addEventListener('alpine:init', function () {
+    // R33: Load shared formatters for use by classSection and importModal.
+    import('/static/table-formatters.js').then(function (mod) {
+      window.__tableFormatters = mod;
+    });
     // S02/D006 + asset-table-view 3.1/3.2/3.3: Class-level allocation
     // sum tracker. Shows "Falta X%" / "Sobra X%" for the total of all
     // class target_pcts AND, per the asset-table-view extension, the
@@ -1416,6 +1412,8 @@
       },
 
       formatBRL: function (v, decimals) {
+        var f = window.__tableFormatters;
+        if (f) return f.formatBRL(v, decimals);
         var n = Number(v) || 0;
         var d = (decimals === undefined || decimals === null) ? 2 : decimals;
         return n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });

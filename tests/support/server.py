@@ -68,9 +68,7 @@ def run_test_server(
     except Exception:
         proc.terminate()
         log_handle.close()
-        raise RuntimeError(
-            f"uvicorn did not start. output:\n{read_log_tail(log_path)}"
-        ) from None
+        raise RuntimeError(f"uvicorn did not start. output:\n{read_log_tail(log_path)}") from None
 
     base_url = f"http://127.0.0.1:{port}"
     try:

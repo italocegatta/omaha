@@ -616,9 +616,9 @@ def test_asset_plan_operation_cell_includes_trade_quantity(
     assert "key: 'operation'" in body
     assert "cellFormat: 'operation'" in body
     assert "formatOperation: function (row)" in body
-    assert "this.formatQuantity(row.trade_quantity, row.asset_name)" in body
+    assert "_formatQty(row.trade_quantity, row.asset_name)" in body
     assert "formatDeviationCombined: function (row)" in body
-    assert "return this.formatBRL(row.deviation_value, 0)" in body
+    assert "return _formatBRL(row.deviation_value, 0)" in body
     assert '"trade_quantity": 50.0' in body or '"trade_quantity":50.0' in body
     assert '"trade_quantity": null' in body or '"trade_quantity":null' in body
 

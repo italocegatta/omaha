@@ -226,7 +226,7 @@ deprecado.
 - **Cor**: herda `currentColor`. Não pintar com `--accent` ou
   palette — icon deve ler como texto. Hover transitions seguem
   table state (cor herdada muda com o estado).
-- **Catalog (D02 §Gate 1 + F12 D-F12.2)** — 10 nomes, scoped:
+- **Catalog (D02 §Gate 1 + F12 D-F12.2 + R31)** — 11 nomes, scoped:
   - `+ Classe` — `add_circle` (em `_patrimonio_actions`).
   - `+ Ativo` — `add_circle` (em `_patrimonio_actions`).
   - `Importar` — `upload` (em `_patrimonio_actions`).
@@ -237,6 +237,7 @@ deprecado.
     (em `_patrimonio_class_section`).
   - Modal close — `close` (em `_patrimonio_add_asset_modal`).
   - Import status — `check_circle` (matched) / `help` (unmatched).
+  - Filter column — `filter_alt` (em `_filter_controls`, `_rebalance_plan`).
   - Theme toggle (se F13 um dia unblock) — `light_mode` / `dark_mode`
     ficam FORA do catalog F12 — entram se/somente se F13 for
     restaurada.
@@ -244,12 +245,12 @@ deprecado.
   válidos para controle puramente tipográfico.
 - Self-host vs Google Fonts é decisão de implementação (D-F12
   default: Google Fonts, mesmo pattern atual).
-- **Extension path**: novos icons fora dos 10 nomes catalogados
+- **Extension path**: novos icons fora dos 11 nomes catalogados
   requerem nova OpenSpec change (não editar F12 in-place). A nova
   slice adiciona o nome ao catalog via delta spec em
   `openspec/specs/iconography-tokens/spec.md` + entrada aqui em
   DESIGN.md + assertion no `tests/test_iconography_tokens.py`.
-  Motivação: 10 cobre a surface atual; drift silencioso sem
+  Motivação: 11 cobre a surface atual; drift silencioso sem
   guardrail de teste reintroduziria a fragilidade que o D02
   tentou eliminar.
 

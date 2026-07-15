@@ -40,6 +40,7 @@ ICON_CATALOG = frozenset(
         "expand_less",
         "check_circle",
         "help",
+        "filter_alt",
     }
 )
 
@@ -49,6 +50,7 @@ TEMPLATES_WITH_ICONS = (
     "src/omaha/templates/base.html",
     "src/omaha/templates/_patrimonio_actions.html",
     "src/omaha/templates/_patrimonio_class_section.html",
+    "src/omaha/templates/_filter_controls.html",
     "src/omaha/templates/_rebalance_plan.html",
     "src/omaha/templates/_patrimonio_add_asset_modal.html",
     "src/omaha/templates/import_review.html",

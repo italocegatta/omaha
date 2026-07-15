@@ -1,7 +1,7 @@
 # iconography-tokens
 
 Internal capability — describes the file-level visual contract for the
-Material Symbols Outlined icon system. Catalog is scoped at 10 names per
+Material Symbols Outlined icon system. Catalog is scoped at 11 names per
 the D02 SI maximal register decision (archived 2026-07-07) and F12
 slice. Out-of-catalog requests require a new OpenSpec change.
 
@@ -9,7 +9,7 @@ slice. Out-of-catalog requests require a new OpenSpec change.
 
 The iconography tokens describe the wiring contract for icons on
 authenticated pages: the Google Fonts URL, the CSS class hooks, the
-10-name catalog, and the markup pattern. The capability is internal —
+11-name catalog, and the markup pattern. The capability is internal —
 the user-facing surface (action buttons, warnings, modals, chevrons)
 inherits the icon system automatically once `base.html` and `app.css`
 load the font and the catalog hooks are present.
@@ -34,13 +34,13 @@ The system SHALL load the Material Symbols Outlined font from Google Fonts via a
 - **THEN** icons SHALL fall back to the system default monospace font (tofu rendering)
 - **AND** the page SHALL remain functional (no JS errors, no layout collapse)
 
-### Requirement: Icon catalog is scoped at 10 names
+### Requirement: Icon catalog is scoped at 11 names
 
-The system SHALL limit icon usage to the documented catalog: `add`, `add_circle`, `upload`, `logout`, `close`, `warning`, `expand_more`, `expand_less`, `check_circle`, `help`. Any use of an icon name outside this catalog is out of scope and requires a new OpenSpec change. The catalog SHALL be documented in `DESIGN.md §Iconography`.
+The system SHALL limit icon usage to the documented catalog: `add`, `add_circle`, `upload`, `logout`, `close`, `warning`, `expand_more`, `expand_less`, `check_circle`, `help`, `filter_alt`. Any use of an icon name outside this catalog is out of scope and requires a new OpenSpec change. The catalog SHALL be documented in `DESIGN.md §Iconography`.
 
 #### Scenario: Catalog name in template
 - **WHEN** a template renders an icon span
-- **THEN** the inner text SHALL be one of the 10 catalog names
+- **THEN** the inner text SHALL be one of the 11 catalog names
 
 #### Scenario: Out-of-catalog icon detected
 - **WHEN** a template uses an icon name not in the catalog
@@ -100,11 +100,11 @@ The system SHALL render icons via `<span class="icon icon--{size}" aria-hidden="
 
 ### Requirement: Icons are documented in DESIGN.md §Iconography
 
-The system SHALL keep `DESIGN.md §Iconography` updated with the catalog as the source of truth. The section SHALL list all 10 icon names verbatim with a one-line use-site per icon (which template uses it). Out-of-catalog requests SHALL be flagged in the section's "Extension path" subsection as requiring a new OpenSpec change.
+The system SHALL keep `DESIGN.md §Iconography` updated with the catalog as the source of truth. The section SHALL list all 11 icon names verbatim with a one-line use-site per icon (which template uses it). Out-of-catalog requests SHALL be flagged in the section's "Extension path" subsection as requiring a new OpenSpec change.
 
 #### Scenario: Catalog present in DESIGN.md
 - **WHEN** an operator or auditor reads DESIGN.md §Iconography
-- **THEN** all 10 catalog names SHALL appear in the section body
+- **THEN** all 11 catalog names SHALL appear in the section body
 - **AND** each icon SHALL have a documented use-site (template + selector)
 
 #### Scenario: Extension path documented

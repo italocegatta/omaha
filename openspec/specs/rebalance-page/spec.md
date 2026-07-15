@@ -196,6 +196,17 @@ When `plan.asset_plan` is empty, the page SHALL keep the existing empty-state be
 - **WHEN** `plan.asset_plan` is empty
 - **THEN** the empty-state copy renders instead of an empty grid
 
+### Requirement: Rebalance page Alpine component
+The `rebalancePage()` Alpine component SHALL consume formatters from the shared `table-formatters.js` module instead of defining them inline. The component's method signatures and return values SHALL remain identical to the pre-refactor implementation.
+
+#### Scenario: Formatter output unchanged after refactor
+- **WHEN** the rebalance page renders with the same plan data
+- **THEN** all formatted values (BRL amounts, percentages, quantities, action labels, row classes, cell classes) produce identical output to the pre-refactor version
+
+#### Scenario: Shared module imported once
+- **WHEN** the rebalance page loads
+- **THEN** `table-formatters.js` is imported exactly once via `<script type="module">`
+
 ### Requirement: Sortable asset plan table
 
 The system SHALL sort and filter rebalance asset plan rows client-side in Alpine. Clicking a column header SHALL toggle `asc → desc → asc` on the same column. Categorical columns SHALL use multi-select enum filters. Numeric columns SHALL use range filters with min/max bounds. Composite columns SHALL expose multiple range controls within the same filter panel.

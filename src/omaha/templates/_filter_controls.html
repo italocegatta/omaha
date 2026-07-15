@@ -1,0 +1,91 @@
+{# Shared filter controls macro for sortable table columns.
+   Used by portfolio (teleport=true) and available for future tables.
+
+   Params:
+      key              — column key string (matches Alpine state keys)
+      label            — human-readable label for tooltips
+      filter_kind      — 'enum' | 'range' | 'composite'
+      align            — 'left' | 'right' (panel alignment)
+      teleport         — bool, wrap panel in x-teleport="body"
+      ranges           — list of {key, label, format} for composite type
+      testid_prefix    — data-testid prefix ('asset' | 'rebalance' etc.)
+      select_all_label — label for "select all" checkbox (default 'Todos')
+#}
+{% macro filter_controls(key, label, filter_kind='enum', align='left', teleport=false, ranges=none, testid_prefix='asset', select_all_label='Todos') %}
+<div class="rebalance-header-actions">
+  <button class="rebalance-header-filter-btn"
+          :class="filterActive('{{ key }}') ? 'rebalance-header-filter-btn--active' : ''"
+          @click.stop="toggleFilterPanel('{{ key }}', $event)"
+          type="button"
+          title="Filtrar {{ label }}"
+          data-testid="{{ testid_prefix }}-header-filter-{{ key }}-trigger">
+    <span class="icon icon--sm" aria-hidden="true">filter_alt</span>
+  </button>
+  <button class="rebalance-header-clear-btn"
+          x-show="filterActive('{{ key }}')" x-cloak
+          @click.stop="clearFilter('{{ key }}')" type="button"
+          title="Limpar filtro de {{ label }}"
+          data-testid="{{ testid_prefix }}-header-clear-{{ key }}-trigger">
+    <span class="icon icon--sm" aria-hidden="true">close</span>
+  </button>
+</div>
+{% if filter_kind == 'enum' %}
+{% if teleport %}<template x-teleport="body">{% endif %}
+<div class="rebalance-filter-panel rebalance-filter-panel--header {% if align == 'right' %}rebalance-filter-panel--right{% else %}rebalance-filter-panel--left{% endif %}"
+     x-show="openFilter['{{ key }}']" x-cloak
+     {% if teleport %}:style="filterPanelStyle('{{ key }}')"{% endif %}
+     @click.outside="openFilter['{{ key }}'] = false" @click.stop
+     data-testid="{{ testid_prefix }}-header-filter-{{ key }}-panel">
+  <label class="rebalance-filter-option">
+    <input type="checkbox" @change="clearHeaderFilter('{{ key }}')"
+           :checked="headerFilterCount('{{ key }}') === 0">
+    <span>{{ select_all_label }}</span>
+  </label>
+  <template x-for="value in uniqueHeaderValues('{{ key }}')" :key="String(value)">
+    <label class="rebalance-filter-option">
+      <input type="checkbox" :checked="isHeaderFilterSelected('{{ key }}', value)"
+             @change="toggleHeaderFilter('{{ key }}', value)">
+      <span x-text="headerFilterLabel('{{ key }}', value)"></span>
+    </label>
+  </template>
+</div>
+{% if teleport %}</template>{% endif %}
+{% elif filter_kind == 'range' %}
+{% if teleport %}<template x-teleport="body">{% endif %}
+<div class="rebalance-filter-panel rebalance-filter-panel--header {% if align == 'right' %}rebalance-filter-panel--right{% else %}rebalance-filter-panel--left{% endif %}"
+     x-show="openFilter['{{ key }}']" x-cloak
+     {% if teleport %}:style="filterPanelStyle('{{ key }}')"{% endif %}
+     @click.outside="openFilter['{{ key }}'] = false" @click.stop
+     data-testid="{{ testid_prefix }}-header-filter-{{ key }}-panel">
+  <div class="rebalance-range-slider">
+    <div class="rebalance-range-track"><div class="rebalance-range-fill" :style="rangeFillStyle(rangeKeyFor('{{ key }}'))"></div></div>
+    <input type="range" :min="rangeBounds(rangeKeyFor('{{ key }}')).min" :max="rangeBounds(rangeKeyFor('{{ key }}')).max" :step="rangeStep(rangeKeyFor('{{ key }}'))" x-model.number="headerRangeFilters[rangeKeyFor('{{ key }}')].min" @input="clampRangeMin(rangeKeyFor('{{ key }}'))">
+    <input type="range" :min="rangeBounds(rangeKeyFor('{{ key }}')).min" :max="rangeBounds(rangeKeyFor('{{ key }}')).max" :step="rangeStep(rangeKeyFor('{{ key }}'))" x-model.number="headerRangeFilters[rangeKeyFor('{{ key }}')].max" @input="clampRangeMax(rangeKeyFor('{{ key }}'))">
+    <div class="rebalance-range-values"><span x-text="formatRangeValue(rangeKeyFor('{{ key }}'), headerRangeFilters[rangeKeyFor('{{ key }}')].min, rangeFormatFor('{{ key }}'), 'min')"></span><span x-text="formatRangeValue(rangeKeyFor('{{ key }}'), headerRangeFilters[rangeKeyFor('{{ key }}')].max, rangeFormatFor('{{ key }}'), 'max')"></span></div>
+  </div>
+</div>
+{% if teleport %}</template>{% endif %}
+{% elif filter_kind == 'composite' %}
+{% if teleport %}<template x-teleport="body">{% endif %}
+<div class="rebalance-filter-panel rebalance-filter-panel--header {% if align == 'right' %}rebalance-filter-panel--right{% else %}rebalance-filter-panel--left{% endif %}"
+     x-show="openFilter['{{ key }}']" x-cloak
+     {% if teleport %}:style="filterPanelStyle('{{ key }}')"{% endif %}
+     @click.outside="openFilter['{{ key }}'] = false" @click.stop
+     data-testid="{{ testid_prefix }}-header-filter-{{ key }}-panel">
+  {% if ranges %}
+  {% for range in ranges %}
+  <div class="rebalance-filter-panel-section">
+    <span class="rebalance-filter-panel-label">{{ range.label }}</span>
+    <div class="rebalance-range-slider">
+      <div class="rebalance-range-track"><div class="rebalance-range-fill" :style="rangeFillStyle('{{ range.key }}')"></div></div>
+      <input type="range" :min="rangeBounds('{{ range.key }}').min" :max="rangeBounds('{{ range.key }}').max" :step="rangeStep('{{ range.key }}')" x-model.number="headerRangeFilters['{{ range.key }}'].min" @input="clampRangeMin('{{ range.key }}')">
+      <input type="range" :min="rangeBounds('{{ range.key }}').min" :max="rangeBounds('{{ range.key }}').max" :step="rangeStep('{{ range.key }}')" x-model.number="headerRangeFilters['{{ range.key }}'].max" @input="clampRangeMax('{{ range.key }}')">
+      <div class="rebalance-range-values"><span x-text="formatRangeValue('{{ range.key }}', headerRangeFilters['{{ range.key }}'].min, '{{ range.format }}')"></span><span x-text="formatRangeValue('{{ range.key }}', headerRangeFilters['{{ range.key }}'].max, '{{ range.format }}')"></span></div>
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+</div>
+{% if teleport %}</template>{% endif %}
+{% endif %}
+{% endmacro %}
