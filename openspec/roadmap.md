@@ -147,14 +147,15 @@ Progress log: `2026-07-12` added from owner request.
 Progress log: `2026-07-14` proposal generated.
 
 ### R30 - Extrair padrão CSS compartilhado de tabelas
-Status: `Spec Proposed`
+Status: `Archived` — 2026-07-15
 Goal: extrair estilos comuns de tabelas (shell, header, rows, cells) em classes base `.data-table-*` com variáveis CSS para troca de tema; rebalance e portfolio herdam dessas bases.
 Candidate OpenSpec change id: `r30-extrair-padrao-css-compartilhado-de-tabelas`
-Spec link: `openspec/changes/r30-extrair-padrao-css-compartilhado-de-tabelas/`
+Archive: `openspec/changes/archive/2026-07-15-r30-extrair-padrao-css-compartilhado-de-tabelas/`
 Files to inspect: `src/omaha/static/app.css`, `src/omaha/templates/_rebalance_plan.html`, `src/omaha/templates/_patrimonio_class_section.html`
 Notes: fundação para padronização visual. Variáveis de tema (`--table-*`) devem permitir troca de paleta sem duplicar regras.
 Progress log: `2026-07-14` added from owner request.
 Progress log: `2026-07-14` proposal queued.
+Progress log: `2026-07-15` archived after spec sync and closeout.
 
 ### R31 - Padronizar filter panel e header de tabelas
 Status: `Spec Proposed`

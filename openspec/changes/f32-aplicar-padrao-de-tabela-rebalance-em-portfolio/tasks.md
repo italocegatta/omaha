@@ -1,11 +1,13 @@
 ## 1. CSS — Portfolio table inherits rebalance visual design
 
-- [ ] 1.1 Refactor `.portfolio-table-shell` to inherit from R30 `.data-table-shell` base class (or replicate exact rebalance values if R30 not yet applied: `border-radius: 14px`, gradient bg, shadow)
-- [ ] 1.2 Refactor `.asset-table` to inherit from R30 `.data-table` base class (font-size, width, bg, border)
-- [ ] 1.3 Align `.asset-table th` with `.rebalance-table-th` visual values (padding, bg, hover accent lift, font-weight, letter-spacing)
-- [ ] 1.4 Align `.asset-table td` with `.rebalance-asset-cell` (padding `0.82rem 0.75rem`, borders, `font-variant-numeric: tabular-nums`)
-- [ ] 1.5 Align `.asset-table tbody tr:nth-child(odd/even) td` alternating backgrounds with rebalance palette
-- [ ] 1.6 Add `.asset-table tbody tr:hover td` hover effect matching rebalance: `color-mix(in srgb, var(--accent) 10%, var(--surface))`
+**R30 status:** Tasks 1.1–1.5 already done by R30. `.portfolio-table-shell` inherits `.data-table-shell`, `.asset-table` inherits `.data-table`, th/td use `--table-*` tokens, alternating rows use variables.
+
+- [x] 1.1 ~~Refactor `.portfolio-table-shell` to inherit from R30 `.data-table-shell` base class~~ — DONE by R30
+- [x] 1.2 ~~Refactor `.asset-table` to inherit from R30 `.data-table` base class~~ — DONE by R30
+- [x] 1.3 ~~Align `.asset-table th` with `.rebalance-table-th` visual values~~ — DONE by R30 (uses `--table-text-muted`, `--table-header-bg`)
+- [x] 1.4 ~~Align `.asset-table td` with `.rebalance-asset-cell`~~ — DONE by R30 (uses `--table-border`)
+- [x] 1.5 ~~Align `.asset-table tbody tr:nth-child(odd/even) td` alternating backgrounds~~ — DONE by R30 (uses `--table-row-odd/even`)
+- [x] 1.6 ~~Verify `.asset-table tbody tr:hover td` hover effect works via `.data-table-tbody tr:hover` base rule~~ — `.data-table-tbody` selector is dead code (no template uses it). Portfolio hover works via `.asset-table tbody tr:hover td` (still present in CSS). No action needed.
 
 ## 2. CSS — Portfolio row color-coding (buy/sell/hold)
 

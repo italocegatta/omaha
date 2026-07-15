@@ -97,6 +97,19 @@
    --col-buy: 5.5%;
    --col-sell: 5.5%;
    --col-currency: 5.3%;
+
+  /* Table design tokens — R30 shared table pattern.
+     Palette for all data tables (rebalance + portfolio).
+     Override these to restyle every table at once. */
+  --table-header-bg: color-mix(in srgb, var(--surface-sunk) 70%, var(--surface));
+  --table-row-odd: color-mix(in srgb, var(--surface) 84%, var(--surface-sunk));
+  --table-row-even: color-mix(in srgb, var(--surface-sunk) 88%, transparent);
+  --table-row-hover: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  --table-border: color-mix(in srgb, var(--border) 72%, transparent);
+  --table-border-strong: color-mix(in srgb, var(--border-strong) 72%, transparent);
+  --table-text: var(--ink);
+  --table-text-muted: color-mix(in srgb, var(--ink) 94%, white);
+  --table-shell-bg: linear-gradient(180deg, color-mix(in srgb, var(--surface) 80%, white 20%), var(--surface));
 }
 
 /* Cycle beyond 6 classes: nth-of-type selectors reuse tokens 1-6.
@@ -1688,6 +1701,52 @@ td.editing {
 [x-cloak] { display: none !important; }
 
 /* =============================================================
+   R30 — shared table base classes
+   Standalone selectors consumed alongside specific table classes
+   (e.g. class="data-table-shell rebalance-table-shell").
+   ============================================================= */
+
+.data-table-shell {
+  border-radius: 14px;
+  border: 1px solid var(--table-border-strong);
+  background: var(--table-shell-bg);
+  box-shadow: 0 18px 34px rgba(8, 10, 20, 0.14);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.data-table-th {
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--table-text-muted);
+}
+
+.data-table-td {
+  border-bottom: 1px solid var(--table-border);
+  white-space: nowrap;
+}
+
+.data-table-tbody tr:nth-child(odd) td {
+  background: var(--table-row-odd);
+}
+.data-table-tbody tr:nth-child(even) td {
+  background: var(--table-row-even);
+}
+.data-table-tbody tr:hover td {
+  background: var(--table-row-hover);
+}
+
+/* =============================================================
    F15 — patrimonio table redesign
    ============================================================= */
 
@@ -1773,20 +1832,11 @@ td.editing {
 .portfolio-table-shell {
   overflow-x: auto;
   overflow-y: hidden;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 80%, white 20%), var(--surface));
-  box-shadow: 0 18px 34px rgba(8, 10, 20, 0.14);
 }
 
 .asset-table {
   min-width: 1550px;
-  width: 100%;
   font-size: 0.84rem;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  overflow: visible;
 }
 
 .asset-table col:nth-child(1) { width: var(--col-ativo); }
@@ -1813,18 +1863,13 @@ td.editing {
 }
 
 .asset-table th {
-  font-size: 0.78rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--ink) 94%, white);
-  text-align: center;
+  color: var(--table-text-muted);
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
   line-height: 1.15;
   word-break: normal;
   overflow-wrap: anywhere;
-  font-weight: 700;
 }
 
 .asset-table-header-filter {
@@ -1837,8 +1882,8 @@ td.editing {
 }
 
 .asset-table-group-row th {
-  background: color-mix(in srgb, var(--surface-sunk) 70%, var(--surface));
-  border-bottom: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
+  background: var(--table-header-bg);
+  border-bottom: 1px solid var(--table-border-strong);
 }
 
 .asset-table th > span[data-testid^="asset-table-th-"] {
@@ -1852,17 +1897,17 @@ td.editing {
 
 .asset-table-subhead-row th {
   background: color-mix(in srgb, var(--surface-sunk) 82%, var(--surface));
-  border-bottom: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
+  border-bottom: 1px solid var(--table-border-strong);
 }
 
 .asset-table-subhead--ghost {
   padding: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
+  border-bottom: 1px solid var(--table-border-strong);
 }
 
 .class-totals-row td {
   background: color-mix(in srgb, var(--surface-sunk) 76%, var(--surface));
-  border-bottom: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
+  border-bottom: 1px solid var(--table-border-strong);
   font-weight: 600;
   color: var(--ink);
 }
@@ -1933,16 +1978,16 @@ td.editing {
 }
 
 .asset-table tbody td {
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-bottom: 1px solid var(--table-border);
   white-space: nowrap;
 }
 
 .asset-table tbody tr:nth-child(odd) td {
-  background: color-mix(in srgb, var(--surface) 84%, var(--surface-sunk));
+  background: var(--table-row-odd);
 }
 
 .asset-table tbody tr:nth-child(even) td {
-  background: color-mix(in srgb, var(--surface-sunk) 88%, transparent);
+  background: var(--table-row-even);
 }
 
 .asset-table tbody td:first-child {
@@ -2978,33 +3023,18 @@ td.editing {
 }
 
 .rebalance-table-shell {
-  border-radius: 14px;
   overflow: visible;
-  border: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 80%, white 20%), var(--surface));
-  box-shadow: 0 18px 34px rgba(8, 10, 20, 0.14);
 }
 
 .rebalance-table {
-  width: 100%;
-  border-collapse: collapse;
   font-size: 0.85rem;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  overflow: visible;
 }
 
 .rebalance-table-th {
-  text-align: center;
   padding: 0.9rem 0.75rem;
-  background: color-mix(in srgb, var(--surface-sunk) 70%, var(--surface));
-  border-bottom: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
-  font-weight: 700;
-  font-size: 0.78rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink);
+  background: var(--table-header-bg);
+  border-bottom: 1px solid var(--table-border-strong);
+  color: var(--table-text);
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
@@ -3242,9 +3272,7 @@ td.editing {
 
 .rebalance-asset-cell {
   padding: 0.82rem 0.75rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  color: var(--ink);
-  white-space: nowrap;
+  color: var(--table-text);
 }
 
 .rebalance-asset-cell--num {
@@ -3258,13 +3286,13 @@ td.editing {
 
 /* Row color-coding by deviation vs threshold */
 .rebalance-asset-row:nth-child(odd) td {
-  background: color-mix(in srgb, var(--surface) 84%, var(--surface-sunk));
+  background: var(--table-row-odd);
 }
 .rebalance-asset-row:nth-child(even) td {
-  background: color-mix(in srgb, var(--surface-sunk) 88%, transparent);
+  background: var(--table-row-even);
 }
 .rebalance-asset-row:hover td {
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  background: var(--table-row-hover);
 }
 .rebalance-asset-row--buy td {
   background: color-mix(in srgb, var(--positive) 7%, var(--surface)) !important;

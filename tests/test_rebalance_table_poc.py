@@ -173,8 +173,8 @@ def test_get_teste_populated_profile_renders_table(
     assert '"current_value": 6000.0' in body or '"current_value":6000.0' in body
     assert '"current_value": 4000.0' in body or '"current_value":4000.0' in body
     # Legacy CSS classes present
-    assert 'class="rebalance-table"' in body
-    assert 'class="rebalance-table-th' in body
+    assert 'rebalance-table"' in body
+    assert "rebalance-table-th" in body
     assert 'class="rebalance-header-filter-btn"' in body
 
 

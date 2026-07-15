@@ -1,5 +1,7 @@
 ## 1. Create shared module
 
+**R30 learnings:** R30 extracted CSS tokens (`--table-*`) and base classes. R33 extracts the JS layer. No overlap — CSS and JS are independent extractions. The template class additions from R30 (`data-table-th`, `data-table-td`) do not affect JS formatters.
+
 - [ ] 1.1 Create `src/omaha/static/table-formatters.js` with all 11 exported functions: `formatMoney`, `formatPct`, `formatPctRounded`, `formatQty`, `formatDeviationPp`, `signClass`, `signIcon`, `actionLabel`, `rowClass`, `cellClass`, `formatCell`
 - [ ] 1.2 Verify each function matches existing behavior exactly (compare outputs against inline implementations in `rebalance.html` lines 244-435 and `_patrimonio_add_asset_modal.html` lines 699-738)
 

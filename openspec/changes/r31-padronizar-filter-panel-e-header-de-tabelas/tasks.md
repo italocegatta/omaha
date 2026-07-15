@@ -9,10 +9,13 @@
 
 ## 2. Portfolio template migration
 
+**R30 learnings:** Portfolio `<th>` elements now have `data-table-th asset-table-header-filter` classes. The `asset_filter_controls` macro is still used inline in each `<th>`. R30 did NOT touch filter markup — only added base classes.
+
 - [ ] 2.1 In `_patrimonio_class_section.html`: replace `asset_filter_controls` macro with `{% from '_filter_controls.html' import filter_controls %}` import
 - [ ] 2.2 Replace all `{{ asset_filter_controls('key', 'Label') }}` calls with `{{ filter_controls('key', 'Label', filter_kind='enum', teleport=true) }}` (or `range` where applicable)
 - [ ] 2.3 Replace `expand_more` icon in the macro calls with `filter_alt` (handled by the shared macro)
 - [ ] 2.4 Remove the old `asset_filter_controls` macro definition from `_patrimonio_class_section.html`
+- [ ] 2.5 Preserve `data-table-th` class on all `<th>` elements (added by R30) — do not strip it during migration
 
 ## 3. Rebalance template migration
 

@@ -729,18 +729,18 @@ def test_asset_table_has_colgroup(client: TestClient) -> None:
     assert r.status_code == 200, r.text
     body = r.text
 
-    # Find every <table class="asset-table">...</table> region and
+    # Find every <table class="...asset-table...">...</table> region and
     # check exactly one of them carries a colgroup with 8 cols.
     table_matches = _re.findall(
-        r'<table class="asset-table"[^>]*>(.*?)</table>',
+        r'<table class="[^"]*asset-table[^"]*"[^>]*>(.*?)</table>',
         body,
         flags=_re.DOTALL,
     )
-    assert table_matches, 'no <table class="asset-table"> found'
+    assert table_matches, 'no <table class="...asset-table..."> found'
 
     tables_with_colgroup = [t for t in table_matches if "<colgroup>" in t and "</colgroup>" in t]
     assert len(tables_with_colgroup) == 1, (
-        f'expected exactly 1 <table class="asset-table"> with <colgroup>, '
+        f'expected exactly 1 <table class="...asset-table..."> with <colgroup>, '
         f"found {len(tables_with_colgroup)}"
     )
 

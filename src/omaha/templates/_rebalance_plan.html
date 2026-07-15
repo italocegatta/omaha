@@ -85,13 +85,13 @@
     <h3 class="rebalance-section-title">Plano por ativo</h3>
     {% if plan.asset_plan %}
 
-    <div class="rebalance-table-shell">
-    <table class="rebalance-table"
+    <div class="data-table-shell rebalance-table-shell">
+    <table class="data-table rebalance-table"
            data-testid="rebalance-asset-table">
       <thead>
         <tr>
           <template x-for="column in columns" :key="column.key">
-            <th class="rebalance-table-th rebalance-table-th--has-filter"
+            <th class="data-table-th rebalance-table-th rebalance-table-th--has-filter"
                 :class="column.type !== 'enum' ? 'rebalance-table-th--num' : ''"
                 :data-testid="'rebalance-asset-th-' + column.testId"
                 @click="sortBy(column.sortKey)">
@@ -173,7 +173,7 @@
           <tr class="rebalance-asset-row" :class="rowClass(row)"
               :data-asset-key="row.asset_key" :data-testid="'rebalance-asset-row-' + row.asset_key">
             <template x-for="column in columns" :key="column.key">
-              <td :class="cellClass(row, column)">
+              <td class="data-table-td" :class="cellClass(row, column)">
                 <span :class="[cellInnerClass(column), (column.key === 'action' || column.cellFormat === 'operation') ? 'rebalance-action-badge--' + row.action : '']"
                       :data-testid="column.key === 'action' ? 'rebalance-action-' + row.action : null"
                       x-text="formatCell(row, column)"></span>

@@ -1,5 +1,7 @@
 ## 1. Template — Replace text labels with icons
 
+**R30 learnings:** Portfolio `<td>` elements now carry `data-table-td` class (added by R30). The buy/sell toggle `<td>` already has this class. Do not strip it when editing toggle markup.
+
 - [ ] 1.1 In `_patrimonio_class_section.html`, replace the buy toggle inner
   `<span x-text="a.buy_enabled ? 'Liberado' : 'Bloqueado'">` with a
   Material Symbols Outlined icon: `<span class="material-symbols-outlined icon--sm"
