@@ -267,18 +267,6 @@ def test_custom_solver_replaces_default(
     assert any(w.code == "CUSTOM" for w in response.warnings)
 
 
-@pytest.mark.skip(
-    reason=(
-        "Covered by tests/test_rebalance_engine_glue.py::"
-        "test_cvxpy_solver_directly_returns_native_shape which "
-        "tests the same behavior with isolated fixture state."
-    )
-)
-def test_default_solver_is_cvxpy(italo_profile: Profile, _omaha_test_env: dict[str, str]) -> None:
-    """Decision 7 — default solver is cvxpy_solver (the real engine)."""
-    raise NotImplementedError("covered by test_rebalance_engine_glue.py")
-
-
 def _seed_positions(_omaha_test_env: dict[str, str], by_asset: dict[str, float]) -> None:
     """Seed one Position per asset name. Required by Phase 4's CVXPY validator."""
     import os

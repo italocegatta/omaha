@@ -191,14 +191,16 @@ Goal: commit < 1 min, push < 3 min. Remover `pytest-unit` duplicado do pre-push 
 Archive: `openspec/changes/archive/2026-07-15-i05-otimizar-hooks-pre-commit-e-pre-push/`
 
 ### T21 - Auditar e podar testes redundantes e obvios
-Status: `Ready`
-Goal: todo teste precisa validar comportamento real do sistema. Sobreviventes de mutation test (killed por acaso), testes óbvios (assert trivial), testes redundantes (mesma lógica testada 2x): reescrever com cenário real ou excluir. Meta: sem testes que só passam porque o código é trivial.
+Status: `Archived` — 2026-07-15
+Goal: todo teste precisa validar comportamento real do sistema. Sobreviventes de mutation test (killed por acaso), testes óbvios (assert trivial), testes redundantes (mesma lógica testada 2x): reescrever com cenário real ou excluir.
 Candidate OpenSpec change id: `t21-auditar-e-podar-testes-redundantes-e-obvios`
-Spec link: `openspec/changes/t21-auditar-e-podar-testes-redundantes-e-obvios/`
+Archive: `openspec/changes/archive/2026-07-15-t21-auditar-e-podar-testes-redundantes-e-obvios/`
 Files to inspect: `tests/`, `tests/conftest.py`, `.mutmut-baseline`
-Notes: achados concretos da análise: (1) 2 tests skipped são redundantes — `test_rebalance_engine_glue.py:152` coberto por validation+route, `test_rebalance_glue.py:270` coberto por engine_glue. (2) `test_audit_inventory.py` tem 2 testes lentos (31s cada) que rodam `inventory_for_page("patrimonio.html")` duas vezes — duplicação óbvia, fundir em 1. (3) `test_find_interactive_empty_html_returns_empty` e `test_find_interactive_no_interactive_elements_returns_empty` são asserts triviais em strings hardcoded — não exercitam código real do sistema.
-Progress log: `2026-07-15` added from test suite performance analysis.
-Progress log: `2026-07-15` achados: 2 skips redundantes, 2 audit_inventory duplicados (62s→31s se fundidos), 2 find_interactive triviais.
+Notes: -4 testes (5 deletados + 1 merge). Zero código de produção. Zero seed.
+Progress log: `2026-07-15` proposal generated: delete 2 skips, merge 2 audit_inventory, delete 2 trivial. 4 tasks, 3 design decisions.
+Progress log: `2026-07-15` applied: 37 passed, 0 skipped. audit_inventory 30→27 tests, rebalance_engine_glue 0 skipped, rebalance_glue 0 skipped.
+Progress log: `2026-07-15` proposal queued.
+Progress log: `2026-07-15` archived after closeout.
 
 ### T22 - Isolar audit_inventory em job CI separado
 Status: `Ready`
@@ -499,24 +501,22 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 
 **Active queue:**
 
-1. T21 - Auditar e podar testes redundantes e obvios
-2. T22 - Isolar audit_inventory em job CI separado
-3. T23 - Otimizar setup do test_seed_from_csv
-4. T24 - Corrigir classificação de arquivos integration mal taggeados
-5. T25 - Auditar suite completa: cada teste prova que o sistema funciona
-6. F29 - Compra e venda com emoji toggle
-7. R30 - Extrair padrão CSS compartilhado de tabelas
-8. R31 - Padronizar filter panel e header de tabelas
-9. R33 - Refatorar formatters e comportamentos de tabela para reutilização
-10. F32 - Aplicar padrão de tabela rebalance em portfolio
+1. T22 - Isolar audit_inventory em job CI separado
+2. T23 - Otimizar setup do test_seed_from_csv
+3. T24 - Corrigir classificação de arquivos integration mal taggeados
+4. T25 - Auditar suite completa: cada teste prova que o sistema funciona
+5. F29 - Compra e venda com emoji toggle
+6. R30 - Extrair padrão CSS compartilhado de tabelas
+7. R31 - Padronizar filter panel e header de tabelas
+8. R33 - Refatorar formatters e comportamentos de tabela para reutilização
+9. F32 - Aplicar padrão de tabela rebalance em portfolio
 
 Order note: I05-T25 are test performance slices. Meta: commit < 1min,
 push < 3min. Critério transversal: todo teste deve provar comportamento
 real do sistema — testes óbvios, redundantes, ou sobreviventes de mutation
 test são reescritos ou excluídos. I05 removes duplicate pytest-unit from
 pre-push (~17s saved) and switches to parallel integration (~120s saved).
-T21 audits test value: survivors of mutation testing that don't kill mutants
-are candidates for removal. T22 moves 48s audit_inventory out of push path.
+T22 moves 48s audit_inventory out of push path.
 T23 cuts seed_from_csv setup overhead via shared fixtures. T24 fixes 3 files
 misclassified as unit. T25 is the final full-suite audit: every test must
 justify its existence by proving real system behavior. R30-R33 added

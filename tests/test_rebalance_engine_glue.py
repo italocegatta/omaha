@@ -149,27 +149,6 @@ def test_run_rebalance_default_solver_uses_cvxpy(italo_profile: Profile) -> None
     assert plan.applied_policy != "stub-fixture-v1"
 
 
-@pytest.mark.skip(
-    reason=(
-        "Engine-level negative-contribution rejection is covered by "
-        "tests/test_rebalance_validation.py::test_check_1_negative_contribution_rejected "
-        "and tests/test_rebalance_route.py::test_solver_validation_error_returns_400. "
-        "The session-scoped DB + TestClient fixture order in this module "
-        "causes the pytest.raises interceptor to mis-attribute a "
-        "SessionLocal __exit__ OperationalError as the test failure."
-    )
-)
-def test_run_rebalance_negative_contribution_rejected(
-    italo_profile: Profile,
-) -> None:
-    """Decision 2 — engine rejects ``contribution < 0``.
-
-    Behaviour is verified at the validator level (no-DB unit test) and
-    at the route level (TestClient returning 400).
-    """
-    raise NotImplementedError("covered by sibling tests")
-
-
 def test_cvxpy_solver_directly_returns_native_shape(
     italo_profile: Profile,
 ) -> None:

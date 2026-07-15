@@ -209,17 +209,6 @@ def test_find_interactive_finds_tag(
     )
 
 
-def test_find_interactive_empty_html_returns_empty() -> None:
-    """find_interactive on an empty HTML string returns an empty list."""
-    assert find_interactive("") == []
-
-
-def test_find_interactive_no_interactive_elements_returns_empty() -> None:
-    """find_interactive on static HTML with no interactive tags returns []."""
-    html = "<div><p>Hello</p><span>World</span></div>"
-    assert find_interactive(html) == []
-
-
 # ---------------------------------------------------------------------------
 # state_color_pairs
 # ---------------------------------------------------------------------------
@@ -281,13 +270,15 @@ def test_element_without_colors_returns_none(stylesheet: Stylesheet) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_inventory_for_patrimonio_produces_rows(
+def test_inventory_for_patrimonio_has_rows_with_template_field(
     jinja_env: Environment,
     stylesheet: Stylesheet,
 ) -> None:
-    """inventory_for_page produces at least one row for the patrimonio."""
+    """inventory_for_page produces rows and every row carries the template name."""
     rows = inventory_for_page("patrimonio.html", jinja_env, stylesheet)
     assert len(rows) > 0, "Patrimonio should produce inventory rows"
+    for row in rows:
+        assert row.template == "patrimonio.html"
 
 
 def test_nonexistent_template_returns_empty(
@@ -296,17 +287,6 @@ def test_nonexistent_template_returns_empty(
 ) -> None:
     """inventory_for_page returns [] when the template doesn't exist."""
     assert inventory_for_page("nonexistent.html", jinja_env, stylesheet) == []
-
-
-def test_inventory_rows_carry_template_field(
-    jinja_env: Environment,
-    stylesheet: Stylesheet,
-) -> None:
-    """Every row produced by inventory_for_page carries the template name."""
-    rows = inventory_for_page("patrimonio.html", jinja_env, stylesheet)
-    assert len(rows) > 0
-    for row in rows:
-        assert row.template == "patrimonio.html"
 
 
 # ---------------------------------------------------------------------------
