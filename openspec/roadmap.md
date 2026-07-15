@@ -221,6 +221,14 @@ Notes: session-scoped snapshot fixture, 1 setup + 19 file copies. ~50s → ~13.5
 Progress log: `2026-07-15` added from test suite performance analysis.
 Progress log: `2026-07-15` archived after spec sync and closeout.
 
+### T23.1 - Corrigir flaky test_dashboard_shows_position_counts sob xdist
+Status: `Ready`
+Goal: `test_dashboard_shows_position_counts` falha sob xdist parallel (passes isolation). Causa raiz: isolamento de DB entre workers — preview/session state corrompido por outro worker. Fix: adicionar `xdist_group("serial")` ou isolar preview por worker.
+Candidate OpenSpec change id: `t231-corrigir-flaky-test-dashboard-shows-position-counts-sob-xdist`
+Files to inspect: `tests/test_imports_routes.py`, `tests/conftest.py`
+Notes: teste falha 100% under parallel, 100% passa isolation. Pre-existing. Bloqueia push via pre-push hook.
+Progress log: `2026-07-15` discovered during T23 finalization.
+
 ### T24 - Corrigir classificação de arquivos integration mal taggeados
 Status: `Ready`
 Goal: `test_admin_recovery.py` e `test_db_mutations.py` usam TestClient + DB mas estão marcados `unit`. Mover para `_INTEGRATION_PREFIXES` em `tests/conftest.py`. Ganho: limpeza + ~1.5s off unit suite.
@@ -511,8 +519,9 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 
 **Active queue:**
 
-1. T24 - Corrigir classificação de arquivos integration mal taggeados *(next)*
-2. T25 - Auditar suite completa: cada teste prova que o sistema funciona
+1. T23.1 - Corrigir flaky test_dashboard_shows_position_counts sob xdist *(next)*
+2. T24 - Corrigir classificação de arquivos integration mal taggeados
+3. T25 - Auditar suite completa: cada teste prova que o sistema funciona
 3. T26 - Elevar kill rate de mutation testing em policy.py
 4. F29 - Compra e venda com emoji toggle
 5. R30 - Extrair padrão CSS compartilhado de tabelas
