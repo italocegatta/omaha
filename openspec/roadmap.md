@@ -562,6 +562,7 @@ Each resolved and applied in the referenced slice.
 - **D-F18.2 — Aporte barra compacta + thresholds editáveis.** Owner 2026-07-08.
 - **D-F18.3 — Filtros multi-select (Classe, Ação) + busca por nome.** Owner 2026-07-08.
 - **D-F18.4 — Colunas Desvio(abs) e Desvio(%) na tabela de ativos.** Owner 2026-07-08.
+- **D-T26.1 — mutmut sempre silencioso.** Rodar `mutmut run` com output em arquivo (`> /tmp/mutmut.log 2>&1`), ler só `mutmut results` com grep de contadores. Evita consumo excessivo de token do modelo. Applied in T26.
 
 ---
 
