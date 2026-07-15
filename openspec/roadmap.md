@@ -44,7 +44,7 @@ verificação for específica por comando) entre gates.
 
 ## Slices
 
-All previous slices archived or closed. Active UI queue starts at F22.
+All previous slices archived or closed. Active UI queue: R31, F32.
 
 ### F21 - PoC tabelas com libs na página de teste
 Status: `Archived` — 2026-07-11
@@ -137,16 +137,9 @@ Progress log: `2026-07-13` fourth-review repair applied; header filter uses cata
 Progress log: `2026-07-13` fifth-review repair applied; exact numeric asset targets use `0%` in Classe / Alvo and Carteira / Alvo, while `—` remains absent/invalid-only. Focused browser regression, unit suite, lint, OpenSpec validation, and refresh smoke passed. Ready for final review.
 
 ### F29 - Compra e venda com emoji toggle
-Status: `Applied`
+Status: `Archived` — 2026-07-15
 Goal: simplificar colunas compra e venda com emoji de acerto/bloqueio e manter clique que alterna ícone e grava novo valor no banco.
-Candidate OpenSpec change id: `f29-compra-e-venda-com-emoji-toggle`
-Spec link: `openspec/changes/f29-compra-e-venda-com-emoji-toggle/`
-Files to inspect: `src/omaha/templates/_patrimonio*.html`, `src/omaha/routes/*.py`, `src/omaha/static/app.css`
-Notes: comportamento atual permanece; só muda representação e microcopy visual.
-Progress log: `2026-07-12` added from owner request.
-Progress log: `2026-07-14` proposal generated.
-Progress log: `2026-07-15` applied: buy/sell text → Material Symbols icons, min-width 5.5rem→2rem, aria-labels added. Unit 434/434 pass, lint clean, spec valid.
-Progress log: `2026-07-15` review approved; one pre-existing CSS nit (--fg-muted) not introduced by F29.
+Archive: `openspec/changes/archive/2026-07-15-f29-compra-e-venda-com-emoji-toggle/`
 
 ### R30 - Extrair padrão CSS compartilhado de tabelas
 Status: `Archived` — 2026-07-15
@@ -160,24 +153,20 @@ Progress log: `2026-07-14` proposal queued.
 Progress log: `2026-07-15` archived after spec sync and closeout.
 
 ### R31 - Padronizar filter panel e header de tabelas
-Status: `Applied`
+Status: `Archived` — 2026-07-15
 Goal: unificar filter panel (teleport vs inline), transformar macro `asset_filter_controls` em componente reutilizável, e alinhar UX de filtros entre rebalance e portfolio.
-Candidate OpenSpec change id: `r31-padronizar-filter-panel-e-header-de-tabelas`
-Spec link: `openspec/changes/r31-padronizar-filter-panel-e-header-de-tabelas/`
-Files to inspect: `src/omaha/templates/_patrimonio_class_section.html`, `src/omaha/templates/_rebalance_plan.html`, `src/omaha/static/app.css`
-Notes: rebalance usa filter inline no `<th>`; portfolio usa x-teleport="body". Unificar padrão.
-Progress log: `2026-07-14` added from owner request.
-Progress log: `2026-07-14` proposal queued.
-Progress log: `2026-07-15` applied: shared macro `_filter_controls.html` created, portfolio migrated, rebalance stays inline per design. Icon `filter_alt` added. 16/19 tasks done, 3 manual/BDD pending.
+Archive: `openspec/changes/archive/2026-07-15-r31-padronizar-filter-panel-e-header-de-tabelas/`
 
 ### F32 - Aplicar padrão de tabela rebalance em portfolio
-Status: `Ready`
+Status: `Applied`
 Goal: portar design visual (cores, font, efeitos, tema) da tabela rebalance para tabelas de ativos em portfolio, incluindo linha de resumo por classe como exceção documentada.
 Candidate OpenSpec change id: `f32-aplicar-padrao-de-tabela-rebalance-em-portfolio`
 Spec link: `openspec/changes/f32-aplicar-padrao-de-tabela-rebalance-em-portfolio/`
 Files to inspect: `src/omaha/templates/_patrimonio_class_section.html`, `src/omaha/templates/_patrimonio_distribution.html`, `src/omaha/static/app.css`
 Notes: portfolio mantém particularidades (header 2 níveis, linha de resumo, buy/sell toggle). Foco: visual consistency, não behavior change.
 Progress log: `2026-07-14` added from owner request.
+Progress log: `2026-07-15` applied: row color-coding (buy/sell/neutral), trade toggle pill restyle, class-totals harmonization, template :class binding. 17/17 tasks, 434 tests pass, lint clean, spec valid.
+Progress log: `2026-07-15` review approved; two low-severity smells (duplicated buy variant, speculative generality) acceptable.
 
 ### R33 - Refatorar formatters e comportamentos de tabela para reutilização
 Status: `Archived` — 2026-07-15
@@ -517,12 +506,9 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 
 **Active queue:**
 
-1. F29 - Compra e venda com emoji toggle *(next)*
-3. R30 - Extrair padrão CSS compartilhado de tabelas
-4. R31 - Padronizar filter panel e header de tabelas
-5. F32 - Aplicar padrão de tabela rebalance em portfolio
+1. F32 - Aplicar padrão de tabela rebalance em portfolio *(next)*
 
-Order note: I05+I06 archived (hook optimization). T21 archived (test pruning).
+Order note: F29 archived (emoji toggle). I05+I06 archived (hook optimization). T21 archived (test pruning).
 T22 archived (audit_inventory isolated in audit_integration job). T23 archived
 (seed_from_csv 3.7x speedup via session snapshot). T24 archived (integration
 misclassification fixed: test_admin_recovery + test_db_mutations now in

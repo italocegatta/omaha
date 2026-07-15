@@ -66,6 +66,24 @@ SHALL use tabular figures and right-align. Post-F14: asset tables use
 stronger separator line, and numeric cells use `--ink` at weight 600+
 for maximum contrast.
 
+Post-F32: portfolio asset tables (`.asset-table`) SHALL inherit the same
+visual design as rebalance tables (`.rebalance-table`). This includes:
+- Shell gradient background, border-radius 14px, heavy shadow
+- Header: uppercase, `font-weight: 700`, `letter-spacing: 0.06em`,
+  tinted background, hover accent lift
+- Rows: alternating odd/even backgrounds, hover accent tint,
+  buy/sell/hold row-level color classes
+- Cells: padding matching rebalance, `font-variant-numeric: tabular-nums`,
+  hairline bottom borders
+
+Portfolio-specific exceptions (documented, not removed):
+1. 2-level header (group row + subhead row) — inherits shared header base
+   but keeps rowspan/colspan structure.
+2. `class-totals-row` summary row — keeps sunk background and bold text,
+   palette harmonized with rebalance total row.
+3. Inline editing cells — keep click-to-edit UX, cell styling changes only.
+4. Delete confirmations — behavior-only, no visual change needed.
+
 #### Scenario: Sticky table header on scroll
 - **WHEN** the user scrolls a page containing `.table-sticky-header`
 - **THEN** the `<thead>` remains pinned to `top: 0` with
@@ -127,6 +145,51 @@ for maximum contrast.
 - **WHEN** a `<td>` contains a numeric value (currency, percent, or quantity)
 - **THEN** the cell SHALL render with `color: var(--ink)` and
   `font-weight: 600` or higher
+
+#### Scenario: Portfolio asset row color-codes by trade status
+- **WHEN** an asset row renders in the portfolio table
+- **THEN** the row SHALL receive a color class based on trade flags:
+  - `buy_enabled && !sell_enabled` → green tint (buy)
+  - `!buy_enabled && sell_enabled` → red tint (sell)
+  - Both enabled or both disabled → neutral (hold)
+- **AND** the color SHALL match the rebalance palette:
+  - Buy: `color-mix(in srgb, var(--positive) 7%, var(--surface))`
+  - Sell: `color-mix(in srgb, var(--negative) 10%, var(--surface))`
+  - Neutral: `color-mix(in srgb, var(--surface) 82%, var(--surface-sunk) 18%)`
+
+#### Scenario: Portfolio table shell matches rebalance shell
+- **WHEN** the portfolio page renders asset tables
+- **THEN** `.portfolio-table-shell` SHALL use the same visual values as
+  `.rebalance-table-shell`: `border-radius: 14px`, gradient background,
+  `box-shadow: 0 18px 34px rgba(8, 10, 20, 0.14)`
+
+#### Scenario: Portfolio table headers match rebalance headers
+- **WHEN** portfolio table headers render
+- **THEN** `.asset-table th` SHALL use the same visual values as
+  `.rebalance-table-th`: uppercase, `font-weight: 700`,
+  `letter-spacing: 0.06em`, tinted background, hover accent lift
+
+#### Scenario: Portfolio table cells match rebalance cells
+- **WHEN** portfolio table cells render
+- **THEN** `.asset-table td` SHALL use the same padding and border values
+  as `.rebalance-asset-cell`: `padding: 0.82rem 0.75rem`, hairline
+  bottom border, `font-variant-numeric: tabular-nums` on numeric cells
+
+#### Scenario: Trade toggle buttons match rebalance action-badge style
+- **WHEN** a trade toggle button renders in the portfolio table
+- **THEN** the button SHALL use the rebalance action-badge visual language:
+  rounded pill shape (`border-radius: 4px`), color-coded background at
+  12-18% opacity, matching foreground color
+
+#### Scenario: Class-totals-row palette harmonizes with rebalance
+- **WHEN** the class totals summary row renders
+- **THEN** the row SHALL use the same background and border values as
+  rebalance total rows, with `font-weight: 600` and sunk background
+
+#### Scenario: Portfolio hover effect matches rebalance
+- **WHEN** the user hovers over a portfolio asset row
+- **THEN** the row SHALL highlight with the same accent tint as rebalance:
+  `color-mix(in srgb, var(--accent) 10%, var(--surface))`
 
 ### Requirement: Class section headers SHALL differentiate via tinted background and color border
 

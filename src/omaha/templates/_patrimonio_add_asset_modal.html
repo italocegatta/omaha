@@ -538,6 +538,7 @@
 
       init: function () {
         this.displayAssets = this.assets.slice();
+        this._initFilterBounds();
         if (Alpine.store('classSum') && this.classTargetPct !== null && this.classTargetPct !== undefined) {
           var store = Alpine.store('classSum');
           store.register(this.classId, this.classTargetPct);
@@ -700,6 +701,10 @@
         var f = window.__tableFormatters;
         return f ? f.formatPct(value) : (value === null || value === undefined || Number.isNaN(Number(value)) ? '—' : Number(value).toFixed(2) + '%');
       },
+      formatPctRounded: function (value) {
+        var f = window.__tableFormatters;
+        return f ? f.formatPctRounded(value) : (value === null || value === undefined || Number.isNaN(Number(value)) ? '—' : Math.round(Number(value)) + '%');
+      },
       formatPctOrDash: function (value) {
         if (value === 0 || value === '0' || value === 0.0) return '—';
         return this.formatPct(value);
@@ -757,6 +762,255 @@
         if (this.sortKey !== key) return '';
         return this.sortDir === 'asc' ? '↑' : '↓';
       },
+
+      // ── Header filters (aligned with rebalance page) ────────
+      openFilter: {},
+      headerFilters: {
+        name: [],
+        buy: [],
+        sell: [],
+        currency: [],
+      },
+      headerRangeFilters: {
+        qty: { min: null, max: null },
+        'avg-price': { min: null, max: null },
+        gain: { min: null, max: null },
+        position: { min: null, max: null },
+        'position-deviation': { min: null, max: null },
+        'class-current': { min: null, max: null },
+        'class-target': { min: null, max: null },
+        'class-deviation': { min: null, max: null },
+        'portfolio-current': { min: null, max: null },
+        'portfolio-target': { min: null, max: null },
+        'portfolio-deviation': { min: null, max: null },
+      },
+      columns: [
+        { key: 'name', type: 'enum' },
+        { key: 'qty', type: 'range' },
+        { key: 'avg-price', type: 'range' },
+        { key: 'gain', type: 'range' },
+        { key: 'position', type: 'range' },
+        { key: 'position-deviation', type: 'range' },
+        { key: 'buy', type: 'enum' },
+        { key: 'sell', type: 'enum' },
+        { key: 'currency', type: 'enum' },
+        { key: 'class-current', type: 'range' },
+        { key: 'class-target', type: 'range' },
+        { key: 'class-deviation', type: 'range' },
+        { key: 'portfolio-current', type: 'range' },
+        { key: 'portfolio-target', type: 'range' },
+        { key: 'portfolio-deviation', type: 'range' },
+      ],
+
+      _mapField: function (sortKey) {
+        switch (sortKey) {
+          case 'name': return 'name';
+          case 'qty': return 'qty';
+          case 'avg-price': return 'avg_price';
+          case 'gain': return 'gain_value';
+          case 'position': return 'current_value';
+          case 'position-deviation': return 'position_deviation_value';
+          case 'class-current': return 'current_pct_class';
+          case 'class-target': return 'target_pct';
+          case 'class-deviation': return 'class_deviation_pct';
+          case 'portfolio-current': return 'current_pct_total';
+          case 'portfolio-target': return 'target_pct_total';
+          case 'portfolio-deviation': return 'portfolio_deviation_pct';
+          case 'buy': return 'buy_enabled';
+          case 'sell': return 'sell_enabled';
+          case 'currency': return 'currency_code';
+          default: return sortKey;
+        }
+      },
+
+      _initFilterBounds: function () {
+        var self = this;
+        this.columns.forEach(function (col) {
+          if (col.type === 'range') {
+            var vals = self.assets.map(function (a) { return Number(a[self._mapField(col.key)]) || 0; });
+            self.headerRangeFilters[col.key] = {
+              min: Math.min.apply(null, vals),
+              max: Math.max.apply(null, vals),
+            };
+          }
+        });
+      },
+
+      get filteredAssets() {
+        var self = this;
+        var rows = this.displayAssets;
+
+        // Enum filters
+        var enumDefs = [
+          { key: 'name', field: 'name' },
+          { key: 'buy', field: 'buy_enabled' },
+          { key: 'sell', field: 'sell_enabled' },
+          { key: 'currency', field: 'currency_code' },
+        ];
+        for (var e = 0; e < enumDefs.length; e++) {
+          var sel = self.headerFilters[enumDefs[e].key];
+          if (sel.length > 0) {
+            rows = rows.filter(function (a) { return sel.includes(a[enumDefs[e].field]); });
+          }
+        }
+
+        // Range filters
+        var rangeDefs = [
+          { key: 'qty', field: 'qty' },
+          { key: 'avg-price', field: 'avg_price' },
+          { key: 'gain', field: 'gain_value' },
+          { key: 'position', field: 'current_value' },
+          { key: 'position-deviation', field: 'position_deviation_value' },
+          { key: 'class-current', field: 'current_pct_class' },
+          { key: 'class-target', field: 'target_pct' },
+          { key: 'class-deviation', field: 'class_deviation_pct' },
+          { key: 'portfolio-current', field: 'current_pct_total' },
+          { key: 'portfolio-target', field: 'target_pct_total' },
+          { key: 'portfolio-deviation', field: 'portfolio_deviation_pct' },
+        ];
+        for (var r = 0; r < rangeDefs.length; r++) {
+          var bounds = self.rangeBounds(rangeDefs[r].key);
+          var filter = self.headerRangeFilters[rangeDefs[r].key];
+          var min = filter.min === null || filter.min === '' ? bounds.min : Number(filter.min);
+          var max = filter.max === null || filter.max === '' ? bounds.max : Number(filter.max);
+          if (min > bounds.min) {
+            rows = rows.filter(function (a) { return (Number(a[rangeDefs[r].field]) || 0) >= min; });
+          }
+          if (max < bounds.max) {
+            rows = rows.filter(function (a) { return (Number(a[rangeDefs[r].field]) || 0) <= max; });
+          }
+        }
+
+        return rows;
+      },
+
+      columnByKey: function (key) {
+        return this.columns.find(function (c) { return c.key === key; });
+      },
+      rangeKeysFor: function (column) {
+        return column.type === 'range' ? [column.key] : [];
+      },
+      filterActive: function (colOrKey) {
+        var column = typeof colOrKey === 'string' ? this.columnByKey(colOrKey) : colOrKey;
+        if (!column) return false;
+        var self = this;
+        if (column.type === 'enum') return this.headerFilters[column.key].length > 0;
+        return this.rangeKeysFor(column).some(function (key) {
+          var bounds = self.rangeBounds(key);
+          var filter = self.headerRangeFilters[key];
+          return filter.min !== null && filter.min !== '' && filter.max !== null && filter.max !== '' &&
+            (Number(filter.min) > bounds.min || Number(filter.max) < bounds.max);
+        });
+      },
+      filterActiveStr: function (key) {
+        var col = this.columnByKey(key);
+        return col ? this.filterActive(col) : false;
+      },
+      toggleFilterPanel: function (key) {
+        var self = this;
+        var column = this.columnByKey(key);
+        Object.keys(this.openFilter).forEach(function (k) {
+          if (k !== key) self.openFilter[k] = false;
+        });
+        if (!this.openFilter[key] && column && column.type !== 'enum') this._ensureColumnRangeBounds(column);
+        this.openFilter[key] = !this.openFilter[key];
+      },
+      clearFilter: function (key) {
+        var column = this.columnByKey(key);
+        var self = this;
+        if (column.type === 'enum') this.clearHeaderFilter(key);
+        else this.rangeKeysFor(column).forEach(function (rangeKey) {
+          var bounds = self.rangeBounds(rangeKey);
+          self.headerRangeFilters[rangeKey].min = bounds.min;
+          self.headerRangeFilters[rangeKey].max = bounds.max;
+        });
+        this.openFilter[key] = false;
+      },
+      _ensureColumnRangeBounds: function (column) {
+        var self = this;
+        this.rangeKeysFor(column).forEach(function (key) { self.ensureRangeBounds(key); });
+      },
+      rangeBounds: function (key) {
+        var field = this._mapField(key);
+        var values = this.assets.map(function (a) { return Number(a[field]) || 0; });
+        if (values.length === 0) return { min: 0, max: 0 };
+        return { min: Math.min.apply(null, values), max: Math.max.apply(null, values) };
+      },
+      rangeStep: function (key) {
+        var bounds = this.rangeBounds(key);
+        var span = bounds.max - bounds.min;
+        return span === 0 ? 0.01 : Math.max(Math.pow(10, Math.floor(Math.log10(span)) - 2), 0.01);
+      },
+      ensureRangeBounds: function (key) {
+        var bounds = this.rangeBounds(key);
+        var filter = this.headerRangeFilters[key];
+        if (filter.min === null || filter.min === '') filter.min = bounds.min;
+        if (filter.max === null || filter.max === '') filter.max = bounds.max;
+      },
+      clampRangeMin: function (key) {
+        this.ensureRangeBounds(key);
+        var bounds = this.rangeBounds(key);
+        var filter = this.headerRangeFilters[key];
+        if (Number(filter.min) > Number(filter.max)) filter.min = filter.max;
+        if (Number(filter.min) < bounds.min) filter.min = bounds.min;
+      },
+      clampRangeMax: function (key) {
+        this.ensureRangeBounds(key);
+        var bounds = this.rangeBounds(key);
+        var filter = this.headerRangeFilters[key];
+        if (Number(filter.max) < Number(filter.min)) filter.max = filter.min;
+        if (Number(filter.max) > bounds.max) filter.max = bounds.max;
+      },
+      rangeFillStyle: function (key) {
+        var bounds = this.rangeBounds(key);
+        var span = bounds.max - bounds.min;
+        if (span === 0) return 'left: 0%; right: 0%;';
+        var filter = this.headerRangeFilters[key];
+        var min = filter.min === null || filter.min === '' ? bounds.min : Number(filter.min);
+        var max = filter.max === null || filter.max === '' ? bounds.max : Number(filter.max);
+        return 'left: ' + ((min - bounds.min) / span) * 100 + '%; right: ' +
+          ((bounds.max - max) / span) * 100 + '%;';
+      },
+      rangeKeyFor: function (sortKey) { return sortKey; },
+      rangeFormatFor: function (sortKey) {
+        if (sortKey === 'class-deviation' || sortKey === 'portfolio-deviation') return 'deviationPp';
+        return 'brl';
+      },
+      formatRangeValue: function (key, value, format) {
+        if (value === null || value === '' || value === undefined) return '-';
+        if (format === 'deviationPp') {
+          var n = Number(value) || 0;
+          return (n >= 0 ? '+' : '') + n.toFixed(0) + '%';
+        }
+        return this.formatBRL(value);
+      },
+      uniqueHeaderValues: function (key) {
+        var field = this._mapField(key);
+        var self = this;
+        return Array.from(new Set(this.assets.map(function (a) { return a[field]; }))).sort(function (a, b) {
+          return String(a).localeCompare(String(b));
+        });
+      },
+      headerFilterLabel: function (key, value) {
+        if (key === 'buy' || key === 'sell') return value ? 'Liberado' : 'Bloqueado';
+        return String(value);
+      },
+      toggleHeaderFilter: function (key, value) {
+        var selected = this.headerFilters[key];
+        var idx = selected.indexOf(value);
+        if (idx >= 0) selected.splice(idx, 1);
+        else selected.push(value);
+      },
+      isHeaderFilterSelected: function (key, value) {
+        return this.headerFilters[key].includes(value);
+      },
+      clearHeaderFilter: function (key) {
+        this.headerFilters[key] = [];
+      },
+      headerFilterCount: function (key) {
+        return this.headerFilters[key].length;
+      },
+      filterPanelStyle: function () { return ''; },
 
       // R12: Class inline edit — click the Alvo NN% span to show an
       // input, PATCH on blur/Enter, update the local target_pct on

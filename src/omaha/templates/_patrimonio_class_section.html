@@ -209,7 +209,7 @@
           </template>
             <template x-for="a in filteredAssets" :key="a.id">
               <tbody class="class-section-body" :class="{'class-section-body--collapsed': !isOpen}" x-show="isOpen">
-                <tr data-testid="dashboard-asset-row" :data-asset-id="a.id" :data-position-count="a.position_count" :data-asset-class-name="a.class_name">
+                <tr data-testid="dashboard-asset-row" :data-asset-id="a.id" :data-position-count="a.position_count" :data-asset-class-name="a.class_name" :class="{'asset-row--buy': a.buy_enabled && !a.sell_enabled, 'asset-row--sell': !a.buy_enabled && a.sell_enabled, 'asset-row--neutral': (a.buy_enabled && a.sell_enabled) || (!a.buy_enabled && !a.sell_enabled)}">
                   <td class="data-table-td" data-testid="asset-row-name">
                     <div class="asset-name-cell">
                       <span data-testid="asset-row-name-text" x-text="a.name"></span>

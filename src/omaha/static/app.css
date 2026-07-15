@@ -1533,24 +1533,35 @@ td.editing {
   display: inline-block;
   font-size: 0.7rem;
   font-weight: 600;
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
+  padding: 0.13rem 0.43rem;
+  border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--fg-muted);
   cursor: pointer;
   user-select: none;
-  min-width: 2rem;
+  min-width: 1.7rem;
   text-align: center;
+  line-height: 1;
 }
 .trade-toggle--on {
-  background: color-mix(in srgb, var(--positive) 15%, var(--surface));
-  border-color: color-mix(in srgb, var(--positive) 50%, var(--border));
+  background: color-mix(in srgb, var(--positive) 18%, var(--surface));
+  border-color: color-mix(in srgb, var(--positive) 30%, transparent);
   color: var(--positive);
 }
 .trade-toggle--off {
-  background: color-mix(in srgb, var(--negative) 12%, var(--surface));
-  border-color: color-mix(in srgb, var(--negative) 40%, transparent);
+  background: var(--bg-hover);
+  border-color: var(--border);
+  color: var(--ink);
+}
+.trade-toggle--buy.trade-toggle--on {
+  background: color-mix(in srgb, var(--positive) 18%, var(--surface));
+  border-color: color-mix(in srgb, var(--positive) 30%, transparent);
+  color: var(--positive);
+}
+.trade-toggle--sell.trade-toggle--on {
+  background: color-mix(in srgb, var(--negative) 18%, var(--surface));
+  border-color: color-mix(in srgb, var(--negative) 30%, transparent);
   color: var(--negative);
 }
 .trade-toggle:disabled {
@@ -1906,7 +1917,7 @@ td.editing {
 }
 
 .class-totals-row td {
-  background: color-mix(in srgb, var(--surface-sunk) 76%, var(--surface));
+  background: color-mix(in srgb, var(--surface-sunk) 82%, var(--surface));
   border-bottom: 1px solid var(--table-border-strong);
   font-weight: 600;
   color: var(--ink);
@@ -1996,7 +2007,18 @@ td.editing {
 }
 
 .asset-table tbody tr.class-totals-row td {
-  background: color-mix(in srgb, var(--surface-sunk) 76%, var(--surface));
+  background: color-mix(in srgb, var(--surface-sunk) 82%, var(--surface));
+}
+
+/* Portfolio row color-coding — mirrors rebalance .rebalance-asset-row--* */
+.asset-row--buy td {
+  background: color-mix(in srgb, var(--positive) 7%, var(--surface)) !important;
+}
+.asset-row--sell td {
+  background: color-mix(in srgb, var(--negative) 10%, var(--surface)) !important;
+}
+.asset-row--neutral td {
+  background: color-mix(in srgb, var(--surface) 82%, var(--surface-sunk) 18%) !important;
 }
 
 .metric-sign {
@@ -3730,6 +3752,7 @@ tr:focus-within .row-actions {
   vertical-align: middle;
 }
 .icon--sm { font-size: 16px; }
+.trade-toggle .icon--sm { font-size: 14px; }
 .icon--md { font-size: 20px; }
 .icon--lg { font-size: 24px; }
 /* Buttons hosting icons need a small horizontal gap so the glyph
