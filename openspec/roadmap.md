@@ -212,13 +212,14 @@ Goal: `test_audit_inventory.py` não bloqueia push — mover para `tests/audit_i
 Archive: `openspec/changes/archive/2026-07-15-t22-isolar-audit-inventory-em-job-ci-separado/`
 
 ### T23 - Otimizar setup do test_seed_from_csv
-Status: `Ready`
+Status: `Archived` — 2026-07-15
 Goal: reduzir overhead de setup dos 20 testes serial em `test_seed_from_csv.py` (~50s total, ~2.5s/setup). Compartilhar fixture de seed entre testes via session scope ou cache de estado SQLite.
 Candidate OpenSpec change id: `t23-otimizar-setup-do-test-seed-from-csv`
-Spec link: `openspec/changes/t23-otimizar-setup-do-test-seed-from-csv/`
+Archive: `openspec/changes/archive/2026-07-15-t23-otimizar-setup-do-test-seed-from-csv/`
 Files to inspect: `tests/test_seed_from_csv.py`, `tests/support/db.py`, `tests/conftest.py`
-Notes: testes são `xdist_group("serial")` — cada um re-executa CSV parse + DB seed no setup. Fixture session-scoped com snapshot/restore seria mais rápido. Cuidado: testes testam modos diferentes (reset, diff, upsert) que dependem de estado anterior.
+Notes: session-scoped snapshot fixture, 1 setup + 19 file copies. ~50s → ~13.5s (3.7x speedup).
 Progress log: `2026-07-15` added from test suite performance analysis.
+Progress log: `2026-07-15` archived after spec sync and closeout.
 
 ### T24 - Corrigir classificação de arquivos integration mal taggeados
 Status: `Ready`
@@ -510,20 +511,20 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 
 **Active queue:**
 
-1. T23 - Otimizar setup do test_seed_from_csv *(next)*
-2. T24 - Corrigir classificação de arquivos integration mal taggeados
-3. T25 - Auditar suite completa: cada teste prova que o sistema funciona
-4. T26 - Elevar kill rate de mutation testing em policy.py
-5. F29 - Compra e venda com emoji toggle
-6. R30 - Extrair padrão CSS compartilhado de tabelas
-7. R31 - Padronizar filter panel e header de tabelas
-8. R33 - Refatorar formatters e comportamentos de tabela para reutilização
-9. F32 - Aplicar padrão de tabela rebalance em portfolio
+1. T24 - Corrigir classificação de arquivos integration mal taggeados *(next)*
+2. T25 - Auditar suite completa: cada teste prova que o sistema funciona
+3. T26 - Elevar kill rate de mutation testing em policy.py
+4. F29 - Compra e venda com emoji toggle
+5. R30 - Extrair padrão CSS compartilhado de tabelas
+6. R31 - Padronizar filter panel e header de tabelas
+7. R33 - Refatorar formatters e comportamentos de tabela para reutilização
+8. F32 - Aplicar padrão de tabela rebalance em portfolio
 
 Order note: I05+I06 archived (hook optimization). T21 archived (test pruning).
-T22 archived (audit_inventory isolated in audit_integration job). T23-T26 are
+T22 archived (audit_inventory isolated in audit_integration job). T23 archived
+(seed_from_csv 3.7x speedup via session snapshot). T24-T26 are
 test performance + quality slices. Meta: commit < 1min,
-push < 3min, mutation kill rate > 95%. T23 cuts seed_from_csv setup. T24 fixes
+push < 3min, mutation kill rate > 95%. T23 archived (seed_from_csv 3.7x speedup via session snapshot). T24 fixes
 misclassified files. T25 audits full suite for real behavior. T26 targets
 policy.py (145/211 survived mutations — 69% of total gap). Critério transversal:
 todo teste deve provar comportamento real. R30-R33 for table standardization.

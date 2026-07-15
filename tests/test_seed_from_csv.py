@@ -1,8 +1,14 @@
 """Tests for ``scripts.seed_from_csv``.
 
-Twenty integration-style cases, each backed by its own temporary
-SQLite database via the ``omaha_db`` fixture (boots a fresh SQLite
-file, runs ``alembic upgrade head``, exposes ``SessionLocal``):
+Twenty integration-style cases backed by a session-scoped SQLite
+snapshot. A single ``_seed_db_snapshot`` fixture runs
+``run_alembic_and_seed`` once; each per-test ``omaha_db`` fixture
+copies the snapshot file (~10 ms) instead of re-running the full
+migration+seed (~2.5 s).
+
+The loader tests (14–17) drop the ``omaha_db`` dependency entirely —
+they only parse CSV via ``tmp_path`` + ``monkeypatch`` and never
+touch the database.
 
 1. ``test_reset_creates_full_italo_state`` — ``reset`` creates the
    full canonical Italo state from the CSV triplet.
@@ -54,6 +60,7 @@ to drop cached ``omaha.*`` modules and reimport them per case.
 from __future__ import annotations
 
 import csv
+import shutil
 import subprocess
 import sys
 from decimal import Decimal
@@ -73,13 +80,8 @@ pytestmark = pytest.mark.xdist_group("serial")
 
 
 # ---------------------------------------------------------------------------
-# Fixture: omaha_db (boots a fresh SQLite + alembic; does NOT seed users)
+# Fixtures: session snapshot + per-test omaha_db copy
 # ---------------------------------------------------------------------------
-
-
-def _tmp_db_url(tmp_path: Path) -> str:
-    db_file = tmp_path / "portfolio.db"
-    return f"sqlite:///{db_file}"
 
 
 def _save_modules() -> dict[str, object]:
@@ -98,24 +100,39 @@ def _restore_modules(saved: dict[str, object]) -> None:
         sys.modules[name] = mod
 
 
+@pytest.fixture(scope="session")
+def _seed_db_snapshot(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Run alembic+seed ONCE, return path to the pre-seeded SQLite file.
+
+    All per-test ``omaha_db`` fixtures copy this snapshot (~10 ms)
+    instead of re-running the full migration+seed (~2.5 s).
+    """
+    snapshot_dir = tmp_path_factory.mktemp("seed-snapshot")
+    db_file = snapshot_dir / "portfolio.db"
+    db_url = f"sqlite:///{db_file}"
+    run_alembic_and_seed(REPO_ROOT, db_url, password="test-family-password")
+    return db_file
+
+
 @pytest.fixture()
 def omaha_db(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     request: pytest.FixtureRequest,
+    _seed_db_snapshot: Path,
 ):
-    """Boot a fresh SQLite + alembic, no users.
+    """Per-test SQLite from snapshot copy (~10ms) instead of full seed (~2.5s).
 
-    The test imports :mod:`omaha.seed` and calls :func:`seed` itself
-    to get the canonical ``Italo`` + ``Ana`` users + profiles.
+    Copies the session-scoped snapshot, sets env vars, and rebinds
+    ``omaha.*`` modules to the new ``DATABASE_URL``.
     """
     saved = _save_modules()
-    db_url = _tmp_db_url(tmp_path)
+    db_file = tmp_path / "portfolio.db"
+    shutil.copy2(_seed_db_snapshot, db_file)
+    db_url = f"sqlite:///{db_file}"
     monkeypatch.setenv("DATABASE_URL", db_url)
     monkeypatch.setenv("ADMIN_PASSWORD", "test-family-password")
     monkeypatch.setenv("SECRET_KEY", "test-secret-key-for-csv-seed")
-
-    run_alembic_and_seed(REPO_ROOT, db_url, password="test-family-password")
 
     for mod_name in list(sys.modules):
         if mod_name == "omaha" or mod_name.startswith("omaha."):
@@ -670,7 +687,7 @@ def test_non_ascii_asset_name_round_trips(omaha_db) -> None:
         assert any("Tesouro IPCA+ 2050" in n for n in names)
 
 
-def test_auto_class_fixture_loads_with_quote_kind(omaha_db) -> None:
+def test_auto_class_fixture_loads_with_quote_kind() -> None:
     """Loader parses a class with ``quote_kind = auto``.
 
     The loader's only requirement beyond the original schema is that
@@ -700,7 +717,7 @@ def test_auto_class_fixture_loads_with_quote_kind(omaha_db) -> None:
     assert rows[0].quote_kind == "auto"
 
 
-def test_loader_rejects_unknown_quote_kind(omaha_db) -> None:
+def test_loader_rejects_unknown_quote_kind() -> None:
     """A ``quote_kind`` outside the enum aborts with exit code 1."""
     import tempfile
     from pathlib import Path
@@ -754,7 +771,7 @@ def test_upsert_rejects_sum_violation_before_write(omaha_db, monkeypatch) -> Non
 # ---------------------------------------------------------------------------
 
 
-def test_legacy_four_column_asset_header_is_rejected(omaha_db) -> None:
+def test_legacy_four_column_asset_header_is_rejected() -> None:
     """A CSV with the legacy 4-column header aborts (no silent fallback).
 
     asset-trade-flags extends the asset header to 7 columns. The
@@ -782,7 +799,7 @@ def test_legacy_four_column_asset_header_is_rejected(omaha_db) -> None:
             seed_mod.SEED_DIR = original_seed_dir
 
 
-def test_invalid_currency_in_assets_csv_aborts(omaha_db) -> None:
+def test_invalid_currency_in_assets_csv_aborts() -> None:
     """A row with ``currency_code=EUR`` aborts at that line."""
     import tempfile
     from pathlib import Path
