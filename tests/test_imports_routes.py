@@ -25,6 +25,8 @@ from omaha.csv_import import parse_positions
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 SAMPLE_CSV = (FIXTURES / "sample_broker.csv").read_text(encoding="utf-8")
 
+pytestmark = pytest.mark.xdist_group("serial")
+
 
 def _login_and_pick_profile(
     client: TestClient, profile_name: str = "Italo", username: str | None = None
