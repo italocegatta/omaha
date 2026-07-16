@@ -19,14 +19,14 @@
           type="button"
           title="Filtrar {{ label }}"
           data-testid="{{ testid_prefix }}-header-filter-{{ key }}-trigger">
-    <span class="icon icon--sm" aria-hidden="true">filter_alt</span>
+    <span class="material-symbols-outlined" aria-hidden="true">filter_alt</span>
   </button>
   <button class="rebalance-header-clear-btn"
           x-show="filterActive('{{ key }}')" x-cloak
           @click.stop="clearFilter('{{ key }}')" type="button"
           title="Limpar filtro de {{ label }}"
           data-testid="{{ testid_prefix }}-header-clear-{{ key }}-trigger">
-    <span class="icon icon--sm" aria-hidden="true">close</span>
+    <span class="material-symbols-outlined" aria-hidden="true">close</span>
   </button>
 </div>
 {% if filter_kind == 'enum' %}

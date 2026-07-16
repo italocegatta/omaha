@@ -507,13 +507,10 @@ Goal: corrigir bug de regressão onde ícones compra/venda exibem terceiro estad
 Archive: `openspec/changes/archive/2026-07-15-f35-bug-cadeado-cinza-na-tabela-ativos/`
 
 ### F36 - Consistência visual completa tabela ativos ↔ rebalance
-Status: `Ready`
-Goal: alinhar tabela de ativos com tabela rebalanceamento em 5 dimensões: (a) ícones ordenação/filtro usando mesmo componente Material Symbols, (b) posicionamento janela filtro com mesma regra de teleport, (c) formatação classe/desvio com mesmos formatters (0 casas decimais), (d) cabeçalho/linhas com mesma config visual (cores, font, efeitos) + "Total da classe" como card destaque com cor da palheta, (e) espaçamento cabeçalhos com largura "ATIVO" e/ou tamanho fonte ajustados até acomodar bem todos os nomes de coluna.
-Candidate OpenSpec change id: `f36-consistencia-visual-completa-tabela-ativos-rebalance`
-Spec link: `openspec/changes/f36-consistencia-visual-completa-tabela-ativos-rebalance/`
-Files to inspect: `src/omaha/templates/_patrimonio_class_section.html`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/templates/_rebalance_plan.html`, `src/omaha/static/app.css`, `src/omaha/static/table-formatters.js`
-Notes: 5 melhorias agrupadas por objetivo comum. Cor do card "Total da classe" será proposta e validada pelo owner antes de implementar. Testar: resize, filter popup, ordenação, formatação numérica, contraste cabeçalho.
-Progress log: `2026-07-15` added from owner request — 5 melhorias visuais unificadas.
+Status: `Archived` — 2026-07-15
+Goal: alinhar tabela de ativos com tabela rebalanceamento em 5 dimensões: ícones Material Symbols, teleport validado, formatação desvio 0 casas decimais, card totais com cor da classe, espaçamento cabeçalhos.
+Archive: `openspec/changes/archive/2026-07-15-f36-consistencia-visual-completa-tabela-ativos-rebalance/`
+Progress log: `2026-07-15` spec proposed — proposal, design, spec, tasks created. Task 4.5 blocked on owner color validation.
 
 ### F37 - Contraste de alerta por desvio
 Status: `Ready`

@@ -1135,6 +1135,14 @@ p.error, .error {
 .dashboard-distribution .class-section:nth-of-type(6n+4) .class-section-name { color: var(--class-4); }
 .dashboard-distribution .class-section:nth-of-type(6n+5) .class-section-name { color: var(--class-5); }
 .dashboard-distribution .class-section:nth-of-type(6n+6) .class-section-name { color: var(--class-6); }
+
+/* F36: propagate --class-color to .class-section for totals-row card styling. */
+.dashboard-distribution .class-section:nth-of-type(6n+1) { --class-color: var(--class-1); }
+.dashboard-distribution .class-section:nth-of-type(6n+2) { --class-color: var(--class-2); }
+.dashboard-distribution .class-section:nth-of-type(6n+3) { --class-color: var(--class-3); }
+.dashboard-distribution .class-section:nth-of-type(6n+4) { --class-color: var(--class-4); }
+.dashboard-distribution .class-section:nth-of-type(6n+5) { --class-color: var(--class-5); }
+.dashboard-distribution .class-section:nth-of-type(6n+6) { --class-color: var(--class-6); }
 .class-section-name { font-weight: 700; font-size: 1.4rem; flex: 0 0 auto; min-width: 0; }
 
 /* Class section body collapse animation (S05 T01). Uses
@@ -1767,7 +1775,7 @@ td.editing {
    ============================================================= */
 
 :root {
-  --col-ativo: 340px;
+  --col-ativo: 360px;
   --col-qtd: 50px;
   --col-avg-price: 90px;
   --col-gain: 145px;
@@ -1873,7 +1881,7 @@ td.editing {
 
 .asset-table th,
 .asset-table td {
-  padding: 0.72rem 0.75rem;
+  padding: 0.82rem 0.75rem;
   vertical-align: middle;
   overflow-wrap: break-word;
 }
@@ -1922,17 +1930,18 @@ td.editing {
 }
 
 .class-totals-row td {
-  background: color-mix(in srgb, var(--surface-sunk) 82%, var(--surface));
+  background: color-mix(in srgb, var(--class-color, var(--surface-sunk)) 22%, var(--surface));
   border-bottom: 1px solid var(--table-border-strong);
   font-weight: 600;
   color: var(--ink);
 }
 
 .class-totals-label {
-  color: var(--ink-muted);
+  color: var(--class-color, var(--ink-muted));
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .asset-table th:first-child,
@@ -2012,7 +2021,7 @@ td.editing {
 }
 
 .asset-table tbody tr.class-totals-row td {
-  background: color-mix(in srgb, var(--surface-sunk) 82%, var(--surface));
+  background: color-mix(in srgb, var(--class-color, var(--surface-sunk)) 22%, var(--surface));
 }
 
 /* Portfolio row color-coding removed per owner request — toggle status

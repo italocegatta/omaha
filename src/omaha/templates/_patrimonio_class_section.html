@@ -142,7 +142,7 @@
                 <span class="pct-delta-pill pct-delta-pill--long" data-testid="class-delta-badge" x-show="classDeltaMessage" x-text="classDeltaMessage"></span>
                 <span class="metric-stack" x-show="!classDeltaMessage">
                   <span class="icon icon--sm metric-sign" x-text="signIcon(classDeviationPctClass)" aria-hidden="true"></span>
-                  <span x-text="formatPct(classDeviationPctClass)"></span>
+                  <span x-text="formatDeviationPp(classDeviationPctClass)"></span>
                 </span>
               </td>
               <td class="data-table-td" data-testid="class-total-current-pct-portfolio">
@@ -188,7 +188,7 @@
               <td class="data-table-td" data-testid="class-total-deviation-portfolio" :class="signClass(classPortfolioDeviationPct)">
                 <span class="metric-stack">
                   <span class="icon icon--sm metric-sign" x-text="signIcon(classPortfolioDeviationPct)" aria-hidden="true"></span>
-                  <span x-text="formatPctRounded(classPortfolioDeviationPct)"></span>
+                  <span x-text="formatDeviationPp(classPortfolioDeviationPct)"></span>
                 </span>
               </td>
               <td class="data-table-td"></td>
@@ -275,7 +275,7 @@
                   <td class="data-table-td" data-testid="asset-class-deviation" :class="signClass(a.class_deviation_pct)">
                     <span class="metric-stack">
                       <span class="icon icon--sm metric-sign" x-text="signIcon(a.class_deviation_pct)" aria-hidden="true"></span>
-                      <span x-text="formatPct(a.class_deviation_pct)"></span>
+                      <span x-text="formatDeviationPp(a.class_deviation_pct)"></span>
                     </span>
                   </td>
                   <td class="data-table-td" data-testid="asset-current-pct-total" x-text="formatPctRounded(a.current_pct_total)"></td>
@@ -325,7 +325,7 @@
                   <td class="data-table-td" data-testid="asset-portfolio-deviation" :class="signClass(a.portfolio_deviation_pct)">
                     <span class="metric-stack">
                       <span class="icon icon--sm metric-sign" x-text="signIcon(a.portfolio_deviation_pct)" aria-hidden="true"></span>
-                      <span x-text="formatPctRounded(a.portfolio_deviation_pct)"></span>
+                      <span x-text="formatDeviationPp(a.portfolio_deviation_pct)"></span>
                     </span>
                   </td>
                   <td class="data-table-td" data-testid="asset-buy-cell">
