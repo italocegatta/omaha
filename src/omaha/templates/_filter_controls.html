@@ -1,5 +1,5 @@
 {# Shared filter controls macro for sortable table columns.
-   Used by portfolio (teleport=true) and available for future tables.
+   Used by portfolio (teleport=false, inline positioning like rebalance table).
 
    Params:
       key              — column key string (matches Alpine state keys)
@@ -11,7 +11,7 @@
       testid_prefix    — data-testid prefix ('asset' | 'rebalance' etc.)
       select_all_label — label for "select all" checkbox (default 'Todos')
 #}
-{% macro filter_controls(key, label, filter_kind='enum', align='left', teleport=false, ranges=none, testid_prefix='asset', select_all_label='Todos') %}
+{% macro filter_controls(key, label, filter_kind='enum', align='right', teleport=false, ranges=none, testid_prefix='asset', select_all_label='Todos') %}
 <div class="rebalance-header-actions">
   <button class="rebalance-header-filter-btn"
           :class="filterActive('{{ key }}') ? 'rebalance-header-filter-btn--active' : ''"
