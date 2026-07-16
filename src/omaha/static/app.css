@@ -1560,14 +1560,14 @@ td.editing {
   color: var(--positive);
 }
 .trade-toggle--sell.trade-toggle--on {
-  background: color-mix(in srgb, var(--negative) 18%, var(--surface));
-  border-color: color-mix(in srgb, var(--negative) 30%, transparent);
-  color: var(--negative);
-}
-.trade-toggle--sell.trade-toggle--off {
   background: color-mix(in srgb, var(--positive) 18%, var(--surface));
   border-color: color-mix(in srgb, var(--positive) 30%, transparent);
   color: var(--positive);
+}
+.trade-toggle--sell.trade-toggle--off {
+  background: color-mix(in srgb, var(--negative) 18%, var(--surface));
+  border-color: color-mix(in srgb, var(--negative) 30%, transparent);
+  color: var(--negative);
 }
 .trade-toggle:disabled {
   opacity: 0.55;
@@ -2015,16 +2015,8 @@ td.editing {
   background: color-mix(in srgb, var(--surface-sunk) 82%, var(--surface));
 }
 
-/* Portfolio row color-coding — mirrors rebalance .rebalance-asset-row--* */
-.asset-row--buy td {
-  background: color-mix(in srgb, var(--positive) 7%, var(--surface)) !important;
-}
-.asset-row--sell td {
-  background: color-mix(in srgb, var(--negative) 10%, var(--surface)) !important;
-}
-.asset-row--neutral td {
-  background: color-mix(in srgb, var(--surface) 82%, var(--surface-sunk) 18%) !important;
-}
+/* Portfolio row color-coding removed per owner request — toggle status
+   no longer influences row highlight. */
 
 .metric-sign {
   display: inline-flex;
