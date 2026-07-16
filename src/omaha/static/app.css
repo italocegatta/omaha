@@ -812,12 +812,12 @@ p.error, .error {
 /* Patrimonio page wrapper — single-column, no sidebar (F02). */
 .patrimonio-page {
   max-width: 1800px;
-  width: calc(100% - 0.5rem);
+  width: calc(100% - 0.25rem);
   margin: 0.5rem auto;
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: 8px;
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 0.25rem;
 }
 
 /* Patrimonio portfolio header — the F02 spec
@@ -838,7 +838,8 @@ p.error, .error {
   align-items: center;
   justify-content: flex-end;
   gap: 0.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
+  padding-right: 0.25rem;
 }
 .patrimonio-action-btn {
   font-size: 0.85rem;
@@ -1889,18 +1890,8 @@ td.editing {
   overflow-wrap: anywhere;
 }
 
-.asset-table-header-filter {
-  position: relative;
-  padding-right: 2.9rem !important;
-}
-
 .asset-table .rebalance-filter-panel--header {
   z-index: 100;
-}
-
-.asset-table-group-row th {
-  background: var(--table-header-bg);
-  border-bottom: 1px solid var(--table-border-strong);
 }
 
 .asset-table th > span[data-testid^="asset-table-th-"] {
@@ -1910,11 +1901,6 @@ td.editing {
 
 .asset-table-group-row th[data-testid="asset-table-th-gain"] {
   text-align: center;
-}
-
-.asset-table-subhead-row th {
-  background: var(--table-header-bg);
-  border-bottom: 1px solid var(--table-border-strong);
 }
 
 .asset-table-subhead--ghost {
@@ -3581,7 +3567,7 @@ select:-webkit-autofill {
 .section-divider {
   border: none;
   border-top: 1px solid var(--border);
-  margin: 24px 0;
+  margin: 12px 0;
   background: transparent;
   height: 0;
 }
