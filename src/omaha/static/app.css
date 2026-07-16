@@ -812,12 +812,12 @@ p.error, .error {
 /* Patrimonio page wrapper — single-column, no sidebar (F02). */
 .patrimonio-page {
   max-width: 1800px;
-  width: calc(100% - 0.25rem);
-  margin: 0.5rem auto;
+  width: 100%;
+  margin: 0.5rem 0;
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: 8px;
-  padding: 0.75rem 0.25rem;
+  padding: 0.5rem 0.15rem 0.5rem 0.15rem;
 }
 
 /* Patrimonio portfolio header — the F02 spec
@@ -3596,8 +3596,8 @@ select:-webkit-autofill {
 }
 
 .asset-table thead th {
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
-  border-bottom: 2.5px solid var(--border-strong);
+  background: var(--table-header-bg);
+  border-bottom: 1px solid var(--table-border-strong);
 }
 
 /* Row hover lift — feedback tátil sem transition agressivo
