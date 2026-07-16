@@ -213,6 +213,11 @@ button:focus-visible,
 /* Display heading — scoped to main so the header logo (which is also
    an <h1>) keeps its compact 1.1rem treatment. Per DESIGN.md: clamp
    size, weight 600, -0.02em letter-spacing, balanced wrap. */
+main {
+  padding: 0;
+  margin: 0;
+}
+
 main h1 {
   font-size: clamp(1.5rem, 3vw, 2.2rem);
   font-weight: 600;
@@ -462,14 +467,7 @@ p.error, .error {
   margin: 0 0 0.5rem 0;
 }
 
-/* Class Editor (S03) */
-.class-editor {
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
-}
-
+/* Class Editor (S03) — shape defined in PAGE WRAPPERS block above */
 .class-editor h1 { margin-bottom: 0.25rem; }
 
 .profile-label {
@@ -586,8 +584,7 @@ p.error, .error {
 
 .muted { color: var(--muted); font-size: 0.875rem; }
 
-/* Asset Editor (S03 / T03) */
-.asset-editor { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 0.75rem 1rem; }
+/* Asset Editor (S03 / T03) — shape defined in PAGE WRAPPERS block above */
 .asset-editor h1 { margin-bottom: 0.25rem; }
 
 .asset-form {
@@ -650,8 +647,7 @@ p.error, .error {
 .dashboard-asset-empty { color: var(--muted); font-size: 0.875rem; margin: 0.25rem 0; }
 .dashboard-asset-empty a { color: var(--accent); }
 
-/* Import page (S04) */
-.import-page { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 0.75rem 1rem; }
+/* Import page (S04) — shape defined in PAGE WRAPPERS block above */
 .import-form {
   display: flex; flex-direction: column; gap: 0.75rem;
   margin: 1rem 0; padding: 1rem;
@@ -664,8 +660,7 @@ p.error, .error {
 }
 .import-form .btn { align-self: flex-start; }
 
-/* Review page (S04) */
-.import-review { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 0.75rem 1rem; }
+/* Review page (S04) — shape defined in PAGE WRAPPERS block above */
 .import-review-header {
   display: flex; gap: 1.5rem; margin: 1rem 0;
   font-size: 0.9rem; color: var(--muted);
@@ -809,15 +804,78 @@ p.error, .error {
   color: var(--ink);
 }
 
+/* =============================================================
+   PAGE WRAPPERS — unified project pattern.
+   Every page card follows: centered (margin 0 auto), 0.75rem
+   padding horizontal, 1rem vertical, width 100%, max-width 1920px.
+   ============================================================= */
+
 /* Patrimonio page wrapper — single-column, no sidebar (F02). */
 .patrimonio-page {
-  max-width: 1800px;
+  max-width: 1920px;
   width: 100%;
-  margin: 0.5rem 0;
+  margin: 0 auto;
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: 8px;
-  padding: 0.5rem 0.15rem 0.5rem 0.15rem;
+  padding: 1rem 0.75rem;
+}
+
+/* Rebalance page wrapper + in-body aporte form. */
+.rebalance-page {
+  max-width: 1920px;
+  width: 100%;
+  margin: 0 auto;
+}
+.rebalance-card {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 1rem 0.75rem;
+}
+
+/* Class Editor (S03) */
+.class-editor {
+  max-width: 1920px;
+  width: 100%;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 1rem 0.75rem;
+}
+
+/* Asset Editor (S03 / T03) */
+.asset-editor {
+  max-width: 1920px;
+  width: 100%;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 1rem 0.75rem;
+}
+
+/* Import page (S04) */
+.import-page {
+  max-width: 1920px;
+  width: 100%;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 1rem 0.75rem;
+}
+
+/* Review page (S04) */
+.import-review {
+  max-width: 1920px;
+  width: 100%;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 1rem 0.75rem;
 }
 
 /* Patrimonio portfolio header — the F02 spec
@@ -838,8 +896,8 @@ p.error, .error {
   align-items: center;
   justify-content: flex-end;
   gap: 0.5rem;
-  margin-bottom: 0.5rem;
-  padding-right: 0.25rem;
+  margin-bottom: 0.25rem;
+  padding-right: 0;
 }
 .patrimonio-action-btn {
   font-size: 0.85rem;
@@ -870,22 +928,6 @@ p.error, .error {
   font-size: 0.95rem;
 }
 
-/* Rebalance page wrapper + in-body aporte form.
-   The form now lives in the body (F02 D9) — no longer in a sidebar
-   slot. The form's row class puts the input + submit on the same
-   flex line so the aporte input is wider and the button is
-   compact. */
-.rebalance-page {
-  max-width: 1800px;
-  width: calc(100% - 0.5rem);
-  margin: 0.5rem auto;
-}
-.rebalance-card {
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
-}
 .rebalance-form-row {
   display: flex;
   align-items: stretch;
@@ -1020,7 +1062,7 @@ p.error, .error {
 }
 .portfolio-header {
   display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem; margin: 0.75rem 0; padding: 0.75rem;
+  gap: 0.75rem; margin: 0.5rem 0; padding: 0.5rem;
   background: var(--surface-elevated); border: 1px solid var(--border);
   border-radius: 8px;
 }
@@ -1824,7 +1866,7 @@ td.editing {
 }
 
 .class-section {
-  padding: 0.5rem 0.6rem 0.6rem;
+  padding: 0.35rem 0.25rem 0.4rem;
   overflow: visible;
 }
 
@@ -1875,7 +1917,7 @@ td.editing {
 
 .asset-table th,
 .asset-table td {
-  padding: 0.4rem 0.35rem;
+  padding: 0.35rem 0.3rem;
   vertical-align: middle;
   overflow-wrap: break-word;
 }
@@ -2075,14 +2117,18 @@ td.editing {
      for narrow screens instead of swapping to an off-canvas. */
 
   .patrimonio-page,
-  .rebalance-page {
-    margin: 1rem 0.75rem;
-    padding: 1.25rem 1rem;
+  .rebalance-page,
+  .class-editor,
+  .asset-editor,
+  .import-page,
+  .import-review {
+    margin: 0;
+    padding: 0.5rem 0.25rem;
   }
 
   /* Smaller padding on main content for narrow screens */
   main {
-    padding: 0 0.75rem;
+    padding: 0;
     margin-top: 1rem;
   }
 

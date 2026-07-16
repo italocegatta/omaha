@@ -514,21 +514,25 @@ Progress log: `2026-07-15` spec proposed — proposal, design, spec, tasks creat
 
 ### F37 - Contraste de alerta por desvio
 Status: `Archived` — 2026-07-16
-Goal: simplificar sistema de alerta de desvio — remover primeiro nível de contraste (badge com borda verde fraca, contraste ruim) e manter apenas vermelho para grandes desvios. Quando houver desvio, usar uma única cor de destaque consistente.
-Candidate OpenSpec change id: `f37-contraste-de-alerta-por-desvio`
+Goal: simplificar alerta de desvio para 2-tier (ok/ danger), remover badge verde fraco de contraste ruim.
 Archive: `openspec/changes/archive/2026-07-16-f37-contraste-de-alerta-por-desvio/`
-Files to inspect: `src/omaha/templates/_patrimonio_class_section.html`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/static/app.css`
-Notes: simplificação visual — manter vermelho (bom), remover verde fraco (ruim). Decidir cor exata do destaque durante propose.
-Progress log: `2026-07-15` added from owner request — contraste alerta desvio.
-Progress log: `2026-07-16` spec proposed — proposal, design, delta spec, tasks created.
-Progress log: `2026-07-16` applied — 3-tier→2-tier severity (warn removed), CSS --warn block removed, spec updated. Unit tests 434 passed, ruff clean.
-Progress log: `2026-07-16` archived after spec sync and closeout.
+
+### F38 - Padronização de margens das páginas
+Status: `Applied`
+Goal: unificar margens e padding de todas as páginas full-width com simetria horizontal (0.75rem), vertical generoso (1rem), max-width 1920px centralizado. Stubs e login mantêm padrão próprio.
+Candidate OpenSpec change id: `f38-padronizacao-de-margens-das-paginas`
+Spec link: `openspec/changes/f38-padronizacao-de-margens-das-paginas/`
+Files to inspect: `src/omaha/static/app.css`, `src/omaha/templates/base.html`
+Notes: sessão anterior reduziu tudo pela metade e zerou padding horizontal. Tabelas ficaram flush nas bordas do card. Correção: padding simétrico, centralização em telas largas.
+Progress log: `2026-07-16` added from owner request — margin standardization.
+Progress log: `2026-07-16` proposal queued.
+Progress log: `2026-07-16` implementation applied; CSS-only, 7 wrappers updated, orphan removed, mobile breakpoint fixed.
 
 ---
 
 ## Recommended Execution Order
 
-**Active queue:** F24, F25 (Spec Proposed)
+**Active queue:** F24, F25 (Spec Proposed), F38 (Applied)
 
 Order note: F35 archived (bug cadeado cinza). F36 (consistência visual) — maior escopo, 5 melhorias agrupadas. F37 (alerta desvio) —
 independente, pode rodar após F36 ou em paralelo se F36 atrasar.
