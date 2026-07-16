@@ -501,22 +501,38 @@ Status: `Archived` — 2026-07-15
 Goal: extrair lógica JS de filtros e painéis HTML de filtros de rebalance e PoC para módulo compartilhado.
 Archive: `openspec/changes/archive/2026-07-15-r34-extrair-logica-de-filtros-de-tabela-para-modulo-compartilhado/`
 
+### F35 - Bug cadeado cinza na tabela ativos
+Status: `Archived` — 2026-07-15
+Goal: corrigir bug de regressão onde ícones compra/venda exibem terceiro estado inválido (cadeado cinza) além de Liberado/Bloqueado.
+Archive: `openspec/changes/archive/2026-07-15-f35-bug-cadeado-cinza-na-tabela-ativos/`
+
+### F36 - Consistência visual completa tabela ativos ↔ rebalance
+Status: `Ready`
+Goal: alinhar tabela de ativos com tabela rebalanceamento em 5 dimensões: (a) ícones ordenação/filtro usando mesmo componente Material Symbols, (b) posicionamento janela filtro com mesma regra de teleport, (c) formatação classe/desvio com mesmos formatters (0 casas decimais), (d) cabeçalho/linhas com mesma config visual (cores, font, efeitos) + "Total da classe" como card destaque com cor da palheta, (e) espaçamento cabeçalhos com largura "ATIVO" e/ou tamanho fonte ajustados até acomodar bem todos os nomes de coluna.
+Candidate OpenSpec change id: `f36-consistencia-visual-completa-tabela-ativos-rebalance`
+Spec link: `openspec/changes/f36-consistencia-visual-completa-tabela-ativos-rebalance/`
+Files to inspect: `src/omaha/templates/_patrimonio_class_section.html`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/templates/_rebalance_plan.html`, `src/omaha/static/app.css`, `src/omaha/static/table-formatters.js`
+Notes: 5 melhorias agrupadas por objetivo comum. Cor do card "Total da classe" será proposta e validada pelo owner antes de implementar. Testar: resize, filter popup, ordenação, formatação numérica, contraste cabeçalho.
+Progress log: `2026-07-15` added from owner request — 5 melhorias visuais unificadas.
+
+### F37 - Contraste de alerta por desvio
+Status: `Ready`
+Goal: simplificar sistema de alerta de desvio — remover primeiro nível de contraste (badge com borda verde fraca, contraste ruim) e manter apenas vermelho para grandes desvios. Quando houver desvio, usar uma única cor de destaque consistente.
+Candidate OpenSpec change id: `f37-contraste-de-alerta-por-desvio`
+Spec link: `openspec/changes/f37-contraste-de-alerta-por-desvio/`
+Files to inspect: `src/omaha/templates/_patrimonio_class_section.html`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/static/app.css`
+Notes: simplificação visual — manter vermelho (bom), remover verde fraco (ruim). Decidir cor exata do destaque durante propose.
+Progress log: `2026-07-15` added from owner request — contraste alerta desvio.
+
 ---
 
 ## Recommended Execution Order
 
-**Active queue:** (empty)
+**Active queue:** F36 → F37
 
-Order note: F29 archived (emoji toggle). I05+I06 archived (hook optimization). T21 archived (test pruning).
-T22 archived (audit_inventory isolated in audit_integration job). T23 archived
-(seed_from_csv 3.7x speedup via session snapshot). T24 archived (integration
-misclassification fixed: test_admin_recovery + test_db_mutations now in
-integration lane). T23.1 archived (flaky test fixed: xdist_group("serial")
-on test_imports_routes.py). T25 archived (full suite audit: 864 tests, 0
-removed, all meet retention criteria; AUDIT.md created). T26 archived
-(policy.py mutation survived 145→47, 104 targeted tests added). Meta: commit
-< 1min, push < 3min, mutation kill rate > 95%. Critério transversal:
-todo teste deve provar comportamento real. R30-R33 for table standardization.
+Order note: F35 archived (bug cadeado cinza). F36 (consistência visual) — maior escopo, 5 melhorias agrupadas. F37 (alerta desvio) —
+independente, pode rodar após F36 ou em paralelo se F36 atrasar.
+F29 archived (emoji toggle). R30-R34 for table standardization.
 
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed, reactivation path documented above.

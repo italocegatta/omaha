@@ -7,6 +7,9 @@ in the patrimônio asset table using Material Symbols Outlined icons instead
 of text labels. The toggle behavior (click → PATCH → visual flip) is
 inherited from `asset-trade-flags` and is unchanged.
 
+**F35 correction**: Buy/Sell disabled states now use semantic color tokens
+(red for buy-locked, green for sell-locked) instead of grey/neutral.
+
 ## Requirements
 
 ### Requirement: Buy toggle shows check_circle or lock icon
@@ -22,11 +25,12 @@ true, `lock` when false. The button SHALL use the existing
 - **THEN** the buy toggle cell renders a `check_circle` Material Symbols
   Outlined icon with the `.trade-toggle--on` (green) styling
 
-#### Scenario: Buy disabled shows lock
+#### Scenario: Buy disabled shows red lock
 
 - **WHEN** an asset has `buy_enabled=false`
 - **THEN** the buy toggle cell renders a `lock` Material Symbols Outlined
-  icon with the `.trade-toggle--off` (red) styling
+  icon with `.trade-toggle--off` styling using `--negative` color tokens
+  (background, border, text) — red styling
 
 ### Requirement: Sell toggle shows check_circle or lock icon
 
@@ -41,11 +45,12 @@ true, `lock` when false. The button SHALL use the existing
 - **THEN** the sell toggle cell renders a `check_circle` Material Symbols
   Outlined icon with the `.trade-toggle--on` (green) styling
 
-#### Scenario: Sell disabled shows lock
+#### Scenario: Sell disabled shows green lock
 
 - **WHEN** an asset has `sell_enabled=false`
 - **THEN** the sell toggle cell renders a `lock` Material Symbols Outlined
-  icon with the `.trade-toggle--off` (red) styling
+  icon with `.trade-toggle--sell.trade-toggle--off` styling using
+  `--positive` color tokens (background, border, text) — green styling
 
 ### Requirement: Toggle buttons carry aria-label for accessibility
 
