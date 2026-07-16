@@ -93,25 +93,24 @@ in the class section header using the `pct-current-pill--ok` modifier
 
 ### Requirement: Severity coloring
 
-The sticky alert card and the per-class delta pill MUST use three
+The sticky alert card and the per-class delta pill MUST use two
 severity colors based on the absolute deviation. Deviations less
 than or equal to 0.01 MUST use the OK color (the `Atual` pill
 picks up the OK modifier and the delta pill is not rendered).
-Deviations greater than 0.01 and less than or equal to 5 MUST use
-the WARN color. Deviations greater than 5 MUST use the DANGER
-color. The OK color applies to the `Atual` pill when the per-asset
-sum is within 0.01 of 100; the same severity tier applies to the
-portfolio total in the sticky card and to the delta pill when it
-is rendered.
+Deviations greater than 0.01 MUST use the DANGER color. The OK
+color applies to the `Atual` pill when the per-asset sum is within
+0.01 of 100; the DANGER color applies to the portfolio total in
+the sticky card and to the delta pill when it is rendered for any
+non-zero deviation. The intermediate WARN tier is removed — all
+deviations above the tolerance threshold use a single red highlight.
 
-#### Scenario: Small deviation uses warn color
+#### Scenario: Deviation uses danger color
 
 - **WHEN** the portfolio total is 96% (deviation = 4)
-- **THEN** the sticky card's portfolio entry uses the warn color
-  token (--alert-warn)
+- **THEN** the sticky card's portfolio entry uses the danger color
+  token (--alert-danger / --negative)
 - **AND** each per-class delta pill in the class section header
-  uses the warn colour token if its deviation is between 0.01 and
-  5 inclusive
+  uses the danger colour token if its deviation is greater than 0.01
 
 #### Scenario: Large deviation uses danger color
 
@@ -169,9 +168,9 @@ server always returns 200 on a valid per-row range).
 ### Requirement: Tolerance matches validator
 
 The 0.01 tolerance used to decide whether a deviation is "zero" MUST
-match `SUM_TOLERANCE` in `omaha.validators`. The 5% threshold for
-the warn → danger transition is fixed and MUST NOT be user-tunable
-in this version.
+match `SUM_TOLERANCE` in `omaha.validators`. The single danger
+threshold (any deviation above 0.01) is fixed and MUST NOT be
+user-tunable in this version.
 
 #### Scenario: Tolerance is consistent with validator constant
 

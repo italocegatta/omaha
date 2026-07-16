@@ -1440,14 +1440,6 @@ p.error, .error {
   color: var(--alert-ok);
 }
 
-.asset-allocation-alert--warn,
-.asset-allocation-alert-class--warn,
-.asset-group-header-alert--warn {
-  background: color-mix(in srgb, var(--alert-warn) 12%, var(--surface));
-  border-color: var(--alert-warn);
-  color: oklch(0.45 0.10 80);
-}
-
 .asset-allocation-alert--danger,
 .asset-allocation-alert-class--danger,
 .asset-group-header-alert--danger {

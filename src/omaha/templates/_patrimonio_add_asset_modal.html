@@ -1457,8 +1457,8 @@
     //   per-class deviation in (the store has no other channel — the
     //   assets live inside ``classSection``).
     // * ``severityForDelta(delta)`` — new in 3.2: pure helper, exported
-    //   on the store, tier table ``<=0.01 ok``, ``<=5 warn``, ``>5
-    //   danger``.
+    //   on the store, 2-tier table ``<=0.01 ok``, ``>0.01 danger``
+    //   (warn tier removed in F37).
     // * ``_recalc()`` — now recomputes both the portfolio total /
     //   delta / message / severity, in one pass.
     //
@@ -1520,14 +1520,13 @@
         }
         return list;
       },
-      // 3.2 — pure severity helper. ``<=0.01`` → ok, ``<=5`` →
-      // warn, else danger. Exported on the store so the per-class
-      // badge and the portfolio sticky card reuse the same tier
-      // table (single source of truth).
+      // 3.2 — pure severity helper. ``<=0.01`` → ok, else danger.
+      // Exported on the store so the per-class badge and the
+      // portfolio sticky card reuse the same 2-tier table (single
+      // source of truth). Intermediate warn tier removed (F37).
       severityForDelta: function (delta) {
         var abs = Math.abs(delta);
         if (abs <= 0.01) return 'ok';
-        if (abs <= 5) return 'warn';
         return 'danger';
       },
       _recalc: function () {

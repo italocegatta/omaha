@@ -513,19 +513,22 @@ Archive: `openspec/changes/archive/2026-07-15-f36-consistencia-visual-completa-t
 Progress log: `2026-07-15` spec proposed — proposal, design, spec, tasks created. Task 4.5 blocked on owner color validation.
 
 ### F37 - Contraste de alerta por desvio
-Status: `Ready`
+Status: `Archived` — 2026-07-16
 Goal: simplificar sistema de alerta de desvio — remover primeiro nível de contraste (badge com borda verde fraca, contraste ruim) e manter apenas vermelho para grandes desvios. Quando houver desvio, usar uma única cor de destaque consistente.
 Candidate OpenSpec change id: `f37-contraste-de-alerta-por-desvio`
-Spec link: `openspec/changes/f37-contraste-de-alerta-por-desvio/`
+Archive: `openspec/changes/archive/2026-07-16-f37-contraste-de-alerta-por-desvio/`
 Files to inspect: `src/omaha/templates/_patrimonio_class_section.html`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/static/app.css`
 Notes: simplificação visual — manter vermelho (bom), remover verde fraco (ruim). Decidir cor exata do destaque durante propose.
 Progress log: `2026-07-15` added from owner request — contraste alerta desvio.
+Progress log: `2026-07-16` spec proposed — proposal, design, delta spec, tasks created.
+Progress log: `2026-07-16` applied — 3-tier→2-tier severity (warn removed), CSS --warn block removed, spec updated. Unit tests 434 passed, ruff clean.
+Progress log: `2026-07-16` archived after spec sync and closeout.
 
 ---
 
 ## Recommended Execution Order
 
-**Active queue:** F36 → F37
+**Active queue:** F24, F25 (Spec Proposed)
 
 Order note: F35 archived (bug cadeado cinza). F36 (consistência visual) — maior escopo, 5 melhorias agrupadas. F37 (alerta desvio) —
 independente, pode rodar após F36 ou em paralelo se F36 atrasar.
