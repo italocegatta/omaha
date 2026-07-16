@@ -44,7 +44,7 @@ verificação for específica por comando) entre gates.
 
 ## Slices
 
-All previous slices archived or closed. Active UI queue: R31, F32.
+All previous slices archived or closed. Active queue empty.
 
 ### F21 - PoC tabelas com libs na página de teste
 Status: `Archived` — 2026-07-11
@@ -158,15 +158,9 @@ Goal: unificar filter panel (teleport vs inline), transformar macro `asset_filte
 Archive: `openspec/changes/archive/2026-07-15-r31-padronizar-filter-panel-e-header-de-tabelas/`
 
 ### F32 - Aplicar padrão de tabela rebalance em portfolio
-Status: `Applied`
+Status: `Archived` — 2026-07-15
 Goal: portar design visual (cores, font, efeitos, tema) da tabela rebalance para tabelas de ativos em portfolio, incluindo linha de resumo por classe como exceção documentada.
-Candidate OpenSpec change id: `f32-aplicar-padrao-de-tabela-rebalance-em-portfolio`
-Spec link: `openspec/changes/f32-aplicar-padrao-de-tabela-rebalance-em-portfolio/`
-Files to inspect: `src/omaha/templates/_patrimonio_class_section.html`, `src/omaha/templates/_patrimonio_distribution.html`, `src/omaha/static/app.css`
-Notes: portfolio mantém particularidades (header 2 níveis, linha de resumo, buy/sell toggle). Foco: visual consistency, não behavior change.
-Progress log: `2026-07-14` added from owner request.
-Progress log: `2026-07-15` applied: row color-coding (buy/sell/neutral), trade toggle pill restyle, class-totals harmonization, template :class binding. 17/17 tasks, 434 tests pass, lint clean, spec valid.
-Progress log: `2026-07-15` review approved; two low-severity smells (duplicated buy variant, speculative generality) acceptable.
+Archive: `openspec/changes/archive/2026-07-15-f32-aplicar-padrao-de-tabela-rebalance-em-portfolio/`
 
 ### R33 - Refatorar formatters e comportamentos de tabela para reutilização
 Status: `Archived` — 2026-07-15
@@ -502,11 +496,16 @@ Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-ve
 
 ---
 
+### R34 - Extrair lógica de filtros de tabela para módulo compartilhado
+Status: `Archived` — 2026-07-15
+Goal: extrair lógica JS de filtros e painéis HTML de filtros de rebalance e PoC para módulo compartilhado.
+Archive: `openspec/changes/archive/2026-07-15-r34-extrair-logica-de-filtros-de-tabela-para-modulo-compartilhado/`
+
+---
+
 ## Recommended Execution Order
 
-**Active queue:**
-
-1. F32 - Aplicar padrão de tabela rebalance em portfolio *(next)*
+**Active queue:** (empty)
 
 Order note: F29 archived (emoji toggle). I05+I06 archived (hook optimization). T21 archived (test pruning).
 T22 archived (audit_inventory isolated in audit_integration job). T23 archived

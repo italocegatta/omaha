@@ -49,67 +49,7 @@
                   <span class="material-symbols-outlined">close</span>
                 </button>
               </div>
-              <template x-if="column.type === 'enum'">
-                <div class="rebalance-filter-panel rebalance-filter-panel--header"
-                     :class="column.panelAlign === 'left' ? 'rebalance-filter-panel--left' : 'rebalance-filter-panel--right'"
-                     x-show="openFilter[column.key]" x-cloak
-                     @click.outside="openFilter[column.key] = false"
-                     @click.stop>
-                  <label class="rebalance-filter-option">
-                    <input type="checkbox" @change="clearHeaderFilter(column.key)" :checked="headerFilterCount(column.key) === 0">
-                    <span x-text="column.key === 'asset_name' ? 'Todos' : 'Todas'"></span>
-                  </label>
-                  <template x-for="val in uniqueHeaderValues(column.key)" :key="val">
-                    <label class="rebalance-filter-option">
-                      <input type="checkbox" :checked="isHeaderFilterSelected(column.key, val)" @change="toggleHeaderFilter(column.key, val)">
-                      <span x-text="headerFilterLabel(column.key, val)"></span>
-                    </label>
-                  </template>
-                </div>
-              </template>
-              <template x-if="column.type === 'range'">
-                <div class="rebalance-filter-panel rebalance-filter-panel--header"
-                     :class="column.panelAlign === 'left' ? 'rebalance-filter-panel--left' : 'rebalance-filter-panel--right'"
-                     x-show="openFilter[column.key]" x-cloak
-                     @click.outside="openFilter[column.key] = false"
-                     @click.stop>
-                  <div class="rebalance-range-slider">
-                    <div class="rebalance-range-track">
-                      <div class="rebalance-range-fill" :style="rangeFillStyle(column.key)"></div>
-                    </div>
-                    <input type="range" :min="rangeBounds(column.key).min" :max="rangeBounds(column.key).max" :step="rangeStep(column.key)" x-model.number="headerRangeFilters[column.key].min" @input="clampRangeMin(column.key)">
-                    <input type="range" :min="rangeBounds(column.key).min" :max="rangeBounds(column.key).max" :step="rangeStep(column.key)" x-model.number="headerRangeFilters[column.key].max" @input="clampRangeMax(column.key)">
-                    <div class="rebalance-range-values">
-                      <span x-text="formatRangeValue(column.key, headerRangeFilters[column.key].min, column.format)"></span>
-                      <span x-text="formatRangeValue(column.key, headerRangeFilters[column.key].max, column.format)"></span>
-                    </div>
-                  </div>
-                </div>
-              </template>
-              <template x-if="column.type === 'composite'">
-                <div class="rebalance-filter-panel rebalance-filter-panel--header"
-                     :class="column.panelAlign === 'left' ? 'rebalance-filter-panel--left' : 'rebalance-filter-panel--right'"
-                     x-show="openFilter[column.key]" x-cloak
-                     @click.outside="openFilter[column.key] = false"
-                     @click.stop>
-                  <template x-for="range in column.ranges" :key="range.key">
-                    <div class="rebalance-filter-panel-section">
-                      <span class="rebalance-filter-panel-label" x-text="range.label"></span>
-                      <div class="rebalance-range-slider">
-                        <div class="rebalance-range-track">
-                          <div class="rebalance-range-fill" :style="rangeFillStyle(range.key)"></div>
-                        </div>
-                        <input type="range" :min="rangeBounds(range.key).min" :max="rangeBounds(range.key).max" :step="rangeStep(range.key)" x-model.number="headerRangeFilters[range.key].min" @input="clampRangeMin(range.key)">
-                        <input type="range" :min="rangeBounds(range.key).min" :max="rangeBounds(range.key).max" :step="rangeStep(range.key)" x-model.number="headerRangeFilters[range.key].max" @input="clampRangeMax(range.key)">
-                        <div class="rebalance-range-values">
-                          <span x-text="formatRangeValue(range.key, headerRangeFilters[range.key].min, range.format)"></span>
-                          <span x-text="formatRangeValue(range.key, headerRangeFilters[range.key].max, range.format)"></span>
-                        </div>
-                      </div>
-                    </div>
-                  </template>
-                </div>
-              </template>
+              {% include "_table_filter_panels.html" %}
             </th>
           </template>
         </tr>
@@ -137,6 +77,117 @@
 
 <script>
   document.addEventListener('alpine:init', function () {
+    var tf = window.__tableFilters || {};
+
+    // ── Filter helpers (shared via table-filters.js or inline fallback) ──
+    var _rangeBounds = tf.rangeBounds || function (rows, key) {
+      var values = rows.map(function (r) { return Number(r[key]) || 0; });
+      return { min: Math.min.apply(null, values), max: Math.max.apply(null, values) };
+    };
+    var _rangeStep = tf.rangeStep || function (rows, key) {
+      if (key === 'deviation_pct') return 0.01;
+      var bounds = _rangeBounds(rows, key);
+      var span = bounds.max - bounds.min;
+      return span === 0 ? 0.01 : Math.max(Math.pow(10, Math.floor(Math.log10(span)) - 2), 0.01);
+    };
+    var _ensureRangeBounds = tf.ensureRangeBounds || function (filter, rows, key) {
+      var bounds = _rangeBounds(rows, key);
+      if (filter.min === null || filter.min === '') filter.min = bounds.min;
+      if (filter.max === null || filter.max === '') filter.max = bounds.max;
+    };
+    var _clampRangeMin = tf.clampRangeMin || function (filter, rows, key) {
+      _ensureRangeBounds(filter, rows, key);
+      var bounds = _rangeBounds(rows, key);
+      if (Number(filter.min) > Number(filter.max)) filter.min = filter.max;
+      if (Number(filter.min) < bounds.min) filter.min = bounds.min;
+    };
+    var _clampRangeMax = tf.clampRangeMax || function (filter, rows, key) {
+      _ensureRangeBounds(filter, rows, key);
+      var bounds = _rangeBounds(rows, key);
+      if (Number(filter.max) < Number(filter.min)) filter.max = filter.min;
+      if (Number(filter.max) > bounds.max) filter.max = bounds.max;
+    };
+    var _rangeFillStyle = tf.rangeFillStyle || function (filter, rows, key) {
+      var bounds = _rangeBounds(rows, key);
+      var span = bounds.max - bounds.min;
+      if (span === 0) return 'left: 0%; right: 0%;';
+      var min = filter.min === null || filter.min === '' ? bounds.min : Number(filter.min);
+      var max = filter.max === null || filter.max === '' ? bounds.max : Number(filter.max);
+      return 'left: ' + ((min - bounds.min) / span) * 100 + '%; right: ' +
+        ((bounds.max - max) / span) * 100 + '%;';
+    };
+    var _formatRangeValue = tf.formatRangeValue || function (value, format, formatters) {
+      if (value === null || value === '' || value === undefined) return '-';
+      if (format === 'deviationPp') return formatters ? formatters.formatDeviationPp(value) : String(value);
+      return formatters ? formatters.formatBRL(value) : String(value);
+    };
+    var _filterActive = tf.filterActive || function (column, headerFilters, headerRangeFilters, rows) {
+      var filterKey = column.filterKey || column.key;
+      if (column.type === 'enum') return (headerFilters[filterKey] || []).length > 0;
+      var keys = column.type === 'composite' ? column.ranges.map(function (r) { return r.key; }) : (column.type === 'range' ? [column.key] : []);
+      return keys.some(function (key) {
+        var bounds = _rangeBounds(rows, key);
+        var filter = headerRangeFilters[key];
+        if (!filter) return false;
+        return filter.min !== null && filter.min !== '' && filter.max !== null && filter.max !== '' &&
+          (Number(filter.min) > bounds.min || Number(filter.max) < bounds.max);
+      });
+    };
+    var _toggleFilterPanel = tf.toggleFilterPanel || function (key, openFilter, columns, headerRangeFilters, rows) {
+      var column = columns.find(function (c) { return c.key === key; });
+      Object.keys(openFilter).forEach(function (k) {
+        if (k !== key) openFilter[k] = false;
+      });
+      if (!openFilter[key] && column && column.type !== 'enum') {
+        var keys = column.type === 'composite' ? column.ranges.map(function (r) { return r.key; }) : [column.key];
+        keys.forEach(function (rk) { _ensureRangeBounds(headerRangeFilters[rk], rows, rk); });
+      }
+      openFilter[key] = !openFilter[key];
+    };
+    var _clearFilter = tf.clearFilter || function (key, headerFilters, headerRangeFilters, columns, rows) {
+      var column = columns.find(function (c) { return c.key === key; });
+      if (!column) return;
+      var filterKey = column.filterKey || column.key;
+      if (column.type === 'enum') {
+        headerFilters[filterKey] = [];
+      } else {
+        var keys = column.type === 'composite' ? column.ranges.map(function (r) { return r.key; }) : [column.key];
+        keys.forEach(function (rangeKey) {
+          var bounds = _rangeBounds(rows, rangeKey);
+          headerRangeFilters[rangeKey].min = bounds.min;
+          headerRangeFilters[rangeKey].max = bounds.max;
+        });
+      }
+    };
+    var _computeFilteredRows = tf.computeFilteredRows || function (rows, columns, headerFilters, headerRangeFilters) {
+      var result = rows;
+      columns.forEach(function (column) {
+        var filterKey = column.filterKey || column.key;
+        if (column.type === 'enum') {
+          var selected = headerFilters[filterKey] || [];
+          if (selected.length > 0) result = result.filter(function (r) { return selected.includes(r[filterKey]); });
+          return;
+        }
+        var keys = column.type === 'composite' ? column.ranges.map(function (r) { return r.key; }) : (column.type === 'range' ? [column.key] : []);
+        keys.forEach(function (key) {
+          var bounds = _rangeBounds(result, key);
+          var filter = headerRangeFilters[key];
+          if (!filter) return;
+          var min = filter.min === null || filter.min === '' ? bounds.min : Number(filter.min);
+          var max = filter.max === null || filter.max === '' ? bounds.max : Number(filter.max);
+          if (column.key === 'operation') {
+            var action = key === 'buy_amount' ? 'buy' : 'sell';
+            if (min > bounds.min) result = result.filter(function (r) { return r.action !== action || (Number(r[key]) || 0) >= min; });
+            if (max < bounds.max) result = result.filter(function (r) { return r.action !== action || (Number(r[key]) || 0) <= max; });
+          } else {
+            if (min > bounds.min) result = result.filter(function (r) { return (Number(r[key]) || 0) >= min; });
+            if (max < bounds.max) result = result.filter(function (r) { return (Number(r[key]) || 0) <= max; });
+          }
+        });
+      });
+      return result;
+    };
+
     var operationSignedValue = function (row) {
       if (row.action === 'buy') return Number(row.buy_amount) || 0;
       if (row.action === 'sell') return -(Number(row.sell_amount) || 0);
@@ -344,95 +395,44 @@
           return [];
         },
         filterActive: function (column) {
-          if (column.type === 'enum') {
-            return this.headerFilters[column.filterKey].length > 0;
-          }
-          var self = this;
-          return this.rangeKeysFor(column).some(function (key) {
-            var bounds = self.rangeBounds(key);
-            var f = self.headerRangeFilters[key];
-            if (f.min === null || f.min === '' || f.max === null || f.max === '') return false;
-            return Number(f.min) > bounds.min || Number(f.max) < bounds.max;
-          });
+          return _filterActive(column, this.headerFilters, this.headerRangeFilters, this.plan.asset_plan);
         },
         toggleFilterPanel: function (key) {
-          var self = this;
-          var column = this.columnByKey(key);
-          Object.keys(this.openFilter).forEach(function (k) {
-            if (k !== key) self.openFilter[k] = false;
-          });
-          if (!this.openFilter[key] && (column.type === 'range' || column.type === 'composite')) {
-            this.ensureColumnRangeBounds(column);
-          }
-          this.openFilter[key] = !this.openFilter[key];
+          _toggleFilterPanel(key, this.openFilter, this.columns, this.headerRangeFilters, this.plan.asset_plan);
         },
         clearFilter: function (key) {
-          var column = this.columnByKey(key);
-          if (column.type === 'enum') {
-            this.headerFilters[column.filterKey] = [];
-          } else {
-            var self = this;
-            this.rangeKeysFor(column).forEach(function (rangeKey) {
-              var bounds = self.rangeBounds(rangeKey);
-              self.headerRangeFilters[rangeKey].min = bounds.min;
-              self.headerRangeFilters[rangeKey].max = bounds.max;
-            });
-          }
+          _clearFilter(key, this.headerFilters, this.headerRangeFilters, this.columns, this.plan.asset_plan);
           this.openFilter[key] = false;
         },
         ensureColumnRangeBounds: function (column) {
           var self = this;
-          this.rangeKeysFor(column).forEach(function (key) {
-            self.ensureRangeBounds(key);
-          });
+          var keys = column.type === 'composite' ? column.ranges.map(function (r) { return r.key; }) : (column.type === 'range' ? [column.key] : []);
+          keys.forEach(function (key) { _ensureRangeBounds(self.headerRangeFilters[key], self.plan.asset_plan, key); });
         },
         rangeBounds: function (key) {
-          var values = this.plan.asset_plan.map(function (r) { return Number(r[key]) || 0; });
-          return { min: Math.min.apply(null, values), max: Math.max.apply(null, values) };
+          return _rangeBounds(this.plan.asset_plan, key);
         },
         rangeStep: function (key) {
-          if (key === 'deviation_pct') return 0.01;
-          var bounds = this.rangeBounds(key);
-          var span = bounds.max - bounds.min;
-          if (span === 0) return 0.01;
-          var step = Math.pow(10, Math.floor(Math.log10(span)) - 2);
-          return Math.max(step, 0.01);
+          return _rangeStep(this.plan.asset_plan, key);
         },
         ensureRangeBounds: function (key) {
-          var bounds = this.rangeBounds(key);
-          var f = this.headerRangeFilters[key];
-          if (f.min === null || f.min === '') f.min = bounds.min;
-          if (f.max === null || f.max === '') f.max = bounds.max;
+          _ensureRangeBounds(this.headerRangeFilters[key], this.plan.asset_plan, key);
         },
         clampRangeMin: function (key) {
-          this.ensureRangeBounds(key);
-          var f = this.headerRangeFilters[key];
-          var bounds = this.rangeBounds(key);
-          if (Number(f.min) > Number(f.max)) f.min = f.max;
-          if (Number(f.min) < bounds.min) f.min = bounds.min;
+          _clampRangeMin(this.headerRangeFilters[key], this.plan.asset_plan, key);
         },
         clampRangeMax: function (key) {
-          this.ensureRangeBounds(key);
-          var f = this.headerRangeFilters[key];
-          var bounds = this.rangeBounds(key);
-          if (Number(f.max) < Number(f.min)) f.max = f.min;
-          if (Number(f.max) > bounds.max) f.max = bounds.max;
+          _clampRangeMax(this.headerRangeFilters[key], this.plan.asset_plan, key);
         },
         rangeFillStyle: function (key) {
-          var bounds = this.rangeBounds(key);
-          var span = bounds.max - bounds.min;
-          if (span === 0) return 'left: 0%; right: 0%;';
-          var f = this.headerRangeFilters[key];
-          var min = f.min === null || f.min === '' ? bounds.min : Number(f.min);
-          var max = f.max === null || f.max === '' ? bounds.max : Number(f.max);
-          var left = ((min - bounds.min) / span) * 100;
-          var right = ((bounds.max - max) / span) * 100;
-          return 'left: ' + left + '%; right: ' + right + '%;';
+          return _rangeFillStyle(this.headerRangeFilters[key], this.plan.asset_plan, key);
         },
         formatRangeValue: function (key, value, format) {
-          if (value === null || value === '') return '-';
-          if (format === 'deviationPp') return this.formatDeviationPp(value);
-          return this.formatBRL(value);
+          var self = this;
+          return _formatRangeValue(value, format, {
+            formatBRL: function (v) { return self.formatBRL(v); },
+            formatDeviationPp: function (v) { return self.formatDeviationPp(v); },
+          });
         },
         formatCell: function (row, column) {
           if (column.cellFormat === 'operation') return this.formatOperation(row);
@@ -457,44 +457,15 @@
         },
 
         get filteredRows() {
-          var self = this;
-          var rows = this.displayRows;
-          this.columns.forEach(function (column) {
-            if (column.type === 'enum') {
-              var selected = self.headerFilters[column.filterKey];
-              if (selected.length > 0) {
-                rows = rows.filter(function (r) { return selected.includes(r[column.filterKey]); });
-              }
-            } else {
-              self.rangeKeysFor(column).forEach(function (key) {
-                var bounds = self.rangeBounds(key);
-                var f = self.headerRangeFilters[key];
-                var min = f.min === null || f.min === '' ? bounds.min : Number(f.min);
-                var max = f.max === null || f.max === '' ? bounds.max : Number(f.max);
-                if (column.key === 'operation') {
-                  var action = key === 'buy_amount' ? 'buy' : 'sell';
-                  if (min > bounds.min) {
-                    rows = rows.filter(function (r) { return r.action !== action || (Number(r[key]) || 0) >= min; });
-                  }
-                  if (max < bounds.max) {
-                    rows = rows.filter(function (r) { return r.action !== action || (Number(r[key]) || 0) <= max; });
-                  }
-                } else {
-                  if (min > bounds.min) {
-                    rows = rows.filter(function (r) { return (Number(r[key]) || 0) >= min; });
-                  }
-                  if (max < bounds.max) {
-                    rows = rows.filter(function (r) { return (Number(r[key]) || 0) <= max; });
-                  }
-                }
-              });
-            }
-          });
-          return rows;
+          return _computeFilteredRows(this.displayRows, this.columns, this.headerFilters, this.headerRangeFilters);
         },
 
       };
     };
   });
+</script>
+<script type="module">
+  import * as filters from '/static/table-filters.js';
+  window.__tableFilters = filters;
 </script>
 {% endblock %}

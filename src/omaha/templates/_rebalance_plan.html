@@ -114,56 +114,7 @@
                   <span class="material-symbols-outlined">close</span>
                 </button>
               </div>
-              <template x-if="column.type === 'enum'">
-                <div class="rebalance-filter-panel rebalance-filter-panel--header"
-                     :class="column.panelAlign === 'left' ? 'rebalance-filter-panel--left' : 'rebalance-filter-panel--right'"
-                     x-show="openFilter[column.key]" x-cloak
-                     @click.outside="openFilter[column.key] = false" @click.stop>
-                  <label class="rebalance-filter-option">
-                    <input type="checkbox" @change="clearHeaderFilter(column.key)"
-                           :checked="headerFilterCount(column.key) === 0">
-                    <span x-text="column.key === 'asset_name' ? 'Todos' : 'Todas'"></span>
-                  </label>
-                  <template x-for="value in uniqueHeaderValues(column.key)" :key="value">
-                    <label class="rebalance-filter-option">
-                      <input type="checkbox" :checked="isHeaderFilterSelected(column.key, value)"
-                             @change="toggleHeaderFilter(column.key, value)">
-                      <span x-text="headerFilterLabel(column.key, value)"></span>
-                    </label>
-                  </template>
-                </div>
-              </template>
-              <template x-if="column.type === 'range'">
-                <div class="rebalance-filter-panel rebalance-filter-panel--header"
-                     :class="column.panelAlign === 'left' ? 'rebalance-filter-panel--left' : 'rebalance-filter-panel--right'"
-                     x-show="openFilter[column.key]" x-cloak
-                     @click.outside="openFilter[column.key] = false" @click.stop>
-                  <div class="rebalance-range-slider">
-                    <div class="rebalance-range-track"><div class="rebalance-range-fill" :style="rangeFillStyle(column.key)"></div></div>
-                    <input type="range" :min="rangeBounds(column.key).min" :max="rangeBounds(column.key).max" :step="rangeStep(column.key)" x-model.number="headerRangeFilters[column.key].min" @input="clampRangeMin(column.key)">
-                    <input type="range" :min="rangeBounds(column.key).min" :max="rangeBounds(column.key).max" :step="rangeStep(column.key)" x-model.number="headerRangeFilters[column.key].max" @input="clampRangeMax(column.key)">
-                    <div class="rebalance-range-values"><span x-text="formatRangeValue(column.key, headerRangeFilters[column.key].min, column.format)"></span><span x-text="formatRangeValue(column.key, headerRangeFilters[column.key].max, column.format)"></span></div>
-                  </div>
-                </div>
-              </template>
-              <template x-if="column.type === 'composite'">
-                <div class="rebalance-filter-panel rebalance-filter-panel--header"
-                     :class="column.panelAlign === 'left' ? 'rebalance-filter-panel--left' : 'rebalance-filter-panel--right'"
-                     x-show="openFilter[column.key]" x-cloak
-                     @click.outside="openFilter[column.key] = false" @click.stop>
-                  <template x-for="range in column.ranges" :key="range.key">
-                    <div class="rebalance-filter-panel-section">
-                      <span class="rebalance-filter-panel-label" x-text="range.label"></span>
-                      <div class="rebalance-range-slider">
-                        <div class="rebalance-range-track"><div class="rebalance-range-fill" :style="rangeFillStyle(range.key)"></div></div>
-                        <input type="range" :min="rangeBounds(range.key).min" :max="rangeBounds(range.key).max" :step="rangeStep(range.key)" x-model.number="headerRangeFilters[range.key].min" @input="clampRangeMin(range.key)">
-                        <input type="range" :min="rangeBounds(range.key).min" :max="rangeBounds(range.key).max" :step="rangeStep(range.key)" x-model.number="headerRangeFilters[range.key].max" @input="clampRangeMax(range.key)">
-                        <div class="rebalance-range-values"><span x-text="formatRangeValue(range.key, headerRangeFilters[range.key].min, range.format)"></span><span x-text="formatRangeValue(range.key, headerRangeFilters[range.key].max, range.format)"></span></div>
-                      </div>
-                    </div>
-                  </template>
-                </div>
-              </template>
+              {% include "_table_filter_panels.html" %}
             </th>
           </template>
         </tr>

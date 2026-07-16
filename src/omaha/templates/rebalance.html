@@ -83,6 +83,7 @@
 
   document.addEventListener('alpine:init', function () {
     var f = window.__tableFormatters || {};
+    var tf = window.__tableFilters || {};
 
     var _formatBRL = f.formatBRL || function (value, fractionDigits) {
       var n = (value === null || value === undefined || Number.isNaN(Number(value))) ? 0 : Number(value);
@@ -145,6 +146,111 @@
       }
       if (column.type === 'enum') return row[column.key];
       return (fm.formatBRL || _formatBRL)(row[column.key], column.fractionDigits);
+    };
+
+    // ── Filter helpers (shared via table-filters.js or inline fallback) ──
+    var _rangeBounds = tf.rangeBounds || function (rows, key) {
+      var values = rows.map(function (row) { return Number(row[key]) || 0; });
+      return { min: Math.min.apply(null, values), max: Math.max.apply(null, values) };
+    };
+    var _rangeStep = tf.rangeStep || function (rows, key) {
+      if (key === 'deviation_pct') return 0.01;
+      var bounds = _rangeBounds(rows, key);
+      var span = bounds.max - bounds.min;
+      return span === 0 ? 0.01 : Math.max(Math.pow(10, Math.floor(Math.log10(span)) - 2), 0.01);
+    };
+    var _ensureRangeBounds = tf.ensureRangeBounds || function (filter, rows, key) {
+      var bounds = _rangeBounds(rows, key);
+      if (filter.min === null || filter.min === '') filter.min = bounds.min;
+      if (filter.max === null || filter.max === '') filter.max = bounds.max;
+    };
+    var _clampRangeMin = tf.clampRangeMin || function (filter, rows, key) {
+      _ensureRangeBounds(filter, rows, key);
+      var bounds = _rangeBounds(rows, key);
+      if (Number(filter.min) > Number(filter.max)) filter.min = filter.max;
+      if (Number(filter.min) < bounds.min) filter.min = bounds.min;
+    };
+    var _clampRangeMax = tf.clampRangeMax || function (filter, rows, key) {
+      _ensureRangeBounds(filter, rows, key);
+      var bounds = _rangeBounds(rows, key);
+      if (Number(filter.max) < Number(filter.min)) filter.max = filter.min;
+      if (Number(filter.max) > bounds.max) filter.max = bounds.max;
+    };
+    var _rangeFillStyle = tf.rangeFillStyle || function (filter, rows, key) {
+      var bounds = _rangeBounds(rows, key);
+      var span = bounds.max - bounds.min;
+      if (span === 0) return 'left: 0%; right: 0%;';
+      var min = filter.min === null || filter.min === '' ? bounds.min : Number(filter.min);
+      var max = filter.max === null || filter.max === '' ? bounds.max : Number(filter.max);
+      return 'left: ' + ((min - bounds.min) / span) * 100 + '%; right: ' +
+        ((bounds.max - max) / span) * 100 + '%;';
+    };
+    var _formatRangeValue = tf.formatRangeValue || function (value, format) {
+      if (value === null || value === '' || value === undefined) return '-';
+      return format === 'deviationPp' ? _formatDeviationPp(value) : _formatBRL(value);
+    };
+    var _filterActive = tf.filterActive || function (column, headerFilters, headerRangeFilters, rows) {
+      if (column.type === 'enum') return (headerFilters[column.key] || []).length > 0;
+      var keys = column.type === 'composite' ? column.ranges.map(function (r) { return r.key; }) : (column.type === 'range' ? [column.key] : []);
+      return keys.some(function (key) {
+        var bounds = _rangeBounds(rows, key);
+        var filter = headerRangeFilters[key];
+        if (!filter) return false;
+        return filter.min !== null && filter.min !== '' && filter.max !== null && filter.max !== '' &&
+          (Number(filter.min) > bounds.min || Number(filter.max) < bounds.max);
+      });
+    };
+    var _toggleFilterPanel = tf.toggleFilterPanel || function (key, openFilter, columns, headerRangeFilters, rows) {
+      var column = columns.find(function (c) { return c.key === key; });
+      Object.keys(openFilter).forEach(function (k) {
+        if (k !== key) openFilter[k] = false;
+      });
+      if (!openFilter[key] && column && column.type !== 'enum') {
+        var keys = column.type === 'composite' ? column.ranges.map(function (r) { return r.key; }) : [column.key];
+        keys.forEach(function (rk) { _ensureRangeBounds(headerRangeFilters[rk], rows, rk); });
+      }
+      openFilter[key] = !openFilter[key];
+    };
+    var _clearFilter = tf.clearFilter || function (key, headerFilters, headerRangeFilters, columns, rows) {
+      var column = columns.find(function (c) { return c.key === key; });
+      if (!column) return;
+      if (column.type === 'enum') {
+        headerFilters[column.key] = [];
+      } else {
+        var keys = column.type === 'composite' ? column.ranges.map(function (r) { return r.key; }) : [column.key];
+        keys.forEach(function (rangeKey) {
+          var bounds = _rangeBounds(rows, rangeKey);
+          headerRangeFilters[rangeKey].min = bounds.min;
+          headerRangeFilters[rangeKey].max = bounds.max;
+        });
+      }
+    };
+    var _computeFilteredRows = tf.computeFilteredRows || function (rows, columns, headerFilters, headerRangeFilters) {
+      var result = rows;
+      columns.forEach(function (column) {
+        if (column.type === 'enum') {
+          var selected = headerFilters[column.key] || [];
+          if (selected.length > 0) result = result.filter(function (r) { return selected.includes(r[column.key]); });
+          return;
+        }
+        var keys = column.type === 'composite' ? column.ranges.map(function (r) { return r.key; }) : (column.type === 'range' ? [column.key] : []);
+        keys.forEach(function (key) {
+          var bounds = _rangeBounds(result, key);
+          var filter = headerRangeFilters[key];
+          if (!filter) return;
+          var min = filter.min === null || filter.min === '' ? bounds.min : Number(filter.min);
+          var max = filter.max === null || filter.max === '' ? bounds.max : Number(filter.max);
+          if (column.key === 'operation') {
+            var action = key === 'buy_amount' ? 'buy' : 'sell';
+            if (min > bounds.min) result = result.filter(function (r) { return r.action !== action || (Number(r[key]) || 0) >= min; });
+            if (max < bounds.max) result = result.filter(function (r) { return r.action !== action || (Number(r[key]) || 0) <= max; });
+          } else {
+            if (min > bounds.min) result = result.filter(function (r) { return (Number(r[key]) || 0) >= min; });
+            if (max < bounds.max) result = result.filter(function (r) { return (Number(r[key]) || 0) <= max; });
+          }
+        });
+      });
+      return result;
     };
 
     function operationSignedValue(row) {
@@ -364,82 +470,40 @@
           return column.type === 'range' ? [column.key] : [];
         },
         filterActive: function (column) {
-          var self = this;
-          if (column.type === 'enum') return this.headerFilters[column.key].length > 0;
-          return this.rangeKeysFor(column).some(function (key) {
-            var bounds = self.rangeBounds(key);
-            var filter = self.headerRangeFilters[key];
-            return filter.min !== null && filter.min !== '' && filter.max !== null && filter.max !== '' &&
-              (Number(filter.min) > bounds.min || Number(filter.max) < bounds.max);
-          });
+          return _filterActive(column, this.headerFilters, this.headerRangeFilters, this.plan.asset_plan);
         },
         toggleFilterPanel: function (key) {
-          var self = this;
-          var column = this.columnByKey(key);
-          Object.keys(this.openFilter).forEach(function (filterKey) {
-            if (filterKey !== key) self.openFilter[filterKey] = false;
-          });
-          if (!this.openFilter[key] && column.type !== 'enum') this.ensureColumnRangeBounds(column);
-          this.openFilter[key] = !this.openFilter[key];
+          _toggleFilterPanel(key, this.openFilter, this.columns, this.headerRangeFilters, this.plan.asset_plan);
         },
         clearFilter: function (key) {
-          var column = this.columnByKey(key);
-          var self = this;
-          if (column.type === 'enum') this.clearHeaderFilter(key);
-          else this.rangeKeysFor(column).forEach(function (rangeKey) {
-            var bounds = self.rangeBounds(rangeKey);
-            self.headerRangeFilters[rangeKey].min = bounds.min;
-            self.headerRangeFilters[rangeKey].max = bounds.max;
-          });
+          _clearFilter(key, this.headerFilters, this.headerRangeFilters, this.columns, this.plan.asset_plan);
           this.openFilter[key] = false;
         },
         ensureColumnRangeBounds: function (column) {
           var self = this;
-          this.rangeKeysFor(column).forEach(function (key) { self.ensureRangeBounds(key); });
+          var keys = column.type === 'composite' ? column.ranges.map(function (r) { return r.key; }) : (column.type === 'range' ? [column.key] : []);
+          keys.forEach(function (key) { _ensureRangeBounds(self.headerRangeFilters[key], self.plan.asset_plan, key); });
         },
         rangeBounds: function (key) {
-          var values = this.plan.asset_plan.map(function (row) { return Number(row[key]) || 0; });
-          return { min: Math.min.apply(null, values), max: Math.max.apply(null, values) };
+          return _rangeBounds(this.plan.asset_plan, key);
         },
         rangeStep: function (key) {
-          if (key === 'deviation_pct') return 0.01;
-          var bounds = this.rangeBounds(key);
-          var span = bounds.max - bounds.min;
-          return span === 0 ? 0.01 : Math.max(Math.pow(10, Math.floor(Math.log10(span)) - 2), 0.01);
+          return _rangeStep(this.plan.asset_plan, key);
         },
         ensureRangeBounds: function (key) {
-          var bounds = this.rangeBounds(key);
-          var filter = this.headerRangeFilters[key];
-          if (filter.min === null || filter.min === '') filter.min = bounds.min;
-          if (filter.max === null || filter.max === '') filter.max = bounds.max;
+          _ensureRangeBounds(this.headerRangeFilters[key], this.plan.asset_plan, key);
         },
         clampRangeMin: function (key) {
-          this.ensureRangeBounds(key);
-          var bounds = this.rangeBounds(key);
-          var filter = this.headerRangeFilters[key];
-          if (Number(filter.min) > Number(filter.max)) filter.min = filter.max;
-          if (Number(filter.min) < bounds.min) filter.min = bounds.min;
+          _clampRangeMin(this.headerRangeFilters[key], this.plan.asset_plan, key);
         },
         clampRangeMax: function (key) {
-          this.ensureRangeBounds(key);
-          var bounds = this.rangeBounds(key);
-          var filter = this.headerRangeFilters[key];
-          if (Number(filter.max) < Number(filter.min)) filter.max = filter.min;
-          if (Number(filter.max) > bounds.max) filter.max = bounds.max;
+          _clampRangeMax(this.headerRangeFilters[key], this.plan.asset_plan, key);
         },
         rangeFillStyle: function (key) {
-          var bounds = this.rangeBounds(key);
-          var span = bounds.max - bounds.min;
-          if (span === 0) return 'left: 0%; right: 0%;';
-          var filter = this.headerRangeFilters[key];
-          var min = filter.min === null || filter.min === '' ? bounds.min : Number(filter.min);
-          var max = filter.max === null || filter.max === '' ? bounds.max : Number(filter.max);
-          return 'left: ' + ((min - bounds.min) / span) * 100 + '%; right: ' +
-            ((bounds.max - max) / span) * 100 + '%;';
+          return _rangeFillStyle(this.headerRangeFilters[key], this.plan.asset_plan, key);
         },
         formatRangeValue: function (key, value, format) {
-          if (value === null || value === '') return '-';
-          return format === 'deviationPp' ? _formatDeviationPp(value) : _formatBRL(value);
+          return _formatRangeValue(value, format);
         },
         formatCell: function (row, column) {
           var self = this;
@@ -455,34 +519,7 @@
             ? 'rebalance-action-badge' : '';
         },
         get filteredRows() {
-          var self = this;
-          var rows = this.displayRows;
-          this.columns.forEach(function (column) {
-            if (column.type === 'enum') {
-              var selected = self.headerFilters[column.key];
-              if (selected.length > 0) rows = rows.filter(function (row) { return selected.includes(row[column.key]); });
-              return;
-            }
-            self.rangeKeysFor(column).forEach(function (key) {
-              var bounds = self.rangeBounds(key);
-              var filter = self.headerRangeFilters[key];
-              var min = filter.min === null || filter.min === '' ? bounds.min : Number(filter.min);
-              var max = filter.max === null || filter.max === '' ? bounds.max : Number(filter.max);
-              if (column.key === 'operation') {
-                var action = key === 'buy_amount' ? 'buy' : 'sell';
-                if (min > bounds.min) rows = rows.filter(function (row) {
-                  return row.action !== action || (Number(row[key]) || 0) >= min;
-                });
-                if (max < bounds.max) rows = rows.filter(function (row) {
-                  return row.action !== action || (Number(row[key]) || 0) <= max;
-                });
-              } else {
-                if (min > bounds.min) rows = rows.filter(function (row) { return (Number(row[key]) || 0) >= min; });
-                if (max < bounds.max) rows = rows.filter(function (row) { return (Number(row[key]) || 0) <= max; });
-              }
-            });
-          });
-          return rows;
+          return _computeFilteredRows(this.displayRows, this.columns, this.headerFilters, this.headerRangeFilters);
         },
       };
     };
@@ -490,6 +527,8 @@
 </script>
 <script type="module">
   import * as formatters from '/static/table-formatters.js';
+  import * as filters from '/static/table-filters.js';
   window.__tableFormatters = formatters;
+  window.__tableFilters = filters;
 </script>
 {% endblock %}
