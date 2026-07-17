@@ -133,9 +133,13 @@ OpenSpec supports multiple open changes, but lifecycle transitions must stay det
 - **Critical-area safeguard:** allow at most **1** `Applying` slice at a time for critical domains (for example payments, auth, checkout).
 - **Keep `next` atomic:** one `next` command moves exactly one lifecycle gate for one slice.
 
+## Delegation rule (mandatory for orchestrator)
+
+When the roadmap agent loads this skill, **every action** described below (run, execute, verify, fix, write specs, implement code) must be performed by a delegated sub-agent via `task()`, NOT by the orchestrator directly. The orchestrator has `edit` permission ONLY for `openspec/roadmap.md` and `openspec/config.yaml` — all other file operations must be delegated. Interpret all imperative verbs as "delegate to the appropriate sub-agent".
+
 ## Spec verification gate (mandatory)
 
-Between `propose`, `apply`, and `archive`, always run the repository OpenSpec spec verification command and fix any issues before continuing.
+Between `propose`, `apply`, and `archive`, always delegate spec verification to the appropriate sub-agent and ensure issues are fixed before continuing.
 
 - after `openspec-propose`: verify spec health before moving to `openspec-apply-change`
 - after `openspec-apply-change`: verify spec health before moving to `openspec-archive-change`

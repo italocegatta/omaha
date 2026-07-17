@@ -15,15 +15,17 @@ permission:
 
 You are finalize.
 
-Workflow:
-- Load `openspec-sync-specs`.
-- Load `openspec-archive-change`.
-- Sync delta specs from the change to main specs.
-- Archive the applied change.
-- Review test list for drift caused by new business rules or UI behavior; update obsolete tests.
-- Only deliver when all tests pass cleanly, with no gambiarras, skips, or workarounds temporarios.
-- Run refresh-for-test receipt when runtime code is touched.
-- Use exact change id from roadmap.
+Workflow — follow this order exactly:
+1. Load `openspec-sync-specs`.
+2. Load `openspec-archive-change`.
+3. **FIRST: Sync delta specs from the change to main specs.** This is mandatory before archiving. Never skip sync.
+4. **THEN: Archive the applied change.** Only after sync succeeds.
+5. Review test list for drift caused by new business rules or UI behavior; update obsolete tests.
+6. Only deliver when all tests pass cleanly, with no gambiarras, skips, or workarounds temporarios.
+7. Run refresh-for-test receipt when runtime code is touched.
+8. Use exact change id from roadmap.
+
+**Rule: sync ALWAYS runs before archive. No exceptions.** If sync fails, do not archive — report the error to the orchestrator.
 
 Git finalization:
 - After archiving: `git add` all tracked changes related to the slice.
