@@ -424,7 +424,7 @@ Goal: remover seletores CSS duplicados, código morto, e consolidar blocos `:roo
 Archive: `openspec/changes/archive/2026-07-17-r41-limpar-css-duplicado-e-codigo-morto/`
 
 ### F41 - Remover Atual e Alvo da linha de totais da classe
-Status: `Spec Proposed`
+Status: `Applying`
 Goal: na linha de totais da classe na tabela de patrimônio, remover valores de Atual e Alvo (sempre 100%/100%) que não agregam informação. Manter apenas Desvio.
 Candidate OpenSpec change id: `f41-remover-atual-e-alvo-da-linha-de-totais-da-classe`
 Spec link: `openspec/changes/f41-remover-atual-e-alvo-da-linha-de-totais-da-classe/`
@@ -433,7 +433,7 @@ Files:
 Notes: substituir conteúdo por "—" ou vazio. Backend inalterado.
 Progress:
 - Proposed: 2026-07-17
-- Applying: pending
+- Applying: 2026-07-17
 - Applied: pending
 - Archived: pending
 
@@ -462,19 +462,9 @@ Goal: otimizar largura das colunas — aumentar "Ativo", reduzir colunas de perc
 Archive: `openspec/changes/archive/2026-07-17-f44-ajustar-largura-das-colunas-da-tabela-de-patrimonio/`
 
 ### F45 - Separar visualmente grupos Classe e Carteira
-Status: `Applying`
+Status: `Archived` — 2026-07-17
 Goal: quebrar linha contínua de borda entre headers "Classe" e "Carteira" para criar 2 segmentos visuais distintos.
-Candidate OpenSpec change id: `f45-separar-visualmente-grupos-classe-e-carteira`
-Spec link: `openspec/changes/f45-separar-visualmente-grupos-classe-e-carteira/`
-Files:
-- `src/omaha/templates/_patrimonio_class_section.html` (linhas 109-110)
-- `src/omaha/static/app.css` (`.rebalance-table-th`)
-Notes: adicionar classes CSS para border-right no "Classe" e border-left no "Carteira", ou gap/padding entre os grupos.
-Progress:
-- Proposed: 2026-07-17
-- Applying: 2026-07-17
-- Applied: pending
-- Archived: pending
+Archive: `openspec/changes/archive/2026-07-17-f45-separar-visualmente-grupos-classe-e-carteira/`
 
 ---
 
