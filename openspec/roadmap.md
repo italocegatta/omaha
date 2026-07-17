@@ -423,16 +423,89 @@ Status: `Archived` — 2026-07-17
 Goal: remover seletores CSS duplicados, código morto, e consolidar blocos `:root` conflitantes em `app.css`.
 Archive: `openspec/changes/archive/2026-07-17-r41-limpar-css-duplicado-e-codigo-morto/`
 
+### F41 - Remover Atual e Alvo da linha de totais da classe
+Status: `Spec Proposed`
+Goal: na linha de totais da classe na tabela de patrimônio, remover valores de Atual e Alvo (sempre 100%/100%) que não agregam informação. Manter apenas Desvio.
+Candidate OpenSpec change id: `f41-remover-atual-e-alvo-da-linha-de-totais-da-classe`
+Spec link: `openspec/changes/f41-remover-atual-e-alvo-da-linha-de-totais-da-classe/`
+Files:
+- `src/omaha/templates/_patrimonio_class_section.html` (linhas 137-138)
+Notes: substituir conteúdo por "—" ou vazio. Backend inalterado.
+Progress:
+- Proposed: 2026-07-17
+- Applying: pending
+- Applied: pending
+- Archived: pending
+
+### F42 - Desvio condicional na linha de totais
+Status: `Spec Proposed`
+Goal: exibir desvio na linha de totais apenas quando diferente de zero. Verde para positivo, vermelho para negativo, "—" para zero.
+Candidate OpenSpec change id: `f42-desvio-condicional-na-linha-de-totais`
+Spec link: `openspec/changes/f42-desvio-condicional-na-linha-de-totais/`
+Files:
+- `src/omaha/templates/_patrimonio_class_section.html` (linhas 139-145, 186-191)
+Notes: lógica x-show/x-if com x-text condicional. CSS `signClass` já faz verde/vermelho.
+Progress:
+- Proposed: 2026-07-17
+- Applying: pending
+- Applied: pending
+- Archived: pending
+
+### F43 - Corrigir tamanho da fonte na linha de totais
+Status: `Applying`
+Goal: alinhar tamanho da fonte da linha de totais da classe com o resto da tabela de patrimônio (atualmente parece menor).
+Candidate OpenSpec change id: `f43-corrigir-tamanho-da-fonte-na-linha-de-totais`
+Spec link: `openspec/changes/f43-corrigir-tamanho-da-fonte-na-linha-de-totais/`
+Files:
+- `src/omaha/static/app.css` (linhas 1807-1812, `.class-totals-row td`)
+Notes: CSS-only. Verificar herança de `font-size` e possíveis overrides.
+Progress:
+- Proposed: 2026-07-17
+- Applying: 2026-07-17
+- Applied: pending
+- Archived: pending
+
+### F44 - Ajustar largura das colunas da tabela de patrimônio
+Status: `Spec Proposed`
+Goal: otimizar largura das colunas — aumentar "Ativo", reduzir colunas de percentual (Posição, Classe/Atual, Classe/Alvo, Carteira/Atual, Carteira/Alvo, Classe/Desvio, Carteira/Desvio).
+Candidate OpenSpec change id: `f44-ajustar-largura-das-colunas-da-tabela-de-patrimonio`
+Spec link: `openspec/changes/f44-ajustar-largura-das-colunas-da-tabela-de-patrimonio/`
+Files:
+- `src/omaha/static/app.css` (linhas 1690-1705, variáveis CSS `--col-*`)
+Notes: `table-layout: fixed` + variáveis CSS para largura. Ajustar valores em `:root`.
+Progress:
+- Proposed: 2026-07-17
+- Applying: pending
+- Applied: pending
+- Archived: pending
+
+### F45 - Separar visualmente grupos Classe e Carteira
+Status: `Spec Proposed`
+Goal: quebrar linha contínua de borda entre headers "Classe" e "Carteira" para criar 2 segmentos visuais distintos.
+Candidate OpenSpec change id: `f45-separar-visualmente-grupos-classe-e-carteira`
+Spec link: `openspec/changes/f45-separar-visualmente-grupos-classe-e-carteira/`
+Files:
+- `src/omaha/templates/_patrimonio_class_section.html` (linhas 109-110)
+- `src/omaha/static/app.css` (`.rebalance-table-th`)
+Notes: adicionar classes CSS para border-right no "Classe" e border-left no "Carteira", ou gap/padding entre os grupos.
+Progress:
+- Proposed: 2026-07-17
+- Applying: pending
+- Applied: pending
+- Archived: pending
+
 ---
 
 ## Recommended Execution Order
 
-**Active queue:** none
+**Active queue:** F41 → F42 → F43 → F44 → F45
 
-Order note: F35 archived (bug cadeado cinza). F36 (consistência visual) — maior escopo, 5 melhorias agrupadas. F37 (alerta desvio) —
-independente, pode rodar após F36 ou em paralelo se F36 atrasar.
-F39 (margin revision) — CSS-only, quick apply.
-F29 archived (emoji toggle). R30-R34 for table standardization.
+Order note: F41-F45 são melhorias visuais na tabela de patrimônio. Ordens sugeridas:
+1. F43 (corrigir fonte) — CSS-only, correção visual rápida
+2. F44 (ajustar largura) — CSS-only, melhoria de layout
+3. F45 (separar grupos) — CSS + HTML, separação visual
+4. F41 (remover Atual/Alvo) — HTML-only, simplificação
+5. F42 (desvio condicional) — HTML + lógica, comportamento novo
 
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed, reactivation path documented above.

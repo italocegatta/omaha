@@ -1808,6 +1808,7 @@ td.editing {
   background: color-mix(in srgb, var(--class-color, var(--surface-sunk)) 22%, var(--surface));
   border-bottom: 1px solid var(--table-border-strong);
   font-weight: 600;
+  font-size: inherit;
   color: var(--ink);
 }
 
