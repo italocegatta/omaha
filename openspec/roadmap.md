@@ -518,24 +518,30 @@ Goal: simplificar alerta de desvio para 2-tier (ok/ danger), remover badge verde
 Archive: `openspec/changes/archive/2026-07-16-f37-contraste-de-alerta-por-desvio/`
 
 ### F38 - Padronização de margens das páginas
-Status: `Applied`
+Status: `Archived` — 2026-07-16
 Goal: unificar margens e padding de todas as páginas full-width com simetria horizontal (0.75rem), vertical generoso (1rem), max-width 1920px centralizado. Stubs e login mantêm padrão próprio.
-Candidate OpenSpec change id: `f38-padronizacao-de-margens-das-paginas`
-Spec link: `openspec/changes/f38-padronizacao-de-margens-das-paginas/`
-Files to inspect: `src/omaha/static/app.css`, `src/omaha/templates/base.html`
-Notes: sessão anterior reduziu tudo pela metade e zerou padding horizontal. Tabelas ficaram flush nas bordas do card. Correção: padding simétrico, centralização em telas largas.
-Progress log: `2026-07-16` added from owner request — margin standardization.
-Progress log: `2026-07-16` proposal queued.
-Progress log: `2026-07-16` implementation applied; CSS-only, 7 wrappers updated, orphan removed, mobile breakpoint fixed.
+Archive: `openspec/changes/archive/2026-07-16-f38-padronizacao-de-margens-das-paginas/`
+
+### F39 - Revisão de margens: meio termo entre antigo e novo
+Status: `Spec Proposed`
+Goal: encontrar meio termo entre margens atuais (F38) e versão anterior para patrimônio e rebalancemaneto: restaurar respiro vertical entre seções e padding de células da tabela, mas manter margens laterais apertadas para maximizar espaço horizontal da tabela.
+Candidate OpenSpec change id: `f39-revisao-de-margens-meio-termo`
+Spec link: `openspec/changes/f39-revisao-de-margens-meio-termo/`
+Files to inspect: `src/omaha/static/app.css`
+Notes: comparar commit 73a80ac (F38) com versão 3 dias atrás. Regra: mesma para patrimonio e rebalancemaneto.
+Progress log: `2026-07-16` added from owner request — margens atuais apertadas demais, quer voltar ao respiro vertical antigo mas manter laterais compactas.
+Progress log: `2026-07-16` spec proposed — 5 CSS properties adjusted, horizontal margins preserved.
+Progress log: `2026-07-16` proposal queued — 5 CSS property changes, all in app.css.
 
 ---
 
 ## Recommended Execution Order
 
-**Active queue:** F24, F25 (Spec Proposed), F38 (Applied)
+**Active queue:** F24, F25, F39 (Spec Proposed)
 
 Order note: F35 archived (bug cadeado cinza). F36 (consistência visual) — maior escopo, 5 melhorias agrupadas. F37 (alerta desvio) —
 independente, pode rodar após F36 ou em paralelo se F36 atrasar.
+F39 (margin revision) — CSS-only, quick apply.
 F29 archived (emoji toggle). R30-R34 for table standardization.
 
 **Deferred/Deprecated** (owner decides):
