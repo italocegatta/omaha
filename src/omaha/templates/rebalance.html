@@ -415,6 +415,10 @@
         actionLabel: _actionLabel,
         formatBRL: _formatBRL,
         formatPct: _formatPct,
+        formatPct1: function (value) {
+          if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+          return Number(value).toFixed(1) + '%';
+        },
         formatQuantity: _formatQty,
         formatDeviationPp: _formatDeviationPp,
         formatDeviationCombined: function (row) {
@@ -428,10 +432,7 @@
             ' (' + _formatQty(row.trade_quantity, row.asset_name) + ')';
         },
         classCardClass: function (c) {
-          if (Math.abs(c.deviation_pct) >= this.thresholdPct) {
-            return 'rebalance-class-card--over';
-          }
-          return 'rebalance-class-card--ok';
+          return c.deviation_pct >= 0 ? 'rebalance-class-card--above' : 'rebalance-class-card--below';
         },
         rowClass: _rowClass,
         headerFilterLabel: function (key, value) {

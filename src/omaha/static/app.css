@@ -2854,43 +2854,32 @@ td.editing {
 }
 .rebalance-class-card {
   min-width: 0;
-  padding: 1rem 1rem 0.95rem;
-  border-radius: 14px;
+  padding: 0.85rem 1rem 0.9rem;
+  border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
   border-top: 3px solid var(--border);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-elevated, var(--surface)) 85%, white 15%), var(--surface-sunk));
+  background: var(--surface);
   font-size: 0.85rem;
-  box-shadow: 0 14px 26px rgba(8, 10, 20, 0.14);
+  box-shadow: 0 2px 8px rgba(8, 10, 20, 0.08);
+  transition: border-top-color 150ms ease, background 150ms ease;
 }
-.rebalance-class-card--ok {
+.rebalance-class-card--above {
   border-top-color: var(--positive);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--positive) 9%, var(--surface-elevated, var(--surface))), var(--surface-sunk));
+  background: color-mix(in srgb, var(--positive) 6%, var(--surface));
 }
-.rebalance-class-card--over {
+.rebalance-class-card--below {
   border-top-color: var(--negative);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--negative) 9%, var(--surface-elevated, var(--surface))), var(--surface-sunk));
+  background: color-mix(in srgb, var(--negative) 6%, var(--surface));
 }
 .rebalance-class-card-header {
-  display: flex;
-  flex-direction: column;
-  gap: 0.18rem;
-  margin-bottom: 0.85rem;
-}
-.rebalance-class-card-kicker {
-  font-size: 0.66rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-muted);
-  font-weight: 700;
+  margin-bottom: 0.7rem;
 }
 .rebalance-class-card-name {
-  font-weight: 800;
+  font-weight: 700;
   color: var(--ink);
   display: block;
-  font-size: 1.08rem;
+  font-size: 1.05rem;
+  letter-spacing: -0.005em;
 }
 .rebalance-class-card-metrics {
   display: grid;
@@ -2917,11 +2906,11 @@ td.editing {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin-top: 0.9rem;
-  padding-top: 0.75rem;
+  margin-top: 0.75rem;
+  padding-top: 0.6rem;
   border-top: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .rebalance-filter-option {

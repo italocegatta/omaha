@@ -70,25 +70,22 @@ Progress log: `2026-07-12` review repair: Enter-only rebalance submit, persisten
 Progress log: `2026-07-12` archived after spec sync and roadmap closeout.
 
 ### F24 - Polimento de inputs e modal
-Status: `Applied`
-Goal: ampliar modal/tela em ~10%, aumentar contraste do campo `moeda`, remover steppers de inputs numéricos, e alinhar `Família` à esquerda no selector.
-Candidate OpenSpec change id: `f24-polimento-de-inputs-e-modal`
-Spec link: `openspec/changes/f24-polimento-de-inputs-e-modal/`
-Files to inspect: `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/templates/_profile_switcher.html`, `src/omaha/static/app.css`
-Notes: ajuste visual + legibilidade de inputs.
-Progress log: `2026-07-10` added from owner request.
-Progress log: `2026-07-12` proposal queued.
-Progress log: `2026-07-17` applied — modal 528px, input contrast, spinner removal, profile left-align. 434 tests pass.
+Status: `Archived` — 2026-07-17
+Goal: ampliar modal em ~10%, aumentar contraste do campo moeda, remover steppers numéricos, alinhar Família à esquerda.
+Archive: `openspec/changes/archive/2026-07-17-f24-polimento-de-inputs-e-modal/`
 
 ### F25 - Sistema de cards com cores de target
-Status: `Spec Proposed`
+Status: `Archived` — 2026-07-17
 Goal: definir linguagem visual comum para cards, remover label `CLASSE`, e colorir cards por alvo: verde acima, vermelho abaixo.
 Candidate OpenSpec change id: `f25-sistema-de-cards-com-cores-de-target`
-Spec link: `openspec/changes/f25-sistema-de-cards-com-cores-de-target/`
+Spec link: `openspec/changes/archive/2026-07-17-f25-sistema-de-cards-com-cores-de-target/`
 Files to inspect: `src/omaha/templates/_rebalance_*`, `src/omaha/static/app.css`
 Notes: cards precisam parecer mesma família, não mesmo molde.
 Progress log: `2026-07-10` added from owner request.
 Progress log: `2026-07-12` proposal queued.
+Progress log: `2026-07-17` applied — removed CLASSE kicker, color by sign (--above/--below), flat surface, reduced shadow/radius, typography hierarchy. 434 tests pass.
+Progress log: `2026-07-17` fix: card pct values (Atual, Alvo, Projetado) formatted to 1 decimal via formatPct1. 434 tests pass.
+Progress log: `2026-07-17` archived — specs synced, change moved to archive.
 
 ### F26 - Padronização de tabelas e inspeção visual
 Status: `Deprecated` — 2026-07-12 (split into F27-F29)
@@ -542,7 +539,7 @@ Archive: `openspec/changes/archive/2026-07-17-r41-limpar-css-duplicado-e-codigo-
 
 ## Recommended Execution Order
 
-**Active queue:** F24 (Applied), F25 (Spec Proposed)
+**Active queue:** none
 
 Order note: F35 archived (bug cadeado cinza). F36 (consistência visual) — maior escopo, 5 melhorias agrupadas. F37 (alerta desvio) —
 independente, pode rodar após F36 ou em paralelo se F36 atrasar.

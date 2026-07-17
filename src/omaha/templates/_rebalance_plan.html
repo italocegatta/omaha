@@ -47,17 +47,16 @@
            :class="classCardClass(c)"
            :data-testid="'rebalance-class-card-' + c.category_name">
         <div class="rebalance-class-card-header">
-          <span class="rebalance-class-card-kicker">Classe</span>
           <span class="rebalance-class-card-name" x-text="c.category_name"></span>
         </div>
         <div class="rebalance-class-card-metrics">
           <div class="rebalance-class-card-metric">
             <span class="rebalance-class-card-label">Atual</span>
-            <strong x-text="formatPct(c.current_pct)"></strong>
+            <strong x-text="formatPct1(c.current_pct)"></strong>
           </div>
           <div class="rebalance-class-card-metric">
             <span class="rebalance-class-card-label">Alvo</span>
-            <strong x-text="formatPct(c.target_pct)"></strong>
+            <strong x-text="formatPct1(c.target_pct)"></strong>
           </div>
           <div class="rebalance-class-card-metric"
                :class="c.deviation_pct >= 0 ? 'rebalance-deviation--pos' : 'rebalance-deviation--neg'">
@@ -72,7 +71,7 @@
         </div>
         <div class="rebalance-class-card-projected">
           <span class="rebalance-class-card-label">Projetado</span>
-          <strong x-text="formatPct(c.projected_pct)"></strong>
+          <strong x-text="formatPct1(c.projected_pct)"></strong>
         </div>
       </div>
     </template>
