@@ -96,7 +96,6 @@
    --col-atual-total: 8.5%;
    --col-buy: 5.5%;
    --col-sell: 5.5%;
-   --col-currency: 5.3%;
 
   /* Table design tokens — R30 shared table pattern.
      Palette for all data tables (rebalance + portfolio).
@@ -1110,7 +1109,7 @@ p.error, .error {
     var(--col-ativo) var(--col-classe) var(--col-qtd)
     var(--col-valor) var(--col-alvo-classe) var(--col-atual-classe)
     var(--col-alvo-total) var(--col-atual-total)
-    var(--col-buy) var(--col-sell) var(--col-currency);
+    var(--col-buy) var(--col-sell);
   align-items: center;
   margin-bottom: 0.5rem;
   cursor: pointer;
@@ -1388,23 +1387,6 @@ p.error, .error {
   text-overflow: ellipsis;
   overflow: hidden;
 }
-/* class-section-consolidated-totals: column widths are CSS-variable-
-   driven so the header grid and the <colgroup> can both consume
-   the same source. The 24% / 18% / ... percentage table and the
-   `transition: width 200ms` rule from the legacy fix-asset-table-ui-
-   bugs contract are superseded (the fr units below distribute the
-   table's 100% width across the available container width). */
-.asset-table col:nth-child(1) { width: var(--col-ativo); }
-.asset-table col:nth-child(2) { width: var(--col-classe); }
-.asset-table col:nth-child(3) { width: var(--col-qtd); }
-.asset-table col:nth-child(4) { width: var(--col-valor); }
-.asset-table col:nth-child(5) { width: var(--col-alvo-classe); }
-.asset-table col:nth-child(6) { width: var(--col-atual-classe); }
-.asset-table col:nth-child(7) { width: var(--col-alvo-total); }
-.asset-table col:nth-child(8) { width: var(--col-atual-total); }
-.asset-table col:nth-child(9) { width: var(--col-buy); }
-.asset-table col:nth-child(10) { width: var(--col-sell); }
-.asset-table col:nth-child(11) { width: var(--col-currency); }
 
 .asset-table td {
   padding: 0.05rem 0.4rem;
@@ -1651,9 +1633,6 @@ td.editing {
 .asset-table .col-sell {
   width: 6.5rem;
 }
-.asset-table .col-currency {
-  width: 4.5rem;
-}
 
 /* asset-trade-flags: per-row trade-control controls inside the
    import-modal review tables. Lighter weight than the dashboard
@@ -1783,12 +1762,17 @@ td.editing {
 }
 
 .data-table-th {
-  text-align: center;
+  text-align: left;
   font-weight: 700;
   font-size: 0.78rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--table-text-muted);
+}
+
+/* Group headers (Classe, Carteira) should be centered */
+.asset-table-group-row th[colspan] {
+  text-align: center;
 }
 
 .data-table-td {
@@ -1811,21 +1795,20 @@ td.editing {
    ============================================================= */
 
 :root {
-  --col-ativo: 360px;
-  --col-qtd: 50px;
-  --col-avg-price: 90px;
-  --col-gain: 145px;
-  --col-position: 90px;
-  --col-position-deviation: 100px;
-  --col-class-current: 90px;
-  --col-class-target: 90px;
-  --col-class-deviation: 90px;
-  --col-portfolio-current: 90px;
-  --col-portfolio-target: 90px;
-  --col-portfolio-deviation: 90px;
-  --col-buy: 85px;
-  --col-sell: 85px;
-  --col-currency: 70px;
+  --col-ativo: 205px;
+  --col-qtd: 65px;
+  --col-avg-price: 120px;
+  --col-gain: 140px;
+  --col-position: 130px;
+  --col-position-deviation: 110px;
+  --col-class-current: 100px;
+  --col-class-target: 110px;
+  --col-class-deviation: 100px;
+  --col-portfolio-current: 110px;
+  --col-portfolio-target: 110px;
+  --col-portfolio-deviation: 100px;
+  --col-buy: 95px;
+  --col-sell: 95px;
 }
 
 .patrimonio-portfolio-header {
@@ -1913,7 +1896,6 @@ td.editing {
 .asset-table col:nth-child(12) { width: var(--col-portfolio-deviation); }
 .asset-table col:nth-child(13) { width: var(--col-buy); }
 .asset-table col:nth-child(14) { width: var(--col-sell); }
-.asset-table col:nth-child(15) { width: var(--col-currency); }
 
 .asset-table th,
 .asset-table td {
@@ -1924,26 +1906,14 @@ td.editing {
 
 .asset-table th {
   color: var(--table-text-muted);
-  white-space: normal;
-  overflow: visible;
-  text-overflow: clip;
   line-height: 1.15;
   word-break: normal;
-  overflow-wrap: anywhere;
 }
 
 .asset-table .rebalance-filter-panel--header {
   z-index: 100;
 }
 
-.asset-table th > span[data-testid^="asset-table-th-"] {
-  display: block;
-  width: 100%;
-}
-
-.asset-table-group-row th[data-testid="asset-table-th-gain"] {
-  text-align: center;
-}
 
 .asset-table-subhead--ghost {
   padding: 0;

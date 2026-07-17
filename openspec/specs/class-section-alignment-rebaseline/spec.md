@@ -71,3 +71,20 @@ resolve to the same column boundaries without manual duplication.
 - **THEN** the total is exactly `100 %` (modulo rounding error
   within `0.1 %`) so the table fills its container without
   overflow or empty space
+
+### Requirement: No duplicate col-width rule blocks
+
+The system SHALL define column widths in exactly one place: the F15 `:root` block with pixel-based `--col-*` variables and the corresponding `.asset-table col:nth-child(N)` block. There SHALL NOT be a second `col:nth-child()` block using different variable names (e.g. percentage-based `--col-classe`, `--col-valor`).
+
+#### Scenario: Column width changed
+
+- **WHEN** a `--col-*` variable value is modified
+- **THEN** only the F15 `:root` block SHALL be edited
+- **AND** no other CSS block SHALL define widths for the same `<col>` elements
+- **AND** the class-section-header grid SHALL continue to align within 1 px of the matching `<th>`
+
+#### Scenario: Column removed from table
+
+- **WHEN** a `<col>` is removed from the `<colgroup>`
+- **THEN** the corresponding `--col-*` variable, `col:nth-child()` rule, and class-section-header grid entry SHALL all be removed in the same change
+- **AND** colspan values in the template SHALL be decremented to match the new column count

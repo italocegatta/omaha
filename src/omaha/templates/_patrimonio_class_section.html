@@ -97,7 +97,6 @@
             <col class="col-portfolio-deviation">
             <col class="col-buy">
             <col class="col-sell">
-            <col class="col-currency">
           </colgroup>
           <thead>
             <tr class="asset-table-group-row">
@@ -111,7 +110,6 @@
               <th colspan="3" class="data-table-th rebalance-table-th">Carteira</th>
               <th rowspan="2" class="data-table-th rebalance-table-th rebalance-table-th--has-filter" data-testid="asset-table-th-buy" @click.stop="sortBy('buy')">Compra <span data-testid="asset-table-sort-buy" class="rebalance-table-th-indicator" x-text="sortIndicator('buy')"></span>{{ filter_controls('buy', 'Compra', filter_kind='enum') }}</th>
               <th rowspan="2" class="data-table-th rebalance-table-th rebalance-table-th--has-filter" data-testid="asset-table-th-sell" @click.stop="sortBy('sell')">Venda <span data-testid="asset-table-sort-sell" class="rebalance-table-th-indicator" x-text="sortIndicator('sell')"></span>{{ filter_controls('sell', 'Venda', filter_kind='enum') }}</th>
-              <th rowspan="2" class="data-table-th rebalance-table-th rebalance-table-th--has-filter" data-testid="asset-table-th-currency" @click.stop="sortBy('currency')">Moeda <span data-testid="asset-table-sort-currency" class="rebalance-table-th-indicator" x-text="sortIndicator('currency')"></span>{{ filter_controls('currency', 'Moeda', filter_kind='enum', align='left') }}</th>
             </tr>
             <tr class="asset-table-subhead-row">
               <th class="data-table-th rebalance-table-th rebalance-table-th--has-filter" data-testid="asset-table-th-class-current" @click.stop="sortBy('class-current')">Atual <span data-testid="asset-table-sort-class-current" class="rebalance-table-th-indicator" x-text="sortIndicator('class-current')"></span>{{ filter_controls('class-current', 'Classe / Atual', filter_kind='range') }}</th>
@@ -193,13 +191,12 @@
               </td>
               <td class="data-table-td"></td>
               <td class="data-table-td"></td>
-              <td class="data-table-td"></td>
             </tr>
           </tbody>
           <template x-if="isOpen && displayAssets.length === 0">
             <tbody class="class-section-body" :class="{'class-section-body--collapsed': !isOpen}">
               <tr>
-                <td colspan="15">
+                <td colspan="14">
                   <div class="empty-state empty-state--inline" data-testid="empty-assets">
                     <p>Nenhum ativo nesta classe.</p>
                   </div>
@@ -356,15 +353,9 @@
                       <span class="material-symbols-outlined icon--sm" x-text="a.sell_enabled ? 'check_circle' : 'lock'"></span>
                     </button>
                   </td>
-                  <td class="data-table-td" data-testid="asset-currency-cell">
-                    <span class="currency-badge"
-                          data-testid="asset-currency-badge"
-                          :data-currency="a.currency_code"
-                          x-text="a.currency_code"></span>
-                  </td>
                 </tr>
                 <tr x-show="showDeleteAssetId === a.id" x-cloak>
-                  <td colspan="15">
+                  <td colspan="14">
                     <div class="dashboard-asset-delete-confirm"
                          data-testid="dashboard-asset-delete-confirm"
                          :data-asset-id="a.id">
