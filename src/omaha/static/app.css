@@ -77,26 +77,6 @@
   /* Hover surface for editable table cells — F14: matches surface-elevated. */
   --bg-hover: oklch(0.395 0.034 275.9);
 
-  /* Single source of truth for asset table column proportions
-     (class-section-consolidated-totals). Read by both the
-     .class-section-header grid-template-columns and the
-     <colgroup> <col> widths — change once, both realign.
-
-     Percentages, not fr units: <col width="X"> only honours
-     length / percentage / auto, not fr; grid-template-columns
-     also accepts percentages, so both consumers resolve to the
-     same value. Sum = 100%. */
---col-ativo: 21.5%;
-   --col-classe: 12.8%;
-   --col-qtd: 5.2%;
-   --col-valor: 10.2%;
-   --col-alvo-classe: 8.5%;
-   --col-atual-classe: 8.5%;
-   --col-alvo-total: 8.5%;
-   --col-atual-total: 8.5%;
-   --col-buy: 5.5%;
-   --col-sell: 5.5%;
-
   /* Table design tokens — R30 shared table pattern.
      Palette for all data tables (rebalance + portfolio).
      Override these to restyle every table at once. */
@@ -552,35 +532,6 @@ p.error, .error {
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.4rem 0.75rem;
-  font: inherit;
-  font-size: 0.85rem;
-  font-weight: 500;
-  border-radius: 6px;
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
-  color: var(--ink);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.btn:hover:not(:disabled) {
-  background: var(--surface-sunk);
-}
-.btn-primary {
-  background: var(--accent);
-  color: var(--accent-ink);
-  border-color: var(--accent);
-}
-.btn-primary:hover:not(:disabled) {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
-  color: var(--accent-ink);
-}
-
 .muted { color: var(--muted); font-size: 0.875rem; }
 
 /* Asset Editor (S03 / T03) — shape defined in PAGE WRAPPERS block above */
@@ -633,16 +584,7 @@ p.error, .error {
   padding-bottom: 0.25rem; border-bottom: 1px solid var(--border);
 }
 .class-section-pct { font-size: 0.875rem; }
-.dashboard-asset-list { list-style: none; padding: 0; margin: 0; }
-.dashboard-asset-list li {
-  padding: 0.35rem 0; font-size: 0.95rem;
-}
-.dashboard-asset-list li {
-  display: flex; justify-content: space-between; align-items: baseline;
-}
 .asset-row-positions { color: var(--muted); font-size: 0.8rem; }
-.dashboard-asset-empty { color: var(--muted); font-size: 0.875rem; margin: 0.25rem 0; }
-.dashboard-asset-empty a { color: var(--accent); }
 
 /* Import page (S04) — shape defined in PAGE WRAPPERS block above */
 .import-form {
@@ -1078,41 +1020,6 @@ p.error, .error {
   background: var(--surface-elevated); border: 1px solid var(--border);
   border-radius: 8px; overflow: visible;
 }
-.class-section-header {
-  /* class-section-consolidated-totals: 11-col grid mirrors the asset
-     table's <colgroup> widths (driven by the same --col-* CSS
-     variables). Stats sit under their matching <th>; the leading
-     group (chevron + swatch + name + ×) spans cols 1-3.
-     No gap: the table cells use td/th padding for visual separation,
-     and a gap here would shift each cell by 8px from the matching
-     <th> (col 5 is shifted by 4 × 8 = 32px).
-
-     F02 widened the table to 11 columns (Compra / Venda / Moeda
-     joined the existing 8). The header was not extended at the
-     time, which left the header pills misaligned with the table
-     cells by ~130-250 px. The fix mirrors the table's full
-     <colgroup> so the leading group still spans cols 1-3 and
-     Valor / Alvo / Atual / Sobra|Falta land under their matching
-     <th> (cols 4 / 7 / 8 / 9). The remaining two cols (Venda /
-     Moeda) carry no header content — the empty cells complete
-     the grid.
-
-     F14: tinted bg via color-mix 30% class-color + 2px solid
-     class-color border-bottom. Swatch square removed. */
-  display: grid;
-  grid-template-columns:
-    var(--col-ativo) var(--col-classe) var(--col-qtd)
-    var(--col-valor) var(--col-alvo-classe) var(--col-atual-classe)
-    var(--col-alvo-total) var(--col-atual-total)
-    var(--col-buy) var(--col-sell);
-  align-items: center;
-  margin-bottom: 0.5rem;
-  cursor: pointer;
-  user-select: none;
-  border-bottom: 2px solid var(--border);
-  padding-bottom: 0.25rem;
-  border-radius: 8px 8px 0 0;
-}
 /* F14: class-colored header — tinted bg (30% class-color over --bg)
    + 2px solid class-color border-bottom. Swatch square removed;
    name text carries the color. */
@@ -1139,10 +1046,6 @@ p.error, .error {
 .dashboard-distribution .class-section:nth-of-type(6n+6) .class-section-header {
   background: color-mix(in srgb, var(--class-6) 30%, var(--bg));
   border-bottom-color: var(--class-6);
-}
-.hdr-leading {
-  grid-column: 1 / span 3;
-  display: flex; align-items: center; gap: 0.6rem;
 }
 .hdr-valor {
   grid-column: 4;
@@ -1257,17 +1160,7 @@ p.error, .error {
 .dashboard-asset-empty { color: var(--muted); font-size: 0.875rem; margin: 0.25rem 0; }
 .dashboard-asset-empty a { color: var(--accent); }
 
-.muted { color: var(--muted); font-size: 0.875rem; }
 
-/* Reduced motion: collapse all animation/transition durations to a
-   tick so motion-sensitive users see instant state changes. Per
-   DESIGN.md motion section. */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
-}
 
 /* =============================================================
    M002 / S01 / T03 — 4-percentage grid + inline target editor
@@ -2868,11 +2761,7 @@ td.editing {
    --bg-hover). No new color tokens introduced.
    ============================================================= */
 
-.rebalance-card {
-  /* F02: shape lives at the top-level ``.rebalance-page .rebalance-card``
-     block. Inner layout adds the in-body aporte form, the plan,
-     and the sortable tables. */
-}
+
 
 /* Inline form-error banner (shown when the POST handler hit a
    validation failure — malformed aporte, solver error). */
@@ -3578,7 +3467,7 @@ select:-webkit-autofill {
 .section-divider {
   border: none;
   border-top: 1px solid var(--border);
-  margin: 24px 0;
+  margin: 1.5rem 0;
   background: transparent;
   height: 0;
 }

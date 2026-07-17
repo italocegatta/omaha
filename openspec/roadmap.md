@@ -528,31 +528,27 @@ Goal: encontrar meio termo entre margens atuais (F38) e versão anterior para pa
 Archive: `openspec/changes/archive/2026-07-16-f39-revisao-de-margens-meio-termo/`
 
 ### F40 - Bug template tabelas ativos patrimonio
-Status: `Applied`
-Goal: corrigir 3 bugs nas tabelas de ativos: quebra de linha na coluna ativo para texto longo, conteúdo ausente nas colunas classe/desvio e carteira/atual/desvio, e painel de filtros não abre ao clicar no ícone.
-Candidate OpenSpec change id: `f40-bug-template-tabelas-ativos-patrimonio`
-Spec link: `openspec/changes/f40-bug-template-tabelas-ativos-patrimonio/`
-Files to inspect: `src/omaha/templates/_patrimonio_class_section.html`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/static/app.css`
-Notes: 3 bugs cirúrgicos. Soluções já testadas e documentadas no tasks.md. Aplicar exatamente como descrito — não mexer em mais nada. Seguir PRD §4.14.
-Progress log: `2026-07-16` added from owner bug report.
-Progress log: `2026-07-16` spec proposed — proposal, design, delta specs created.
-Progress log: `2026-07-16` implementado e revertido (incidente: apply agent sobrescreveu commit do usuário). Soluções documentadas para reaplicação.
+Status: `Archived` — 2026-07-17
+Goal: corrigir 3 bugs (word wrap, colunas vazias, filtro clipado) + melhorias de filtro (race condition, formatação de números, Compra/Venda align).
+Archive: `openspec/changes/archive/2026-07-17-f40-bug-template-tabelas-ativos-patrimonio/`
 
 ### R41 - Limpar CSS duplicado e código morto
-Status: `Spec Proposed`
+Status: `Archived` — 2026-07-17
 Goal: remover seletores CSS duplicados, código morto, e consolidar blocos `:root` conflitantes em `app.css`. Sem behavior change — pura manutenção.
-Candidate OpenSpec change id: `r41-limpar-css-duplicado-e-codigo-morto`
-Spec link: `openspec/changes/r41-limpar-css-duplicado-e-codigo-morto/`
+Archive: `openspec/changes/archive/2026-07-17-r41-limpar-css-duplicado-e-codigo-morto/`
 Files to inspect: `src/omaha/static/app.css`
 Notes: 12 issues encontrados na review pós-F39. ~100-150 linhas a remover. Seguir PRD §4.14 (cirúrgico).
 Progress log: `2026-07-17` added from CSS review findings.
 Progress log: `2026-07-17` spec proposed — proposal, design, delta specs, tasks created.
+Progress log: `2026-07-17` applied: −111 lines. Duplicate .btn blocks, conflicting :root grid, dead dashboard classes, duplicate media query removed. ruff + unit + dashboard smoke pass.
+Progress log: `2026-07-17` applied — 111 lines removed (3763→3652). 434 tests pass. Dashboard smoke OK.
+Progress log: `2026-07-17` archived — synced css-cleanup spec to main specs.
 
 ---
 
 ## Recommended Execution Order
 
-**Active queue:** F24, F25, F40 (Ready), R41 (Spec Proposed)
+**Active queue:** F24, F25 (Spec Proposed), R41 (Applied, pending archive)
 
 Order note: F35 archived (bug cadeado cinza). F36 (consistência visual) — maior escopo, 5 melhorias agrupadas. F37 (alerta desvio) —
 independente, pode rodar após F36 ou em paralelo se F36 atrasar.
