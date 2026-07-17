@@ -131,6 +131,7 @@ useful as a quick pointer. **Edit them only in the PRD.**
 10. **Brand register — domestic, no ornament** — PRD §4.10
 11. **DB mutation contract — destructive routes formalized** (R06 platform safety) — PRD §4.11
 12. **Agent — prod DB is untouchable without explicit authorization** (2026-07-07, after incident) — PRD §4.12
+13. **Fix cirúrgico — agente não reescreve código funcional** (2026-07-16, after incident) — PRD §4.14
 
 ---
 

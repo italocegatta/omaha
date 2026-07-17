@@ -157,3 +157,21 @@ Edit this table when you want to swap provider priority or change models.
 - Never proceed without a roadmap — bootstrap first, then continue.
 - NEVER delegate to `general` subagent_type for pipeline gates — only the stage agents above.
 - `git push` timeout: use **480000ms** (8 minutes). Pre-commit hooks run lint + tests on push.
+
+## Fix context protocol (PRD §4.14)
+
+When delegating a **bugfix slice** to `apply`, the orchestrator MUST
+include in the prompt:
+
+1. **`git diff HEAD~1` output** — shows what the user last changed.
+   The subagent must NOT revert or overwrite these changes.
+2. **Exact files affected** — list the specific files, not "inspect everything".
+3. **Exact bug description** — what is broken, where, expected vs actual.
+4. **Instruction: "mínimo absoluto"** — only change what is broken.
+   No refactoring, no reformatting, no "improvements" to working code.
+5. **Post-fix check** — subagent must return a diff showing ONLY the
+   fix, confirming no functional code was altered.
+
+If the fix touches CSS, templates, or JS, the orchestrator should
+consider applying the fix directly (skip `apply` subagent) for
+changes under 30 min — this avoids context loss and overwriting.

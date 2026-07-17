@@ -799,6 +799,36 @@ Regras:
 Objetivo: evitar falso verde. Se comportamento só passa porque o
 teste foi pulado, xfailed, ou virou stub, a change não está entregue.
 
+### 4.14 Fix cirúrgico — agente não reescreve código funcional (2026-07-16)
+
+Incidente: apply agent sobrescreveu commit do usuário ao tentar corrigir
+3 bugs — reescreveu CSS, reintegrou coluna removida, alterou padding.
+Raiz: agente operou sem contexto do estado atual do código.
+
+Regras:
+
+- **Antes de qualquer fix**, rodar `git diff HEAD~1` (ou `git log -1`)
+  para entender o que o usuário já mudou. Nunca operar no escuro.
+- **Nunca reescrever código que está funcionando.** Se uma linha/classe
+  não está envolvida no bug, não mexer nela — mesmo que o agente ache
+  que "poderia melhorar".
+- **Fix = troca pontual.** Identificar exatamente: (1) arquivo,
+  (2) linha/intervalo, (3) de → para. Nada mais.
+- **Bugfix ≠ refatoração.** O pretexto de "corrigir bug" não autoriza
+  reorganizar CSS, renomear variáveis, ajustar espaçamento, ou
+  alterar colunas.
+- **Orchestrator passa contexto explícito ao subagent.** Incluir no
+  prompt: diff do último commit, arquivos afetados, e instrução
+  "mínimo absoluto — só o que está quebrado".
+- **Subagent que recebe tarefa de fix** deve: (1) ler o estado atual
+  dos arquivos, (2) localizar o bug exato, (3) aplicar a menor
+  mudança possível, (4) reportar o que mudou com diff antes/depois.
+- **Review pós-fix** verifica: o diff contém APENAS a correção? Algum
+  código funcional foi alterado? Se sim, rejeitar e reverter.
+
+Exceção: refatoração explícita é uma slice separada (prefixo `R`),
+nunca disfarçada de bugfix.
+
 ---
 
 ## 5. Trabalho em Curso e Horizonte
