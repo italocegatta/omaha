@@ -76,16 +76,8 @@ Archive: `openspec/changes/archive/2026-07-17-f24-polimento-de-inputs-e-modal/`
 
 ### F25 - Sistema de cards com cores de target
 Status: `Archived` — 2026-07-17
-Goal: definir linguagem visual comum para cards, remover label `CLASSE`, e colorir cards por alvo: verde acima, vermelho abaixo.
-Candidate OpenSpec change id: `f25-sistema-de-cards-com-cores-de-target`
-Spec link: `openspec/changes/archive/2026-07-17-f25-sistema-de-cards-com-cores-de-target/`
-Files to inspect: `src/omaha/templates/_rebalance_*`, `src/omaha/static/app.css`
-Notes: cards precisam parecer mesma família, não mesmo molde.
-Progress log: `2026-07-10` added from owner request.
-Progress log: `2026-07-12` proposal queued.
-Progress log: `2026-07-17` applied — removed CLASSE kicker, color by sign (--above/--below), flat surface, reduced shadow/radius, typography hierarchy. 434 tests pass.
-Progress log: `2026-07-17` fix: card pct values (Atual, Alvo, Projetado) formatted to 1 decimal via formatPct1. 434 tests pass.
-Progress log: `2026-07-17` archived — specs synced, change moved to archive.
+Goal: linguagem visual comum para cards, remover CLASSE, colorir por alvo (verde acima, vermelho abaixo), pct 1 casa decimal.
+Archive: `openspec/changes/archive/2026-07-17-f25-sistema-de-cards-com-cores-de-target/`
 
 ### F26 - Padronização de tabelas e inspeção visual
 Status: `Deprecated` — 2026-07-12 (split into F27-F29)
@@ -276,15 +268,9 @@ Archive: `openspec/changes/archive/2026-07-07-f09-typography-refresh/`
 Status: `Archived` — 2026-07-07
 Archive: `openspec/changes/archive/2026-07-07-f10-component-state-language-and-table-pattern/`
 
-### F11 - Sidebar reintroduce
-Status: `Deprecated` — 2026-07-07 (owner: "não faz sentido")
-
 ### F12 - Material Symbols icons
 Status: `Archived` — 2026-07-07
 Archive: `openspec/changes/archive/2026-07-07-f12-material-symbols-icons/`
-
-### F13 - Light/dark toggle
-Status: `Deprecated` — 2026-07-07 (owner: "não faz sentido")
 
 ### R01 - Limpar arquivos órfãos
 Status: `Archived` — 2026-07-03
@@ -549,8 +535,7 @@ F29 archived (emoji toggle). R30-R34 for table standardization.
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed, reactivation path documented above.
 - F04 (Proventos) — deprecated, `restore f04` to reactivate.
-- F11 (Sidebar) — deprecated, owner: "não faz sentido".
-- F13 (Light/dark toggle) — deprecated, owner: "não faz sentido".
+
 
 ---
 
