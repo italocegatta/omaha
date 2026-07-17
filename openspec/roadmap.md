@@ -70,7 +70,7 @@ Progress log: `2026-07-12` review repair: Enter-only rebalance submit, persisten
 Progress log: `2026-07-12` archived after spec sync and roadmap closeout.
 
 ### F24 - Polimento de inputs e modal
-Status: `Spec Proposed`
+Status: `Applied`
 Goal: ampliar modal/tela em ~10%, aumentar contraste do campo `moeda`, remover steppers de inputs numéricos, e alinhar `Família` à esquerda no selector.
 Candidate OpenSpec change id: `f24-polimento-de-inputs-e-modal`
 Spec link: `openspec/changes/f24-polimento-de-inputs-e-modal/`
@@ -78,6 +78,7 @@ Files to inspect: `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/o
 Notes: ajuste visual + legibilidade de inputs.
 Progress log: `2026-07-10` added from owner request.
 Progress log: `2026-07-12` proposal queued.
+Progress log: `2026-07-17` applied — modal 528px, input contrast, spinner removal, profile left-align. 434 tests pass.
 
 ### F25 - Sistema de cards com cores de target
 Status: `Spec Proposed`
@@ -534,21 +535,14 @@ Archive: `openspec/changes/archive/2026-07-17-f40-bug-template-tabelas-ativos-pa
 
 ### R41 - Limpar CSS duplicado e código morto
 Status: `Archived` — 2026-07-17
-Goal: remover seletores CSS duplicados, código morto, e consolidar blocos `:root` conflitantes em `app.css`. Sem behavior change — pura manutenção.
+Goal: remover seletores CSS duplicados, código morto, e consolidar blocos `:root` conflitantes em `app.css`.
 Archive: `openspec/changes/archive/2026-07-17-r41-limpar-css-duplicado-e-codigo-morto/`
-Files to inspect: `src/omaha/static/app.css`
-Notes: 12 issues encontrados na review pós-F39. ~100-150 linhas a remover. Seguir PRD §4.14 (cirúrgico).
-Progress log: `2026-07-17` added from CSS review findings.
-Progress log: `2026-07-17` spec proposed — proposal, design, delta specs, tasks created.
-Progress log: `2026-07-17` applied: −111 lines. Duplicate .btn blocks, conflicting :root grid, dead dashboard classes, duplicate media query removed. ruff + unit + dashboard smoke pass.
-Progress log: `2026-07-17` applied — 111 lines removed (3763→3652). 434 tests pass. Dashboard smoke OK.
-Progress log: `2026-07-17` archived — synced css-cleanup spec to main specs.
 
 ---
 
 ## Recommended Execution Order
 
-**Active queue:** F24, F25 (Spec Proposed), R41 (Applied, pending archive)
+**Active queue:** F24 (Applied), F25 (Spec Proposed)
 
 Order note: F35 archived (bug cadeado cinza). F36 (consistência visual) — maior escopo, 5 melhorias agrupadas. F37 (alerta desvio) —
 independente, pode rodar após F36 ou em paralelo se F36 atrasar.

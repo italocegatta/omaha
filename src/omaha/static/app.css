@@ -350,15 +350,10 @@ header.app-header form.profile-switcher optgroup.profile-switcher__optgroup[labe
   letter-spacing: 0.05em;
 }
 header.app-header form.profile-switcher option[data-testid="profile-option-family"]:checked {
-  /* Native <option> styling is browser-controlled; the accent
-     underline is the closest portable signal that the Família
-     sentinel is the active selection. Browsers that ignore
-     ::checked on <option> fall back to the system highlight,
-     which is still legible. */
-  text-decoration: underline;
-  text-decoration-color: var(--accent);
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
+  /* F24: Família reads as a normal selectable option — no extra
+     ornament. The browser's native ::checked highlight provides
+     selection feedback; color: var(--ink) ensures legibility. */
+  color: var(--ink);
 }
 
 /* F01 household read-only banner + action area dimming. The
@@ -385,6 +380,7 @@ header.app-header form.profile-switcher select {
   border: 1px solid var(--border-strong);
   border-radius: 6px;
   padding: 0.35rem 1.75rem 0.35rem 0.6rem;
+  text-align: left;
   cursor: pointer;
   background-image: linear-gradient(45deg, transparent 50%, var(--ink-muted) 50%),
                     linear-gradient(135deg, var(--ink-muted) 50%, transparent 50%);
@@ -2721,13 +2717,17 @@ td.editing {
   letter-spacing: 0.04em;
 }
 
+.modal-panel--add-asset {
+  max-width: 528px;
+}
+
 .add-asset-modal-input {
   padding: 0.4rem 0.5rem;
   font: inherit;
   font-size: 0.9rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 4px;
-  background: var(--surface);
+  background: var(--surface-sunk);
   color: var(--fg);
   transition: border-color 0.15s;
 }
@@ -2736,6 +2736,19 @@ td.editing {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* F24: strip native number spinner from add-asset modal numeric
+   inputs only. Keyboard ↑/↓ still steps via the `step` attribute.
+   Scoped to .add-asset-modal-input so other number inputs elsewhere
+   keep their browser-default chrome. */
+.add-asset-modal-input[type="number"] {
+  -moz-appearance: textfield;
+}
+.add-asset-modal-input[type="number"]::-webkit-outer-spin-button,
+.add-asset-modal-input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .add-asset-modal-actions {
