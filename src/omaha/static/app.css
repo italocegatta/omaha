@@ -2950,6 +2950,14 @@ td.editing {
   white-space: nowrap;
 }
 
+.rebalance-table-th--group-end {
+  border-right: 2px solid var(--accent);
+}
+
+.rebalance-table-th--group-start {
+  border-left: 2px solid var(--accent);
+}
+
 .rebalance-table-th:hover {
   background: color-mix(in srgb, var(--accent) 10%, var(--surface-sunk));
 }

@@ -457,21 +457,12 @@ Goal: alinhar tamanho da fonte da linha de totais da classe com o resto da tabel
 Archive: `openspec/changes/archive/2026-07-17-f43-corrigir-tamanho-da-fonte-na-linha-de-totais/`
 
 ### F44 - Ajustar largura das colunas da tabela de patrimônio
-Status: `Archived`
-Goal: otimizar largura das colunas — aumentar "Ativo", reduzir colunas de percentual (Posição, Classe/Atual, Classe/Alvo, Carteira/Atual, Carteira/Alvo, Classe/Desvio, Carteira/Desvio).
-Candidate OpenSpec change id: `f44-ajustar-largura-das-colunas-da-tabela-de-patrimonio`
-Spec link: `openspec/changes/f44-ajustar-largura-das-colunas-da-tabela-de-patrimonio/`
-Files:
-- `src/omaha/static/app.css` (linhas 1690-1705, variáveis CSS `--col-*`)
-Notes: `table-layout: fixed` + variáveis CSS para largura. Ajustar valores em `:root`.
-Progress:
-- Proposed: 2026-07-17
-- Applying: 2026-07-17
-- Applied: 2026-07-17
-- Archived: 2026-07-17
+Status: `Archived` — 2026-07-17
+Goal: otimizar largura das colunas — aumentar "Ativo", reduzir colunas de percentual.
+Archive: `openspec/changes/archive/2026-07-17-f44-ajustar-largura-das-colunas-da-tabela-de-patrimonio/`
 
 ### F45 - Separar visualmente grupos Classe e Carteira
-Status: `Spec Proposed`
+Status: `Applying`
 Goal: quebrar linha contínua de borda entre headers "Classe" e "Carteira" para criar 2 segmentos visuais distintos.
 Candidate OpenSpec change id: `f45-separar-visualmente-grupos-classe-e-carteira`
 Spec link: `openspec/changes/f45-separar-visualmente-grupos-classe-e-carteira/`
@@ -481,7 +472,7 @@ Files:
 Notes: adicionar classes CSS para border-right no "Classe" e border-left no "Carteira", ou gap/padding entre os grupos.
 Progress:
 - Proposed: 2026-07-17
-- Applying: pending
+- Applying: 2026-07-17
 - Applied: pending
 - Archived: pending
 
