@@ -1688,18 +1688,18 @@ td.editing {
    ============================================================= */
 
 :root {
-  --col-ativo: 205px;
+  --col-ativo: 250px;
   --col-qtd: 65px;
   --col-avg-price: 120px;
   --col-gain: 140px;
-  --col-position: 130px;
+  --col-position: 110px;
   --col-position-deviation: 110px;
-  --col-class-current: 100px;
-  --col-class-target: 110px;
-  --col-class-deviation: 100px;
-  --col-portfolio-current: 110px;
-  --col-portfolio-target: 110px;
-  --col-portfolio-deviation: 100px;
+  --col-class-current: 80px;
+  --col-class-target: 90px;
+  --col-class-deviation: 90px;
+  --col-portfolio-current: 90px;
+  --col-portfolio-target: 90px;
+  --col-portfolio-deviation: 90px;
   --col-buy: 95px;
   --col-sell: 95px;
 }

@@ -452,21 +452,12 @@ Progress:
 - Archived: pending
 
 ### F43 - Corrigir tamanho da fonte na linha de totais
-Status: `Applying`
+Status: `Archived` — 2026-07-17
 Goal: alinhar tamanho da fonte da linha de totais da classe com o resto da tabela de patrimônio (atualmente parece menor).
-Candidate OpenSpec change id: `f43-corrigir-tamanho-da-fonte-na-linha-de-totais`
-Spec link: `openspec/changes/f43-corrigir-tamanho-da-fonte-na-linha-de-totais/`
-Files:
-- `src/omaha/static/app.css` (linhas 1807-1812, `.class-totals-row td`)
-Notes: CSS-only. Verificar herança de `font-size` e possíveis overrides.
-Progress:
-- Proposed: 2026-07-17
-- Applying: 2026-07-17
-- Applied: pending
-- Archived: pending
+Archive: `openspec/changes/archive/2026-07-17-f43-corrigir-tamanho-da-fonte-na-linha-de-totais/`
 
 ### F44 - Ajustar largura das colunas da tabela de patrimônio
-Status: `Spec Proposed`
+Status: `Archived`
 Goal: otimizar largura das colunas — aumentar "Ativo", reduzir colunas de percentual (Posição, Classe/Atual, Classe/Alvo, Carteira/Atual, Carteira/Alvo, Classe/Desvio, Carteira/Desvio).
 Candidate OpenSpec change id: `f44-ajustar-largura-das-colunas-da-tabela-de-patrimonio`
 Spec link: `openspec/changes/f44-ajustar-largura-das-colunas-da-tabela-de-patrimonio/`
@@ -475,9 +466,9 @@ Files:
 Notes: `table-layout: fixed` + variáveis CSS para largura. Ajustar valores em `:root`.
 Progress:
 - Proposed: 2026-07-17
-- Applying: pending
-- Applied: pending
-- Archived: pending
+- Applying: 2026-07-17
+- Applied: 2026-07-17
+- Archived: 2026-07-17
 
 ### F45 - Separar visualmente grupos Classe e Carteira
 Status: `Spec Proposed`
