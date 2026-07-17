@@ -22,7 +22,8 @@ running app, not the test report — a green test suite ≠ ready to test.
 
 - **Bind `--host 0.0.0.0`.** Never `127.0.0.1`, never `localhost`.
 - **Report LAN URL via `bash scripts/print_lan_url.sh`.** Never hardcode
-  the IP. Canonical today: `http://192.168.1.6:8000`.
+  the IP — it changes between environments/sessions. Always run the
+  script before any `curl` or user-facing URL report.
 - **DB state must match what the user will see.** Default = **populated**
   (6 classes + 48 assets + 47 positions for Italo via CSV path).
 - **Leaving the DB asset-free is a delivery failure** — user opens empty

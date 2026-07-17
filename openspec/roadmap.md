@@ -523,15 +523,9 @@ Goal: unificar margens e padding de todas as páginas full-width com simetria ho
 Archive: `openspec/changes/archive/2026-07-16-f38-padronizacao-de-margens-das-paginas/`
 
 ### F39 - Revisão de margens: meio termo entre antigo e novo
-Status: `Spec Proposed`
+Status: `Archived` — 2026-07-16
 Goal: encontrar meio termo entre margens atuais (F38) e versão anterior para patrimônio e rebalancemaneto: restaurar respiro vertical entre seções e padding de células da tabela, mas manter margens laterais apertadas para maximizar espaço horizontal da tabela.
-Candidate OpenSpec change id: `f39-revisao-de-margens-meio-termo`
-Spec link: `openspec/changes/f39-revisao-de-margens-meio-termo/`
-Files to inspect: `src/omaha/static/app.css`
-Notes: comparar commit 73a80ac (F38) com versão 3 dias atrás. Regra: mesma para patrimonio e rebalancemaneto.
-Progress log: `2026-07-16` added from owner request — margens atuais apertadas demais, quer voltar ao respiro vertical antigo mas manter laterais compactas.
-Progress log: `2026-07-16` spec proposed — 5 CSS properties adjusted, horizontal margins preserved.
-Progress log: `2026-07-16` proposal queued — 5 CSS property changes, all in app.css.
+Archive: `openspec/changes/archive/2026-07-16-f39-revisao-de-margens-meio-termo/`
 
 ### F40 - Bug template tabelas ativos patrimonio
 Status: `Ready`
@@ -544,11 +538,21 @@ Progress log: `2026-07-16` added from owner bug report.
 Progress log: `2026-07-16` spec proposed — proposal, design, delta specs created.
 Progress log: `2026-07-16` implementado e revertido (incidente: apply agent sobrescreveu commit do usuário). Soluções documentadas para reaplicação.
 
+### R41 - Limpar CSS duplicado e código morto
+Status: `Spec Proposed`
+Goal: remover seletores CSS duplicados, código morto, e consolidar blocos `:root` conflitantes em `app.css`. Sem behavior change — pura manutenção.
+Candidate OpenSpec change id: `r41-limpar-css-duplicado-e-codigo-morto`
+Spec link: `openspec/changes/r41-limpar-css-duplicado-e-codigo-morto/`
+Files to inspect: `src/omaha/static/app.css`
+Notes: 12 issues encontrados na review pós-F39. ~100-150 linhas a remover. Seguir PRD §4.14 (cirúrgico).
+Progress log: `2026-07-17` added from CSS review findings.
+Progress log: `2026-07-17` spec proposed — proposal, design, delta specs, tasks created.
+
 ---
 
 ## Recommended Execution Order
 
-**Active queue:** F24, F25, F39 (Spec Proposed), F40 (Ready)
+**Active queue:** F24, F25, F40 (Ready), R41 (Spec Proposed)
 
 Order note: F35 archived (bug cadeado cinza). F36 (consistência visual) — maior escopo, 5 melhorias agrupadas. F37 (alerta desvio) —
 independente, pode rodar após F36 ou em paralelo se F36 atrasar.

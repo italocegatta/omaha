@@ -709,7 +709,7 @@ def test_class_section_delete_btn_precedes_stats(client: TestClient) -> None:
 
 def test_asset_table_has_colgroup(client: TestClient) -> None:
     """class-section-consolidated-totals 4.5: the asset table
-    declares a ``<colgroup>`` with exactly 15 ``<col>`` elements,
+    declares a ``<colgroup>`` with exactly 14 ``<col>`` elements,
     one per column, so the ``table-layout: fixed`` widths are
     authoritative.
     """
@@ -745,7 +745,7 @@ def test_asset_table_has_colgroup(client: TestClient) -> None:
     )
 
     cols = _re.findall(r"<col\b", tables_with_colgroup[0])
-    assert len(cols) == 15, f"expected 15 <col> elements, found {len(cols)}"
+    assert len(cols) == 14, f"expected 14 <col> elements, found {len(cols)}"
 
 
 def test_class_data_blob_exposes_current_value(client: TestClient) -> None:

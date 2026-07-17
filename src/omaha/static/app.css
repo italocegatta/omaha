@@ -626,9 +626,7 @@ p.error, .error {
 
 /* Dashboard distribution view (S03 / T03) */
 .dashboard-actions { display: flex; gap: 0.75rem; margin-top: 0.75rem; }
-.dashboard-distribution { margin-top: 1rem; }
 .dashboard-distribution h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
-.class-section { margin-bottom: 0.75rem; }
 .class-section-header {
   display: flex; justify-content: space-between; align-items: baseline;
   font-weight: 600; color: var(--muted); margin-bottom: 0.5rem;
@@ -811,26 +809,24 @@ p.error, .error {
 
 /* Patrimonio page wrapper — single-column, no sidebar (F02). */
 .patrimonio-page {
-  max-width: 1920px;
-  width: 100%;
-  margin: 0 auto;
+  width: calc(100% - 2rem);
+  margin: 2rem auto;
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: 8px;
-  padding: 1rem 0.75rem;
+  padding: 2rem 1.5rem;
 }
 
 /* Rebalance page wrapper + in-body aporte form. */
 .rebalance-page {
-  max-width: 1920px;
-  width: 100%;
-  margin: 0 auto;
+  width: calc(100% - 2rem);
+  margin: 2rem auto;
 }
 .rebalance-card {
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: 8px;
-  padding: 1rem 0.75rem;
+  padding: 2rem 1.5rem;
 }
 
 /* Class Editor (S03) */
@@ -884,7 +880,7 @@ p.error, .error {
    surface changes — the inner grid is unchanged; the wrapper just
    gives F02 a stable testid to assert against. */
 .patrimonio-portfolio-header {
-  margin-bottom: 0.5rem;
+  margin-bottom: 1rem;
 }
 
 /* Patrimonio action row — top-of-body buttons that used to live in
@@ -895,8 +891,7 @@ p.error, .error {
   align-items: center;
   justify-content: flex-end;
   gap: 0.5rem;
-  margin-bottom: 0.25rem;
-  padding-right: 0;
+  margin-bottom: 1rem;
 }
 .patrimonio-action-btn {
   font-size: 0.85rem;
@@ -1076,12 +1071,12 @@ p.error, .error {
 .portfolio-gain-negative .portfolio-stat-value { color: var(--negative); }
 
 /* Per-class section (S05 T02) */
-.dashboard-distribution { margin-top: 1rem; }
-.dashboard-distribution h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+.dashboard-distribution { margin-top: 2rem; }
+.dashboard-distribution h2 { font-size: 1.1rem; margin-bottom: 1rem; }
 .class-section {
-  margin-bottom: 0.75rem; padding: 1rem;
+  margin-bottom: 1.5rem; padding: 1rem 0.75rem;
   background: var(--surface-elevated); border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 8px; overflow: visible;
 }
 .class-section-header {
   /* class-section-consolidated-totals: 11-col grid mirrors the asset
@@ -1380,7 +1375,7 @@ p.error, .error {
 
 .asset-table th {
   text-align: left;
-  padding: 0.5rem 0.4rem;
+  padding: 0.4rem 0.28rem;
   border-bottom: 2px solid var(--border);
   font-weight: 600;
   white-space: nowrap;
@@ -1389,7 +1384,7 @@ p.error, .error {
 }
 
 .asset-table td {
-  padding: 0.05rem 0.4rem;
+  padding: 0.4rem 0.28rem;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
   /* class-section-consolidated-totals: long asset names wrap inside
@@ -1811,10 +1806,6 @@ td.editing {
   --col-sell: 95px;
 }
 
-.patrimonio-portfolio-header {
-  margin-bottom: 0.5rem;
-}
-
 .portfolio-stat--gain .portfolio-stat-value,
 .portfolio-stat--gain .portfolio-stat-gain-pct,
 .portfolio-stat--gain .portfolio-stat-gain-icon {
@@ -1846,11 +1837,6 @@ td.editing {
 .portfolio-stat--negative .portfolio-stat-gain-pct,
 .portfolio-stat--negative .portfolio-stat-gain-icon {
   color: var(--negative);
-}
-
-.class-section {
-  padding: 0.35rem 0.25rem 0.4rem;
-  overflow: visible;
 }
 
 .class-section-header {
@@ -1899,7 +1885,7 @@ td.editing {
 
 .asset-table th,
 .asset-table td {
-  padding: 0.35rem 0.3rem;
+  padding: 0.72rem 0.75rem;
   vertical-align: middle;
   overflow-wrap: break-word;
 }
@@ -3583,7 +3569,7 @@ select:-webkit-autofill {
 .section-divider {
   border: none;
   border-top: 1px solid var(--border);
-  margin: 12px 0;
+  margin: 24px 0;
   background: transparent;
   height: 0;
 }
