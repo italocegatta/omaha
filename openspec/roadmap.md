@@ -528,7 +528,7 @@ Goal: encontrar meio termo entre margens atuais (F38) e versão anterior para pa
 Archive: `openspec/changes/archive/2026-07-16-f39-revisao-de-margens-meio-termo/`
 
 ### F40 - Bug template tabelas ativos patrimonio
-Status: `Ready`
+Status: `Applied`
 Goal: corrigir 3 bugs nas tabelas de ativos: quebra de linha na coluna ativo para texto longo, conteúdo ausente nas colunas classe/desvio e carteira/atual/desvio, e painel de filtros não abre ao clicar no ícone.
 Candidate OpenSpec change id: `f40-bug-template-tabelas-ativos-patrimonio`
 Spec link: `openspec/changes/f40-bug-template-tabelas-ativos-patrimonio/`

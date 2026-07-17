@@ -733,6 +733,13 @@
         var f = window.__tableFormatters;
         return f ? f.signIcon(value) : (value === null || value === undefined || Math.abs(Number(value)) < 0.0001 ? 'remove' : Number(value) > 0 ? 'arrow_upward' : 'arrow_downward');
       },
+      // f40-bug2: standalone formatDeviationPp needed by asset table cells
+      // (class-deviation, portfolio-deviation). Delegates to shared module
+      // with inline fallback for null/NaN.
+      formatDeviationPp: function (value) {
+        var f = window.__tableFormatters;
+        return f ? f.formatDeviationPp(value) : (value === null || value === undefined || Number.isNaN(Number(value)) ? '—' : (Number(value) >= 0 ? '+' : '') + Number(value).toFixed(0) + '%');
+      },
 
       // asset-table-view 6.x/7.x: sortable asset table state. Lives
       // directly on classSection so the row model is shared with the
@@ -851,6 +858,19 @@
       rangeKeysFor: function (column) {
         return column.type === 'range' ? [column.key] : [];
       },
+      // Inline fallbacks — funcionam mesmo se table-filters.js ainda não carregou
+      _rangeBoundsInline: function (key) {
+        var field = this._mapField(key);
+        var values = this.assets.map(function (a) { return Number(a[field]) || 0; });
+        if (values.length === 0) return { min: 0, max: 0 };
+        return { min: Math.min.apply(null, values), max: Math.max.apply(null, values) };
+      },
+      _rangeStepInline: function (key) {
+        if (key === 'class-deviation' || key === 'portfolio-deviation') return 0.01;
+        var bounds = this._rangeBoundsInline(key);
+        var span = bounds.max - bounds.min;
+        return span === 0 ? 0.01 : Math.max(Math.pow(10, Math.floor(Math.log10(span)) - 2), 0.01);
+      },
       filterActive: function (colOrKey) {
         var column = typeof colOrKey === 'string' ? this.columnByKey(colOrKey) : colOrKey;
         if (!column) return false;
@@ -881,13 +901,13 @@
       },
       rangeBounds: function (key) {
         var tf = window.__tableFilters;
-        if (!tf) return { min: 0, max: 0 };
-        return tf.rangeBounds(this.assets, key, this._mapField.bind(this));
+        if (tf) return tf.rangeBounds(this.assets, key, this._mapField.bind(this));
+        return this._rangeBoundsInline(key);
       },
       rangeStep: function (key) {
         var tf = window.__tableFilters;
-        if (!tf) return 0.01;
-        return tf.rangeStep(this.assets, key, this._mapField.bind(this));
+        if (tf) return tf.rangeStep(this.assets, key, this._mapField.bind(this));
+        return this._rangeStepInline(key);
       },
       ensureRangeBounds: function (key) {
         var tf = window.__tableFilters;
@@ -903,25 +923,40 @@
       },
       rangeFillStyle: function (key) {
         var tf = window.__tableFilters;
-        if (!tf) return 'left: 0%; right: 0%;';
-        return tf.rangeFillStyle(this.headerRangeFilters[key], this.assets, key, this._mapField.bind(this));
+        if (tf) return tf.rangeFillStyle(this.headerRangeFilters[key], this.assets, key, this._mapField.bind(this));
+        // Fallback inline
+        var bounds = this._rangeBoundsInline(key);
+        var span = bounds.max - bounds.min;
+        if (span === 0) return 'left: 0%; right: 0%;';
+        var filter = this.headerRangeFilters[key];
+        var min = filter.min === null || filter.min === '' ? bounds.min : Number(filter.min);
+        var max = filter.max === null || filter.max === '' ? bounds.max : Number(filter.max);
+        return 'left: ' + ((min - bounds.min) / span) * 100 + '%; right: ' + ((bounds.max - max) / span) * 100 + '%;';
       },
       rangeKeyFor: function (sortKey) { return sortKey; },
       rangeFormatFor: function (sortKey) {
         if (sortKey === 'class-deviation' || sortKey === 'portfolio-deviation') return 'deviationPp';
+        if (sortKey === 'class-current' || sortKey === 'class-target' || sortKey === 'portfolio-current' || sortKey === 'portfolio-target') return 'pct';
+        if (sortKey === 'qty') return 'qty';
         return 'brl';
       },
       formatRangeValue: function (key, value, format) {
-        var tf = window.__tableFilters;
-        if (!tf) return value === null || value === '' ? '-' : String(value);
+        if (value === null || value === '' || value === undefined) return '-';
         var self = this;
-        return tf.formatRangeValue(value, format, {
+        if (format === 'pct') return self.formatPctRounded(value);
+        if (format === 'qty') return self.formatQty(value);
+        var tf = window.__tableFilters;
+        if (tf) return tf.formatRangeValue(value, format, {
           formatBRL: function (v) { return self.formatBRL(v); },
           formatDeviationPp: function (v) {
             var n = Number(v) || 0;
             return (n >= 0 ? '+' : '') + n.toFixed(0) + '%';
           },
         });
+        // Fallback inline — BRL sem casas decimais
+        var n = Number(value);
+        if (Number.isNaN(n)) return '—';
+        return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
       },
       uniqueHeaderValues: function (key) {
         var field = this._mapField(key);
@@ -1611,7 +1646,7 @@
         var f = window.__tableFormatters;
         if (f) return f.formatBRL(v, decimals);
         var n = Number(v) || 0;
-        var d = (decimals === undefined || decimals === null) ? 2 : decimals;
+        var d = (decimals === undefined || decimals === null) ? 0 : decimals;
         return n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
       },
       getClassColor: function (classId) {

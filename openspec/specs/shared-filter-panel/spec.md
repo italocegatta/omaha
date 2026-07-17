@@ -28,9 +28,16 @@ The macro SHALL accept a `teleport` boolean parameter (default `false`). When `f
 - **WHEN** `filter_controls('asset_name', 'Ativo', filter_kind='enum', teleport=false)` is called in `_rebalance_plan.html`
 - **THEN** the filter panel SHALL render as a direct child of `<th>`, positioned `absolute` relative to the header cell, without `x-teleport`
 
-#### Scenario: Teleported positioning (portfolio)
-- **WHEN** `filter_controls('name', 'Ativo', filter_kind='enum', teleport=true)` is called in `_patrimonio_class_section.html`
-- **THEN** the filter panel SHALL be wrapped in `<template x-teleport="body">` and positioned using `filterPanelStyle()` to escape the `.class-section-body` overflow clipping
+#### Scenario: Inline positioning (portfolio)
+- **WHEN** `filter_controls('name', 'Ativo', filter_kind='enum')` is called in `_patrimonio_class_section.html`
+- **THEN** the filter panel SHALL render as a direct child of `<th>`, positioned `absolute` relative to the header cell
+- **AND** the panel SHALL NOT be clipped by `overflow: hidden` on the `<th>`
+
+#### Scenario: Filter panel visible after click
+- **WHEN** user clicks the filter icon on any column in the asset table
+- **THEN** the filter panel SHALL be visible below the header
+- **AND** `x-show="openFilter['key']"` SHALL toggle the panel visibility
+- **AND** `@click.outside` SHALL close the panel
 
 ### Requirement: Filter panel alignment
 

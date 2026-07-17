@@ -133,6 +133,25 @@ All column headers SHALL vertically center the column name, sort indicator, and 
 
 No additional alignment CSS is needed. If alignment breaks, check whether a `display: block` rule is pulling the sort indicator out of the inline flow.
 
+#### Rule: First column word-break for long asset names
+
+The first column (`<td>` for asset name) SHALL allow text wrapping for long names. The CSS rule SHALL be:
+
+```css
+.asset-table td:first-child {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+```
+
+This overrides the generic `white-space: nowrap` on `.asset-table tbody td` only for the name column. All other columns SHALL remain `nowrap` for numeric alignment.
+
+#### Rule: Filter panel visibility in table headers
+
+`.asset-table th` SHALL NOT use `overflow: hidden` when the header contains absolutely-positioned filter panels. Use `overflow: clip` instead, which clips content to the padding box but does not create a new scroll container and does not clip positioned descendants in the same way. Alternatively, remove `overflow` entirely if `text-overflow: ellipsis` is not needed on the header.
+
+**Why:** `overflow: hidden` on `.asset-table th` clips the `.rebalance-filter-panel--header` (which is `position: absolute` inside the `<th>`), making the filter panel invisible when opened. The rebalance table does not have this problem because its `<th>` elements do not use `overflow: hidden`.
+
 #### Scenario: Adding a new column to the asset table
 
 - **WHEN** a new `<col>` is added to the `<colgroup>` in `_patrimonio_class_section.html`
@@ -141,3 +160,17 @@ No additional alignment CSS is needed. If alignment breaks, check whether a `dis
 - **AND** the `.class-section-header` `grid-template-columns` SHALL include the new variable
 - **AND** no other `col:nth-child()` block MAY define widths for the same nth-child indices
 - **AND** all column header text SHALL remain single-line (no wrapping to second line)
+
+#### Scenario: Long asset name wraps in first column
+
+- **WHEN** an asset has a name longer than the column width (e.g. "ISHARES CORE S&P 500 ETF")
+- **THEN** the name SHALL wrap to multiple lines within the cell
+- **AND** the cell height SHALL grow to accommodate the wrapped text
+- **AND** adjacent columns SHALL NOT shift or resize
+
+#### Scenario: Filter panel opens in all columns
+
+- **WHEN** user clicks the filter icon on any column header in the asset table
+- **THEN** the filter panel SHALL appear below the header cell
+- **AND** the panel SHALL NOT be clipped by the header cell's overflow
+- **AND** the panel SHALL be interactive (checkboxes/sliders respond to input)
