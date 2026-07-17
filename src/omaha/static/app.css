@@ -1853,7 +1853,7 @@ td.editing {
 }
 
 .gain-cell-pct {
-  font-size: 0.78rem;
+  font-size: inherit;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
