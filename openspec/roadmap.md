@@ -533,11 +533,22 @@ Progress log: `2026-07-16` added from owner request — margens atuais apertadas
 Progress log: `2026-07-16` spec proposed — 5 CSS properties adjusted, horizontal margins preserved.
 Progress log: `2026-07-16` proposal queued — 5 CSS property changes, all in app.css.
 
+### F40 - Bug template tabelas ativos patrimonio
+Status: `Ready`
+Goal: corrigir 3 bugs nas tabelas de ativos: quebra de linha na coluna ativo para texto longo, conteúdo ausente nas colunas classe/desvio e carteira/atual/desvio, e painel de filtros não abre ao clicar no ícone.
+Candidate OpenSpec change id: `f40-bug-template-tabelas-ativos-patrimonio`
+Spec link: `openspec/changes/f40-bug-template-tabelas-ativos-patrimonio/`
+Files to inspect: `src/omaha/templates/_patrimonio_class_section.html`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/static/app.css`
+Notes: 3 bugs cirúrgicos. Soluções já testadas e documentadas no tasks.md. Aplicar exatamente como descrito — não mexer em mais nada. Seguir PRD §4.14.
+Progress log: `2026-07-16` added from owner bug report.
+Progress log: `2026-07-16` spec proposed — proposal, design, delta specs created.
+Progress log: `2026-07-16` implementado e revertido (incidente: apply agent sobrescreveu commit do usuário). Soluções documentadas para reaplicação.
+
 ---
 
 ## Recommended Execution Order
 
-**Active queue:** F24, F25, F39 (Spec Proposed)
+**Active queue:** F24, F25, F39 (Spec Proposed), F40 (Ready)
 
 Order note: F35 archived (bug cadeado cinza). F36 (consistência visual) — maior escopo, 5 melhorias agrupadas. F37 (alerta desvio) —
 independente, pode rodar após F36 ou em paralelo se F36 atrasar.
