@@ -58,16 +58,8 @@ Archive: `openspec/changes/archive/2026-07-11-f22-implantar-lib-de-tabela-escolh
 
 ### F23 - Rebalanceamento e importação automáticos
 Status: `Archived` — 2026-07-12
-Goal: remover `Rebalancear`, recalcular plano após Enter em input, remover botão `Enviar` no import CSV, disparar upload automático e avançar próxima tela ao sucesso.
-Candidate OpenSpec change id: `f23-rebalanceamento-e-importacao-automaticos`
+Goal: remover `Rebalancear`, recalcular plano após Enter, upload automático no import CSV.
 Archive: `openspec/changes/archive/2026-07-12-f23-rebalanceamento-e-importacao-automaticos/`
-Files to inspect: `src/omaha/routes/pages.py`, `src/omaha/routes/rebalance.py`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/templates/rebalance.html`, `src/omaha/static/app.css`
-Notes: fluxo de ação imediata, sem botão manual extra.
-Progress log: `2026-07-10` added from owner request.
-Progress log: `2026-07-12` proposal queued.
-Progress log: `2026-07-12` implementation applied; targeted integration, browser, BDD, and visual checks pass.
-Progress log: `2026-07-12` review repair: Enter-only rebalance submit, persistent negative-input error, stale preview-response guard.
-Progress log: `2026-07-12` archived after spec sync and roadmap closeout.
 
 ### F24 - Polimento de inputs e modal
 Status: `Archived` — 2026-07-17
@@ -81,50 +73,17 @@ Archive: `openspec/changes/archive/2026-07-17-f25-sistema-de-cards-com-cores-de-
 
 ### F26 - Padronização de tabelas e inspeção visual
 Status: `Deprecated` — 2026-07-12 (split into F27-F29)
-Goal: aplicar padrão visual único nas tabelas e adicionar inspeção visual obrigatória para pegar wrap, overflow, desalinhamento e diferença tipográfica entre células.
-Candidate OpenSpec change id: `f26-padronizacao-de-tabelas-e-inspecao-visual`
-Spec link: `openspec/changes/f26-padronizacao-de-tabelas-e-inspecao-visual/`
-Files to inspect: `src/omaha/templates/_*.html`, `src/omaha/static/app.css`, `tests/e2e/`
-Notes: inclui correção de casos como `Atual` com fonte diferente e headers apertados.
-Progress log: `2026-07-10` added from owner request.
-Progress log: `2026-07-12` proposal queued.
-Progress log: `2026-07-12` split into F27-F29 per owner request.
+Goal: padrão visual único em tabelas + inspeção visual obrigatória.
 
 ### F27 - Tabela ativos espelhada do rebalanceamento
 Status: `Archived` — 2026-07-12
-Goal: portar para tabela de ativos em patrimônio recursos de tabela do rebalanceamento: ordenação aprimorada, filtro por coluna, e consistência visual entre header e body.
-Candidate OpenSpec change id: `f27-tabela-ativos-espelhada-do-rebalanceamento`
+Goal: portar ordenação, filtro por coluna e consistência visual da tabela rebalance para tabela de ativos.
 Archive: `openspec/changes/archive/2026-07-12-f27-tabela-ativos-espelhada-do-rebalanceamento/`
-Files to inspect: `src/omaha/templates/_patrimonio*.html`, `src/omaha/templates/_rebalance*.html`, `src/omaha/static/app.css`
-Notes: slice de porta/consistência de tabela.
-Progress log: `2026-07-12` added from owner request.
-Progress log: `2026-07-12` proposal queued.
-Progress log: `2026-07-12` apply complete; refresh-for-test smoke OK.
-Progress log: `2026-07-12` archived after spec sync and closeout.
 
 ### F28 - Números arredondados e ganho unificado
 Status: `Archived` — 2026-07-13
-Goal: formatar campos numéricos com arredondamento para 0 casas decimais, exceto QTD de BTC com 3 casas, e reestruturar coluna ganho para mostrar valor absoluto + percentual juntos, ordenando por absoluto.
-Candidate OpenSpec change id: `f28-numeros-arredondados-e-ganho-unificado`
+Goal: arredondar campos numéricos (0 casas, BTC 3 casas) e reestruturar coluna ganho (absoluto + %).
 Archive: `openspec/changes/archive/2026-07-13-f28-numeros-arredondados-e-ganho-unificado/`
-Files to inspect: `src/omaha/templates/_patrimonio*.html`, `src/omaha/templates/_rebalance*.html`, `src/omaha/static/app.css`
-Notes: foco em densidade e leitura.
-Progress log: `2026-07-12` added from owner request.
-Progress log: `2026-07-13` proposal queued.
-Progress log: `2026-07-13` implementation started.
-Progress log: `2026-07-13` apply complete; focused regressions, unit suite, lint, OpenSpec validation, and refresh-for-test smoke passed.
-Progress log: `2026-07-13` review feedback: restore asset-table advanced filter parity and round pct columns.
-Progress log: `2026-07-13` review repair applied; asset filters, pct rounding, focused browser tests, validation, and refresh smoke passed.
-Progress log: `2026-07-13` review rejected; fix filter clipping/parity and scope pct rounding to requested cells.
-Progress log: `2026-07-13` second review rejected; update stale route test, keep horizontal scroll, fix BTC range labels, zero normalization, and class desvio rounding.
-Progress log: `2026-07-13` third review rejected; fix enum mapping, boundary identity, popover scroll/resize, and empty-range safety.
-Progress log: `2026-07-13` fourth review rejected; update visual baselines and replace unregistered icon.
-Progress log: `2026-07-13` fifth review rejected; render exact zero target values as `0%`, not dash.
-Progress log: `2026-07-13` review repair applied; visible filter overlays, Qtd/Preço médio ranges, scoped pct rounding, browser coverage, lint, and OpenSpec validation pass.
-Progress log: `2026-07-13` second-review repair applied; horizontal scroll + fixed filter popovers, BTC range labels, rounded class desvio, normalized `0%`, focused browser/route checks, validation, and refresh smoke passed. Awaiting final review.
-Progress log: `2026-07-13` third-review repair applied; enum filters map to canonical asset fields, tied BTC range boundaries retain identity, teleported popovers reposition on scroll/resize, empty ranges use finite bounds. Integration passed; F28 browser coverage passed; OpenSpec validation and refresh smoke passed. Ready for final review.
-Progress log: `2026-07-13` fourth-review repair applied; header filter uses cataloged `expand_more`, intentional Patrimônio/import and rebalance visual baselines regenerated, unit + visual gates and OpenSpec validation pass; refresh smoke passed. Ready for final review.
-Progress log: `2026-07-13` fifth-review repair applied; exact numeric asset targets use `0%` in Classe / Alvo and Carteira / Alvo, while `—` remains absent/invalid-only. Focused browser regression, unit suite, lint, OpenSpec validation, and refresh smoke passed. Ready for final review.
 
 ### F29 - Compra e venda com emoji toggle
 Status: `Archived` — 2026-07-15
@@ -133,14 +92,8 @@ Archive: `openspec/changes/archive/2026-07-15-f29-compra-e-venda-com-emoji-toggl
 
 ### R30 - Extrair padrão CSS compartilhado de tabelas
 Status: `Archived` — 2026-07-15
-Goal: extrair estilos comuns de tabelas (shell, header, rows, cells) em classes base `.data-table-*` com variáveis CSS para troca de tema; rebalance e portfolio herdam dessas bases.
-Candidate OpenSpec change id: `r30-extrair-padrao-css-compartilhado-de-tabelas`
+Goal: extrair estilos comuns de tabelas em classes `.data-table-*` com variáveis CSS para troca de tema.
 Archive: `openspec/changes/archive/2026-07-15-r30-extrair-padrao-css-compartilhado-de-tabelas/`
-Files to inspect: `src/omaha/static/app.css`, `src/omaha/templates/_rebalance_plan.html`, `src/omaha/templates/_patrimonio_class_section.html`
-Notes: fundação para padronização visual. Variáveis de tema (`--table-*`) devem permitir troca de paleta sem duplicar regras.
-Progress log: `2026-07-14` added from owner request.
-Progress log: `2026-07-14` proposal queued.
-Progress log: `2026-07-15` archived after spec sync and closeout.
 
 ### R31 - Padronizar filter panel e header de tabelas
 Status: `Archived` — 2026-07-15
@@ -154,15 +107,8 @@ Archive: `openspec/changes/archive/2026-07-15-f32-aplicar-padrao-de-tabela-rebal
 
 ### R33 - Refatorar formatters e comportamentos de tabela para reutilização
 Status: `Archived` — 2026-07-15
-Goal: centralizar formatação numérica (BRL,%,Qtd), lógica de sinal (signClass/signIcon), row color-coding e cell formatting em módulo compartilhado; rebalance e portfolio consomem a mesma API.
-Candidate OpenSpec change id: `r33-refatorar-formatters-e-comportamentos-de-tabela-para-reutilizacao`
+Goal: centralizar formatação numérica, lógica de sinal e cell formatting em módulo compartilhado.
 Archive: `openspec/changes/archive/2026-07-15-r33-refatorar-formatters-e-comportamentos-de-tabela-para-reutilizacao/`
-Files to inspect: `src/omaha/templates/rebalance.html`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/static/app.css`
-Notes: JS/Alpine layer — separado do CSS (R30). Formatters atuais estão duplicados ou acoplados a tabela específica. Foco: API compartilhada, não behavior change.
-Progress log: `2026-07-14` added from owner request.
-Progress log: `2026-07-14` proposal queued.
-Progress log: `2026-07-15` applied: shared module `table-formatters.js` (11 functions), rebalance static import, portfolio dynamic import with fallback. Review repair: formatQty fraction digits aligned, formatBRL null handling unified.
-Progress log: `2026-07-15` archived after spec sync and closeout.
 
 ### I05 - Otimizar hooks pre-commit e pre-push
 Status: `Archived` — 2026-07-15
@@ -171,19 +117,13 @@ Archive: `openspec/changes/archive/2026-07-15-i05-otimizar-hooks-pre-commit-e-pr
 
 ### T21 - Auditar e podar testes redundantes e obvios
 Status: `Archived` — 2026-07-15
-Goal: todo teste precisa validar comportamento real do sistema. Sobreviventes de mutation test (killed por acaso), testes óbvios (assert trivial), testes redundantes (mesma lógica testada 2x): reescrever com cenário real ou excluir.
-Candidate OpenSpec change id: `t21-auditar-e-podar-testes-redundantes-e-obvios`
+Goal: reescrever ou excluir testes que não provam comportamento real (-4 testes, zero código de produção).
 Archive: `openspec/changes/archive/2026-07-15-t21-auditar-e-podar-testes-redundantes-e-obvios/`
-Notes: -4 testes (5 deletados + 1 merge). Zero código de produção. Zero seed.
 
 ### I06 - Reorganizar hooks prek: modificar em pre-commit, validar em pre-push
 Status: `Archived` — 2026-07-15
-Goal: pre-commit corrige código (ruff format+fix, whitespace, EOF). Pre-push só valida (ruff check sem fix, testes, commitizen). Push nunca modifica código.
-Candidate OpenSpec change id: `i06-reorganizar-hooks-prek-modificar-em-pre-commit-validar-em-pre-push`
+Goal: pre-commit corrige código (ruff format+fix), pre-push só valida (ruff check, testes, commitizen).
 Archive: `openspec/changes/archive/2026-07-15-i06-reorganizar-hooks-prek-modificar-em-pre-commit-validar-em-pre-push/`
-Files to inspect: `prek.toml`, `openspec/specs/prek-hooks/spec.md`
-Notes: pre-commit: ruff-format (priority 1) + ruff --fix (priority 2) + whitespace/EOF (priority 3). Pre-push: ruff check (validate only) + pytest-integration + commitizen-branch + uv-lock.
-Progress log: `2026-07-15` applied: pre-commit runs ruff-format, ruff --fix, trailing-whitespace, end-of-file-fixer; pre-push runs ruff (validate-only), uv-lock, pytest-integration, commitizen-branch. Spec synced. Archived.
 
 ### T22 - Isolar audit_inventory em job CI separado
 Status: `Archived` — 2026-07-15
@@ -192,40 +132,28 @@ Archive: `openspec/changes/archive/2026-07-15-t22-isolar-audit-inventory-em-job-
 
 ### T23 - Otimizar setup do test_seed_from_csv
 Status: `Archived` — 2026-07-15
-Goal: reduzir overhead de setup dos 20 testes serial em `test_seed_from_csv.py` (~50s total, ~2.5s/setup). Compartilhar fixture de seed entre testes via session scope ou cache de estado SQLite.
-Candidate OpenSpec change id: `t23-otimizar-setup-do-test-seed-from-csv`
+Goal: fixture session-scoped para 20 testes serial (~50s → ~13.5s, 3.7x speedup).
 Archive: `openspec/changes/archive/2026-07-15-t23-otimizar-setup-do-test-seed-from-csv/`
-Files to inspect: `tests/test_seed_from_csv.py`, `tests/support/db.py`, `tests/conftest.py`
-Notes: session-scoped snapshot fixture, 1 setup + 19 file copies. ~50s → ~13.5s (3.7x speedup).
-Progress log: `2026-07-15` added from test suite performance analysis.
-Progress log: `2026-07-15` archived after spec sync and closeout.
 
 ### T23.1 - Corrigir flaky test_dashboard_shows_position_counts sob xdist
 Status: `Archived` — 2026-07-15
 Goal: corrigir flaky test sob xdist parallel.
 Archive: `openspec/changes/archive/2026-07-15-t231-corrigir-flaky-test-dashboard-shows-position-counts-sob-xdist/`
-Notes: 12/12 tests pass, xdist parallel respected.
 
 ### T24 - Corrigir classificação de arquivos integration mal taggeados
 Status: `Archived` — 2026-07-15
-Goal: `test_admin_recovery.py` e `test_db_mutations.py` usam TestClient + DB mas estão marcados `unit`. Mover para `_INTEGRATION_PREFIXES` em `tests/conftest.py`. Ganho: limpeza + ~1.5s off unit suite.
-Candidate OpenSpec change id: `t24-corrigir-classificacao-de-arquivos-integration-mal-taggeados`
+Goal: mover `test_admin_recovery.py` e `test_db_mutations.py` para `_INTEGRATION_PREFIXES`.
 Archive: `openspec/changes/archive/2026-07-15-t24-corrigir-classificacao-de-arquivos-integration-mal-taggeados/`
 
 ### T25 - Auditar suite completa: cada teste prova que o sistema funciona
 Status: `Archived` — 2026-07-15
-Goal: inventário final de todos os 864 testes. Cada teste deve ter justificativa de por que prova comportamento real. Testes que só verificam import, existência de função, ou formato de output sem impacto funcional: eliminar ou reescrever como teste de comportamento.
-Candidate OpenSpec change id: `t25-auditar-suite-completa-cada-teste-prova-que-o-sistema-funciona`
+Goal: inventário de 864 testes com justificativa de retenção; 0 removidos, `tests/AUDIT.md` criado.
 Archive: `openspec/changes/archive/2026-07-15-t25-auditar-suite-completa-cada-teste-prova-que-o-sistema-funciona/`
-Files to inspect: `tests/`, `openspec/specs/`, `openspec/PRD.md` §4
-Notes: 864 testes auditados, 0 removidos. Todos atendem ao menos 1 critério de retenção (error-path, integration, spec-contract, regression-guard). `tests/AUDIT.md` com justificativas por arquivo. Nova spec `test-suite-audit` criada.
 
 ### T26 - Elevar kill rate de mutation testing em policy.py
 Status: `Archived` — 2026-07-15
-Goal: reduzir sobreviventes de mutation de 145 para < 30 em `policy.py`. Baseline atual: 90% killed (3468/3867), mas `policy.py` contribui com 69% dos sobreviventes (145/211). Funções críticas sem cobertura de mutation: `evaluate_progressive_sales_stage_solution` (44 survived), `build_contribution_only_rejection_reason` (16), `calculate_solution_top_gaps` (14), `build_overweight_projected_value_floor` (13).
-Candidate OpenSpec change id: `t26-elevar-kill-rate-de-mutation-testing-em-policy`
+Goal: reduzir sobreviventes de mutation em policy.py de 145 para 47 (-67.6%).
 Archive: `openspec/changes/archive/2026-07-15-t26-elevar-kill-rate-de-mutation-testing-em-policy/`
-Notes: Add 104 mutation-targeted tests. policy.py survived: 145 → 47 (-67.6%). ~30 remaining are equivalent mutants (dtype=None).
 
 ### F01 - Consolidação cross-profile (visão household agregada)
 Status: `Archived` (superseded by F06) — 2026-07-04
@@ -323,52 +251,42 @@ Archive: `openspec/changes/archive/2026-07-07-t06-visual-regression-baseline/`
 
 ### T07 - Revisar suite quebrada e corrigir regressões
 Status: `Archived` — 2026-07-10
-Goal: Revisar falhas atuais de `uv run task test` no grupo browser/workflow e
-  fechar raiz do problema, seja corrigindo código, ajustando teste, ou
-  alinhando contrato/spec quando a expectativa estiver errada. Foco: BDD,
-  e2e, import modal, e fluxos visíveis de navegação/importação.
+Goal: corrigir falhas de `uv run task test` em browser/workflow (BDD, e2e, import modal, navegação).
 Archive: `openspec/changes/archive/2026-07-10-t07-revisar-suite-quebrada-e-corrigir-regressoes/`
 
 ### T08 - Revisar paralelismo e custo da suite de testes
 Status: `Archived` — 2026-07-10
-Goal: Alinhar buckets/tasks/hooks/CI da suite, limpar drift de markers, e
-  registrar limites seguros de serial/paralelismo para testes pesados.
+Goal: alinhar buckets/tasks/hooks/CI, limpar drift de markers, registrar limites seguros.
 Archive: `openspec/changes/archive/2026-07-10-t08-revisar-paralelismo-e-custo-da-suite-de-testes/`
 
 ### T09 - Revisar regressões visuais e baselines
 Status: `Archived` — 2026-07-10
-Goal: Revisar regressões visuais e baselines para separar drift de baseline,
-  seletor frágil, ou regressão real de UI. Corrigir menor lado correto.
+Goal: separar drift de baseline, seletor frágil ou regressão real de UI; corrigir menor lado.
 Archive: `openspec/changes/archive/2026-07-10-t09-revisar-regressoes-visuais-e-baselines/`
 
 ### T10 - Revisar pipeline CSV real e seed_from_csv
 Status: `Archived` — 2026-07-10
-Goal: Revisar pipeline CSV real e seed_from_csv, corrigir drift de contrato
-  entre specs, CSVs, e testes. Minoridade corrigida no lado docs/tests.
+Goal: corrigir drift de contrato entre specs, CSVs e testes no pipeline seed.
 Archive: `openspec/changes/archive/2026-07-10-t10-revisar-pipeline-csv-real-e-seed-from-csv/`
 
 ### I03 - Regularizar plumbing do pre-push
 Status: `Archived` — 2026-07-10
-Goal: Corrigir plumbing de `pre-push` para rodar buckets canônicos de tarefa
-  sem parse quebrado de `&&`, mantendo gate intacto e sem mexer em produto.
+Goal: corrigir parse de `&&` no pre-push para rodar buckets canônicos sem quebrar gate.
 Archive: `openspec/changes/archive/2026-07-10-i03-regularizar-plumbing-do-pre-push/`
 
 ### I04 - Limpar drift lint repo-wide
 Status: `Archived` — 2026-07-10
-Goal: Limpar drift lint repo-wide revelado pelo hook de pre-push, sem relaxar
-  regras nem alterar comportamento de produto.
+Goal: limpar drift lint revelado pelo hook de pre-push, sem relaxar regras.
 Archive: `openspec/changes/archive/2026-07-10-i04-limpar-drift-lint-repo-wide/`
 
 ### T11 - Revisar contratos de rebalance schema e glue
 Status: `Archived` — 2026-07-10
-Goal: Alinhar engine metrics (`current_deviation_pct`/`projected_deviation_pct`)
-  com spec percentual 0-100 e limpar chaves `total_buy_amount`/`total_sell_amount`.
+Goal: alinhar engine metrics com spec percentual 0-100 e limpar chaves órfãs.
 Archive: `openspec/changes/archive/2026-07-10-t11-revisar-contratos-de-rebalance-schema-e-glue/`
 
 ### T12 - Isolar hang tardio do harness browser/live-server
 Status: `Archived` — 2026-07-10
-Goal: Isolar e corrigir hang tardio do harness BDD/e2e com replay 1 teste por
-  vez, teardown mais seguro e diagnóstico de navegação Playwright.
+Goal: corrigir hang do harness BDD/e2e com replay 1 teste e teardown mais seguro.
 Archive: `openspec/changes/archive/2026-07-10-t12-isolar-hang-tardio-do-harness-browser-live-server/`
 
 ### T13 - Cobertura fora dos browsers
@@ -398,33 +316,18 @@ Archive: `openspec/changes/archive/2026-07-14-t17-paralelizar-integration-com-db
 
 ### T18 - Cortar setup repetido dos hotspots
 Status: `Archived` — 2026-07-14
-Goal: reduzir custo de bootstrap/alembic/seed nos testes mais caros de integration, focando helpers compartilhados e fixtures session-scoped.
+Goal: reduzir custo de bootstrap/alembic/seed nos testes mais caros via fixtures session-scoped.
 Archive: `openspec/changes/archive/2026-07-14-t18-cortar-setup-repetido-dos-hotspots/`
-Progress log: `2026-07-14` archived after spec sync and closeout.
 
 ### T19 - Expandir mutation testing para módulo rebalance completo
 Status: `Archived` — 2026-07-14
-Goal: estender escopo de mutmut de `solver.py` + `validation.py` para todos os arquivos críticos do módulo `rebalance/` (engine, policy, postprocessing, builders, glue), mantendo tempo total < 20min via parallelismo.
-Candidate OpenSpec change id: `t19-expandir-mutation-testing-para-modulo-rebalance-completo`
+Goal: estender mutmut de solver+validation para todos os arquivos críticos do módulo rebalance/.
 Archive: `openspec/changes/archive/2026-07-14-t19-expandir-mutation-testing-para-modulo-rebalance-completo/`
-Files to inspect: `pyproject.toml` (`[tool.mutmut]`), `src/omaha/rebalance/engine.py`, `src/omaha/rebalance/policy.py`, `src/omaha/rebalance/postprocessing.py`, `src/omaha/rebalance/builders.py`, `src/omaha/rebalance/glue.py`, `src/omaha/rebalance/constants.py`
-Notes: baseline atual (2026-07-06): 869 mutants, 64.9% killed, escopo solver+validation. Arquivos novos somam ~2.7K LOC. Estimativa: 1500-2500 mutants adicionais. Usar `mutmut run` com cache do baseline anterior.
-Progress log: `2026-07-14` added from performance analysis.
-Progress log: `2026-07-14` proposal generated; 12 tasks, 4 design decisions.
-Progress log: `2026-07-14` proposal queued.
-Progress log: `2026-07-14` archived after spec sync and closeout.
 
 ### T20 - Baseline automático de mutation no CI
 Status: `Archived` — 2026-07-14
-Goal: configurar `mutmut run` + `mutation-baseline` como passo CI pós-merge no `main`, gerando baseline atualizado e commit automático para detecção de regressão de mutation score.
-Candidate OpenSpec change id: `t20-baseline-automatico-de-mutation-no-ci`
+Goal: `mutmut run` + `mutation-baseline` como passo CI pós-merge no main.
 Archive: `openspec/changes/archive/2026-07-14-t20-baseline-automatico-de-mutation-no-ci/`
-Files to inspect: `.github/workflows/ci.yml`, `pyproject.toml` (`[tool.mutmut]`, taskipy tasks), `scripts/mutation_baseline.py`
-Notes: requer T19 (scope expansion) antes para baseline refletir módulo completo. CI deve rodar em cron ou pós-merge only (não em PR — custo alto).
-Progress log: `2026-07-14` added from performance analysis.
-Progress log: `2026-07-14` proposal generated; 4 tasks, 5 design decisions.
-Progress log: `2026-07-14` applied: added `mutation-ci` taskipy task, `mutation-baseline` CI job (post-merge only, fresh run, commit-back with [skip ci]), spec synced.
-Progress log: `2026-07-14` archived after spec sync and closeout.
 
 ### I01 - Agendamento automático de backup
 Status: `Archived` — 2026-07-06
@@ -445,37 +348,37 @@ Archive: `openspec/changes/archive/2026-07-07-d02-design-register-decision/`
 
 ### F14 - Catppuccin Frappe theme + component differentiation
 Status: `Archived` — 2026-07-08
-Goal: Replace warm-brown dark palette (hue 60) with Catppuccin Frappe cool blue-gray (hue ~274). Differentiate components via elevation, class-colored headers, sunk asset tables, compact rows, angular borders, and high-contrast numbers.
+Goal: substituir paleta warm-brown por Catppuccin Frappe cool blue-gray e diferenciar componentes.
 Archive: `openspec/changes/archive/2026-07-08-f14-catppuccin-frappe-theme/`
 
 ### F15 - Patrimônio table redesign for class and asset metrics
 Status: `Archived` — 2026-07-08
-Goal: Rebuild class totals row + asset table on `/patrimonio` with grouped columns, sortable fields, gain deviation icons, and remove legacy asset-row `Classe` column.
+Goal: reconstruir row de totais por classe + tabela de ativos com colunas agrupadas e ordenáveis.
 Archive: `openspec/changes/archive/2026-07-08-f15-patrimonio-table-redesign-for-class-and-asset-metrics/`
 
 ### F16 - Rebalanceamento sempre pronto com aporte persistente
 Status: `Archived` — 2026-07-08
-Goal: Manter um plano de rebalanceamento sempre materializado para perfil ativo usando valor atual de `aporte`, recalculando após mutações e preservando `aporte` entre páginas na mesma execução.
+Goal: manter plano materializado com `aporte` persistente, recalculando após mutações.
 Archive: `openspec/changes/archive/2026-07-08-f16-rebalanceamento-sempre-pronto-com-aporte-persistente/`
 
 ### F17 - Precisao canonica de alvo e atalho de percentual global
 Status: `Archived` — 2026-07-08
-Goal: Tornar `% classe` e `% ativo na classe` fontes de verdade do dominio, manter edicao de `% ativo na carteira` como atalho server-side, elevar precisao interna de `Asset.target_pct`, usar `Decimal` ate fronteira numpy/CVXPY.
+Goal: `% classe` e `% ativo na classe` como fontes de verdade; `% ativo na carteira` como atalho server-side.
 Archive: `openspec/changes/archive/2026-07-08-f17-precisao-canonica-de-alvo-e-atalho-de-percentual-global/`
 
 ### F18 - Rebalanceamento UI: resumo por classe, filtros, desvios
 Status: `Archived` — 2026-07-09
-Goal: Redesenhar a página de rebalanceamento: substituir 6 cards de métricas por resumo de desvio por classe (cards horizontais cor-coded), compactar aporte + thresholds, filtros multi-select, colunas de desvio, rows coloridas.
+Goal: substituir 6 cards por resumo de desvio por classe, filtros multi-select, colunas de desvio.
 Archive: `openspec/changes/archive/2026-07-09-f18-rebalanceamento-ui-resumo-por-classe-filtros-desvios/`
 
 ### F19 - Gate de compra e venda por desvio minimo no otimizador
 Status: `Archived` — 2026-07-09
-Goal: Restringir plano de rebalanceamento para só liberar `Compra` e `Venda` quando desvio do ativo ultrapassar thresholds mínimos absoluto (R$) e percentual (%) informados na tela.
+Goal: restringir Compra/Venda a desvio mínimo absoluto (%) e percentual (%) informados na tela.
 Archive: `openspec/changes/archive/2026-07-09-f19-gate-de-compra-e-venda-por-desvio-minimo-no-otimizador/`
 
 ### F20 - Calculo da qtd de compra ou venda no plano de rebalanceamento
 Status: `Archived` — 2026-07-09
-Goal: Expor quantidade operacional `Qtd` na tabela do plano de rebalanceamento, calculada a partir do valor de compra/venda e preço atual, com conversão BRL->USD quando ativo negocia em dólar.
+Goal: expor `Qtd` na tabela de rebalanceamento com conversão BRL->USD quando necessário.
 Archive: `openspec/changes/archive/2026-07-09-f20-calculo-da-qtd-de-compra-ou-venda-no-plano-de-rebalanceamento/`
 
 ---
@@ -492,9 +395,8 @@ Archive: `openspec/changes/archive/2026-07-15-f35-bug-cadeado-cinza-na-tabela-at
 
 ### F36 - Consistência visual completa tabela ativos ↔ rebalance
 Status: `Archived` — 2026-07-15
-Goal: alinhar tabela de ativos com tabela rebalanceamento em 5 dimensões: ícones Material Symbols, teleport validado, formatação desvio 0 casas decimais, card totais com cor da classe, espaçamento cabeçalhos.
+Goal: alinhar tabela ativos com rebalance em ícones, teleport, formatação, cards e espaçamento.
 Archive: `openspec/changes/archive/2026-07-15-f36-consistencia-visual-completa-tabela-ativos-rebalance/`
-Progress log: `2026-07-15` spec proposed — proposal, design, spec, tasks created. Task 4.5 blocked on owner color validation.
 
 ### F37 - Contraste de alerta por desvio
 Status: `Archived` — 2026-07-16
