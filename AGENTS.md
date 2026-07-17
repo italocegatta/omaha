@@ -79,6 +79,32 @@ Recommended usage:
 1. `@roadmap <demanda>`
 2. `/roadmap <demanda>`
 
+### 2.3.2 Agent and subagent registry
+
+All agents live under `.opencode/agents/`. Each file defines one agent
+with its description, permissions, and workflow. Skills that power them
+live under `.opencode/skills/`.
+
+| Agent | Path | Type | Function |
+|-------|------|------|----------|
+| **roadmap** | `.opencode/agents/roadmap.md` | primary | Orchestrator. Decomposes PRD/epic into slices, manages lifecycle, routes to subagents. Never implements code directly. |
+| **explore** | `.opencode/agents/explore.md` | subagent | Clarifies ambiguous scope before proposal. Reads codebase, investigates, hands off focused context to propose. |
+| **propose** | `.opencode/agents/propose.md` | subagent | Creates proposal.md, design.md, tasks.md, and delta specs for one slice. |
+| **apply** | `.opencode/agents/apply.md` | subagent | Implements tasks from an OpenSpec change. Follows surgical fix model for bugfixes (PRD §4.14). |
+| **review** | `.opencode/agents/review.md` | subagent | Reviews implementation against spec. Runs tests. Returns APPROVED or CHANGES_REQUESTED. |
+| **finalize** | `.opencode/agents/finalize.md` | subagent | Archives change, syncs specs, commits, pushes. |
+
+| Skill | Path | Powers |
+|-------|------|---------|
+| openspec-roadmap | `.opencode/skills/openspec-roadmap/SKILL.md` | roadmap agent lifecycle logic |
+| openspec-propose | `.opencode/skills/openspec-propose/SKILL.md` | propose agent |
+| openspec-apply-change | `.opencode/skills/openspec-apply-change/SKILL.md` | apply agent |
+| code-review | `.opencode/skills/code-review/SKILL.md` | review agent |
+| openspec-archive-change | `.opencode/skills/openspec-archive-change/SKILL.md` | finalize agent |
+| openspec-sync-specs | `.opencode/skills/openspec-sync-specs/SKILL.md` | finalize agent |
+| refresh-for-test | `.opencode/skills/refresh-for-test/SKILL.md` | delivery verification |
+| grill-me | `.opencode/skills/grill-me/SKILL.md` | roadmap agent (questioning) |
+
 ### 2.4 Operational scripts
 - **`scripts/print_lan_url.sh`** — discover the canonical dev URL.
 - **`scripts/seed_from_csv.py`** — only path that creates `AssetClass`,
