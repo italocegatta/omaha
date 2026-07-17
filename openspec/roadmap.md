@@ -424,21 +424,12 @@ Goal: remover seletores CSS duplicados, código morto, e consolidar blocos `:roo
 Archive: `openspec/changes/archive/2026-07-17-r41-limpar-css-duplicado-e-codigo-morto/`
 
 ### F41 - Remover Atual e Alvo da linha de totais da classe
-Status: `Applying`
-Goal: na linha de totais da classe na tabela de patrimônio, remover valores de Atual e Alvo (sempre 100%/100%) que não agregam informação. Manter apenas Desvio.
-Candidate OpenSpec change id: `f41-remover-atual-e-alvo-da-linha-de-totais-da-classe`
-Spec link: `openspec/changes/f41-remover-atual-e-alvo-da-linha-de-totais-da-classe/`
-Files:
-- `src/omaha/templates/_patrimonio_class_section.html` (linhas 137-138)
-Notes: substituir conteúdo por "—" ou vazio. Backend inalterado.
-Progress:
-- Proposed: 2026-07-17
-- Applying: 2026-07-17
-- Applied: pending
-- Archived: pending
+Status: `Archived` — 2026-07-17
+Goal: remover valores de Atual e Alvo (sempre 100%/100%) da linha de totais da classe, manter apenas Desvio.
+Archive: `openspec/changes/archive/2026-07-17-f41-remover-atual-e-alvo-da-linha-de-totais-da-classe/`
 
 ### F42 - Desvio condicional na linha de totais
-Status: `Spec Proposed`
+Status: `Applying`
 Goal: exibir desvio na linha de totais apenas quando diferente de zero. Verde para positivo, vermelho para negativo, "—" para zero.
 Candidate OpenSpec change id: `f42-desvio-condicional-na-linha-de-totais`
 Spec link: `openspec/changes/f42-desvio-condicional-na-linha-de-totais/`
@@ -447,7 +438,7 @@ Files:
 Notes: lógica x-show/x-if com x-text condicional. CSS `signClass` já faz verde/vermelho.
 Progress:
 - Proposed: 2026-07-17
-- Applying: pending
+- Applying: 2026-07-17
 - Applied: pending
 - Archived: pending
 

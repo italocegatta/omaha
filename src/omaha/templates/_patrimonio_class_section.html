@@ -138,7 +138,8 @@
               <td class="data-table-td" data-testid="class-total-target-pct-class"><span class="metric-placeholder">—</span></td>
               <td class="data-table-td" data-testid="class-total-deviation-class" :class="signClass(classDeviationPctClass)">
                 <span class="pct-delta-pill pct-delta-pill--long" data-testid="class-delta-badge" x-show="classDeltaMessage" x-text="classDeltaMessage"></span>
-                <span class="metric-stack" x-show="!classDeltaMessage">
+                <span class="metric-placeholder" x-show="!classDeltaMessage && Math.abs(classDeviationPctClass) < 0.0001">—</span>
+                <span class="metric-stack" x-show="!classDeltaMessage && Math.abs(classDeviationPctClass) >= 0.0001">
                   <span class="icon icon--sm metric-sign" x-text="signIcon(classDeviationPctClass)" aria-hidden="true"></span>
                   <span x-text="formatDeviationPp(classDeviationPctClass)"></span>
                 </span>
@@ -184,7 +185,8 @@
                 {% endif %}
               </td>
               <td class="data-table-td" data-testid="class-total-deviation-portfolio" :class="signClass(classPortfolioDeviationPct)">
-                <span class="metric-stack">
+                <span class="metric-placeholder" x-show="Math.abs(classPortfolioDeviationPct) < 0.0001">—</span>
+                <span class="metric-stack" x-show="Math.abs(classPortfolioDeviationPct) >= 0.0001">
                   <span class="icon icon--sm metric-sign" x-text="signIcon(classPortfolioDeviationPct)" aria-hidden="true"></span>
                   <span x-text="formatDeviationPp(classPortfolioDeviationPct)"></span>
                 </span>

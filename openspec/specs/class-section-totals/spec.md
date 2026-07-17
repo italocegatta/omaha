@@ -279,6 +279,59 @@ removing redundant data.
   formatted deviation value (not "—")
 - **AND** the deviation sign styling (positive/negative) is unchanged
 
+#### Scenario: Zero deviation renders em-dash in Classe / Desvio
+
+- **GIVEN** a class whose `classDeviationPctClass` is within ±0.01 of 0
+- **WHEN** the dashboard renders the class totals row
+- **THEN** the cell `data-testid="class-total-deviation-class"` renders "—"
+- **AND** the cell does NOT render "0%"
+- **AND** the cell carries the `metric-neutral` class
+
+#### Scenario: Positive deviation renders green value in Classe / Desvio
+
+- **GIVEN** a class whose `classDeviationPctClass` is `+3.5`
+- **WHEN** the dashboard renders the class totals row
+- **THEN** the cell `data-testid="class-total-deviation-class"` renders "+4%"
+  (rounded via `formatDeviationPp`)
+- **AND** the cell carries the `metric-positive` class
+
+#### Scenario: Negative deviation renders red value in Classe / Desvio
+
+- **GIVEN** a class whose `classDeviationPctClass` is `-2.1`
+- **WHEN** the dashboard renders the class totals row
+- **THEN** the cell `data-testid="class-total-deviation-class"` renders "-2%"
+- **AND** the cell carries the `metric-negative` class
+
+#### Scenario: Zero deviation renders em-dash in Carteira / Desvio
+
+- **GIVEN** a class whose `classPortfolioDeviationPct` is within ±0.01 of 0
+- **WHEN** the dashboard renders the class totals row
+- **THEN** the cell `data-testid="class-total-deviation-portfolio"` renders "—"
+- **AND** the cell does NOT render "0%"
+- **AND** the cell carries the `metric-neutral` class
+
+#### Scenario: Positive deviation renders green value in Carteira / Desvio
+
+- **GIVEN** a class whose `classPortfolioDeviationPct` is `+1.2`
+- **WHEN** the dashboard renders the class totals row
+- **THEN** the cell `data-testid="class-total-deviation-portfolio"` renders "+1%"
+- **AND** the cell carries the `metric-positive` class
+
+#### Scenario: Negative deviation renders red value in Carteira / Desvio
+
+- **GIVEN** a class whose `classPortfolioDeviationPct` is `-0.8`
+- **WHEN** the dashboard renders the class totals row
+- **THEN** the cell `data-testid="class-total-deviation-portfolio"` renders "-1%"
+- **AND** the cell carries the `metric-negative` class
+
+#### Scenario: Sobra/Falta pill still overrides deviation display when present
+
+- **GIVEN** a class whose per-asset `target_pct_class` sum exceeds 100
+  (so `classDeltaMessage` is non-empty)
+- **WHEN** the dashboard renders the class totals row
+- **THEN** the Sobra/Falta pill (`data-testid="class-delta-badge"`) is visible
+- **AND** the em-dash fallback is NOT rendered (the pill takes precedence)
+
 ### Requirement: Gain cell renders absolute value and percentage together
 
 The system SHALL render the asset-table `Ganho` field as one visible cell that shows the absolute gain and percentual gain together. The absolute value SHALL keep the existing BRL display contract, and the percentual value SHALL keep the existing percentage display contract and sign styling.
