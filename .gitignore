@@ -39,6 +39,7 @@ target/
 vendor/
 *.log
 coverage/
+coverage.xml
 reports/coverage.xml
 reports/.coverage
 reports/*.log
