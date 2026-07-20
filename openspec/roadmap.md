@@ -453,11 +453,17 @@ Status: `Archived` — 2026-07-19
 Goal: formatar colunas Atual/Alvo/Desvio nos grupos Classe e Carteira com 1 casa decimal.
 Archive: `openspec/changes/archive/2026-07-19-f46-formatacao-1-casa-decimal-classe-e-carteira/`
 
+### F47 - Corrigir filtros teleport tabela patrimônio
+Status: `Archived` — 2026-07-20
+Goal: restaurar filtros na tabela patrimônio — remover teleport, alinhar com padrão rebalance, adicionar fallbacks inline.
+Archive: `openspec/changes/archive/2026-07-20-f47-corrigir-filtros-teleport-tabela-patrimonio/`
+Notes: Teleport removido. Overflow CSS corrigido. Fallbacks inline + static import + openFilter pré-populado.
+
 ---
 
 ## Recommended Execution Order
 
-**Active queue:** (vazia — última slice F46 arquivada)
+**Active queue:** F47 (Ready)
 
 Order note: F41-F45 são melhorias visuais na tabela de patrimônio. Ordens sugeridas:
 1. F43 (corrigir fonte) — CSS-only, correção visual rápida

@@ -1757,8 +1757,7 @@ td.editing {
 }
 
 .portfolio-table-shell {
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: visible;
 }
 
 .asset-table {

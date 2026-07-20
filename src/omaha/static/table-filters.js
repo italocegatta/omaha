@@ -224,24 +224,25 @@ export function computeFilteredRows(rows, columns, headerFilters, headerRangeFil
       if (!filter) return;
       var min = filter.min === null || filter.min === '' ? bounds.min : Number(filter.min);
       var max = filter.max === null || filter.max === '' ? bounds.max : Number(filter.max);
+      var field = fieldFn ? fieldFn(key) : key;
       if (column.key === 'operation') {
         var action = key === 'buy_amount' ? 'buy' : 'sell';
         if (min > bounds.min) {
           result = result.filter(function (r) {
-            return r.action !== action || (Number(r[key]) || 0) >= min;
+            return r.action !== action || (Number(r[field]) || 0) >= min;
           });
         }
         if (max < bounds.max) {
           result = result.filter(function (r) {
-            return r.action !== action || (Number(r[key]) || 0) <= max;
+            return r.action !== action || (Number(r[field]) || 0) <= max;
           });
         }
       } else {
         if (min > bounds.min) {
-          result = result.filter(function (r) { return (Number(r[key]) || 0) >= min; });
+          result = result.filter(function (r) { return (Number(r[field]) || 0) >= min; });
         }
         if (max < bounds.max) {
-          result = result.filter(function (r) { return (Number(r[key]) || 0) <= max; });
+          result = result.filter(function (r) { return (Number(r[field]) || 0) <= max; });
         }
       }
     });
