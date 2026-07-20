@@ -244,12 +244,12 @@
                             @click="startEdit(a.id)"
                             x-show="editingAssetId !== a.id && !readOnly"
                             title="Clique para editar">
-                      <span x-text="formatPctRounded(a.target_pct, 1)"></span>
+                      <span x-text="a.target_pct === 0 ? '—' : formatPctRounded(a.target_pct, 1)"></span>
                     </button>
                     <span class="asset-pct-cell asset-pct-cell--inline"
                           data-testid="asset-target-pct-class-static"
                           x-show="editingAssetId !== a.id && readOnly"
-                           x-cloak><span x-text="formatPctRounded(a.target_pct, 1)"></span></span>
+                           x-cloak><span x-text="a.target_pct === 0 ? '—' : formatPctRounded(a.target_pct, 1)"></span></span>
                     <div class="asset-pct-cell asset-pct-cell--editing asset-pct-cell--inline"
                          data-testid="asset-target-pct-class-editing"
                          x-show="editingAssetId === a.id"
@@ -284,12 +284,12 @@
                             @click="startEditTotal(a.id)"
                             x-show="editingTotalAssetId !== a.id && !readOnly"
                             title="Clique para editar">
-                      <span x-text="formatPctRounded(a.target_pct_total, 1)"></span>
+                      <span x-text="a.target_pct_total === 0 ? '—' : formatPctRounded(a.target_pct_total, 1)"></span>
                     </button>
                     <span class="asset-pct-cell asset-pct-cell--inline"
                           data-testid="asset-target-pct-total-static"
                           x-show="editingTotalAssetId !== a.id && readOnly"
-                            x-cloak><span x-text="formatPctRounded(a.target_pct_total, 1)"></span></span>
+                             x-cloak><span x-text="a.target_pct_total === 0 ? '—' : formatPctRounded(a.target_pct_total, 1)"></span></span>
                     <div class="asset-pct-cell asset-pct-cell--editing asset-pct-cell--inline"
                          data-testid="asset-target-pct-total-editing"
                          x-show="editingTotalAssetId === a.id"

@@ -262,8 +262,8 @@
                       }">
                     <td x-text="row.name"></td>
                     <td x-text="row.qty"></td>
-                    <td>R$ <span x-text="$store.importModal.formatBRL(row.avg_price, 0)"></span></td>
-                    <td>R$ <span x-text="$store.importModal.formatBRL(row.current_value, 0)"></span></td>
+                    <td><span x-text="$store.importModal.formatBRL(row.avg_price, 0)"></span></td>
+                    <td><span x-text="$store.importModal.formatBRL(row.current_value, 0)"></span></td>
                     <td class="import-class-cell"
                         :class="cellColor === 'transparent' ? 'import-class-cell--pending' : 'import-class-cell--cls-' + getClassIndex(cellColor)"
                         data-testid="import-class-cell-existing">
@@ -348,8 +348,8 @@
                       }">
                     <td x-text="row.name"></td>
                     <td x-text="row.qty"></td>
-                    <td>R$ <span x-text="$store.importModal.formatBRL(row.avg_price, 0)"></span></td>
-                    <td>R$ <span x-text="$store.importModal.formatBRL(row.current_value, 0)"></span></td>
+                    <td><span x-text="$store.importModal.formatBRL(row.avg_price, 0)"></span></td>
+                    <td><span x-text="$store.importModal.formatBRL(row.current_value, 0)"></span></td>
                     <td class="import-class-cell"
                         :class="cellColor === 'transparent' ? 'import-class-cell--pending' : 'import-class-cell--cls-' + getClassIndex(cellColor)"
                         data-testid="import-class-cell-assignment">
@@ -1167,6 +1167,7 @@
             self.editingClassPct = false;
             self.editClassPctValue = '';
             self.editClassPctError = '';
+            self._initFilterBounds();
           })
           .catch(function (err) {
             self.editClassPctError = err && err.message ? err.message : 'Erro ao salvar';
@@ -1292,6 +1293,7 @@
             self.editingAssetId = null;
             self.editingValue = '';
             self.error = '';
+            self._initFilterBounds();
           })
           .catch(function (err) {
             self.error = err && err.message ? err.message : 'Erro ao salvar';
@@ -1349,6 +1351,7 @@
             self.editingTotalAssetId = null;
             self.editingTotalValue = '';
             self.errorTotal = '';
+            self._initFilterBounds();
           })
           .catch(function (err) {
             self.errorTotal = err && err.message ? err.message : 'Erro ao salvar';

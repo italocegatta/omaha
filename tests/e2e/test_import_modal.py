@@ -219,7 +219,7 @@ class TestS04ImportModal:
         )
         import re as _re
 
-        assert _re.match(r"^R\$ [\d.]+$", first_unmatched_total), (
+        assert _re.match(r"^R\$[\s\xa0][\d.]+$", first_unmatched_total), (
             f"Total atual not in R$ X.XXX format (0 decimals): {first_unmatched_total!r}"
         )
 
@@ -228,7 +228,7 @@ class TestS04ImportModal:
         assert first_unmatched_price.startswith("R$"), (
             f"expected Preço médio cell to start with R$, got {first_unmatched_price!r}"
         )
-        assert _re.match(r"^R\$ [\d.]+$", first_unmatched_price), (
+        assert _re.match(r"^R\$[\s\xa0][\d.]+$", first_unmatched_price), (
             f"Preço médio not in R$ X.XXX format: {first_unmatched_price!r}"
         )
 

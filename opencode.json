@@ -32,6 +32,12 @@
       "description": "Requirements exploration agent for one slice.",
       "mode": "subagent",
       "model": "xiaomi-token-plan-sgp/mimo-v2.5-pro"
+    },
+    "slice": {
+      "description": "Decompose user demand into atomic, coherent OpenSpec slices and register them in the roadmap.",
+      "mode": "subagent",
+      "model": "xiaomi-token-plan-sgp/mimo-v2.5-pro",
+      "temperature": 0.2
     }
   }
 }

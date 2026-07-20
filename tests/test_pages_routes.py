@@ -655,7 +655,7 @@ def test_class_section_renders_pct_with_one_decimal_when_empty(client: TestClien
     )
     assert match is not None, f"class-current-pct x-text not found in {block[:500]!r}"
     expr = match.group(1)
-    expected = "formatPctRounded(classCurrentPct)"
+    expected = "formatPctRounded(classCurrentPct, 1)"
     assert expr == expected, f"unexpected class-current-pct x-text: {expr!r}"
 
 

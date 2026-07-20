@@ -99,7 +99,6 @@ def _do_import(page: Page) -> None:
     page.wait_for_timeout(300)
     page.set_input_files(SELECTORS["import_file_input"], str(FIXTURE_PATH))
     page.wait_for_timeout(300)
-    page.click(SELECTORS["import_upload_btn"], force=True)
     page.wait_for_selector(SELECTORS["import_commit_btn"], timeout=10000)
 
     # Assign classes to unmatched rows that have no selection.

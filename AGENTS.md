@@ -87,7 +87,8 @@ live under `.opencode/skills/`.
 
 | Agent | Path | Type | Function |
 |-------|------|------|----------|
-| **roadmap** | `.opencode/agents/roadmap.md` | primary | Orchestrator. Decomposes PRD/epic into slices, manages lifecycle, routes to subagents. Never implements code directly. |
+| **roadmap** | `.opencode/agents/roadmap.md` | primary | Orchestrator. Routes demand to slice decomposition, then manages propose → apply → review → finalize lifecycle per slice. Never implements code directly. |
+| **slice** | `.opencode/agents/slice.md` | subagent | Decomposes user demand into atomic, coherent OpenSpec slices. Writes slices to roadmap. Uses grill-me to sharpen decomposition. |
 | **explore** | `.opencode/agents/explore.md` | subagent | Clarifies ambiguous scope before proposal. Reads codebase, investigates, hands off focused context to propose. |
 | **propose** | `.opencode/agents/propose.md` | subagent | Creates proposal.md, design.md, tasks.md, and delta specs for one slice. |
 | **apply** | `.opencode/agents/apply.md` | subagent | Implements tasks from an OpenSpec change. Follows surgical fix model for bugfixes (PRD §4.14). |
@@ -103,7 +104,7 @@ live under `.opencode/skills/`.
 | openspec-archive-change | `.opencode/skills/openspec-archive-change/SKILL.md` | finalize agent |
 | openspec-sync-specs | `.opencode/skills/openspec-sync-specs/SKILL.md` | finalize agent |
 | refresh-for-test | `.opencode/skills/refresh-for-test/SKILL.md` | delivery verification |
-| grill-me | `.opencode/skills/grill-me/SKILL.md` | roadmap agent (questioning) |
+| grill-me | `.opencode/skills/grill-me/SKILL.md` | slice agent (questioning) |
 
 ### 2.4 Operational scripts
 - **`scripts/print_lan_url.sh`** — discover the canonical dev URL.

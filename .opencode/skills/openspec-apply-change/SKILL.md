@@ -150,6 +150,7 @@ What would you like to do?
 - Update task checkbox immediately after completing each task
 - Pause on errors, blockers, or unclear requirements - don't guess
 - Use contextFiles from CLI output, don't assume specific file names
+- **After ALL tasks complete, run `uv run task test` — full suite must be green before reporting done**
 
 **Fluid Workflow Integration**
 

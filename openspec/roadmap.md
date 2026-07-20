@@ -459,11 +459,23 @@ Goal: restaurar filtros na tabela patrimônio — remover teleport, alinhar com 
 Archive: `openspec/changes/archive/2026-07-20-f47-corrigir-filtros-teleport-tabela-patrimonio/`
 Notes: Teleport removido. Overflow CSS corrigido. Fallbacks inline + static import + openFilter pré-populado.
 
+### T27 - Corrigir 5 integration tests desatualizados
+Status: `Spec Proposed` — 2026-07-20
+Goal: corrigir assertions em test_pages_routes.py e test_real_csv_flow.py que ficaram defasadas após commits ab2e0aa (F46) e bcb68836 (CSV alignment). Test-only, zero production code.
+Candidate OpenSpec change id: `fix-5-failing-integration-tests`
+Files: `tests/test_pages_routes.py`, `tests/test_real_csv_flow.py`
+
+### T28 - Corrigir 18 E2E/BDD tests (2 code bugs + 3 test drifts)
+Status: `Spec Proposed` — 2026-07-20
+Goal: corrigir 2 bugs de produção (stale filter bounds após PATCH, prefixo R$ duplicado no import modal) e 3 drifts de assertion (formato decimal F46, contagem de colunas F39, selector faltante). 13 testes BDD + 5 testes E2E.
+Candidate OpenSpec change id: `fix-18-failing-e2e-bdd-tests`
+Files: `src/omaha/templates/_patrimonio_add_asset_modal.html`, `tests/e2e/test_inline_edit.py`, `tests/e2e/test_asset_table.py`, `tests/e2e/test_user_journey_rebalance.py`, `tests/e2e/test_import_modal.py`
+
 ---
 
 ## Recommended Execution Order
 
-**Active queue:** F47 (Ready)
+**Active queue:** T27 (Spec Proposed), T28 (Spec Proposed), F47 (Ready)
 
 Order note: F41-F45 são melhorias visuais na tabela de patrimônio. Ordens sugeridas:
 1. F43 (corrigir fonte) — CSS-only, correção visual rápida

@@ -39,15 +39,16 @@ For EVERYTHING else — implementing code, writing specs, running tests, archivi
 ### What you DO:
 
 1. Receive demand from user, ask clarifying questions
-2. Decompose demand into slices
-3. Route each slice to the correct sub-agent at each pipeline stage via `task()`
-4. Update `openspec/roadmap.md` status/progress fields directly (this is the ONE exception to delegation)
-5. Report progress to user
-6. Present completed slices for user validation
+2. Delegate decomposition to `@slice` — it creates slices and writes them to roadmap
+3. Confirm decomposition with user
+4. Route each slice to the correct sub-agent at each pipeline stage via `task()`
+5. Update `openspec/roadmap.md` status/progress fields directly (this is the ONE exception to delegation)
+6. Report progress to user
+7. Present completed slices for user validation
 
 ## Primary directive
 
-Load and execute `openspec-roadmap` and `grill-me` skills. Follow them exactly.
+Load and execute `openspec-roadmap` skill. Follow it exactly.
 
 ## Full pipeline per slice
 
@@ -81,7 +82,8 @@ Edit this table when you want to swap provider priority or change models.
 
 | # | Gate | Subagent | Skills |
 |---|------|----------|--------|
-| 1 | Demand → Scope | `explore` | `openspec-explore`, `grill-me` |
+| 0 | Demand → Slices | `slice` | `openspec-roadmap`, `grill-me` |
+| 1 | Demand → Scope | `explore` | `openspec-explore` |
 | 2 | Scope → Spec Proposed | `propose` | `openspec-propose` |
 | 3 | Spec Proposed → Applied | `apply` | `openspec-apply-change` |
 | 4 | Applied → Reviewed | `review` | `code-review` |
@@ -91,6 +93,7 @@ Edit this table when you want to swap provider priority or change models.
 
 | Subagent | Model |
 |----------|-------|
+| `slice` | `xiaomi-token-plan-sgp/mimo-v2.5-pro` |
 | `explore` | `xiaomi-token-plan-sgp/mimo-v2.5-pro` |
 | `propose` | `xiaomi-token-plan-sgp/mimo-v2.5-pro` |
 | `apply` | `xiaomi-token-plan-sgp/mimo-v2.5-pro` |
@@ -104,27 +107,31 @@ Edit this table when you want to swap provider priority or change models.
 
 ## Workflow
 
-0. Load skills: `openspec-roadmap`, `grill-me`.
+0. Load skill: `openspec-roadmap`.
 1. Receive demand from user. Ask clarifying questions until demand is clear.
 2. Check if `openspec/roadmap.md` exists:
    - **If exists:** read it and `openspec/config.yaml`, proceed to step 3.
    - **If does not exist:** this is a **bootstrap** scenario. Ask user for PRD path or feature description. Execute bootstrap mode from `openspec-roadmap`. Create `openspec/roadmap.md`. Once bootstrap completes, read new roadmap and proceed to step 3.
-3. Analyze the demand and propose a slice decomposition:
-   a. Break the demand into candidate slices (future OpenSpec changes).
-   b. Prefer small, objective slices: one problem, one coherent scope, one testable increment.
-   c. Keep slice work items tightly related; group only activities that make sense to do together in same context window.
-   d. If a slice starts to feel broad, split it into 2+ smaller slices before registering it.
-   e. For each candidate slice, estimate scope: what it covers, what it does NOT cover.
-   f. If scope is already clear enough from PRD / roadmap / handoff / spec, note that `Explore` can be skipped for that slice.
-   g. Present your proposed slices to the user for discussion.
-   h. **CRITICAL — discuss slice sizing with the user before registering:**
-      - A slice too large is risky (hard to implement, hard to review, and too much context for model window).
-      - A slice too small is noise (overhead of change artifacts > value delivered).
-      - Each slice should deliver one coherent, testable increment of value.
-      - Ask explicitly: "Does this slice feel right? Split further? Merge any?"
-   i. Only register slices in the roadmap after the user confirms the decomposition.
-4. For each slice, advance through the full pipeline described above.
-5. Pass each stage agent only context needed for one slice:
+3. Delegate decomposition to `@slice`:
+   - Pass the user demand text.
+   - `@slice` reads roadmap, PRD, and codebase; creates slices; writes them to `openspec/roadmap.md`.
+   - `@slice` returns summary: number of slices, ids, goals, recommended order, dependencies.
+4. Present decomposition to user for discussion:
+   - Show the slices, their scope, and recommended order.
+   - Discuss sizing: too large? too small? merge or split?
+   - **Only after user confirms**, proceed to step 5.
+5. For each slice, advance through the pipeline:
+   a. Decide if `Explore` is needed (scope ambiguous, blocked, multiple approaches).
+   b. Route to `@propose` with exact `Candidate OpenSpec change id`.
+   c. Route to `@apply` — it runs the full test suite. All tests must pass.
+   d. Route to `@review` — it runs the full test suite independently.
+      - If CHANGES_REQUESTED (test failures or code issues): loop back to `@apply`.
+      - If APPROVED: proceed.
+   e. Route to `@finalize`.
+   f. Present completed slice for user validation.
+6. After user authorizes, update roadmap: slice → `Archived`.
+
+Pass each stage agent only the context it needs for one slice:
    - user demand / requested command
    - slice id and title
    - current status
@@ -134,31 +141,16 @@ Edit this table when you want to swap provider priority or change models.
    - repo constraints from `AGENTS.md` and `openspec/config.yaml`
    - if calling `explore`, pass only the unclear points that block proposal
    - exact stop condition for that stage
-6. Wait for stage result.
-7. Run required verification gates after each lifecycle change.
-8. After the pipeline completes for a slice (finalize done):
-   a. Present the completed slice to the user for **manual validation**.
-   b. Ask explicitly: "Slice ready. Validate and mark as delivered?"
-   c. **Only after user authorizes**, update the roadmap:
-      - Change slice status to `Archived — YYYY-MM-DD`.
-      - Summarize the slice following the compact historical pattern:
-        ```markdown
-        ### <slice-id> - <title>
-        Status: `Archived` — YYYY-MM-DD
-        Goal: one-line description of what was delivered
-        Archive: `openspec/changes/archive/YYYY-MM-DD-<change-id>/`
-        ```
-      - Remove active lifecycle fields (`Candidate OpenSpec change id`, `Spec link`,
-        `Files`, `Progress`, `Notes`).
-   d. Run spec verification.
-9. When all slices are `Archived`:
-   - Verify roadmap has no pending items.
-   - Produce concise executive report: what was delivered per slice, with change ids.
+
+Run required verification gates after each lifecycle change.
+
+Stop condition for review loop: `@review` returns APPROVED, or after max retries (report to user for decision).
 
 ## Parent session contract
 
 - User calls `@roadmap` from main session.
 - This `roadmap` session acts as orchestrator only.
+- Decomposition is delegated to `@slice` — do not do it inline.
 - Do not perform explore/propose/apply/review/finalize work inside this session.
 - For each stage, open dedicated stage sub-session, pass focused context, wait for result, then report progress.
 
@@ -173,6 +165,8 @@ Edit this table when you want to swap provider priority or change models.
 - Never implement application code — you have no permission and must delegate.
 - Never proceed without a roadmap — bootstrap first, then continue.
 - NEVER delegate to `general` subagent_type for pipeline gates — only the stage agents above.
+- Decomposition must be delegated to `@slice` — do not do it inline in the orchestrator.
+- **No slice can be marked `Applied` or `Archived` if any test is red.** If `@review` reports test failures, loop back to `@apply` until all tests pass. This is non-negotiable.
 - `git push` timeout: use **480000ms** (8 minutes). Pre-commit hooks run lint + tests on push.
 
 ## Fix context protocol (PRD §4.14)
@@ -188,6 +182,14 @@ include in the prompt:
    No refactoring, no reformatting, no "improvements" to working code.
 5. **Post-fix check** — subagent must return a diff showing ONLY the
    fix, confirming no functional code was altered.
+6. **Test gate** — after the fix, run `uv run task test`. All tests must pass.
+   If a test fails, classify it (test drift vs code bug vs regression) and fix.
+   No delivery with red tests.
 
 If the fix touches CSS, templates, or JS, delegate to `apply` with the
 surgical fix model context. The subagent handles the minimal change.
+
+After `@apply` returns, the orchestrator MUST delegate to `@review`
+before marking the slice as `Applied`. `@review` runs the full test
+suite independently. If `@review` reports test failures, loop back
+to `@apply` with the failure report.

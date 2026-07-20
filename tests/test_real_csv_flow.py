@@ -139,6 +139,7 @@ def _expected_class_by_ticker() -> dict[str, str]:
             "CDB Pós  CDI+1,3% 05/04/2027 AGIBANK": "Renda Fixa",
             "RDB Pós 120% CDI 15/05/2028 Caixinha Turbo NuCel": "Renda Fixa",
             "RDB Pós 120% CDI 04/06/2027 Caixinha Ultravioleta": "Renda Fixa",
+            "Conta corrente em dólar Avenue": "Renda Variavel",
         }
     )
     return out
@@ -187,7 +188,7 @@ def _create_assets(class_map: dict[str, int], names: list[tuple[str, str]]) -> N
         db.close()
 
 
-# Assignments for 5 zero-qty rows in current CSV.
+# Assignments for 6 zero-qty rows in current CSV.
 _ASSIGNMENTS = [
     {"broker_ticker": "RDB Pós 100% CDI 01/08/2033", "class_name": "Renda Variavel"},
     {"broker_ticker": "RDB Pós 100% CDI 01/06/2035", "class_name": "Renda Variavel"},
@@ -200,6 +201,7 @@ _ASSIGNMENTS = [
         "broker_ticker": "RDB Pós 120% CDI 04/06/2027 Caixinha Ultravioleta",
         "class_name": "Renda Fixa",
     },
+    {"broker_ticker": "Conta corrente em dólar Avenue", "class_name": "Renda Variavel"},
 ]
 
 
@@ -222,12 +224,12 @@ class TestParseRealCsv:
             f"Expected CSV row count, got {len(result)}"
         )
 
-        # Spot-check: "Conta corrente em dólar Avenue" included with qty=1
+        # Spot-check: "Conta corrente em dólar Avenue" included with qty=0
         conta = [r for r in result if "conta corrente" in r.name.lower()]
         assert len(conta) == 1, (
             "Conta corrente em dólar Avenue should be parsed (not filtered as footer)"
         )
-        assert conta[0].qty == Decimal("1"), "Conta corrente qty should be 1"
+        assert conta[0].qty == Decimal("0"), "Conta corrente qty should be 0"
 
         # Spot-check: "47 ativos" footer is excluded
         footer = [r for r in result if "47" in r.name]
@@ -515,13 +517,14 @@ class TestPreviewChangesAfterAddingAssets:
         assert len(data1["auto_matched"]) == len(_seed_assets())
         assert len(data1["unmatched"]) == len(_unmatched_tickers())
 
-        # Create the remaining 5 assets
+        # Create the remaining 6 assets
         remaining = [
             ("Renda Variavel", "RDB Pós 100% CDI 01/08/2033"),
             ("Renda Variavel", "RDB Pós 100% CDI 01/06/2035"),
             ("Renda Fixa", "CDB Pós  CDI+1,3% 05/04/2027 AGIBANK"),
             ("Renda Fixa", "RDB Pós 120% CDI 15/05/2028 Caixinha Turbo NuCel"),
             ("Renda Fixa", "RDB Pós 120% CDI 04/06/2027 Caixinha Ultravioleta"),
+            ("Renda Variavel", "Conta corrente em dólar Avenue"),
         ]
         _create_assets(class_map, remaining)
 

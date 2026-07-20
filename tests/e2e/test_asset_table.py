@@ -209,7 +209,7 @@ class TestS10AssetTable:
         assert _read_target_pct("Ativo A") == 66.666667, (
             "Ativo A target_pct should be persisted from server-side shortcut conversion"
         )
-        assert "20" in target_row.locator(SELECTORS["asset_target_pct_total"]).first.inner_text()
+        assert "20.0" in target_row.locator(SELECTORS["asset_target_pct_total"]).first.inner_text()
 
     def test_modal_add_asset_flow(self, page: Page, live_url: str) -> None:
         """Open the dashboard add-asset modal, submit, and verify the new row."""
@@ -486,7 +486,7 @@ class TestS10AssetTable:
         # structural property that catches a real regression: column
         # widths sum to the table width, and every column falls within
         # a sane band.
-        _N_COLS = 19
+        _N_COLS = 16
         width_data = page.evaluate(
             """() => {
                 const table = document.querySelector('[data-testid="asset-table"]');

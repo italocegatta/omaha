@@ -85,3 +85,10 @@ A change can pass one axis and fail the other:
 - Code that does exactly what the issue asked but breaks the project's conventions → **Spec pass, Standards fail.**
 
 Reporting them separately stops one axis from masking the other.
+
+## Test gate (mandatory)
+
+Before running the two-axis review, run the full test suite (`uv run task test`).
+
+- **All green** → proceed to Standards + Spec review.
+- **Any failure** → STOP. Classify each failure (test drift / code bug / regression), report in the review as CHANGES_REQUESTED. Do not proceed to code review until tests are green.

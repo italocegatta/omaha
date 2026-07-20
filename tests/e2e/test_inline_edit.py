@@ -351,14 +351,14 @@ class TestS01InlineEdit:
         target_class_text = updated_row.locator(
             SELECTORS["asset_target_pct_class"]
         ).first.inner_text()
-        assert "40.00" in target_class_text, f"expected '40.00% classe', got {target_class_text!r}"
+        assert "40.0" in target_class_text, f"expected '40.0% classe', got {target_class_text!r}"
         assert "%" in target_class_text, f"target class cell missing %: {target_class_text!r}"
 
         target_total_text = updated_row.locator(
             SELECTORS["asset_target_pct_total"]
         ).first.inner_text()
-        assert "24.00" in target_total_text, (
-            f"expected '24.00% total' (60%% × 40 / 100), got {target_total_text!r}"
+        assert "24.0" in target_total_text, (
+            f"expected '24.0% total' (60%% × 40 / 100), got {target_total_text!r}"
         )
 
         # Server-side state: the DB has target_pct=40.
