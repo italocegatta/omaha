@@ -344,7 +344,7 @@ The system SHALL render the asset-table `Ganho` field as one visible cell that s
 
 ### Requirement: Asset table numeric values use compact precision
 
-The system SHALL render monetary cells in the asset table with 0 decimal places. The `Qtd` column SHALL render with 0 decimal places for all assets except BTC, which SHALL render with 3 decimal places. Its range-filter labels SHALL retain that BTC precision when their value belongs to BTC. Percentage values in `Ganho`, `Classe / Atual`, `Classe / Alvo`, `Carteira / Atual`, `Carteira / Alvo`, and `Carteira / Desvio` SHALL render with 0 decimal places; percentage values in other columns SHALL keep their established formatter. A rounded value whose magnitude is below one whole percentage point SHALL render as `0%`, never `-0%`. Exact numeric zero SHALL also render as `0%`; `—` is reserved for absent or invalid values.
+The system SHALL render monetary cells in the asset table with 0 decimal places. The `Qtd` column SHALL render with 0 decimal places for all assets except BTC, which SHALL render with 3 decimal places. Its range-filter labels SHALL retain that BTC precision when their value belongs to BTC. Percentage values in `Ganho` SHALL render with 0 decimal places. Percentage values in `Classe / Atual`, `Classe / Alvo`, `Classe / Desvio`, `Carteira / Atual`, `Carteira / Alvo`, and `Carteira / Desvio` SHALL render with 1 decimal place. A rounded value whose magnitude is below one whole percentage point SHALL render as `0%`, never `-0%`. Exact numeric zero SHALL also render as `0%`; `—` is reserved for absent or invalid values.
 
 #### Scenario: BTC quantity keeps 3 decimal places
 
@@ -364,7 +364,7 @@ The system SHALL render monetary cells in the asset table with 0 decimal places.
 
 #### Scenario: Rounded negative percentage near zero is normalized
 
-- **WHEN** a requested whole-percentage cell has a value of `-0.4`
+- **WHEN** a requested percentage cell has a value of `-0.4`
 - **THEN** it renders as `0%`
 
 #### Scenario: Exact zero target remains a percentage
@@ -373,11 +373,24 @@ The system SHALL render monetary cells in the asset table with 0 decimal places.
 - **THEN** it renders as `0%`
 - **AND** it does not render as `—`
 
-#### Scenario: Only requested percentage columns use whole percentages
+#### Scenario: Classe and Carteira columns use 1 decimal place
 
 - **WHEN** an asset row includes percentage values with fractional precision
-- **THEN** `Ganho`, `Classe / Atual`, `Classe / Alvo`, `Carteira / Atual`, `Carteira / Alvo`, and `Carteira / Desvio` render whole percentages
-- **AND** `Classe / Desvio` keeps its established percentage precision
+- **THEN** `Classe / Atual`, `Classe / Alvo`, `Classe / Desvio`, `Carteira / Atual`, `Carteira / Alvo`, and `Carteira / Desvio` render with 1 decimal place
+- **AND** `Ganho` renders with 0 decimal places
+
+#### Scenario: Class totals row Carteira columns use 1 decimal place
+
+- **WHEN** the dashboard renders a class totals row
+- **THEN** `data-testid="class-total-current-pct-portfolio"` renders with 1 decimal place (e.g. `23.5%`)
+- **AND** `data-testid="class-total-deviation-portfolio"` renders with 1 decimal place (e.g. `+1.2%`)
+
+#### Scenario: Class totals row Classe Desvio uses 1 decimal place
+
+- **GIVEN** a class whose `classDeviationPctClass` is `+3.56`
+- **WHEN** the dashboard renders the class totals row
+- **THEN** the cell `data-testid="class-total-deviation-class"` renders `+3.6%` (1 decimal place)
+- **AND** the cell carries the `metric-positive` class
 
 ### Requirement: Asset table exposes range filters for quantity and average price
 

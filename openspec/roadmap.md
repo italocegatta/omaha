@@ -429,18 +429,9 @@ Goal: remover valores de Atual e Alvo (sempre 100%/100%) da linha de totais da c
 Archive: `openspec/changes/archive/2026-07-17-f41-remover-atual-e-alvo-da-linha-de-totais-da-classe/`
 
 ### F42 - Desvio condicional na linha de totais
-Status: `Applying`
-Goal: exibir desvio na linha de totais apenas quando diferente de zero. Verde para positivo, vermelho para negativo, "—" para zero.
-Candidate OpenSpec change id: `f42-desvio-condicional-na-linha-de-totais`
-Spec link: `openspec/changes/f42-desvio-condicional-na-linha-de-totais/`
-Files:
-- `src/omaha/templates/_patrimonio_class_section.html` (linhas 139-145, 186-191)
-Notes: lógica x-show/x-if com x-text condicional. CSS `signClass` já faz verde/vermelho.
-Progress:
-- Proposed: 2026-07-17
-- Applying: 2026-07-17
-- Applied: pending
-- Archived: pending
+Status: `Archived` — 2026-07-17
+Goal: exibir desvio na linha de totais apenas quando diferente de zero (verde positivo, vermelho negativo, "—" para zero).
+Archive: `openspec/changes/archive/2026-07-17-f42-desvio-condicional-na-linha-de-totais/`
 
 ### F43 - Corrigir tamanho da fonte na linha de totais
 Status: `Archived` — 2026-07-17
@@ -457,11 +448,18 @@ Status: `Archived` — 2026-07-17
 Goal: quebrar linha contínua de borda entre headers "Classe" e "Carteira" para criar 2 segmentos visuais distintos.
 Archive: `openspec/changes/archive/2026-07-17-f45-separar-visualmente-grupos-classe-e-carteira/`
 
+### F46 - Formatação 1 casa decimal nas colunas Classe e Carteira
+Status: `Applied` — validação visual OK (2026-07-19)
+Goal: formatar colunas "Atual", "Alvo", "Desvio" nos grupos "Classe" e "Carteira" da tabela de patrimônio com 1 casa decimal (incluindo linha de totais), mantendo formatação centralizada e fácil de alterar.
+Candidate OpenSpec change id: `f46-formatacao-1-casa-decimal-classe-e-carteira`
+Spec link: `openspec/changes/f46-formatacao-1-casa-decimal-classe-e-carteira/`
+Files: `src/omaha/templates/_patrimonio_class_section.html` (only template edits — formatters already accept decimals param)
+
 ---
 
 ## Recommended Execution Order
 
-**Active queue:** F41 → F42 → F43 → F44 → F45
+**Active queue:** F46 (única slice ativa — F41-F45 já archived)
 
 Order note: F41-F45 são melhorias visuais na tabela de patrimônio. Ordens sugeridas:
 1. F43 (corrigir fonte) — CSS-only, correção visual rápida

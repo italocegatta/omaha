@@ -50,12 +50,13 @@ export function formatPct(value) {
 }
 
 /**
- * Format value as percentage rounded to 0 decimals (X%).
+ * Format value as percentage rounded to N decimals (default 0).
  * Returns '—' for null/undefined/NaN.
  */
-export function formatPctRounded(value) {
+export function formatPctRounded(value, decimals) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
-  return Math.round(Number(value)) + '%';
+  var d = decimals || 0;
+  return Number(value).toFixed(d) + '%';
 }
 
 /**
@@ -75,12 +76,13 @@ export function formatQty(value, assetName) {
 
 /**
  * Format deviation in percentage points with explicit sign (+X% or -X%).
- * 0 decimals. Returns '0%' for zero.
+ * Default 0 decimals. Returns '0%' for zero.
  */
-export function formatDeviationPp(value) {
+export function formatDeviationPp(value, decimals) {
   var n = Number(value) || 0;
+  var d = decimals || 0;
   var sign = n >= 0 ? '+' : '';
-  return sign + n.toFixed(0) + '%';
+  return sign + n.toFixed(d) + '%';
 }
 
 // ── Sign logic ──────────────────────────────────────────────────

@@ -701,9 +701,9 @@
         var f = window.__tableFormatters;
         return f ? f.formatPct(value) : (value === null || value === undefined || Number.isNaN(Number(value)) ? '—' : Number(value).toFixed(2) + '%');
       },
-      formatPctRounded: function (value) {
+      formatPctRounded: function (value, decimals) {
         var f = window.__tableFormatters;
-        return f ? f.formatPctRounded(value) : (value === null || value === undefined || Number.isNaN(Number(value)) ? '—' : Math.round(Number(value)) + '%');
+        return f ? f.formatPctRounded(value, decimals) : (value === null || value === undefined || Number.isNaN(Number(value)) ? '—' : Number(value).toFixed(decimals || 0) + '%');
       },
       formatPctOrDash: function (value) {
         if (value === 0 || value === '0' || value === 0.0) return '—';
@@ -736,9 +736,9 @@
       // f40-bug2: standalone formatDeviationPp needed by asset table cells
       // (class-deviation, portfolio-deviation). Delegates to shared module
       // with inline fallback for null/NaN.
-      formatDeviationPp: function (value) {
+      formatDeviationPp: function (value, decimals) {
         var f = window.__tableFormatters;
-        return f ? f.formatDeviationPp(value) : (value === null || value === undefined || Number.isNaN(Number(value)) ? '—' : (Number(value) >= 0 ? '+' : '') + Number(value).toFixed(0) + '%');
+        return f ? f.formatDeviationPp(value, decimals) : (value === null || value === undefined || Number.isNaN(Number(value)) ? '—' : (Number(value) >= 0 ? '+' : '') + Number(value).toFixed(decimals || 0) + '%');
       },
 
       // asset-table-view 6.x/7.x: sortable asset table state. Lives

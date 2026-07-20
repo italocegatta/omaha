@@ -141,11 +141,11 @@
                 <span class="metric-placeholder" x-show="!classDeltaMessage && Math.abs(classDeviationPctClass) < 0.0001">—</span>
                 <span class="metric-stack" x-show="!classDeltaMessage && Math.abs(classDeviationPctClass) >= 0.0001">
                   <span class="icon icon--sm metric-sign" x-text="signIcon(classDeviationPctClass)" aria-hidden="true"></span>
-                  <span x-text="formatDeviationPp(classDeviationPctClass)"></span>
+                  <span x-text="formatDeviationPp(classDeviationPctClass, 1)"></span>
                 </span>
               </td>
               <td class="data-table-td" data-testid="class-total-current-pct-portfolio">
-                <span class="pct-current-pill" data-testid="class-current-pct" x-text="formatPctRounded(classCurrentPct)"></span>
+                <span class="pct-current-pill" data-testid="class-current-pct" x-text="formatPctRounded(classCurrentPct, 1)"></span>
               </td>
               <td class="data-table-td" data-testid="class-total-target-pct-portfolio">
                 {% if view == 'profile' %}
@@ -155,7 +155,7 @@
                         x-show="!editingClassPct"
                         @click.stop="startEditClassPct()"
                         title="Clique para editar">
-                  <span x-text="formatPctRounded(classTargetPct)"></span>
+                  <span x-text="formatPctRounded(classTargetPct, 1)"></span>
                 </button>
                 <span class="asset-pct-cell asset-pct-cell--editing asset-pct-cell--inline"
                       data-testid="class-target-pct-edit"
@@ -188,7 +188,7 @@
                 <span class="metric-placeholder" x-show="Math.abs(classPortfolioDeviationPct) < 0.0001">—</span>
                 <span class="metric-stack" x-show="Math.abs(classPortfolioDeviationPct) >= 0.0001">
                   <span class="icon icon--sm metric-sign" x-text="signIcon(classPortfolioDeviationPct)" aria-hidden="true"></span>
-                  <span x-text="formatDeviationPp(classPortfolioDeviationPct)"></span>
+                  <span x-text="formatDeviationPp(classPortfolioDeviationPct, 1)"></span>
                 </span>
               </td>
               <td class="data-table-td"></td>
@@ -237,19 +237,19 @@
                       <span x-text="formatMoney(a.position_deviation_value, a.currency_code)"></span>
                     </span>
                   </td>
-                  <td class="data-table-td" data-testid="asset-current-pct-class"><span data-testid="asset-pct" hidden x-text="a.current_pct_class"></span><span x-text="formatPctRounded(a.current_pct_class)"></span></td>
+                  <td class="data-table-td" data-testid="asset-current-pct-class"><span data-testid="asset-pct" hidden x-text="a.current_pct_class"></span><span x-text="formatPctRounded(a.current_pct_class, 1)"></span></td>
                   <td class="data-table-td" data-testid="asset-target-pct-class">
                     <button type="button"
                             class="asset-pct-cell asset-pct-cell--editable asset-pct-cell--inline"
                             @click="startEdit(a.id)"
                             x-show="editingAssetId !== a.id && !readOnly"
                             title="Clique para editar">
-                      <span x-text="formatPctRounded(a.target_pct)"></span>
+                      <span x-text="formatPctRounded(a.target_pct, 1)"></span>
                     </button>
                     <span class="asset-pct-cell asset-pct-cell--inline"
                           data-testid="asset-target-pct-class-static"
                           x-show="editingAssetId !== a.id && readOnly"
-                           x-cloak><span x-text="formatPctRounded(a.target_pct)"></span></span>
+                           x-cloak><span x-text="formatPctRounded(a.target_pct, 1)"></span></span>
                     <div class="asset-pct-cell asset-pct-cell--editing asset-pct-cell--inline"
                          data-testid="asset-target-pct-class-editing"
                          x-show="editingAssetId === a.id"
@@ -274,22 +274,22 @@
                   <td class="data-table-td" data-testid="asset-class-deviation" :class="signClass(a.class_deviation_pct)">
                     <span class="metric-stack">
                       <span class="icon icon--sm metric-sign" x-text="signIcon(a.class_deviation_pct)" aria-hidden="true"></span>
-                      <span x-text="formatDeviationPp(a.class_deviation_pct)"></span>
+                      <span x-text="formatDeviationPp(a.class_deviation_pct, 1)"></span>
                     </span>
                   </td>
-                  <td class="data-table-td" data-testid="asset-current-pct-total" x-text="formatPctRounded(a.current_pct_total)"></td>
+                  <td class="data-table-td" data-testid="asset-current-pct-total" x-text="formatPctRounded(a.current_pct_total, 1)"></td>
                   <td class="data-table-td" data-testid="asset-target-pct-total">
                     <button type="button"
                             class="asset-pct-cell asset-pct-cell--editable asset-pct-cell--inline"
                             @click="startEditTotal(a.id)"
                             x-show="editingTotalAssetId !== a.id && !readOnly"
                             title="Clique para editar">
-                      <span x-text="formatPctRounded(a.target_pct_total)"></span>
+                      <span x-text="formatPctRounded(a.target_pct_total, 1)"></span>
                     </button>
                     <span class="asset-pct-cell asset-pct-cell--inline"
                           data-testid="asset-target-pct-total-static"
                           x-show="editingTotalAssetId !== a.id && readOnly"
-                            x-cloak><span x-text="formatPctRounded(a.target_pct_total)"></span></span>
+                            x-cloak><span x-text="formatPctRounded(a.target_pct_total, 1)"></span></span>
                     <div class="asset-pct-cell asset-pct-cell--editing asset-pct-cell--inline"
                          data-testid="asset-target-pct-total-editing"
                          x-show="editingTotalAssetId === a.id"
@@ -324,7 +324,7 @@
                   <td class="data-table-td" data-testid="asset-portfolio-deviation" :class="signClass(a.portfolio_deviation_pct)">
                     <span class="metric-stack">
                       <span class="icon icon--sm metric-sign" x-text="signIcon(a.portfolio_deviation_pct)" aria-hidden="true"></span>
-                      <span x-text="formatDeviationPp(a.portfolio_deviation_pct)"></span>
+                      <span x-text="formatDeviationPp(a.portfolio_deviation_pct, 1)"></span>
                     </span>
                   </td>
                   <td class="data-table-td" data-testid="asset-buy-cell">
