@@ -449,17 +449,15 @@ Goal: quebrar linha contínua de borda entre headers "Classe" e "Carteira" para 
 Archive: `openspec/changes/archive/2026-07-17-f45-separar-visualmente-grupos-classe-e-carteira/`
 
 ### F46 - Formatação 1 casa decimal nas colunas Classe e Carteira
-Status: `Applied` — validação visual OK (2026-07-19)
-Goal: formatar colunas "Atual", "Alvo", "Desvio" nos grupos "Classe" e "Carteira" da tabela de patrimônio com 1 casa decimal (incluindo linha de totais), mantendo formatação centralizada e fácil de alterar.
-Candidate OpenSpec change id: `f46-formatacao-1-casa-decimal-classe-e-carteira`
-Spec link: `openspec/changes/f46-formatacao-1-casa-decimal-classe-e-carteira/`
-Files: `src/omaha/templates/_patrimonio_class_section.html` (only template edits — formatters already accept decimals param)
+Status: `Archived` — 2026-07-19
+Goal: formatar colunas Atual/Alvo/Desvio nos grupos Classe e Carteira com 1 casa decimal.
+Archive: `openspec/changes/archive/2026-07-19-f46-formatacao-1-casa-decimal-classe-e-carteira/`
 
 ---
 
 ## Recommended Execution Order
 
-**Active queue:** F46 (única slice ativa — F41-F45 já archived)
+**Active queue:** (vazia — última slice F46 arquivada)
 
 Order note: F41-F45 são melhorias visuais na tabela de patrimônio. Ordens sugeridas:
 1. F43 (corrigir fonte) — CSS-only, correção visual rápida
