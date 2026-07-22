@@ -460,11 +460,12 @@ Archive: `openspec/changes/archive/2026-07-20-f47-corrigir-filtros-teleport-tabe
 Notes: Teleport removido. Overflow CSS corrigido. Fallbacks inline + static import + openFilter pré-populado.
 
 ### T27 - Corrigir 5 integration tests desatualizados
-Status: `Applying` — 2026-07-21
+Status: `Archived` — 2026-07-25
 Goal: corrigir assertions em test_pages_routes.py e test_real_csv_flow.py que ficaram defasadas após commits ab2e0aa (F46) e bcb68836 (CSV alignment). Test-only, zero production code.
 Candidate OpenSpec change id: `fix-5-failing-integration-tests`
 Files: `tests/test_pages_routes.py`, `tests/test_real_csv_flow.py`
-Progress: correção já entregue no commit `064113c`; revisão independente solicitada antes de encerrar fatia. Seed não alterado. Relacionada: T29 (diagnóstico completo de falhas) pode revalidar ou complementar correções desta fatia.
+Archive: `openspec/changes/archive/2026-07-25-fix-5-failing-integration-tests/`
+Progress: correção entregue no commit `064113c`; review independente aprovada; aguardando finalize/arquivamento. Seed não alterado. Relacionada: T29 (diagnóstico completo de falhas) pode revalidar ou complementar correções desta fatia.
 
 ### T28 - Corrigir 18 E2E/BDD tests (2 code bugs + 3 test drifts)
 Status: `Spec Proposed` — 2026-07-20
@@ -771,7 +772,7 @@ Progress: pending
 
 ## Recommended Execution Order
 
-**Active queue:** T27 (Applying), T28 (Spec Proposed), T29 (Ready), F48 (Applying)
+**Active queue:** T28 (Spec Proposed), T29 (Ready), F48 (Applying)
 
 **New slices (bridge graphic feature):**
 1. T30 (Ready) — investigar cards, dados e chart lib antes de propor
