@@ -468,10 +468,12 @@ Archive: `openspec/changes/archive/2026-07-25-fix-5-failing-integration-tests/`
 Progress: correção entregue no commit `064113c`; review independente aprovada; aguardando finalize/arquivamento. Seed não alterado. Relacionada: T29 (diagnóstico completo de falhas) pode revalidar ou complementar correções desta fatia.
 
 ### T28 - Corrigir 18 E2E/BDD tests (2 code bugs + 3 test drifts)
-Status: `Spec Proposed` — 2026-07-20
+Status: `Archived` — 2026-07-25
 Goal: corrigir 2 bugs de produção (stale filter bounds após PATCH, prefixo R$ duplicado no import modal) e 3 drifts de assertion (formato decimal F46, contagem de colunas F39, selector faltante). 13 testes BDD + 5 testes E2E.
 Candidate OpenSpec change id: `fix-18-failing-e2e-bdd-tests`
 Files: `src/omaha/templates/_patrimonio_add_asset_modal.html`, `tests/e2e/test_inline_edit.py`, `tests/e2e/test_asset_table.py`, `tests/e2e/test_user_journey_rebalance.py`, `tests/e2e/test_import_modal.py`
+Archive: `openspec/changes/archive/2026-07-25-fix-18-failing-e2e-bdd-tests/`
+Progress: correção entregue no commit `064113c` (mesmo commit que T27). E2E 49/49, BDD 51/51, unit 452, integration 377 — todos verdes. Arquivado 2026-07-25.
 
 ### T29 - Investigar e corrigir testes falhando (diagnóstico completo)
 Status: `Spec Proposed` — 2026-07-22
@@ -491,6 +493,19 @@ Spec link: `openspec/changes/f48-poc-sincronizacao-myprofit-playwright/`
 Files: `src/omaha/config.py`, `.env.example`, `pyproject.toml`, `scripts/` ou módulo de integração dedicado, `tests/`
 Notes: a criação e calibração dos seletores/fluxo será acompanhada pelo owner etapa a etapa. Credenciais somente server-side via `.env`; nunca registrar valores em código, logs, screenshots ou traces. Reutilizar Playwright Python existente; validar download contra parser CSV existente sem persistir posições.
 Progress: Playwright 1.61.0 instalado (pyproject.toml + lockfile). Chromium 1228 presente em ~/.cache/ms-playwright. Unit (452 passed) + integration (377 passed) + myprofit_poc (18 passed) verdes. E2E/BDD timeouts classificados como pré-existentes/fora de escopo (T28). Login/navegação real ainda não iniciados — aguardando confirmação do owner para prosseguir com tarefas 2.3 e 2.4.
+
+### I07 - Profile-based model/provider/effort management for OpenCode agents
+Status: `Applying`
+Goal: prepare architecture and documentation for profile-based agent configuration (provider, model, effort per role) with taskipy launcher. TOML profile file added later by user; this slice creates launcher task, profile resolution logic, and concise docs for day-to-day usage and switching.
+Candidate OpenSpec change id: `i07-profile-based-model-provider-effort-management`
+Spec link: `openspec/changes/i07-profile-based-model-provider-effort-management/`
+Files: `pyproject.toml`, `opencode.json`, `AGENTS.md`, `.opencode/agents/` (or new profile module)
+Notes: profiles: openai-cheap, openai-balanced, openai-xiaomi-balanced, xiaomi-balanced. Xiaomi effort=medium, OpenAI effort=high (luna, terra). TOML profile file provided by user later; this slice prepares launcher shape + docs. No production code change — dev tooling only.
+Progress:
+- Proposed: pending
+- Applying: started 2026-07-25
+- Applied: pending
+- Archived: pending
 
 ### T30 - Investigar cards de classe, dados disponíveis e alternativas de chart lib
 Status: `Ready` — investigação futura (nenhum código de produção alterado)
@@ -777,6 +792,9 @@ Progress: pending
 **New slices (bridge graphic feature):**
 1. T30 (Ready) — investigar cards, dados e chart lib antes de propor
 2. F49 (Ready) — bridge graphic + linguagem visual (depende de T30)
+
+**New slices (dev tooling):**
+1. I07 (Ready) — profile-based model/provider/effort management for OpenCode agents (standalone, no dependencies)
 
 Order note: F41-F45 são melhorias visuais na tabela de patrimônio. Ordens sugeridas:
 1. F43 (corrigir fonte) — CSS-only, correção visual rápida
