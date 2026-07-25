@@ -38,15 +38,15 @@ class TestResolveProfileBuiltin:
         result = resolve_profile(profile_name)
         assert set(result.keys()) == set(ROLES)
 
-    def test_openai_cheap_values(self) -> None:
-        result = resolve_profile("openai-cheap")
+    def test_openai_cheap_values(self, tmp_path: Path) -> None:
+        result = resolve_profile("openai-cheap", toml_path=tmp_path / "none.toml")
         for role in ROLES:
             assert result[role].provider == "openai"
             assert result[role].model == "gpt-5.4-mini"
             assert result[role].effort == "high"
 
-    def test_openai_balanced_values(self) -> None:
-        result = resolve_profile("openai-balanced")
+    def test_openai_balanced_values(self, tmp_path: Path) -> None:
+        result = resolve_profile("openai-balanced", toml_path=tmp_path / "none.toml")
         # Heavy roles use gpt-5.4
         for role in ("roadmap", "propose", "apply", "explore", "slice"):
             assert result[role].model == "gpt-5.4"
@@ -56,8 +56,8 @@ class TestResolveProfileBuiltin:
             assert result[role].model == "gpt-5.4-mini"
             assert result[role].effort == "high"
 
-    def test_openai_xiaomi_balanced_values(self) -> None:
-        result = resolve_profile("openai-xiaomi-balanced")
+    def test_openai_xiaomi_balanced_values(self, tmp_path: Path) -> None:
+        result = resolve_profile("openai-xiaomi-balanced", toml_path=tmp_path / "none.toml")
         # OpenAI roles
         for role in ("roadmap", "slice"):
             assert result[role].provider == "openai"
@@ -74,8 +74,8 @@ class TestResolveProfileBuiltin:
             assert result[role].model == "mimo-v2.5"
             assert result[role].effort == "medium"
 
-    def test_xiaomi_balanced_values(self) -> None:
-        result = resolve_profile("xiaomi-balanced")
+    def test_xiaomi_balanced_values(self, tmp_path: Path) -> None:
+        result = resolve_profile("xiaomi-balanced", toml_path=tmp_path / "none.toml")
         for role in ROLES:
             assert result[role].provider == "xiaomi-token-plan-sgp"
             assert result[role].effort == "medium"
@@ -216,8 +216,8 @@ class TestTomlMerge:
 
 
 class TestExportEnvVars:
-    def test_env_vars_set_for_all_roles(self) -> None:
-        profile = resolve_profile("openai-cheap")
+    def test_env_vars_set_for_all_roles(self, tmp_path: Path) -> None:
+        profile = resolve_profile("openai-cheap", toml_path=tmp_path / "none.toml")
         with patch.dict(os.environ, {}, clear=False):
             # Clear any existing OPENCODE_ vars
             for key in list(os.environ):
@@ -241,8 +241,8 @@ class TestExportEnvVars:
                 prefix = f"OPENCODE_{role.upper()}"
                 assert os.environ[f"{prefix}_EFFORT"] == "medium"
 
-    def test_mixed_profile_correct_per_role(self) -> None:
-        profile = resolve_profile("openai-xiaomi-balanced")
+    def test_mixed_profile_correct_per_role(self, tmp_path: Path) -> None:
+        profile = resolve_profile("openai-xiaomi-balanced", toml_path=tmp_path / "none.toml")
         with patch.dict(os.environ, {}, clear=False):
             for key in list(os.environ):
                 if key.startswith("OPENCODE_") and key != "OPENCODE_PROFILE":
@@ -284,8 +284,9 @@ class TestErrorHandling:
         err = capsys.readouterr().err
         assert "Unknown profile" in err
 
-    def test_export_only_mode(self, capsys: pytest.CaptureFixture[str]) -> None:
-        exit_code = main(["--profile", "openai-cheap", "--export-only"])
+    def test_export_only_mode(self, capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+        with patch("scripts.oc_profile._load_toml_profiles", return_value={}):
+            exit_code = main(["--profile", "openai-cheap", "--export-only"])
         assert exit_code == 0
         output = capsys.readouterr().out
         assert "OPENCODE_ROADMAP_MODEL=gpt-5.4-mini" in output

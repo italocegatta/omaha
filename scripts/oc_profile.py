@@ -12,9 +12,11 @@ Resolution chain (highest priority first):
 
 Usage::
 
-    uv run task oc -- --profile openai-cheap
-    uv run task oc -- --list-profiles
-    uv run task oc                          # uses default profile
+    uv run task agent-profile -- --profile openai-cheap
+    uv run task agent-profile -- --list-profiles
+    uv run task agent-profile                          # uses default profile
+
+(``oc`` is a backward-compatible alias for ``agent-profile``)
 
 Dev tooling only — no production code change.
 """

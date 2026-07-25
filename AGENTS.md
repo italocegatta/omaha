@@ -123,9 +123,10 @@ live under `.opencode/skills/`.
 Launch OpenCode with a named profile that sets per-role model/provider/effort:
 
 ```bash
-uv run task oc -- --profile openai-cheap     # explicit profile
-uv run task oc                                # default (xiaomi-balanced)
-uv run task oc -- --list-profiles             # show available profiles
+uv run task agent-profile -- --profile openai-cheap     # explicit profile
+uv run task agent-profile                                # default (xiaomi-balanced)
+uv run task agent-profile -- --list-profiles             # show available profiles
+# `oc` is a backward-compatible alias for `agent-profile`
 ```
 
 **Built-in profiles:**
@@ -159,7 +160,7 @@ TOML profiles override built-in profiles with the same name. Each
 terminal session is isolated — run different profiles in parallel
 terminals with no cross-contamination.
 
-**Multi-session:** each terminal runs its own `uv run task oc -- --profile X`.
+**Multi-session:** each terminal runs its own `uv run task agent-profile -- --profile X`.
 Env vars are per-process, so sessions are fully isolated.
 
 ---

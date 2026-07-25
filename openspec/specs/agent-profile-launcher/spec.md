@@ -13,17 +13,17 @@ with a named profile. The task SHALL accept a profile name as argument.
 If no profile name is given, the system SHALL use the default profile.
 
 #### Scenario: Launch with explicit profile
-- **WHEN** user runs `uv run task oc -- --profile openai-cheap`
+- **WHEN** user runs `uv run task agent-profile -- --profile openai-cheap`
 - **THEN** the launcher resolves the `openai-cheap` profile and exec's
   OpenCode with that profile's (provider, model, effort) per role
 
 #### Scenario: Launch with default profile
-- **WHEN** user runs `uv run task oc` without `--profile` argument
+- **WHEN** user runs `uv run task agent-profile` without `--profile` argument
 - **THEN** the launcher uses the default profile (`xiaomi-balanced`)
   and exec's OpenCode with that profile's configuration
 
 #### Scenario: Launch with unknown profile
-- **WHEN** user runs `uv run task oc -- --profile nonexistent`
+- **WHEN** user runs `uv run task agent-profile -- --profile nonexistent`
 - **THEN** the launcher prints an error listing available profiles
   and exits with code 1
 
@@ -35,7 +35,7 @@ role: `roadmap`, `propose`, `apply`, `review`, `finalize`, `explore`,
 `slice`.
 
 #### Scenario: All four profiles are available
-- **WHEN** user runs `uv run task oc -- --list-profiles`
+- **WHEN** user runs `uv run task agent-profile -- --list-profiles`
 - **THEN** the launcher prints the four profile names and their
   description
 
@@ -71,7 +71,7 @@ TOML default, built-in default.
 
 #### Scenario: CLI argument overrides env var
 - **WHEN** `OPENCODE_PROFILE=openai-cheap` is set but user runs
-  `uv run task oc -- --profile xiaomi-balanced`
+  `uv run task agent-profile -- --profile xiaomi-balanced`
 - **THEN** the launcher uses `xiaomi-balanced`
 
 #### Scenario: Env var overrides TOML default
@@ -97,7 +97,7 @@ profiles only.
 #### Scenario: TOML file present with custom profile
 - **WHEN** `profiles.toml` defines `[profiles.my-custom.roadmap]` with
   `provider = "openai"`, `model = "gpt-5.4"`, `effort = "high"`
-- **THEN** `uv run task oc -- --profile my-custom` uses those values
+- **THEN** `uv run task agent-profile -- --profile my-custom` uses those values
   for the `roadmap` role
 
 #### Scenario: TOML overrides built-in profile

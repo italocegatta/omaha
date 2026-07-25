@@ -1,0 +1,170 @@
+# profiles.toml — per-session model/provider/effort overrides for OpenCode agents.
+#
+# Resolution chain (highest priority first):
+#   1. CLI `--profile <name>`
+#   2. Env var `OPENCODE_PROFILE`
+#   3. This file's [default] profile (below)
+#   4. Built-in default: `xiaomi-balanced`
+#
+# Available profiles:
+#   openai-cheap           — all roles gpt-5.4-mini, high effort (cheapest OpenAI)
+#   openai-balanced        — heavy roles gpt-5.4, light roles gpt-5.4-mini (← active)
+#   openai-xiaomi-balanced — OpenAI routing, Xiaomi execution, mixed effort
+#   xiaomi-balanced        — all roles Xiaomi mimo models, medium effort
+#
+# Each profile sets 7 roles: roadmap, propose, apply, review, finalize, explore, slice.
+# TOML overrides merge on top of built-in profiles — define only roles you want to change.
+#
+# Usage:
+#   uv run task agent-profile                          # uses [default] profile below
+#   uv run task agent-profile -- --profile openai-cheap
+#   uv run task agent-profile -- --list-profiles
+# (`oc` is a backward-compatible alias for `agent-profile`)
+
+[default]
+profile = "openai-balanced"
+
+# ── openai-cheap ──────────────────────────────────────────────────────────────
+[profiles.openai-cheap.roadmap]
+provider = "openai"
+model = "gpt-5.6-luna"
+effort = "high"
+
+[profiles.openai-cheap.propose]
+provider = "openai"
+model = "gpt-5.6-luna"
+effort = "high"
+
+[profiles.openai-cheap.apply]
+provider = "openai"
+model = "gpt-5.6-luna"
+effort = "high"
+
+[profiles.openai-cheap.review]
+provider = "openai"
+model = "gpt-5.6-luna"
+effort = "high"
+
+[profiles.openai-cheap.finalize]
+provider = "openai"
+model = "gpt-5.6-luna"
+effort = "high"
+
+[profiles.openai-cheap.explore]
+provider = "openai"
+model = "gpt-5.6-luna"
+effort = "high"
+
+[profiles.openai-cheap.slice]
+provider = "openai"
+model = "gpt-5.6-luna"
+effort = "high"
+
+# ── openai-balanced ──────────────────────────────────────────────────────────
+[profiles.openai-balanced.roadmap]
+provider = "openai"
+model = "gpt-5.6-luna"
+effort = "high"
+
+[profiles.openai-balanced.explore]
+provider = "openai"
+model = "gpt-5.6-terra"
+effort = "high"
+
+[profiles.openai-balanced.slice]
+provider = "openai"
+model = "gpt-5.6-luna"
+effort = "high"
+
+[profiles.openai-balanced.propose]
+provider = "openai"
+model = "gpt-5.6-terra"
+effort = "high"
+
+[profiles.openai-balanced.apply]
+provider = "openai"
+model = "gpt-5.6-luna"
+effort = "high"
+
+[profiles.openai-balanced.review]
+provider = "openai"
+model = "gpt-5.6-terra"
+effort = "high"
+
+[profiles.openai-balanced.finalize]
+provider = "openai"
+model = "gpt-5.6-luna"
+effort = "high"
+
+# ── openai-xiaomi-balanced ───────────────────────────────────────────────────
+[profiles.openai-xiaomi-balanced.roadmap]
+provider = "openai"
+model = "gpt-5.6-luna"
+effort = "high"
+
+[profiles.openai-xiaomi-balanced.explore]
+provider = "xiaomi-token-plan-sgp"
+model = "mimo-v2.5-pro"
+effort = "medium"
+
+[profiles.openai-xiaomi-balanced.slice]
+provider = "xiaomi-token-plan-sgp"
+model = "mimo-v2.5"
+effort = "medium"
+
+[profiles.openai-xiaomi-balanced.propose]
+provider = "openai"
+model = "gpt-5.6-terra"
+effort = "high"
+
+[profiles.openai-xiaomi-balanced.apply]
+provider = "openai"
+model = "gpt-5.6-luna"
+effort = "high"
+
+[profiles.openai-xiaomi-balanced.review]
+provider = "openai"
+model = "gpt-5.6-terra"
+effort = "high"
+
+[profiles.openai-xiaomi-balanced.finalize]
+provider = "xiaomi-token-plan-sgp"
+model = "mimo-v2.5"
+effort = "medium"
+
+
+# ── xiaomi-balanced ──────────────────────────────────────────────────────────
+[profiles.xiaomi-balanced.roadmap]
+provider = "xiaomi-token-plan-sgp"
+model = "mimo-v2.5"
+effort = "medium"
+
+[profiles.xiaomi-balanced.explore]
+provider = "xiaomi-token-plan-sgp"
+model = "mimo-v2.5-pro"
+effort = "medium"
+
+[profiles.xiaomi-balanced.slice]
+provider = "xiaomi-token-plan-sgp"
+model = "mimo-v2.5"
+effort = "medium"
+
+[profiles.xiaomi-balanced.propose]
+provider = "xiaomi-token-plan-sgp"
+model = "mimo-v2.5-pro"
+effort = "medium"
+
+[profiles.xiaomi-balanced.apply]
+provider = "xiaomi-token-plan-sgp"
+model = "mimo-v2.5"
+effort = "medium"
+
+[profiles.xiaomi-balanced.review]
+provider = "xiaomi-token-plan-sgp"
+model = "mimo-v2.5-pro"
+effort = "medium"
+
+[profiles.xiaomi-balanced.finalize]
+provider = "xiaomi-token-plan-sgp"
+model = "mimo-v2.5"
+effort = "medium"

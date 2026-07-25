@@ -476,14 +476,14 @@ Archive: `openspec/changes/archive/2026-07-25-fix-18-failing-e2e-bdd-tests/`
 Progress: correção entregue no commit `064113c` (mesmo commit que T27). E2E 49/49, BDD 51/51, unit 452, integration 377 — todos verdes. Arquivado 2026-07-25.
 
 ### T29 - Investigar e corrigir testes falhando (diagnóstico completo)
-Status: `Spec Proposed` — 2026-07-22
+Status: `Applying` — 2026-07-25
 Goal: rodar suite completa (unit, integration, e2e, bdd), catalogar todas as falhas atuais, classificar cada uma (regressão recente, drift de assertion, bug de produção, flaky), e aplicar correções mínimas preservando mudanças existentes do usuário. Diferente de T27 (já corrigido, pendente review) e T28 (proposto, não iniciado): esta fatia é diagnóstico primeiro, correção depois — sem assumir que T27 ou T28 estão concluídos.
 Candidate OpenSpec change id: `t29-investigar-e-corrigir-testes-falhando`
 Spec link: `openspec/changes/t29-investigar-e-corrigir-testes-falhando/`
 Files: `tests/` (scope completo), `src/` (apenas se bug de produção for causa-raiz)
 Dependencies: nenhuma hard dependency. T27 e T28 podem coexistir; esta fatia foca em falhas não cobertas por ambas ou revalida o que ambas propõem.
 Notes: priorizar diagnóstico de regressões introduzidas entre HEAD e commits recentes (ab2e0aa, bcb68836, 064113c). Preservar código funcional do usuário — correções cirúrgicas apenas. Se falhas já estiverem cobertas por T27/T28, documentar e não duplicar esforço. T28 parcialmente obsoleto (T27 `064113c` cobre issues propostos). Commit `bcb68836` irresolvível — não referenciar.
-Progress: proposta completa (2026-07-22).
+Progress: proposta completa (2026-07-22). Aplicação iniciada (2026-07-25).
 
 ### F48 - PoC sincronização MyProfit via Playwright
 Status: `Applying` — 2026-07-21
@@ -775,6 +775,15 @@ Transformar os cards de classe de resumo numérico (Atual/Alvo/Desvio/Valor/Proj
 Notes: requer decisão de chart lib (ECharts vs SVG/CSS puro — preferência do owner por ECharts, mas propor alternativa simples). Atualizar visual baseline após implementação. Verificar impacto em `test_category_plan_row_carries_exactly_seven_fields` se schema mudar. Campos atuais: `current_pct`, `target_pct`, `deviation_pct`, `delta` — podem ser suficientes para bridge; `net_action` (buy/sell/hold) pode precisar ser computado ou adicionado ao schema.
 Progress: pending
 
+### D03 - Gate de performance de testes nos agentes apply e review
+Status: `Spec Proposed`
+Goal: atualizar docs dos agentes `apply` e `review` (e skills associadas) para exigir que rotina completa de testes rode abaixo de 3 minutos, nunca entregar slice com rotina acima de 5 minutos, e exigir investigação/otimização real quando limite estourar — sem simplesmente desabilitar testes.
+Candidate OpenSpec change id: `d03-gate-de-performance-de-testes-nos-agentes`
+Spec link: `openspec/changes/d03-gate-de-performance-de-testes-nos-agentes/`
+Files: `.opencode/agents/apply.md`, `.opencode/agents/review.md`, `.opencode/skills/openspec-apply-change/SKILL.md`, `.opencode/skills/code-review/SKILL.md`
+Notes: escopo é documentação/configuração dos agentes do repo, não código de produto. Regras novas se somam ao test gate existente (ZERO TOLERANCE). Limite de 3 min = target ideal; 5 min = teto absoluto de entrega. Quando suite exceder limites, agente DEVE investigar causa raiz (fixtures pesadas, setup repetido, testes serializáveis, markers incorretos) e otimizar — nunca desabilitar testes ou reduzir cobertura. Referenciar slices T16-T18 (já archived) como exemplos de otimização válida.
+Progress: pending
+
 ---
 
 ## Recommended Execution Order
@@ -787,6 +796,7 @@ Progress: pending
 
 **New slices (dev tooling):**
 1. I07 (Ready) — profile-based model/provider/effort management for OpenCode agents (standalone, no dependencies)
+2. D03 (Ready) — gate de performance de testes nos agentes apply e review (doc-only, no dependencies)
 
 Order note: F41-F45 são melhorias visuais na tabela de patrimônio. Ordens sugeridas:
 1. F43 (corrigir fonte) — CSS-only, correção visual rápida
