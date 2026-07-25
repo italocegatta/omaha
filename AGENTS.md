@@ -160,8 +160,20 @@ TOML profiles override built-in profiles with the same name. Each
 terminal session is isolated — run different profiles in parallel
 terminals with no cross-contamination.
 
+**Config delivery:** `oc_profile.py` renders
+`scripts/opencode_template.json` with profile values and atomically
+replaces `opencode.json` before launching OpenCode. `opencode.json` is
+gitignored — it is a generated artifact, not source of truth. The
+template + active profile are the source. Env vars are still set as
+secondary signal but OpenCode reads config from `opencode.json`, not
+env vars.
+
 **Multi-session:** each terminal runs its own `uv run task agent-profile -- --profile X`.
 Env vars are per-process, so sessions are fully isolated.
+**Limitation:** if two terminals use different profiles, the last
+`agent-profile` launch wins `opencode.json`. Same-profile concurrent
+sessions are safe. For different profiles simultaneously, use separate
+worktrees.
 
 ---
 

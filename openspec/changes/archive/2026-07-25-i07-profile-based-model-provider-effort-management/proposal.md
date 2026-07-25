@@ -1,29 +1,32 @@
 ## Why
 
-Agent model configuration is hardcoded in `opencode.json` and the roadmap
-agent's routing table. Switching providers or models requires manual file
-edits, which is error-prone and prevents quick A/B testing of model
-quality vs cost. A profile system lets the user select a named
-(provider, model, effort) configuration per agent role via a single
-taskipy command, with each terminal session running its own profile
-independently.
+Profile-based model/provider/effort management was implemented in I07 but
+the core mechanism doesn't work: OpenCode reads model configuration from
+`opencode.json` hardcoded values, ignoring environment variables exported
+by `scripts/oc_profile.py`. The launcher sets env vars
+(`OPENCODE_ROADMAP_MODEL`, etc.) that OpenCode never reads. Result:
+all profiles behave identically — the `xiaomi-balanced` config in
+`opencode.json` always prevails regardless of selected profile.
+
+Root cause confirmed: OpenCode config format does not support `${env:VAR}`
+interpolation. The env var approach (design decision D2 in original I07)
+was predicated on an unverified assumption.
+
+This correction reopens I07 to fix the config delivery mechanism.
 
 ## What Changes
 
-- New taskipy task `oc` (or `oc-profile`) that launches an OpenCode
-  session with a named profile selected.
-- Profile resolution script (`scripts/oc_profile.py`) that reads a
-  profile name, resolves (provider, model, effort) per agent role, and
-  exports environment variables before exec'ing OpenCode.
-- Four built-in profiles: `openai-cheap`, `openai-balanced`,
-  `openai-xiaomi-balanced`, `xiaomi-balanced`.
-- Clean seam for future TOML profile file (`profiles.toml`) — script
-  reads it if present, falls back to built-in defaults.
-- Documentation in AGENTS.md (or new `docs/agent-profiles.md`) covering
-  day-to-day usage: how to switch profiles, how to run multiple sessions
-  with different profiles, how the resolution chain works.
-- `opencode.json` modified to read model from environment variables
-  where possible, or the launcher generates a session-local override.
+- `scripts/oc_profile.py` generates an effective `opencode.json` from a
+  template, writing it atomically to a temp directory before `execv`.
+- New template file `scripts/opencode_template.json` with `{ROLE_MODEL}`
+  and `{ROLE_PROVIDER}` placeholders.
+- Generated config written to `<repo>/.opencode-profiles/<profile>.json`
+  (or temp dir), passed to OpenCode via `OPENCODE_CONFIG` env var or
+  equivalent mechanism.
+- Env var export retained as secondary signal (for tools that read them)
+  but no longer the primary config delivery path.
+- Documentation updated to reflect that profile is single source of truth
+  for config generation.
 
 No production code change. Dev tooling only.
 
@@ -31,20 +34,20 @@ No production code change. Dev tooling only.
 
 ### New Capabilities
 
-- `agent-profile-launcher`: Profile-based model/provider/effort
-  management for OpenCode agent sessions. Covers profile selection,
-  environment variable export, resolution chain (TOML → env → built-in),
-  and multi-session isolation.
+(none — correction of existing `agent-profile-launcher` capability)
 
 ### Modified Capabilities
 
-(none — no existing spec behavior changes)
+- `agent-profile-launcher`: Spec SHALL be updated to require
+  template-based config generation instead of env var export as the
+  primary mechanism for delivering profile config to OpenCode.
 
 ## Impact
 
-- `pyproject.toml`: new taskipy task entry.
-- `scripts/oc_profile.py`: new launcher script.
-- `opencode.json`: may add env-var interpolation support or document
-  that launcher generates session-local config.
-- `AGENTS.md` or new doc: profile usage documentation.
+- `scripts/oc_profile.py`: add template rendering + atomic write.
+- `scripts/opencode_template.json`: new template file.
+- `.opencode-profiles/` or temp dir: generated configs (gitignored).
+- `opencode.json`: may become a symlink to the active profile's generated
+  config, or remain as-is with the launcher overriding via env var.
+- `pyproject.toml`: no change (taskipy task already exists).
 - No impact on omaha application code, tests, or runtime behavior.

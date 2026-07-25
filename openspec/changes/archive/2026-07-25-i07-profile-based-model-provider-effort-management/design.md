@@ -1,212 +1,144 @@
 ## Context
 
-Current state: `opencode.json` hardcodes model per agent role. The roadmap
-agent's `roadmap.md` has a separate model assignment table. Switching
-models requires manual edits to both files. No mechanism exists to run
-different model configurations in parallel terminal sessions.
+I07 implemented profile-based model/provider/effort management with a
+launcher script (`scripts/oc_profile.py`) that exports per-role env vars
+before `execv`'ing into OpenCode. The assumption was that OpenCode would
+read these env vars for model configuration.
 
-The omaha repo uses OpenCode as its AI coding agent framework. Agent
-roles: `roadmap` (primary), `propose`, `apply`, `explore`, `slice`
-(subagents using xiaomi-pro), `review`, `finalize` (subagents using
-xiaomi base). OpenAI `gpt-5.4-mini` is used only for `roadmap`.
+**Root cause**: OpenCode does not support `${env:VAR}` interpolation in
+`opencode.json`. The hardcoded model values in `opencode.json` always
+prevail. The env var approach (original design D2) was predicated on an
+unverified assumption and does not work.
 
-Taskipy is the canonical task runner (`uv run task <name>`).
+Current state:
+- `scripts/oc_profile.py`: exports env vars correctly, but they're ignored.
+- `opencode.json`: hardcoded `xiaomi-balanced` config always active.
+- All four profiles behave identically — no actual profile switching.
 
 ## Goals / Non-Goals
 
 **Goals:**
-- Single command to launch OpenCode with a named profile.
-- Profile defines (provider, model, effort) per agent role.
-- Multiple terminals can run different profiles simultaneously.
-- Clean seam for TOML profile file — works without it (built-in
-  defaults), enhances with it.
-- Day-to-day switching is documented clearly.
+- Make profile selection actually change the model/provider/effort that
+  OpenCode uses.
+- Single atomic operation: resolve profile → generate config → launch.
+- No manual `opencode.json` edits when switching profiles.
+- Preserve multi-session isolation (each terminal gets its own config).
 
 **Non-Goals:**
 - Modifying OpenCode source code or config format.
 - Runtime profile switching (restart required).
 - Profile inheritance or composition.
-- GUI/CLI profile selector beyond taskipy task.
 - Changing which roles exist or their responsibilities.
 
 ## Decisions
 
-### D1: Launcher script (`scripts/oc_profile.py`) + taskipy task
+### D1: Template + atomic config generation (replaces original D2)
 
-**Decision**: A Python script resolves the profile and exports env vars,
-then `execv`s into OpenCode. Taskipy task `oc` wraps it.
+**Decision**: `oc_profile.py` renders an `opencode_template.json` with
+profile-specific values and writes the result atomically to
+`.opencode-profiles/<profile>.json`. The launcher then either:
+- (a) sets `OPENCODE_CONFIG=<path>` env var before `execv` (if OpenCode
+  supports it), or
+- (b) replaces `opencode.json` atomically (write to temp, rename).
 
-**Why**: Taskipy is the canonical runner (PRD §4.8). Python script keeps
-logic testable and avoids shell quoting issues. `execv` replaces the
-process so signals propagate correctly.
+**Why**: This is the only reliable mechanism since OpenCode doesn't
+support env var interpolation. Template rendering is deterministic and
+testable. Atomic write prevents partial configs if the process crashes.
 
 **Alternatives considered**:
-- Shell script: harder to test, quoting nightmares with TOML parsing.
-- Direct taskipy task with inline logic: too complex for taskipy's
-  `{cmd}` syntax.
+- Keep env vars only: doesn't work (confirmed root cause).
+- Modify OpenCode source: out of scope, too invasive.
+- Shell wrapper that edits `opencode.json` before launch: fragile,
+  race-prone with concurrent sessions.
 
-### D2: Environment variables as config transport
+**Verification needed**: Does OpenCode support `OPENCODE_CONFIG` env var
+or `--config <path>` CLI flag? If not, fallback to atomic replace of
+`opencode.json` (with backup).
 
-**Decision**: Launcher exports per-role env vars before exec'ing
-OpenCode. Env var naming: `OPENCODE_{ROLE}_MODEL`,
-`OPENCODE_{ROLE}_PROVIDER`, `OPENCODE_{ROLE}_EFFORT`.
+### D2: Config file location
 
-Role names (uppercase): `ROADMAP`, `PROPOSE`, `APPLY`, `REVIEW`,
-`FINALIZE`, `EXPLORE`, `SLICE`.
+**Decision**: Generated configs go to `.opencode-profiles/<profile>.json`.
+This directory is gitignored.
 
-**Why**: Env vars are the standard mechanism for per-session config
-isolation. Each terminal gets its own shell, so env vars are naturally
-isolated. No file conflicts between sessions.
+**Why**: Keeps generated files separate from source-controlled
+`opencode.json`. Each profile gets its own file — no overwriting between
+concurrent sessions.
 
-**How OpenCode reads them**: `opencode.json` agent definitions will use
-env var references (e.g., `"model": "${OPENCODE_ROADMAP_MODEL}"`) if
-OpenCode supports interpolation. If not, the launcher generates a
-session-local `opencode.json` from a template.
+### D3: Concurrency model — one profile per terminal
 
-### D3: Resolution chain
+**Decision**: Each terminal session runs one profile. Multiple terminals
+can run different profiles simultaneously.
 
-Priority (highest to lowest):
-1. CLI argument: `uv run task oc -- --profile <name>`
-2. Env var: `OPENCODE_PROFILE=<name>`
-3. TOML file: `[default] profile = "<name>"` in `profiles.toml`
-4. Built-in default: `xiaomi-balanced`
+**Constraint**: If OpenCode reads `opencode.json` from a fixed path
+(no `OPENCODE_CONFIG` support), concurrent sessions writing to the same
+file would race. In that case:
+- Each session writes to `.opencode-profiles/<profile>.json`.
+- Before launch, the script atomically renames the profile's config to
+  `opencode.json` (replacing the previous one).
+- **Limitation**: only one profile can be active per repo at a time.
+  Concurrent sessions must use the same profile, or use separate
+  worktrees.
 
-TOML file is optional. Script works without it using built-in profiles.
+**Why**: This is a pragmatic constraint. Profile switching is a developer
+convenience, not a production requirement. The trade-off is acceptable.
 
-### D4: Built-in profile definitions
+### D4: Template structure
 
-Four profiles, each mapping 7 agent roles to (provider, model, effort):
+**Decision**: `scripts/opencode_template.json` is a JSON file with
+Python `str.format()` placeholders: `{ROADMAP_MODEL}`, `{ROADMAP_PROVIDER}`,
+`{PROPOSE_MODEL}`, etc. The template includes all seven roles with their
+descriptions and temperature settings.
 
-**`openai-cheap`** — all roles use cheap OpenAI model, high effort:
-| Role | Provider | Model | Effort |
-|------|----------|-------|--------|
-| roadmap | openai | gpt-5.4-mini | high |
-| propose | openai | gpt-5.4-mini | high |
-| apply | openai | gpt-5.4-mini | high |
-| review | openai | gpt-5.4-mini | high |
-| finalize | openai | gpt-5.4-mini | high |
-| explore | openai | gpt-5.4-mini | high |
-| slice | openai | gpt-5.4-mini | high |
+**Why**: `str.format()` is stdlib, no new dependencies. Placeholders are
+explicit and grep-able. Template is version-controlled alongside the script.
 
-**`openai-balanced`** — all roles use capable OpenAI model, high effort:
-| Role | Provider | Model | Effort |
-|------|----------|-------|--------|
-| roadmap | openai | gpt-5.4 | high |
-| propose | openai | gpt-5.4 | high |
-| apply | openai | gpt-5.4 | high |
-| review | openai | gpt-5.4-mini | high |
-| finalize | openai | gpt-5.4-mini | high |
-| explore | openai | gpt-5.4 | high |
-| slice | openai | gpt-5.4 | high |
+### D5: Env var export retained as secondary signal
 
-**`openai-xiaomi-balanced`** — mixed: OpenAI for heavy reasoning,
-Xiaomi for execution:
-| Role | Provider | Model | Effort |
-|------|----------|-------|--------|
-| roadmap | openai | gpt-5.4-mini | high |
-| propose | xiaomi-token-plan-sgp | mimo-v2.5-pro | medium |
-| apply | xiaomi-token-plan-sgp | mimo-v2.5-pro | medium |
-| review | xiaomi-token-plan-sgp | mimo-v2.5 | medium |
-| finalize | xiaomi-token-plan-sgp | mimo-v2.5 | medium |
-| explore | xiaomi-token-plan-sgp | mimo-v2.5-pro | medium |
-| slice | openai | gpt-5.4-mini | high |
+**Decision**: Keep `export_env_vars()` in `oc_profile.py`. Env vars are
+still set for any tool that reads them (e.g., future OpenCode versions,
+custom scripts). But they are no longer the primary config delivery path.
 
-**`xiaomi-balanced`** — all roles use Xiaomi models, medium effort
-(current default, cheapest):
-| Role | Provider | Model | Effort |
-|------|----------|-------|--------|
-| roadmap | xiaomi-token-plan-sgp | mimo-v2.5-pro | medium |
-| propose | xiaomi-token-plan-sgp | mimo-v2.5-pro | medium |
-| apply | xiaomi-token-plan-sgp | mimo-v2.5-pro | medium |
-| review | xiaomi-token-plan-sgp | mimo-v2.5 | medium |
-| finalize | xiaomi-token-plan-sgp | mimo-v2.5 | medium |
-| explore | xiaomi-token-plan-sgp | mimo-v2.5-pro | medium |
-| slice | xiaomi-token-plan-sgp | mimo-v2.5-pro | medium |
-
-**Default**: `xiaomi-balanced` (matches current `opencode.json`).
-
-### D5: TOML profile file seam
-
-File: `profiles.toml` at repo root. Optional — script works without it.
-
-```toml
-[default]
-profile = "xiaomi-balanced"
-
-[profiles.openai-cheap.roadmap]
-provider = "openai"
-model = "gpt-5.4-mini"
-effort = "high"
-
-[profiles.openai-cheap.propose]
-provider = "openai"
-model = "gpt-5.4-mini"
-effort = "high"
-
-# ... etc for each role in each profile
-```
-
-Script loads TOML if `profiles.toml` exists, merges with built-in
-defaults (TOML overrides built-in). If file missing, uses built-in only.
-
-### D6: Multi-session isolation
-
-Each terminal runs its own `oc` invocation. The launcher:
-1. Resolves profile (TOML → env → built-in).
-2. Exports per-role env vars to the terminal's shell.
-3. `execv`s into OpenCode.
-
-Since env vars are per-process, different terminals with different
-profiles have completely isolated configs. No shared state, no file
-conflicts.
-
-### D7: `opencode.json` env var support
-
-**Decision**: Check if OpenCode supports `${env:VAR}` interpolation in
-JSON config values. If yes, update `opencode.json` to reference env vars
-with fallbacks to current hardcoded values. If no, launcher generates
-a session-local `opencode.json` from a template.
-
-**Fallback**: Template at `scripts/opencode_template.json` with
-placeholders. Launcher renders it to a temp dir, sets
-`OPENCODE_CONFIG=<path>`, execs OpenCode.
+**Why**: Defense in depth. If OpenCode adds env var support later, it
+"just works". No code removal needed.
 
 ## Risks / Trade-offs
 
-- **[Risk]** OpenCode may not support env var interpolation in config.
-  → **Mitigation**: Fallback to template-based config generation (D7).
-  Verify OpenCode config capabilities before implementation.
+- **[Risk]** OpenCode may not support `OPENCODE_CONFIG` or `--config`.
+  → **Mitigation**: Fallback to atomic replace of `opencode.json`.
+  Document the one-profile-at-a-time limitation.
 
-- **[Risk]** Profile names in env vars may conflict with other tools.
-  → **Mitigation**: Use `OPENCODE_` prefix consistently. Document
-  prefix convention.
+- **[Risk]** Atomic replace of `opencode.json` races with concurrent
+  sessions using different profiles.
+  → **Mitigation**: Document constraint. Use `os.replace()` (atomic on
+  POSIX). Accept one-profile-at-a-time as documented limitation.
 
-- **[Risk]** TOML parsing adds dependency on `tomllib` (Python 3.11+,
-  stdlib). → **Mitigation**: Already on Python 3.12, `tomllib` is
-  stdlib. No new dependency.
+- **[Risk]** Template drift — `opencode.json` changes but template
+  doesn't.
+  → **Mitigation**: Add a test that validates template renders without
+  error for all four profiles. Consider a smoke test that loads the
+  generated JSON and validates structure.
 
-- **[Trade-off]** Restart required to switch profiles. → Acceptable.
-  Runtime switching would require OpenCode API support, which is out of
-  scope.
+- **[Trade-off]** One profile at a time (if `OPENCODE_CONFIG` unsupported).
+  → Acceptable. Developer convenience, not production requirement.
 
 ## Migration Plan
 
-1. Create `scripts/oc_profile.py` with built-in profiles.
-2. Add taskipy task `oc` to `pyproject.toml`.
-3. Verify OpenCode env var or config interpolation support.
-4. Update `opencode.json` if env var interpolation works (preferred).
-5. Document usage in AGENTS.md or dedicated doc.
-6. User creates `profiles.toml` when ready (future slice).
+1. Create `scripts/opencode_template.json` from current `opencode.json`
+   structure with placeholders.
+2. Modify `scripts/oc_profile.py`:
+   - Add `render_template(profile) -> str` function.
+   - Add `write_config_atomic(content, path)` function.
+   - Update `main()` to render + write before `execv`.
+3. Verify OpenCode config loading mechanism (`OPENCODE_CONFIG`, `--config`,
+   or fixed path).
+4. Update documentation in AGENTS.md to reflect template-based approach.
+5. Add `.opencode-profiles/` to `.gitignore`.
 
 ## Open Questions
 
-1. **OQ1**: Does OpenCode support `${env:VAR}` interpolation in
-   `opencode.json` model fields? If not, what is the mechanism for
-   per-session config override?
-2. **OQ2**: Should the taskipy task be `oc` (short) or `oc-profile`
-   (explicit)? `oc` may conflict with an existing shell alias.
-3. **OQ3**: Exact effort parameter name in OpenCode API — is it
-   `effort`, `reasoning_effort`, or something else?
-4. **OQ4**: Should `opencode.json` keep hardcoded values as fallback
-   when env vars are unset, or should the launcher always generate a
-   resolved config?
+1. **OQ1**: Does OpenCode support `OPENCODE_CONFIG` env var or
+   `--config <path>` CLI flag? If yes, use it. If no, atomic replace.
+2. **OQ2**: Should the template include `temperature` per role, or only
+   `model` and `provider`?
+3. **OQ3**: Should the launcher backup the original `opencode.json`
+   before replacing it?

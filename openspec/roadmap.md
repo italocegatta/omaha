@@ -496,8 +496,12 @@ Progress: Playwright 1.61.0 instalado (pyproject.toml + lockfile). Chromium 1228
 
 ### I07 - Profile-based model/provider/effort management for OpenCode agents
 Status: `Archived` — 2026-07-25
-Goal: profile-based agent configuration (provider, model, effort per role) with taskipy launcher.
+Goal: fix profile config delivery — OpenCode ignores env vars; generate effective `opencode.json` per profile via template + atomic write.
+Candidate OpenSpec change id: `i07-profile-based-model-provider-effort-management`
+Spec link: `openspec/changes/i07-profile-based-model-provider-effort-management/`
+Files: `scripts/oc_profile.py`, `scripts/opencode_template.json`, `.opencode-profiles/`, `.gitignore`, `AGENTS.md`
 Archive: `openspec/changes/archive/2026-07-25-i07-profile-based-model-provider-effort-management/`
+Notes: root cause confirmed — OpenCode doesn't read env vars for model override; `opencode.json` hardcoded prevalece. Correction: template + atomic config generation. Manual subagent ping confirmed `openai-balanced` effective.
 
 ### T30 - Investigar cards de classe, dados disponíveis e alternativas de chart lib
 Status: `Ready` — investigação futura (nenhum código de produção alterado)

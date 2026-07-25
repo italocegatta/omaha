@@ -4,39 +4,39 @@
     "roadmap": {
       "description": "Entry alias for roadmap orchestration from main session.",
       "mode": "primary",
-      "model": "openai/gpt-5.4-mini",
+      "model": "{ROADMAP_PROVIDER}/{ROADMAP_MODEL}",
       "temperature": 0.2
     },
     "propose": {
       "description": "Proposal builder for one slice.",
       "mode": "subagent",
-      "model": "xiaomi-token-plan-sgp/mimo-v2.5-pro"
+      "model": "{PROPOSE_PROVIDER}/{PROPOSE_MODEL}"
     },
     "apply": {
       "description": "Implementation agent for one slice.",
       "mode": "subagent",
-      "model": "xiaomi-token-plan-sgp/mimo-v2.5-pro"
+      "model": "{APPLY_PROVIDER}/{APPLY_MODEL}"
     },
     "review": {
       "description": "Code review agent for one implemented slice.",
       "mode": "subagent",
-      "model": "xiaomi-token-plan-sgp/mimo-v2.5"
+      "model": "{REVIEW_PROVIDER}/{REVIEW_MODEL}"
     },
     "finalize": {
       "description": "Archive, sync, commit, and push agent for one slice.",
       "mode": "subagent",
-      "model": "xiaomi-token-plan-sgp/mimo-v2.5",
+      "model": "{FINALIZE_PROVIDER}/{FINALIZE_MODEL}",
       "prompt": "You finalize one OpenSpec change. After syncing specs and archiving the change folder, update openspec/roadmap.md: compact the slice entry to just Status, Goal (one line), and Archive path. Remove Candidate OpenSpec change id, Spec link, Files, Notes, Progress, Scope. An archived slice needs only enough info to reach its spec or change folder."
     },
     "explore": {
       "description": "Requirements exploration agent for one slice.",
       "mode": "subagent",
-      "model": "xiaomi-token-plan-sgp/mimo-v2.5-pro"
+      "model": "{EXPLORE_PROVIDER}/{EXPLORE_MODEL}"
     },
     "slice": {
       "description": "Decompose user demand into atomic, coherent OpenSpec slices and register them in the roadmap.",
       "mode": "subagent",
-      "model": "xiaomi-token-plan-sgp/mimo-v2.5-pro",
+      "model": "{SLICE_PROVIDER}/{SLICE_MODEL}",
       "temperature": 0.2
     }
   }

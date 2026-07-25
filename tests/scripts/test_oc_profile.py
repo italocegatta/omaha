@@ -11,6 +11,7 @@ Pure-function tests, no DB, no HTTP, no subprocess. Exercises:
 
 from __future__ import annotations
 
+import json
 import os
 import textwrap
 from pathlib import Path
@@ -24,7 +25,9 @@ from scripts.oc_profile import (
     ROLES,
     export_env_vars,
     main,
+    render_template,
     resolve_profile,
+    write_config_atomic,
 )
 
 # ── Task 7.1: resolve_profile returns correct mapping for each built-in ─────
@@ -285,10 +288,129 @@ class TestErrorHandling:
         assert "Unknown profile" in err
 
     def test_export_only_mode(self, capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
-        with patch("scripts.oc_profile._load_toml_profiles", return_value={}):
+        config_dir = tmp_path / "profiles"
+        with (
+            patch("scripts.oc_profile._load_toml_profiles", return_value={}),
+            patch("scripts.oc_profile.CONFIGS_DIR", config_dir),
+        ):
             exit_code = main(["--profile", "openai-cheap", "--export-only"])
         assert exit_code == 0
         output = capsys.readouterr().out
         assert "OPENCODE_ROADMAP_MODEL=gpt-5.4-mini" in output
         assert "OPENCODE_ROADMAP_PROVIDER=openai" in output
         assert "OPENCODE_ROADMAP_EFFORT=high" in output
+        assert "config written to" in output
+
+
+# ── Template rendering ───────────────────────────────────────────────────────
+
+
+class TestRenderTemplate:
+    """render_template() produces valid JSON for all built-in profiles."""
+
+    @pytest.mark.parametrize("profile_name", sorted(BUILTIN_PROFILES))
+    def test_renders_valid_json(self, profile_name: str, tmp_path: Path) -> None:
+        profile = resolve_profile(profile_name, toml_path=tmp_path / "none.toml")
+        rendered = render_template(profile)
+        parsed = json.loads(rendered)
+        assert "agent" in parsed
+        assert set(parsed["agent"].keys()) == set(ROLES)
+
+    def test_openai_cheap_models_in_rendered(self, tmp_path: Path) -> None:
+        profile = resolve_profile("openai-cheap", toml_path=tmp_path / "none.toml")
+        rendered = render_template(profile)
+        parsed = json.loads(rendered)
+        for role in ROLES:
+            assert parsed["agent"][role]["model"] == "openai/gpt-5.4-mini"
+
+    def test_xiaomi_balanced_models_in_rendered(self, tmp_path: Path) -> None:
+        profile = resolve_profile("xiaomi-balanced", toml_path=tmp_path / "none.toml")
+        rendered = render_template(profile)
+        parsed = json.loads(rendered)
+        for role in ("roadmap", "propose", "apply", "explore", "slice"):
+            assert parsed["agent"][role]["model"] == "xiaomi-token-plan-sgp/mimo-v2.5-pro"
+        for role in ("review", "finalize"):
+            assert parsed["agent"][role]["model"] == "xiaomi-token-plan-sgp/mimo-v2.5"
+
+    def test_template_not_found_raises(self, tmp_path: Path) -> None:
+        profile = resolve_profile("openai-cheap", toml_path=tmp_path / "none.toml")
+        with pytest.raises(FileNotFoundError):
+            render_template(profile, template_path=tmp_path / "missing.json")
+
+
+# ── Config generation ────────────────────────────────────────────────────────
+
+
+class TestWriteConfigAtomic:
+    """write_config_atomic() writes content and creates dirs."""
+
+    def test_writes_content(self, tmp_path: Path) -> None:
+        dest = tmp_path / "sub" / "config.json"
+        write_config_atomic('{"key": "value"}', dest)
+        assert dest.read_text() == '{"key": "value"}'
+
+    def test_creates_parent_dirs(self, tmp_path: Path) -> None:
+        dest = tmp_path / "a" / "b" / "c" / "config.json"
+        write_config_atomic("{}", dest)
+        assert dest.exists()
+
+    def test_overwrites_existing(self, tmp_path: Path) -> None:
+        dest = tmp_path / "config.json"
+        write_config_atomic("first", dest)
+        write_config_atomic("second", dest)
+        assert dest.read_text() == "second"
+
+
+class TestConfigGeneration:
+    """Generated config contains correct model/provider per role."""
+
+    def test_profile_config_written(self, tmp_path: Path) -> None:
+        profile = resolve_profile("openai-cheap", toml_path=tmp_path / "none.toml")
+        rendered = render_template(profile)
+        config_path = tmp_path / "openai-cheap.json"
+        write_config_atomic(rendered, config_path)
+        parsed = json.loads(config_path.read_text())
+        for role in ROLES:
+            assert parsed["agent"][role]["model"] == "openai/gpt-5.4-mini"
+
+    def test_mixed_profile_correct_per_role(self, tmp_path: Path) -> None:
+        profile = resolve_profile("openai-xiaomi-balanced", toml_path=tmp_path / "none.toml")
+        rendered = render_template(profile)
+        config_path = tmp_path / "mixed.json"
+        write_config_atomic(rendered, config_path)
+        parsed = json.loads(config_path.read_text())
+        # Roadmap is OpenAI
+        assert parsed["agent"]["roadmap"]["model"] == "openai/gpt-5.4-mini"
+        # Propose is Xiaomi
+        assert parsed["agent"]["propose"]["model"] == "xiaomi-token-plan-sgp/mimo-v2.5-pro"
+
+    def test_export_only_generates_config(
+        self, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    ) -> None:
+        config_dir = tmp_path / "profiles"
+        with (
+            patch("scripts.oc_profile._load_toml_profiles", return_value={}),
+            patch("scripts.oc_profile.CONFIGS_DIR", config_dir),
+        ):
+            exit_code = main(["--profile", "openai-cheap", "--export-only"])
+        assert exit_code == 0
+        config_file = config_dir / "openai-cheap.json"
+        assert config_file.exists()
+        parsed = json.loads(config_file.read_text())
+        assert parsed["agent"]["roadmap"]["model"] == "openai/gpt-5.4-mini"
+
+    def test_generated_json_has_schema_and_structure(self, tmp_path: Path) -> None:
+        """Smoke test: load generated JSON and validate structure."""
+        profile = resolve_profile("xiaomi-balanced", toml_path=tmp_path / "none.toml")
+        rendered = render_template(profile)
+        config_path = tmp_path / "config.json"
+        write_config_atomic(rendered, config_path)
+        parsed = json.loads(config_path.read_text())
+        assert "$schema" in parsed
+        assert parsed["$schema"] == "https://opencode.ai/config.json"
+        assert "agent" in parsed
+        for role in ROLES:
+            agent = parsed["agent"][role]
+            assert "model" in agent
+            assert "mode" in agent
+            assert "/" in agent["model"]  # provider/model format

@@ -1,81 +1,30 @@
-## 1. Profile data model and built-in definitions
+## 1. Template creation
 
-- [x] 1.1 Create `scripts/oc_profile.py` with `BUILTIN_PROFILES` dict
-  defining four profiles (`openai-cheap`, `openai-balanced`,
-  `openai-xiaomi-balanced`, `xiaomi-balanced`) with (provider, model,
-  effort) per role (roadmap, propose, apply, review, finalize, explore,
-  slice)
-- [x] 1.2 Define `Profile` TypedDict or dataclass: `provider: str`,
-  `model: str`, `effort: str` per role
-- [x] 1.3 Implement `resolve_profile(name: str) -> dict[str, Profile]`
-  that looks up built-in profiles by name, raises `ValueError` on
-  unknown name
-- [x] 1.4 Add `--list-profiles` flag that prints available profiles
-  with one-line descriptions and exits
+- [x] 1.1 Create `scripts/opencode_template.json` from current `opencode.json` structure with `{ROLE_MODEL}` and `{ROLE_PROVIDER}` placeholders for all seven roles
+- [x] 1.2 Verify template renders without error for all four built-in profiles using `str.format()`
 
-## 2. Resolution chain
+## 2. Config generation in oc_profile.py
 
-- [x] 2.1 Implement CLI argument parsing: `--profile <name>` takes
-  precedence over env var
-- [x] 2.2 Implement env var fallback: read `OPENCODE_PROFILE` if no
-  CLI arg
-- [x] 2.3 Implement TOML fallback: load `profiles.toml` from repo root
-  if file exists, read `[default] profile = "<name>"`, merge TOML
-  profiles with built-in (TOML overrides). Use `tomllib` (stdlib 3.12)
-- [x] 2.4 Implement built-in default: `xiaomi-balanced` when no other
-  source provides a profile name
-- [x] 2.5 Error handling: print clear message with available profiles
-  when name is invalid, exit code 1
+- [x] 2.1 Add `render_template(profile: dict[str, Profile]) -> str` function that fills template placeholders with profile values
+- [x] 2.2 Add `write_config_atomic(content: str, path: Path) -> None` function that writes to temp file and renames atomically
+- [x] 2.3 Create `.opencode-profiles/` directory (gitignored) for generated configs
+- [x] 2.4 Update `main()` to render template + write config before `execv`
 
-## 3. Environment variable export
+## 3. OpenCode config delivery verification
 
-- [x] 3.1 Implement `export_env_vars(profile: dict[str, Profile])`
-  that sets `OPENCODE_{ROLE}_MODEL`, `OPENCODE_{ROLE}_PROVIDER`,
-  `OPENCODE_{ROLE}_EFFORT` for all seven roles in `os.environ`
-- [x] 3.2 Verify env vars are correctly formatted (uppercase role
-  names, exact values from profile)
+- [x] 3.1 Verify if OpenCode supports `OPENCODE_CONFIG` env var or `--config <path>` CLI flag → not supported; atomic replace of `opencode.json` is the mechanism
+- [x] 3.2 If supported: set env var/flag to point to generated config → N/A (not supported)
+- [x] 3.3 If not supported: implement atomic replace of `opencode.json` (write to temp, rename) with backup of original
 
-## 4. OpenCode integration
+## 4. Documentation and gitignore
 
-- [x] 4.1 Verify whether OpenCode supports `${env:VAR}` interpolation
-  in `opencode.json` model fields (test with a simple env var)
-- [x] 4.a IF interpolation supported: update `opencode.json` agent
-  definitions to reference env vars with hardcoded fallbacks (e.g.,
-  `"model": "${OPENCODE_ROADMAP_MODEL:-xiaomi-token-plan-sgp/mimo-v2.5-pro}"`)
-- [x] 4.b IF interpolation NOT supported: create
-  `scripts/opencode_template.json` with `{ROLE_MODEL}` placeholders;
-  launcher renders template to temp file and sets `OPENCODE_CONFIG` or
-  equivalent before exec
-- [x] 4.3 Implement `exec_opencode()` that calls `os.execvp("opencode",
-  ["opencode"])` after env vars are set
+- [x] 4.1 Add `.opencode-profiles/` to `.gitignore`
+- [x] 4.2 Update AGENTS.md profile documentation to reflect template-based config generation
+- [x] 4.3 Document one-profile-at-a-time limitation (if `OPENCODE_CONFIG` unsupported)
 
-## 5. Taskipy task
+## 5. Testing
 
-- [x] 5.1 Add `oc` task to `pyproject.toml` `[tool.taskipy.tasks]`:
-  `oc = { cmd = "uv run python -m scripts.oc_profile", help = "Launch OpenCode with a named profile (use -- --profile <name>)" }`
-- [x] 5.2 Verify `uv run task oc -- --profile openai-cheap` works end-to-end
-
-## 6. Documentation
-
-- [x] 6.1 Document day-to-day usage in `AGENTS.md` (or new
-  `docs/agent-profiles.md`): how to launch, how to switch (restart),
-  how to run multiple sessions, how to list profiles
-- [x] 6.2 Document the four built-in profiles with their role →
-  (provider, model, effort) mapping
-- [x] 6.3 Document the TOML seam: how to create `profiles.toml`,
-  format, override behavior
-- [x] 6.4 Document resolution chain priority: CLI → env → TOML →
-  built-in
-
-## 7. Testing
-
-- [x] 7.1 Unit test: `resolve_profile` returns correct mapping for
-  each built-in profile
-- [x] 7.2 Unit test: `resolve_profile` raises `ValueError` for
-  unknown profile name
-- [x] 7.3 Unit test: resolution chain priority (CLI > env > TOML >
-  built-in)
-- [x] 7.4 Unit test: TOML merge overrides built-in correctly
-- [x] 7.5 Unit test: env var export produces correct variable names
-  and values
-- [x] 7.6 Integration test: `--list-profiles` prints all four profiles
+- [x] 5.1 Unit test: `render_template()` produces valid JSON for all four profiles
+- [x] 5.2 Unit test: generated config contains correct model/provider per role
+- [x] 5.3 Integration test: `uv run task agent-profile -- --profile openai-cheap --export-only` shows correct env vars AND generates config file (covered by `test_export_only_mode` + `test_export_only_generates_config`)
+- [x] 5.4 Smoke test: load generated JSON and validate structure matches OpenCode config schema

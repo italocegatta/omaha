@@ -23,9 +23,12 @@ Dev tooling only — no production code change.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
+import tempfile
 import tomllib
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -105,6 +108,8 @@ PROFILE_DESCRIPTIONS: dict[str, str] = {
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TOML_PATH = REPO_ROOT / "profiles.toml"
+TEMPLATE_PATH = REPO_ROOT / "scripts" / "opencode_template.json"
+CONFIGS_DIR = REPO_ROOT / ".opencode-profiles"
 
 
 # ── Profile resolution ──────────────────────────────────────────────────────
@@ -199,6 +204,51 @@ def export_env_vars(profile: dict[str, Profile]) -> None:
         os.environ[f"{prefix}_EFFORT"] = role_profile.effort
 
 
+# ── Template rendering ──────────────────────────────────────────────────────
+
+
+def render_template(
+    profile: dict[str, Profile],
+    template_path: Path = TEMPLATE_PATH,
+) -> str:
+    """Render ``opencode_template.json`` with profile values.
+
+    Returns rendered JSON string. Raises ``FileNotFoundError`` if template
+    missing, ``json.JSONDecodeError`` if result is not valid JSON.
+    """
+    template = template_path.read_text()
+    placeholders: dict[str, str] = {}
+    for role_name, role_profile in profile.items():
+        prefix = role_name.upper()
+        placeholders[f"{prefix}_MODEL"] = role_profile.model
+        placeholders[f"{prefix}_PROVIDER"] = role_profile.provider
+    rendered = template
+    for key, value in placeholders.items():
+        rendered = rendered.replace(f"{{{key}}}", value)
+    # Validate it's well-formed JSON.
+    json.loads(rendered)
+    return rendered
+
+
+def write_config_atomic(content: str, dest: Path) -> None:
+    """Write *content* to *dest* atomically (temp + rename).
+
+    Creates parent directories if needed.  ``os.replace`` is atomic on
+    POSIX and also works on Windows (same-volume rename).
+    """
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=dest.parent, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as fh:
+            fh.write(content)
+        os.replace(tmp, dest)
+    except BaseException:
+        # Clean up temp file on any failure.
+        with suppress(OSError):
+            os.unlink(tmp)
+        raise
+
+
 # ── CLI ─────────────────────────────────────────────────────────────────────
 
 
@@ -259,14 +309,29 @@ def main(argv: list[str] | None = None) -> int:
 
     export_env_vars(profile)
 
+    # Render template and write config atomically.
+    profile_name = _resolve_profile_name(cli_arg=args.profile)
+    try:
+        rendered = render_template(profile)
+    except FileNotFoundError:
+        print(f"Error: template not found at {TEMPLATE_PATH}", file=sys.stderr)
+        return 1
+
+    profile_config = CONFIGS_DIR / f"{profile_name}.json"
+    write_config_atomic(rendered, profile_config)
+
     if args.export_only:
-        # Print exports for testing/debugging (don't exec).
+        # Print exports + config path for testing/debugging (don't exec).
         for role_name, role_profile in profile.items():
             prefix = f"OPENCODE_{role_name.upper()}"
             print(f"export {prefix}_MODEL={role_profile.model}")
             print(f"export {prefix}_PROVIDER={role_profile.provider}")
             print(f"export {prefix}_EFFORT={role_profile.effort}")
+        print(f"# config written to {profile_config}")
         return 0
+
+    # Atomic replace of opencode.json so OpenCode picks up profile config.
+    write_config_atomic(rendered, REPO_ROOT / "opencode.json")
 
     # execv into OpenCode — replaces this process.
     os.execvp("opencode", ["opencode"])

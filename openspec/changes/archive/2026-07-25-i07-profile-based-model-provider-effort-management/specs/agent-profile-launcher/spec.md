@@ -1,121 +1,75 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
-### Requirement: Profile selection via taskipy launcher
-The system SHALL provide a taskipy task that launches an OpenCode session
-with a named profile. The task SHALL accept a profile name as argument.
-If no profile name is given, the system SHALL use the default profile.
+### Requirement: Config delivery via template generation
+The launcher SHALL generate an effective `opencode.json` from a template
+before exec'ing OpenCode. The template SHALL contain placeholders for
+per-role model and provider values. The launcher SHALL render the template
+with the resolved profile's values and write the result atomically to
+`.opencode-profiles/<profile>.json`.
 
-#### Scenario: Launch with explicit profile
-- **WHEN** user runs `uv run task oc -- --profile openai-cheap`
-- **THEN** the launcher resolves the `openai-cheap` profile and exec's
-  OpenCode with that profile's (provider, model, effort) per role
-
-#### Scenario: Launch with default profile
-- **WHEN** user runs `uv run task oc` without `--profile` argument
-- **THEN** the launcher uses the default profile (`xiaomi-balanced`)
-  and exec's OpenCode with that profile's configuration
-
-#### Scenario: Launch with unknown profile
-- **WHEN** user runs `uv run task oc -- --profile nonexistent`
-- **THEN** the launcher prints an error listing available profiles
-  and exits with code 1
-
-### Requirement: Built-in profile definitions
-The system SHALL include four built-in profiles: `openai-cheap`,
-`openai-balanced`, `openai-xiaomi-balanced`, `xiaomi-balanced`. Each
-profile SHALL define a (provider, model, effort) triple for each agent
-role: `roadmap`, `propose`, `apply`, `review`, `finalize`, `explore`,
-`slice`.
-
-#### Scenario: All four profiles are available
-- **WHEN** user runs `uv run task oc -- --list-profiles`
-- **THEN** the launcher prints the four profile names and their
-  description
-
-#### Scenario: Profile defines all seven roles
-- **WHEN** a profile is loaded (built-in or TOML)
-- **THEN** the profile SHALL contain entries for all seven roles:
-  `roadmap`, `propose`, `apply`, `review`, `finalize`, `explore`, `slice`
-
-### Requirement: Environment variable export per role
-The launcher SHALL export environment variables for each agent role
-before exec'ing OpenCode. Variable naming:
-`OPENCODE_{ROLE_UPPER}_MODEL`, `OPENCODE_{ROLE_UPPER}_PROVIDER`,
-`OPENCODE_{ROLE_UPPER}_EFFORT`.
-
-#### Scenario: Env vars are set for all roles
+#### Scenario: Template renders correctly for all profiles
 - **WHEN** launcher resolves profile `openai-cheap`
-- **THEN** the following env vars are exported (among others):
-  `OPENCODE_ROADMAP_MODEL=gpt-5.4-mini`,
-  `OPENCODE_ROADMAP_PROVIDER=openai`,
-  `OPENCODE_ROADMAP_EFFORT=high`
+- **THEN** the template is rendered with that profile's (provider, model)
+  values for all seven roles and the result is valid JSON
 
-#### Scenario: Different sessions have isolated env vars
-- **WHEN** terminal A runs profile `openai-cheap` and terminal B runs
-  profile `xiaomi-balanced`
-- **THEN** terminal A's `OPENCODE_ROADMAP_MODEL` is `gpt-5.4-mini`
-  and terminal B's `OPENCODE_ROADMAP_MODEL` is `mimo-v2.5-pro`,
-  with no cross-contamination
+#### Scenario: Generated config is written atomically
+- **WHEN** launcher writes the rendered config
+- **THEN** the write uses atomic operation (write to temp, rename) to
+  prevent partial configs if the process crashes
 
-### Requirement: Resolution chain
-The launcher SHALL resolve the active profile using this priority
-(highest first): CLI `--profile` argument, `OPENCODE_PROFILE` env var,
-TOML default, built-in default.
+#### Scenario: Generated config location
+- **WHEN** launcher generates config for profile `xiaomi-balanced`
+- **THEN** the config is written to `.opencode-profiles/xiaomi-balanced.json`
 
-#### Scenario: CLI argument overrides env var
-- **WHEN** `OPENCODE_PROFILE=openai-cheap` is set but user runs
-  `uv run task oc -- --profile xiaomi-balanced`
-- **THEN** the launcher uses `xiaomi-balanced`
+### Requirement: OpenCode config delivery via atomic replace
+The launcher SHALL deliver the generated config to OpenCode by
+atomically replacing `opencode.json` in the repo root. This is the
+primary and only delivery mechanism — OpenCode does not support
+`OPENCODE_CONFIG` env var or `--config` CLI flag.
 
-#### Scenario: Env var overrides TOML default
-- **WHEN** `profiles.toml` sets `default.profile = "openai-balanced"`
-  and `OPENCODE_PROFILE=openai-cheap` is set
-- **THEN** the launcher uses `openai-cheap`
+#### Scenario: Config delivered to OpenCode
+- **WHEN** launcher renders config for profile `openai-cheap`
+- **THEN** the rendered config atomically replaces `opencode.json` in the
+  repo root before exec'ing OpenCode
 
-#### Scenario: TOML default overrides built-in
-- **WHEN** `profiles.toml` sets `default.profile = "openai-balanced"`
-  and no CLI arg or env var is set
-- **THEN** the launcher uses `openai-balanced`
+#### Scenario: Atomic replace prevents partial config
+- **WHEN** launcher writes to `opencode.json`
+- **THEN** the write uses temp file + rename to prevent OpenCode reading
+  a partially-written config
 
-### Requirement: TOML profile file seam
-The launcher SHALL load `profiles.toml` from the repo root if the file
-exists. TOML profiles SHALL override built-in profiles with the same
-name. If the file does not exist, the launcher SHALL use built-in
-profiles only.
+### Requirement: One-profile-at-a-time limitation
+The system SHALL document that, since OpenCode reads config from
+`opencode.json` at a fixed path, only one profile can be active per repo at a
+time. Concurrent sessions using different profiles require separate
+worktrees.
 
-#### Scenario: TOML file absent
-- **WHEN** `profiles.toml` does not exist in the repo root
-- **THEN** the launcher uses built-in profiles without error
+#### Scenario: Concurrent sessions with same profile
+- **WHEN** terminal A and terminal B both run profile `openai-cheap`
+- **THEN** both sessions use the same generated config without conflict
 
-#### Scenario: TOML file present with custom profile
-- **WHEN** `profiles.toml` defines `[profiles.my-custom.roadmap]` with
-  `provider = "openai"`, `model = "gpt-5.4"`, `effort = "high"`
-- **THEN** `uv run task oc -- --profile my-custom` uses those values
-  for the `roadmap` role
+#### Scenario: Concurrent sessions with different profiles
+- **WHEN** terminal A runs `openai-cheap` and terminal B runs `xiaomi-balanced`
+- **THEN** the second launcher overwrites `opencode.json` with its profile's
+  config; the first session's config is replaced (documented limitation)
 
-#### Scenario: TOML overrides built-in profile
-- **WHEN** `profiles.toml` redefines `openai-cheap` with different
-  model values
-- **THEN** the TOML values take precedence over built-in defaults
+### Requirement: Environment variable export retained
+The launcher SHALL continue to export per-role environment variables
+(`OPENCODE_{ROLE}_MODEL`, `OPENCODE_{ROLE}_PROVIDER`,
+`OPENCODE_{ROLE}_EFFORT`) as secondary config signal and backward
+compatibility. The primary delivery mechanism is template-based config
+generation with atomic replace of `opencode.json`.
 
-### Requirement: Effort values per provider
-Xiaomi models SHALL use `effort = "medium"`. OpenAI models for `roadmap`
-role and subagent roles using OpenAI SHALL use `effort = "high"`.
+#### Scenario: Env vars are still set
+- **WHEN** launcher resolves profile `openai-cheap`
+- **THEN** env vars like `OPENCODE_ROADMAP_MODEL=gpt-5.4-mini` are set
+  in addition to the generated config file
 
-#### Scenario: Xiaomi profile has medium effort
-- **WHEN** profile `xiaomi-balanced` is resolved
-- **THEN** all roles have `effort = "medium"`
+## UNCHANGED Requirements
 
-#### Scenario: OpenAI profile has high effort
-- **WHEN** profile `openai-cheap` is resolved
-- **THEN** all roles have `effort = "high"`
-
-### Requirement: Documentation for day-to-day usage
-The system SHALL document: how to launch with a profile, how to switch
-profiles (restart the session), how to run multiple sessions with
-different profiles, and how to create custom profiles in `profiles.toml`.
-
-#### Scenario: Documentation exists and is accurate
-- **WHEN** user reads the profile documentation
-- **THEN** they can successfully launch OpenCode with any of the four
-  built-in profiles and understand how to create custom profiles
+The following requirements from the original spec remain unchanged:
+- Profile selection via taskipy launcher
+- Built-in profile definitions (four profiles, seven roles each)
+- Resolution chain (CLI > env > TOML > built-in)
+- TOML profile file seam
+- Effort values per provider
+- Documentation for day-to-day usage
