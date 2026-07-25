@@ -115,6 +115,52 @@ live under `.opencode/skills/`.
 - **`scripts/snapshot_to_csv.py`** — DB → CSV (lossless round-trip).
 - **`scripts/generate_contrast_audit.py`** — thin wrapper over
   `omaha.audit.cli.main`.
+- **`scripts/oc_profile.py`** — profile-based OpenCode launcher.
+  Resolves (provider, model, effort) per agent role from named profiles.
+
+### 2.5 Agent profiles
+
+Launch OpenCode with a named profile that sets per-role model/provider/effort:
+
+```bash
+uv run task oc -- --profile openai-cheap     # explicit profile
+uv run task oc                                # default (xiaomi-balanced)
+uv run task oc -- --list-profiles             # show available profiles
+```
+
+**Built-in profiles:**
+
+| Profile | Roadmap | Propose/Apply/Explore | Review/Finalize | Slice | Effort |
+|---------|---------|----------------------|-----------------|-------|--------|
+| `xiaomi-balanced` (default) | mimo-v2.5-pro | mimo-v2.5-pro | mimo-v2.5 | mimo-v2.5-pro | medium |
+| `openai-xiaomi-balanced` | gpt-5.4-mini | mimo-v2.5-pro | mimo-v2.5 | gpt-5.4-mini | mixed |
+| `openai-balanced` | gpt-5.4 | gpt-5.4 | gpt-5.4-mini | gpt-5.4 | high |
+| `openai-cheap` | gpt-5.4-mini | gpt-5.4-mini | gpt-5.4-mini | gpt-5.4-mini | high |
+
+**Resolution chain** (highest priority first):
+1. CLI `--profile <name>`
+2. Env var `OPENCODE_PROFILE`
+3. `profiles.toml` `[default] profile = "<name>"`
+4. Built-in default: `xiaomi-balanced`
+
+**Custom profiles:** create `profiles.toml` at repo root:
+```toml
+[default]
+profile = "my-custom"
+
+[profiles.my-custom.roadmap]
+provider = "openai"
+model = "gpt-5.4"
+effort = "high"
+# ... one section per role
+```
+
+TOML profiles override built-in profiles with the same name. Each
+terminal session is isolated — run different profiles in parallel
+terminals with no cross-contamination.
+
+**Multi-session:** each terminal runs its own `uv run task oc -- --profile X`.
+Env vars are per-process, so sessions are fully isolated.
 
 ---
 

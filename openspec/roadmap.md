@@ -495,17 +495,9 @@ Notes: a criação e calibração dos seletores/fluxo será acompanhada pelo own
 Progress: Playwright 1.61.0 instalado (pyproject.toml + lockfile). Chromium 1228 presente em ~/.cache/ms-playwright. Unit (452 passed) + integration (377 passed) + myprofit_poc (18 passed) verdes. E2E/BDD timeouts classificados como pré-existentes/fora de escopo (T28). Login/navegação real ainda não iniciados — aguardando confirmação do owner para prosseguir com tarefas 2.3 e 2.4.
 
 ### I07 - Profile-based model/provider/effort management for OpenCode agents
-Status: `Applying`
-Goal: prepare architecture and documentation for profile-based agent configuration (provider, model, effort per role) with taskipy launcher. TOML profile file added later by user; this slice creates launcher task, profile resolution logic, and concise docs for day-to-day usage and switching.
-Candidate OpenSpec change id: `i07-profile-based-model-provider-effort-management`
-Spec link: `openspec/changes/i07-profile-based-model-provider-effort-management/`
-Files: `pyproject.toml`, `opencode.json`, `AGENTS.md`, `.opencode/agents/` (or new profile module)
-Notes: profiles: openai-cheap, openai-balanced, openai-xiaomi-balanced, xiaomi-balanced. Xiaomi effort=medium, OpenAI effort=high (luna, terra). TOML profile file provided by user later; this slice prepares launcher shape + docs. No production code change — dev tooling only.
-Progress:
-- Proposed: pending
-- Applying: started 2026-07-25
-- Applied: pending
-- Archived: pending
+Status: `Archived` — 2026-07-25
+Goal: profile-based agent configuration (provider, model, effort per role) with taskipy launcher.
+Archive: `openspec/changes/archive/2026-07-25-i07-profile-based-model-provider-effort-management/`
 
 ### T30 - Investigar cards de classe, dados disponíveis e alternativas de chart lib
 Status: `Ready` — investigação futura (nenhum código de produção alterado)

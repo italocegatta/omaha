@@ -218,6 +218,9 @@ app_target = "omaha.main:app"
 
 [tool.taskipy.tasks]
 
+# ── Agent profiles ──────────────────────────────────────────────────────────
+oc          = { cmd = "uv run python -m scripts.oc_profile", help = "Launch OpenCode with a named profile (use -- --profile <name>)" }
+
 # ── Development server ──────────────────────────────────────────────────────
 # Bind to 0.0.0.0 — `localhost` does not work from a separate client machine
 # on the LAN. See README "Network access" for the rationale.
