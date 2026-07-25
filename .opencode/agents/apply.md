@@ -1,5 +1,5 @@
 ---
-description: Implementation agent for one slice
+description: Implementation agent for one slice; runs only focused tests related to its change
 mode: subagent
 permission:
   read: allow
@@ -27,37 +27,30 @@ You may be called multiple times for the same slice:
 
 ## Test gate (ZERO TOLERANCE)
 
-**No delivery if any test is broken.** Period.
+`apply` validates only tests directly related to current change. Full-suite
+validation belongs to `review` and must not be duplicated here.
 
-After every implementation pass, run the FULL test suite:
+After every implementation pass:
 
-```bash
-uv run task test
-```
+1. Identify affected behavior from `tasks.md`, changed files, and diff.
+2. Run smallest relevant test set covering that behavior. Prefer focused
+   commands such as a specific pytest file, test node, or related taskipy task.
+3. Report exact command and result.
 
-Three outcomes:
+**No `Applied` handoff if any related test is broken.** Diagnose every failure:
 
-1. **All green** → delivery allowed. Report results.
-2. **Test fails** → you MUST diagnose before proceeding:
+| Symptom | Diagnosis | Action |
+|---------|-----------|--------|
+| Test asserts old behavior intentionally changed by this change | Test drift — test is outdated | Fix test to match new behavior. Document why. |
+| Test asserts correct behavior but code is wrong | Code bug — test is doing its job | Fix code until focused test passes. |
+| Focused test exposes regression in affected behavior | Regression | Fix regression before handoff. |
 
-   | Symptom | Diagnosis | Action |
-   |---------|-----------|--------|
-   | Test asserts old behavior that you intentionally changed | Test drift — test is outdated | Fix the test to match new behavior. Document why in the commit. |
-   | Test asserts correct behavior but code is wrong | Code bug — test is doing its job | Fix the code until the test passes. |
-   | Test fails in unrelated area | Regression — you broke something | Revert or fix. Your change injected an error. |
+Never assume test is flaky or unrelated without evidence. If failure cause is
+unclear, STOP and report full output to orchestrator. Do not guess or mark
+`Applied`.
 
-   **This ambiguity cannot exist.** Every failure must be classified and resolved
-   before you report `Applied`. A test failure is either a stale test or a real bug.
-   Find out which, fix it, and prove it with a green suite.
-
-3. **You are unsure why it fails** → STOP. Do not guess. Report the failure
-   to the orchestrator with full output. Do not mark as `Applied`.
-
-**Never assume a test is "flaky" or "unrelated" without evidence.** Run it
-in isolation to confirm. If it passes in isolation but fails in the suite,
-there is a test interaction — that is a real problem, not a flake.
-
-After fixing a test, run the suite again to confirm no regressions.
+Do not run `uv run task test` here unless needed to diagnose a focused failure;
+`review` owns full-suite verification.
 
 Constraints:
 - Do not propose new scope.

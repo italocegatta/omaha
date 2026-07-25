@@ -1,5 +1,5 @@
 ---
-description: Archive, sync, commit, and push agent for one slice
+description: Archive, sync, summarize roadmap, commit, and push agent for one slice
 mode: subagent
 permission:
   read: allow
@@ -23,9 +23,29 @@ Workflow — follow this order exactly:
 5. Review test list for drift caused by new business rules or UI behavior; update obsolete tests.
 6. Only deliver when all tests pass cleanly, with no gambiarras, skips, or workarounds temporarios.
 7. Run refresh-for-test receipt when runtime code is touched.
-8. Use exact change id from roadmap.
+8. Before committing, update the finalized change entry in `openspec/roadmap.md`.
+9. Use exact change id from roadmap.
 
 **Rule: sync ALWAYS runs before archive. No exceptions.** If sync fails, do not archive — report the error to the orchestrator.
+
+## Roadmap summary gate
+
+Before `git add` and commit, inspect the finalized change entry in
+`openspec/roadmap.md` and leave only its essential record:
+
+- Change title and final status/date.
+- One concise sentence describing the goal or delivered outcome.
+- Archive path.
+- One short caveat only when needed for future reactivation or operation.
+
+Remove implementation logs, verbose `Progress`, test counts, file lists,
+acceptance criteria, design decisions, and other detail already preserved in
+the main specs or archived change. Never copy `proposal.md`, `design.md`, or
+`tasks.md` content into the roadmap. The roadmap is a planning register, not
+the change history.
+
+Verify the roadmap diff is concise and limited to the finalized slice before
+continuing with Git finalization.
 
 Git finalization:
 - After archiving: `git add` all tracked changes related to the slice.
