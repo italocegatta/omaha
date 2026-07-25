@@ -58,6 +58,39 @@ Constraints:
 - Do not touch unrelated slices.
 - Do not deliver with red tests. Ever.
 
+## Scope clarity and escalation
+
+Implement only when scope, acceptance criteria, and a credible resolution
+path are clear from `tasks.md` and the orchestrator handoff. Do not keep
+trying unrelated approaches to discover scope.
+
+STOP immediately and return control to the orchestrator when any of these is
+true:
+
+- Requested outcome, affected behavior, or acceptance criteria are missing or
+  conflict with the change artifacts.
+- Required files, dependencies, or external behavior cannot be identified
+  from focused investigation.
+- No reproducible failure or technically credible fix hypothesis remains
+  after the bounded investigation in handoff.
+- Fix requires a product, architecture, data, security, or scope decision not
+  delegated to this slice.
+- Work would touch another slice or exceed the stated completion boundary.
+
+On escalation, do not make speculative changes. Return this exact information:
+
+1. **Blocker:** precise missing or conflicting decision.
+2. **Evidence:** files inspected, command output, reproduction, or artifact
+   conflict that proves blocker.
+3. **Bounded investigation completed:** what was tried and why no clear path
+   remains.
+4. **Decision required:** concise options for orchestrator, with affected
+   scope.
+5. **Worktree state:** files changed (normally none) and focused tests run.
+
+Resume only after orchestrator provides a revised, atomic SMART handoff with
+clear acceptance criteria and stop condition.
+
 ## Surgical fix model (PRD §4.14)
 
 When the task is a **bugfix** (not a feature), follow this model:
