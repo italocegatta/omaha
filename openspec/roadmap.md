@@ -787,7 +787,7 @@ Progress: pending
 
 ## Recommended Execution Order
 
-**Active queue:** T28 (Spec Proposed), T29 (Ready), F48 (Applying)
+**Active queue:** T29 (Spec Proposed), T28 (Spec Proposed), F48 (Applying)
 
 **New slices (bridge graphic feature):**
 1. T30 (Ready) — investigar cards, dados e chart lib antes de propor
