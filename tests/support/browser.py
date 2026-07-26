@@ -68,22 +68,32 @@ def shutdown_uvicorn(
     log_handle: Any | None = None,
     log_path: Path | None = None,
 ) -> None:
-    proc.terminate()
-    with suppress(subprocess.TimeoutExpired):
-        proc.wait(timeout=3)
-    if proc.poll() is None:
-        log_harness(f"{label}: terminate timeout on {host}:{port}; sending kill()")
-        proc.kill()
-        try:
-            proc.wait(timeout=2)
-        except subprocess.TimeoutExpired:
+    try:
+        if proc.poll() is None:
+            with suppress(ProcessLookupError):
+                proc.terminate()
+            with suppress(subprocess.TimeoutExpired, ChildProcessError):
+                proc.wait(timeout=3)
+        if proc.poll() is None:
+            log_harness(f"{label}: terminate timeout on {host}:{port}; sending kill()")
+            with suppress(ProcessLookupError):
+                proc.kill()
+            with suppress(subprocess.TimeoutExpired, ChildProcessError):
+                proc.wait(timeout=2)
+        if proc.poll() is None:
             log_harness(f"{label}: process still alive after kill() on {host}:{port}")
-    if not port_is_free(host, port):
-        log_harness(f"{label}: port {port} still bound after teardown")
-    if log_handle is not None:
-        log_handle.close()
-    if log_path is not None and proc.returncode not in (0, -15):
-        log_harness(f"{label}: uvicorn log tail\n{read_log_tail(log_path)}")
+    finally:
+        returncode = proc.poll()
+        if not port_is_free(host, port):
+            log_harness(f"{label}: port {port} still bound after teardown")
+        if log_handle is not None:
+            log_handle.close()
+        if returncode not in (0, -15):
+            log_harness(
+                f"{label}: uvicorn server died; returncode={returncode}; "
+                f"log tail (max 4000 bytes)\n"
+                f"{read_log_tail(log_path) if log_path is not None else '<no log path>'}"
+            )
 
 
 def resolve_chromium() -> str:

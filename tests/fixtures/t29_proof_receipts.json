@@ -1,0 +1,54 @@
+{
+  "receipts": [
+    {
+      "stamp": "20260726T190307",
+      "seconds": 280.98,
+      "status": "passed",
+      "clean_children": true,
+      "nodes": 1043,
+      "node_checksum": "a77e2a45fa2ff6c9854a945870f0489c54c332aa2a3dd4845970e256f06d40c8",
+      "skips": [
+        "tests/test_dockerfile.py::test_docker_build_pro_image_succeeds",
+        "tests/test_dockerfile.py::test_docker_run_pro_image_runs_as_omaha_user"
+      ]
+    },
+    {
+      "stamp": "20260726T190824",
+      "seconds": 276.10,
+      "status": "passed",
+      "clean_children": true,
+      "nodes": 1043,
+      "node_checksum": "a77e2a45fa2ff6c9854a945870f0489c54c332aa2a3dd4845970e256f06d40c8",
+      "skips": [
+        "tests/test_dockerfile.py::test_docker_build_pro_image_succeeds",
+        "tests/test_dockerfile.py::test_docker_run_pro_image_runs_as_omaha_user"
+      ]
+    },
+    {
+      "stamp": "20260726T191307",
+      "seconds": 274.77,
+      "status": "passed",
+      "clean_children": true,
+      "nodes": 1043,
+      "node_checksum": "a77e2a45fa2ff6c9854a945870f0489c54c332aa2a3dd4845970e256f06d40c8",
+      "skips": [
+        "tests/test_dockerfile.py::test_docker_build_pro_image_succeeds",
+        "tests/test_dockerfile.py::test_docker_run_pro_image_runs_as_omaha_user"
+      ]
+    }
+  ],
+  "removed_nodes": [
+    "tests/visual/test_snapshots.py::test_assets_table_snapshot[desktop]",
+    "tests/visual/test_snapshots.py::test_assets_table_snapshot[mobile]",
+    "tests/visual/test_snapshots.py::test_classes_snapshot[desktop]",
+    "tests/visual/test_snapshots.py::test_classes_snapshot[mobile]",
+    "tests/visual/test_snapshots.py::test_import_form_snapshot[mobile]",
+    "tests/visual/test_snapshots.py::test_import_review_snapshot[mobile]",
+    "tests/visual/test_snapshots.py::test_login_snapshot[mobile]",
+    "tests/visual/test_snapshots.py::test_patrimonio_snapshot[mobile]",
+    "tests/visual/test_snapshots.py::test_proventos_stub_snapshot[mobile]",
+    "tests/visual/test_snapshots.py::test_rebalance_form_snapshot[mobile]",
+    "tests/visual/test_snapshots.py::test_rebalance_plan_snapshot[mobile]",
+    "tests/visual/test_snapshots.py::test_rentabilidade_stub_snapshot[mobile]"
+  ]
+}

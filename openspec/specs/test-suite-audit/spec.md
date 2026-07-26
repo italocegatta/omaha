@@ -1,16 +1,42 @@
+## Purpose
+
+Define auditable retention evidence for Omaha test coverage. The manifest
+records why surviving tests remain, making coverage decisions reviewable rather
+than implicit.
+
 ## Requirements
 
 ### Requirement: Audit manifest exists and lists every surviving test file
-The file `tests/AUDIT.md` SHALL exist and contain one row per test file. Each row MUST include: file path, test count, retention category, and justification text. Per-file grouping (rather than per-test-function) is the intentional design — 864 individual rows would be unwieldy and harder to maintain. The test count per file provides equivalent traceability.
+`tests/AUDIT.md` SHALL contain one row per collected current test node, including
+parameterized instances and skips. Each row MUST include node identifier, median
+duration across three repetitions, protected behavior/contract, overlap
+assessment, flake evidence, retention category, and recommendation. Per-node
+grouping replaces stale per-file 864-total manifest and supplies decision
+evidence for immutable accepted 1,043-node coverage.
 
-#### Scenario: Manifest is present after T25
-- **WHEN** T25 is applied
-- **THEN** `tests/AUDIT.md` exists
-- **AND** the file contains a markdown table with columns: File, Tests, Category, Retention, Justification
+#### Scenario: Manifest is present after T29
+- **WHEN** T29 inventory generation completes
+- **THEN** `tests/AUDIT.md` exists with Node, Median duration, Protected contract,
+  Overlap, Flake evidence, Category, and Recommendation for every row
 
-#### Scenario: Every test file has a manifest row
-- **WHEN** `uv run pytest --collect-only -q` reports tests across N files
-- **THEN** `tests/AUDIT.md` has at least N rows (one per test file)
+#### Scenario: Every collected node has manifest row
+- **WHEN** canonical collection reports 1,043 nodes matching committed manifest
+- **THEN** `tests/AUDIT.md` has exactly 1,043 node rows
+- **AND** summary reports two exact accepted skips
+
+### Requirement: T29 audit records exact authorized visual reduction
+
+Audit SHALL reconcile committed 1,043-node manifest by exact node identity, lane
+membership, checksum, and two exact skip identities. It SHALL identify 18 focused
+T29 harness nodes as deliberate coverage, preserve mobile-removal history, and
+record only assets/classes desktop removal with its lost focused pixel-diff
+trade-off.
+
+#### Scenario: Inventory covers manifest exactly
+- **WHEN** T29 audit inventory is generated
+- **THEN** its 1,043 rows cover every committed manifest node exactly once
+- **AND** retained eight-node desktop matrix is recorded
+- **AND** removed assets/classes desktop nodes have no audit rows
 
 ### Requirement: Retention categories are exhaustive
 Every surviving test SHALL be classified into exactly one of four retention categories: `error-path`, `integration`, `spec-contract`, or `regression-guard`. A test that matches zero categories SHALL be removed, not kept with an empty justification.

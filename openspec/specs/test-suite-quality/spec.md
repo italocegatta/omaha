@@ -8,6 +8,12 @@ Runtime changes SHALL not be considered delivered while `uv run task test` is re
 Archive/merge must wait for a green full suite, not just a green subset.
 For this slice, the canonical regression families are BDD and e2e browser/workflow tests, including import modal and visible navigation/import flows; a red result in any of them SHALL block delivery until the failing expectation is corrected in the owning test or runtime code.
 
+Canonical routine SHALL include unit, integration, audit integration, E2E, BDD,
+and retained visual coverage. T29 performance acceptance requires three fresh
+canonical runs, each green and <=300 seconds through cleanup, matching immutable
+1,043-node manifest by node IDs, lane membership, checksum, and two exact skip
+identities.
+
 #### Scenario: Full suite is red and delivery is blocked
 - **WHEN** `uv run task test` fails
 - **THEN** the change stays open
@@ -22,6 +28,17 @@ For this slice, the canonical regression families are BDD and e2e browser/workfl
 - **WHEN** any of the canonical regression families for this slice is red
 - **THEN** delivery stays blocked
 - **AND** the failing expectation is traced to test, code, or spec before the change can close
+
+#### Scenario: Three consecutive full routines prove ceiling
+- **WHEN** T29 claims canonical full-routine performance acceptance
+- **THEN** three fresh `uv run task test` runs are green and <=300 seconds
+- **AND** each run matches 1,043-node immutable manifest and two exact skips
+
+#### Scenario: Ceiling proof misses
+- **WHEN** any fresh required proof run is red, exceeds 300 seconds, differs from
+  manifest, or reports unclean children
+- **THEN** T29 stops remaining proof runs and records measured alternatives
+- **AND** it does not claim a <=300-second fix or remove further coverage
 
 ### Requirement: Canonical test bucket matrix stays documented and aligned
 The test suite SHALL keep an explicit decision matrix for each named bucket: `unit`, `integration`, `audit_integration`, `bdd`, `e2e`, `visual`, and full-suite. For each bucket, the matrix MUST name the canonical task entrypoint, hook or CI owner, concurrency class (`serial`, `parallelizable`, or `too risky for now`), and the reason for any carve-out from another gate.
@@ -45,6 +62,20 @@ The matrix MUST document which buckets produce coverage reports and which do not
 - **THEN** the matrix shows `unit` and `integration` as coverage-producing buckets
 - **AND** the matrix shows `bdd`, `e2e`, and `visual` as non-coverage buckets
 - **AND** the canonical coverage command is `task coverage` (unit + integration only)
+
+### Requirement: T29 accepted population is explicit and immutable
+
+After exact owner-authorized desktop removal, repository SHALL commit canonical
+manifest with 1,043 stable node IDs, lane membership, two exact skip identities,
+and deterministic checksum. Audit SHALL record 18 focused harness nodes and
+retained eight-node desktop matrix. No test removal, skip, xfail, disable, lane
+reduction, or coverage move is permitted beyond prior mobile history and exact
+assets/classes desktop removal.
+
+#### Scenario: Canonical run matches accepted population
+- **WHEN** runner completes canonical `uv run task test` collection
+- **THEN** it compares population against committed 1,043-node manifest/checksum
+- **AND** it fails reconciliation for any node, lane, checksum, or skip mismatch
 
 ### Requirement: Browser-backed throughput changes require repeated-run evidence
 Any harness change that widens fixture scope, reuses browser/server resources, or changes the concurrency class of `bdd`, `e2e`, or `visual` suites SHALL be justified by repeated focused verification on the affected family. If a suite stays serial or keeps per-test browser launch because reuse is too risky, the decision record MUST say so explicitly.

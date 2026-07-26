@@ -1,8 +1,14 @@
 # Performance baseline — Omaha test suite
 
-Data da coleta: 2026-07-12
-Ambiente: Linux x86_64, Python 3.12.13, uv 0.11.21, SQLite
-Branch: `main` (commit `8fea2b0`)
+Visual policy: desktop-only (`1440x900`) by owner authorization dated
+2026-07-26. Omaha is not used or supported on mobile. Exactly ten mobile visual
+nodes and matching mobile baselines were removed; this does not claim mobile
+CSS, layout, or interaction works. All desktop visual scenarios, lanes, browser
+harnesses, and non-visual coverage remain.
+
+Data da coleta: 2026-07-25
+Ambiente: Linux x86_64, Python 3.12.13, pytest 9.1.1, SQLite
+Branch: T29 working tree
 
 > Snapshot de baseline: contagens e tempos registrados abaixo servem para
 > triagem de regressão nesta coleta; não são contrato de duração.
@@ -18,16 +24,16 @@ uv run task coverage               # unit + integration; único comando que grav
 uv run task test-e2e               # lane de navegador: e2e
 uv run task test-bdd               # lane de navegador: BDD serial
 uv run task test-visual            # lane de navegador: regressão visual
-uv run task test                   # suite completa: unit + integration + audit + e2e + visual + BDD
+uv run task test                   # suite completa concorrente: seis lanes
 ```
 
 ## Resumo por grupo
 
 | Grupo | Comando observado | Coletados | Passaram | Falharam | Pulados | Deselecionados | Tempo total |
 |---|---|---:|---:|---:|---:|---:|---:|
-| unit | `uv run task test-unit` | 869 | 349 | 0 | 2 | 518 | 16,82 s |
-| integration | `uv run task test-integration` | 856 | 386 | 0 | 2 | 468 | 219,26 s |
-| audit integration | `uv run task test-audit-integration` | 13 | 13 | 0 | 0 | 0 | 22,53 s |
+| unit | `uv run task test-unit` | 1026 | 490 | 0 | 2 | 534 | 14,72 s |
+| integration | `uv run task test-integration` | 1026 | 377 | 0 | 0 | 649 | measured in full runner |
+| audit integration | `uv run task test-audit-integration` | 40 | 40 | 0 | 0 | 0 | measured in full runner |
 | e2e | `uv run task test-e2e` | 49 | 48 | 1 | 0 | 0 | 195,31 s |
 | BDD | `uv run task test-bdd` | 51 | 51 | 0 | 0 | 0 | 198,00 s |
 | visual | `uv run task test-visual` | 20 | 20 | 0 | 0 | 0 | 82,24 s |
@@ -69,11 +75,39 @@ Gate pré-merge para PRs. Coverage XML vai para `reports/coverage.xml`.
 
 ### Full suite (`task test`)
 
-**Comando:** `uv run pytest`
+**Comando:** `uv run task test`
 
 Roda tudo: unit + integration + audit integration + e2e + visual + BDD.
 
-**Baseline:** ~10+ min. Usar em CI noturno ou antes de merge em main.
+**Baseline serial:** 610.17 s, 1,024 passed + 2 skipped.
+**Concurrent profile runs:** historical observations only; not proof.
+Three consecutive canonical runs completed the Phase B final gate.
+
+## Phase B proof receipt
+
+- **Run stamps:** `20260726T190307`, `20260726T190824`, `20260726T191307`
+- **Wall time per run (receipt JSON):** `280.98s`, `276.10s`, `274.77s` (all <=300s)
+- **Baseline collection checksum:** `a77e2a45fa2ff6c9854a945870f0489c54c332aa2a3dd4845970e256f06d40c8` (1,043 nodes)
+- **Lane checksums:** unit `bdfe4cb037d726636f0899bc72618f7cbe3ba255497fa0ac7c481bd33b9b057c`; integration `6711cc2ff451cabc34e2ac7c74ad3519dfec8bf4034027456f5985545c33b7a2`; audit `0d0832484bd349cb35aa77573321597780721c1a9f6df2ca95be22fc22d2eab6`; e2e `6d81bb92d6101042427dbeea230d2e633ee089f842e6df7fd1a032cfea034e40`; bdd `a8543643bbf371fcd508c4822a79aa609b0abdd6b1e2a74a184f629e807e57db`; visual `d7481c04e1d95966d4965284d324c67dbcda21923c080932a1801f011a03c031`
+- **Skip IDs:** `tests/test_dockerfile.py::test_docker_build_pro_image_succeeds`, `tests/test_dockerfile.py::test_docker_run_pro_image_runs_as_omaha_user`
+- **Per-lane exit codes:** all six lanes `0` on all three runs
+- **Resolved DB targets:** unit/integration/audit dynamic `/tmp/omaha-conftest-safe-*/portfolio.db`; e2e `/home/juca/github/omaha/data/test_e2e.db`, `/home/juca/github/omaha/data/test_e2e_short_ttl.db`; bdd `/home/juca/github/omaha/data/test_bdd.db`; visual `/home/juca/github/omaha/data/test_visual.db`
+- **clean_children:** `true` on all three runs
+- **Source inventory checksum:** `a77e2a45fa2ff6c9854a945870f0489c54c332aa2a3dd4845970e256f06d40c8`
+
+Runner writes transient lane logs and JSON under `reports/test-profile/`;
+directory is gitignored. Durable per-node decisions live in `tests/AUDIT.md`.
+Profile method uses existing taskipy lanes three times with
+`PYTEST_ADDOPTS='--durations=0 -vv'`; medians use reported durations. Compare
+node IDs and skip identities before accepting timing changes. Scheduled lane
+movement is not full-routine coverage.
+
+## Final hotspot decision
+
+Phase B proof is complete. Owner-authorized mobile removal remains exactly ten
+mobile visual nodes; owner-authorized desktop duplicate removal is exactly
+`assets-table[desktop]` and `classes[desktop]`, with matching desktop baselines.
+No further node, lane, skip, xfail, or coverage change is accepted.
 
 ### Browser lanes
 

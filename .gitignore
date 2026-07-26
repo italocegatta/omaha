@@ -43,6 +43,7 @@ coverage.xml
 reports/coverage.xml
 reports/.coverage
 reports/*.log
+reports/test-profile/
 .cache/
 .ruff_cache/
 .pytest_cache/

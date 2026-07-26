@@ -80,9 +80,12 @@ from tests.support.constants import (
     TEST_SECRET_KEY,
 )
 from tests.support.db import (
+    emit_db_receipt,
+    wipe_profile_in_sqlite,
+)
+from tests.support.db import (
     set_asset_target_pcts_via_db as _set_asset_target_pcts_via_db,  # noqa: F401  (re-exported)
 )
-from tests.support.db import wipe_profile_in_sqlite
 from tests.support.hooks import remember_call_report as _remember_call_report
 from tests.support.import_flow import (
     seed_assets_with_positions_via_import as _seed_assets_with_positions_via_import,  # noqa: F401
@@ -107,6 +110,7 @@ TEST_BASE_URL = f"http://127.0.0.1:{TEST_PORT}"
 TEST_DB_PATH_SHORT_TTL = REPO_ROOT / "data" / "test_e2e_short_ttl.db"
 TEST_PORT_SHORT_TTL = 8767
 TEST_BASE_URL_SHORT_TTL = f"http://127.0.0.1:{TEST_PORT_SHORT_TTL}"
+emit_db_receipt("e2e", TEST_DB_PATH, TEST_DB_PATH_SHORT_TTL)
 TRACE_DIR_ENV_VAR = "OMAHA_E2E_TRACE_DIR"
 
 _BROWSER_CONTEXTS: dict[int, list[Any]] = {}

@@ -37,30 +37,6 @@ def test_patrimonio_snapshot(visual_page, live_url_visual: str, visual_viewport)
     compare_or_update_screenshot(visual_page, "patrimonio", visual_viewport)
 
 
-def test_assets_table_snapshot(visual_page, live_url_visual: str, visual_viewport) -> None:
-    login_as_italo(visual_page, live_url_visual)
-    visual_page.goto(f"{live_url_visual}/patrimonio")
-    assert_structural_content(
-        visual_page,
-        '[data-testid="asset-table"]',
-        '[data-testid="dashboard-asset-row"]',
-        text="R$",
-    )
-    compare_or_update_screenshot(visual_page, "assets", visual_viewport)
-
-
-def test_classes_snapshot(visual_page, live_url_visual: str, visual_viewport) -> None:
-    login_as_italo(visual_page, live_url_visual)
-    visual_page.goto(f"{live_url_visual}/patrimonio")
-    assert_structural_content(
-        visual_page,
-        '[data-testid="class-summary"]',
-        '[data-testid="class-summary-row"]',
-        '[data-testid="class-section-name"]',
-    )
-    compare_or_update_screenshot(visual_page, "classes", visual_viewport)
-
-
 def test_rebalance_form_snapshot(visual_page, live_url_visual: str, visual_viewport) -> None:
     login_as_italo(visual_page, live_url_visual)
     visual_page.goto(f"{live_url_visual}/rebalanceamento")

@@ -53,6 +53,7 @@ import os
 from pathlib import Path
 
 from tests.support.db import (
+    emit_db_receipt,
     prepare_safe_test_database,
     prepare_worker_database,
     run_alembic_upgrade,
@@ -70,6 +71,7 @@ else:
     _SAFE_DATABASE = prepare_safe_test_database(_REPO_ROOT_FOR_ALEMBIC)
 _SAFE_DB_FILE = _SAFE_DATABASE.path
 _SAFE_SNAPSHOT_DIR = _SAFE_DATABASE.snapshot_dir
+emit_db_receipt(("unit", "integration", "audit"), _SAFE_DB_FILE)
 
 # NOW we can import pytest + fastapi. Anything below this line runs
 # AFTER SessionLocal is bound to the safe DB.
@@ -222,6 +224,7 @@ _INTEGRATION_PREFIXES = (
 # warning for the legitimate unit set.
 _UNIT_FILES = frozenset(
     {
+        "tests/scripts/test_oc_profile.py",
         "tests/scripts/test_reset_both_profiles.py",
         "tests/test_audit_color_resolver.py",
         "tests/test_audit_css_parser.py",
@@ -229,6 +232,7 @@ _UNIT_FILES = frozenset(
         "tests/test_asset_target.py",
         "tests/test_csv_import.py",
         "tests/test_dockerfile.py",
+        "tests/test_db_snapshot.py",
         "tests/test_e2e_port_uniqueness.py",
         "tests/test_logging.py",
         "tests/test_rebalance_constants.py",
@@ -246,6 +250,7 @@ _UNIT_FILES = frozenset(
         "tests/test_seed_from_csv_validation.py",
         "tests/test_iconography_tokens.py",
         "tests/test_myprofit_poc.py",
+        "tests/test_policy_mutations.py",
     }
 )
 

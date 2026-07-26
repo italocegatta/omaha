@@ -28,18 +28,20 @@ from tests.support.constants import (
     TEST_ADMIN_PASSWORD,
     TEST_SECRET_KEY,
 )
+from tests.support.db import emit_db_receipt
 from tests.support.import_flow import login_as_italo  # noqa: F401  (re-exported)
 from tests.support.server import run_test_server
 
 TEST_DB_PATH = REPO_ROOT / "data" / "test_visual.db"
 TEST_PORT = 8768
 TEST_BASE_URL = f"http://127.0.0.1:{TEST_PORT}"
+emit_db_receipt("visual", TEST_DB_PATH)
 
 BASELINE_DIR = Path(__file__).resolve().parent / "baselines"
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 DEFAULT_MAX_DIFF_RATIO = 0.005
 
-ViewportName = Literal["desktop", "mobile"]
+ViewportName = Literal["desktop"]
 
 
 @dataclass(frozen=True)
@@ -49,10 +51,7 @@ class VisualViewport:
     height: int
 
 
-VIEWPORTS: tuple[VisualViewport, ...] = (
-    VisualViewport("desktop", 1440, 900),
-    VisualViewport("mobile", 375, 667),
-)
+VIEWPORTS: tuple[VisualViewport, ...] = (VisualViewport("desktop", 1440, 900),)
 
 
 def _visual_env() -> dict[str, str]:

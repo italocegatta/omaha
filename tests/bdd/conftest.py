@@ -31,12 +31,13 @@ from tests.support.constants import (
     TEST_ADMIN_PASSWORD,
     TEST_SECRET_KEY,
 )
-from tests.support.db import wipe_profile_in_sqlite
+from tests.support.db import emit_db_receipt, wipe_profile_in_sqlite
 from tests.support.server import run_test_server
 
 BDD_DB_PATH = REPO_ROOT / "data" / "test_bdd.db"
 BDD_PORT = 8766
 TEST_BASE_URL = f"http://127.0.0.1:{BDD_PORT}"
+emit_db_receipt("bdd", BDD_DB_PATH)
 
 # The seed creates exactly two profiles (see src/omaha/seed.py
 # DEFAULT_USERS — usernames ``Italo`` and ``Ana`` are used as

@@ -476,14 +476,9 @@ Archive: `openspec/changes/archive/2026-07-25-fix-18-failing-e2e-bdd-tests/`
 Progress: correção entregue no commit `064113c` (mesmo commit que T27). E2E 49/49, BDD 51/51, unit 452, integration 377 — todos verdes. Arquivado 2026-07-25.
 
 ### T29 - Investigar e corrigir testes falhando (diagnóstico completo)
-Status: `Applying` — 2026-07-25
-Goal: rodar suite completa (unit, integration, e2e, bdd), catalogar todas as falhas atuais, classificar cada uma (regressão recente, drift de assertion, bug de produção, flaky), e aplicar correções mínimas preservando mudanças existentes do usuário. Diferente de T27 (já corrigido, pendente review) e T28 (proposto, não iniciado): esta fatia é diagnóstico primeiro, correção depois — sem assumir que T27 ou T28 estão concluídos.
-Candidate OpenSpec change id: `t29-investigar-e-corrigir-testes-falhando`
-Spec link: `openspec/changes/t29-investigar-e-corrigir-testes-falhando/`
-Files: `tests/` (scope completo), `src/` (apenas se bug de produção for causa-raiz)
-Dependencies: nenhuma hard dependency. T27 e T28 podem coexistir; esta fatia foca em falhas não cobertas por ambas ou revalida o que ambas propõem.
-Notes: priorizar diagnóstico de regressões introduzidas entre HEAD e commits recentes (ab2e0aa, bcb68836, 064113c). Preservar código funcional do usuário — correções cirúrgicas apenas. Se falhas já estiverem cobertas por T27/T28, documentar e não duplicar esforço. T28 parcialmente obsoleto (T27 `064113c` cobre issues propostos). Commit `bcb68836` irresolvível — não referenciar.
-Progress: proposta completa (2026-07-22). Aplicação iniciada (2026-07-25).
+Status: `Archived` — 2026-07-26
+Goal: garantir rotina completa verde em até 5 minutos com cobertura de testes/harness reconciliada e redução visual desktop exatamente autorizada.
+Archive: `openspec/changes/archive/2026-07-26-t29-investigar-e-corrigir-testes-falhando/`
 
 ### F48 - PoC sincronização MyProfit via Playwright
 Status: `Applying` — 2026-07-21

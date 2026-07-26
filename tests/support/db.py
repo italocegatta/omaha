@@ -7,6 +7,7 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -18,6 +19,16 @@ TEST_ADMIN_PASSWORD = "test-password"
 class SafeTestDatabase:
     path: Path
     snapshot_dir: Path
+
+
+def emit_db_receipt(owner_lanes: str | Iterable[str], *targets: Path) -> None:
+    """Emit DB targets only for the lane that owns this conftest receipt."""
+    requested_lane = os.environ.get("T29_DB_RECEIPT_LANE")
+    owners = {owner_lanes} if isinstance(owner_lanes, str) else set(owner_lanes)
+    if requested_lane not in owners:
+        return
+    for target in targets:
+        print(f"T29_DB_TARGET={target}", flush=True)
 
 
 def prepare_safe_test_database(repo_root: Path) -> SafeTestDatabase:
