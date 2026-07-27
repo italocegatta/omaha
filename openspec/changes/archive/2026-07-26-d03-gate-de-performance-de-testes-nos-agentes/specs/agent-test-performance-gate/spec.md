@@ -1,10 +1,4 @@
-# Agent Test Performance Gate
-
-## Purpose
-
-Time-budget enforcement for apply and review agents running focused or full test validation.
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Apply validates only focused relevant tests
 The `apply` agent and `openspec-apply-change` skill SHALL identify affected behavior from change tasks and diff, run smallest relevant test set through `uv run task …`, and report exact command and result. They SHALL NOT run full `uv run task test` as routine validation after an apply pass or after all tasks complete. Related red tests SHALL block apply handoff.

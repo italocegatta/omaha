@@ -88,7 +88,25 @@ Reporting them separately stops one axis from masking the other.
 
 ## Test gate (mandatory)
 
-Before running the two-axis review, run the full test suite (`uv run task test`).
+Before running the two-axis review, run **exactly one** full test suite:
 
-- **All green** → proceed to Standards + Spec review.
-- **Any failure** → STOP. Classify each failure (test drift / code bug / regression), report in the review as CHANGES_REQUESTED. Do not proceed to code review until tests are green.
+```bash
+uv run task test
+```
+
+Measure elapsed wall-clock from process start to finish externally. Record exact
+command, green/red result, elapsed wall-clock, threshold classification, and
+explicit verdict. Classify elapsed time as under 3 minutes, 3–5 minutes inclusive,
+or over 5 minutes. Under 3 minutes is aspirational telemetry. A green 3–5 minute
+run emits warning telemetry and does not fail delivery. A green run over 5 minutes
+returns `CHANGES_REQUESTED`; include measured bottleneck evidence from this run and
+require scoped remediation. If exact per-test timing is unavailable, report
+available measured lane evidence and require focused profiling in follow-up work;
+do not rerun the full suite solely for timing data.
+
+Any red test returns `CHANGES_REQUESTED`, regardless of elapsed time. Classify every
+failure as test drift, code bug, regression, or unknown and report evidence. Do not
+proceed to approval until tests are green. Remediation for a ceiling breach must
+preserve all tests and coverage: never disable, skip, mask, or remove tests, and
+never reduce coverage. Do not perform a normal duplicate full-suite run during
+review.

@@ -44,7 +44,7 @@ verificação for específica por comando) entre gates.
 
 ## Slices
 
-All previous slices archived or closed. Active queue empty.
+Active slices appear below. Archived and deferred slices retained as history.
 
 ### F21 - PoC tabelas com libs na página de teste
 Status: `Archived` — 2026-07-11
@@ -462,18 +462,12 @@ Notes: Teleport removido. Overflow CSS corrigido. Fallbacks inline + static impo
 ### T27 - Corrigir 5 integration tests desatualizados
 Status: `Archived` — 2026-07-25
 Goal: corrigir assertions em test_pages_routes.py e test_real_csv_flow.py que ficaram defasadas após commits ab2e0aa (F46) e bcb68836 (CSV alignment). Test-only, zero production code.
-Candidate OpenSpec change id: `fix-5-failing-integration-tests`
-Files: `tests/test_pages_routes.py`, `tests/test_real_csv_flow.py`
 Archive: `openspec/changes/archive/2026-07-25-fix-5-failing-integration-tests/`
-Progress: correção entregue no commit `064113c`; review independente aprovada; aguardando finalize/arquivamento. Seed não alterado. Relacionada: T29 (diagnóstico completo de falhas) pode revalidar ou complementar correções desta fatia.
 
 ### T28 - Corrigir 18 E2E/BDD tests (2 code bugs + 3 test drifts)
 Status: `Archived` — 2026-07-25
 Goal: corrigir 2 bugs de produção (stale filter bounds após PATCH, prefixo R$ duplicado no import modal) e 3 drifts de assertion (formato decimal F46, contagem de colunas F39, selector faltante). 13 testes BDD + 5 testes E2E.
-Candidate OpenSpec change id: `fix-18-failing-e2e-bdd-tests`
-Files: `src/omaha/templates/_patrimonio_add_asset_modal.html`, `tests/e2e/test_inline_edit.py`, `tests/e2e/test_asset_table.py`, `tests/e2e/test_user_journey_rebalance.py`, `tests/e2e/test_import_modal.py`
 Archive: `openspec/changes/archive/2026-07-25-fix-18-failing-e2e-bdd-tests/`
-Progress: correção entregue no commit `064113c` (mesmo commit que T27). E2E 49/49, BDD 51/51, unit 452, integration 377 — todos verdes. Arquivado 2026-07-25.
 
 ### T29 - Investigar e corrigir testes falhando (diagnóstico completo)
 Status: `Archived` — 2026-07-26
@@ -775,27 +769,22 @@ Notes: requer decisão de chart lib (ECharts vs SVG/CSS puro — preferência do
 Progress: pending
 
 ### D03 - Gate de performance de testes nos agentes apply e review
-Status: `Spec Proposed`
-Goal: atualizar docs dos agentes `apply` e `review` (e skills associadas) para exigir que rotina completa de testes rode abaixo de 3 minutos, nunca entregar slice com rotina acima de 5 minutos, e exigir investigação/otimização real quando limite estourar — sem simplesmente desabilitar testes.
-Candidate OpenSpec change id: `d03-gate-de-performance-de-testes-nos-agentes`
-Spec link: `openspec/changes/d03-gate-de-performance-de-testes-nos-agentes/`
-Files: `.opencode/agents/apply.md`, `.opencode/agents/review.md`, `.opencode/skills/openspec-apply-change/SKILL.md`, `.opencode/skills/code-review/SKILL.md`
-Notes: escopo é documentação/configuração dos agentes do repo, não código de produto. Regras novas se somam ao test gate existente (ZERO TOLERANCE). Limite de 3 min = target ideal; 5 min = teto absoluto de entrega. Quando suite exceder limites, agente DEVE investigar causa raiz (fixtures pesadas, setup repetido, testes serializáveis, markers incorretos) e otimizar — nunca desabilitar testes ou reduzir cobertura. Referenciar slices T16-T18 (já archived) como exemplos de otimização válida.
-Progress: pending
+Status: `Archived` — 2026-07-26
+Goal: separar validação focada do apply de uma única suíte completa temporizada no review, com teto de cinco minutos sem reduzir cobertura.
+Archive: `openspec/changes/archive/2026-07-26-d03-gate-de-performance-de-testes-nos-agentes/`
 
 ---
 
 ## Recommended Execution Order
 
-**Active queue:** T29 (Spec Proposed), T28 (Spec Proposed), F48 (Applying)
+**Active queue:**
+1. F48 (Applying) — aguarda confirmação do owner para executar login/navegação real no MyProfit.
+2. T30 (Ready) — investigação técnica dos cards e decisão SVG/CSS vs ECharts.
+3. F49 (Ready, bloqueada por T30) — bridge graphic dos cards de classe.
 
-**New slices (bridge graphic feature):**
-1. T30 (Ready) — investigar cards, dados e chart lib antes de propor
-2. F49 (Ready) — bridge graphic + linguagem visual (depende de T30)
+**Archived since prior queue:** T27, T28, T29, I07 e D03. Não são trabalho ativo.
 
-**New slices (dev tooling):**
-1. I07 (Ready) — profile-based model/provider/effort management for OpenCode agents (standalone, no dependencies)
-2. D03 (Ready) — gate de performance de testes nos agentes apply e review (doc-only, no dependencies)
+Order note: D03 saiu da fila após arquivamento; T30 permanece antes de F49 por dependência.
 
 Order note: F41-F45 são melhorias visuais na tabela de patrimônio. Ordens sugeridas:
 1. F43 (corrigir fonte) — CSS-only, correção visual rápida

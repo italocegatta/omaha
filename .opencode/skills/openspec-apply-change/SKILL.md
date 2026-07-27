@@ -150,7 +150,9 @@ What would you like to do?
 - Update task checkbox immediately after completing each task
 - Pause on errors, blockers, or unclear requirements - don't guess
 - Use contextFiles from CLI output, don't assume specific file names
-- **After ALL tasks complete, run `uv run task test` — full suite must be green before reporting done**
+- **After each implementation pass, identify affected behavior from `tasks.md`, changed files, and diff; run the smallest relevant focused test set through `uv run task …`, and report the exact command and result.**
+- Do not run the full `uv run task test` as routine apply validation after a pass or after all tasks complete; timed full-suite verification belongs exclusively to `review`.
+- A red focused test related to the change blocks handoff. Diagnose and resolve it, or stop and report evidence to the orchestrator; do not guess or mark the change `Applied`.
 
 **Fluid Workflow Integration**
 

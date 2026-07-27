@@ -27,8 +27,9 @@ You may be called multiple times for the same slice:
 
 ## Test gate (ZERO TOLERANCE)
 
-`apply` validates only tests directly related to current change. Full-suite
-validation belongs to `review` and must not be duplicated here.
+`apply` validates only tests directly related to current change, including after
+all tasks complete. Full-suite timing/verification belongs exclusively to `review`
+and must not be run after an apply pass or duplicated here.
 
 After every implementation pass:
 

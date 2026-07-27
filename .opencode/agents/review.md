@@ -19,22 +19,35 @@ Workflow:
 - Load `code-review`.
 - Review the implemented change against the slice's proposal and spec.
 - Check architecture, design patterns, and code quality.
-- Run the FULL test suite (not just "related" tests).
+- Run exactly one FULL test suite (not just "related" tests), timed from process start to finish.
 - Produce a review report.
 
 ## Test gate (ZERO TOLERANCE)
 
-**No APPROVE if any test is red.** Period.
+**No APPROVE if any test is red.** Period. Elapsed time never relaxes this rule.
 
-Run the full suite:
+Run exactly one full suite before standards/spec review. Measure wall-clock externally
+around this command; do not replace taskipy command or run it again as routine review
+validation:
 
 ```bash
 uv run task test
 ```
 
+Record command, green/red result, elapsed wall-clock, threshold classification, and
+explicit verdict. Classify elapsed time as under 3 minutes, 3–5 minutes inclusive,
+or over 5 minutes. Under 3 minutes is aspirational telemetry. A green 3–5 minute
+run emits warning telemetry but does not fail delivery. A green run over 5 minutes
+is **CHANGES_REQUESTED** and cannot be approved; include measured bottleneck
+evidence from this run and require scoped remediation. If output lacks per-test
+timing, record available lane evidence and require focused profiling in follow-up
+work instead of rerunning the full suite. Remediation must preserve every test and
+all coverage; never disable, skip, mask, remove tests, or reduce coverage.
+
 | Outcome | Verdict |
 |---------|---------|
-| All green | Test gate passed — proceed to code review |
+| Green and under 5 minutes | Test gate passed — proceed to code review, with warning telemetry at 3–5 minutes |
+| Green and over 5 minutes | **CHANGES_REQUESTED** — investigate measured bottleneck; do not approve |
 | Any failure | **Automatic CHANGES_REQUESTED** — do not approve |
 
 When tests fail, classify every failure in your report:
