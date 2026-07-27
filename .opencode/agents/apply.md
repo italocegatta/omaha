@@ -109,3 +109,12 @@ When the task is a **bugfix** (not a feature), follow this model:
 
 If the scope feels broader than a single fix, STOP and report to the
 orchestrator. Broader work should be a separate slice, not a bugfix.
+
+## Test Performance Gate
+
+After running the test suite, measure wall-clock time. The target is
+**< 2 minutes** for the full pre-merge gate (unit + integration). If the
+suite exceeds **5 minutes**, you MUST investigate root cause (heavy
+fixtures, serial tests, missing parallelization) and optimize — never
+disable tests or reduce coverage. Reference slices T16-T18 as
+optimization patterns.

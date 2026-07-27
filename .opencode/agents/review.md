@@ -67,3 +67,10 @@ Constraints:
 - Do not propose new scope.
 - Report only — hand findings back to orchestrator.
 - Do not APPROVE if any test is red.
+
+## Test Performance Gate
+
+When reviewing, verify the test suite completed within time budgets:
+**target < 2 min**, **hard ceiling 5 min**. If the suite exceeded 5 min,
+return `CHANGES_REQUESTED` with investigation requirement — same as test
+failures. Do not approve slices with slow suites.
