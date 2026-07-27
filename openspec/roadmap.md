@@ -490,122 +490,9 @@ Archive: `openspec/changes/archive/2026-07-25-i07-profile-based-model-provider-e
 Notes: root cause confirmed — OpenCode doesn't read env vars for model override; `opencode.json` hardcoded prevalece. Correction: template + atomic config generation. Manual subagent ping confirmed `openai-balanced` effective.
 
 ### T30 - Investigar cards de classe, dados disponíveis e alternativas de chart lib
-Status: `Ready` — investigação futura (nenhum código de produção alterado)
-Goal: documentar em `openspec/.temp_assets/` toda a base técnica necessária para propor F49 (bridge graphic). Inclui: estrutura HTML/CSS atual dos cards, campos do schema `RebalanceCategoryPlanRow` (7 campos), cálculo de `projected_pct` no front, opções de lib de gráfico (Apache ECharts ~800KB vs SVG/CSS puro), gaps de dados, testes impactados, e riscos de regressão.
-Candidate OpenSpec change id: `t30-investigar-cards-classes-dados-e-chart-lib`
-Spec link: `openspec/changes/t30-investigar-cards-classes-dados-e-chart-lib/`
-Files: `src/omaha/templates/_rebalance_plan.html`, `src/omaha/templates/rebalance.html`, `src/omaha/rebalance/schemas.py`, `src/omaha/rebalance/postprocessing.py`, `src/omaha/static/app.css`, `tests/test_rebalance_page.py`, `tests/test_rebalance_schemas.py`, `tests/visual/test_snapshots.py`
-
-#### Objetivo
-Produzir notas técnicas completas em `openspec/.temp_assets/t30-notes.md` que alimentem a proposta de F49 sem ambiguidade. Nenhum arquivo de produção é alterado; output é documento de referência.
-
-#### Não-objetivos
-- Implementar bridge graphic ou qualquer alteração visual.
-- Alterar schema `RebalanceCategoryPlanRow` (apenas documentar campos existentes).
-- Adicionar libs ao `pyproject.toml`.
-- Alterar testes existentes.
-
-#### Escopo funcional da investigação
-1. **Cards atuais** — mapear HTML (`_rebalance_plan.html` L41-78), CSS (`app.css` L2855-2914), Alpine (`rebalance.html` L373-435: `_computeCategories`, `classCardClass`, `formatPct1`, `formatBRL`, `formatDeviationPp`).
-2. **Schema** — listar os 7 campos de `RebalanceCategoryPlanRow`: `category_name`, `current_value`, `projected_value`, `delta`, `target_pct`, `current_pct`, `deviation_pct`. Documentar que `projected_pct` é computado no front (não existe no schema Pydantic).
-3. **Cálculo de `projected_pct`** — `_computeCategories` em `rebalance.html` L373-384: `projected_pct = projected_value / totalProjected * 100` onde `totalProjected = sum(asset_plan.projected_value)`. Confirmar que é peso percentual projetado, não valor monetário.
-4. **`delta`** — investigar se `delta` (= `projected_value - current_value`) representa resultado líquido de compra/venda por classe. Hipótese: sim, `delta > 0` = compra líquida, `delta < 0` = venda líquida. Confirmar com exemplos reais do solver.
-5. **`net_action`** — verificar se campo `action` (buy/sell/hold) existe no schema de classe ou apenas no de ativo (`RebalanceAssetPlanRow.action`). Hipótese: não existe no schema de classe; precisa ser computado no front a partir de `delta` (ou `deviation_pct`).
-6. **Chart lib** — comparar:
-   - **Apache ECharts** (~800KB gzipped ~250KB): rich charts, animações, tooltips, accessibility built-in. Bundle size alto para 2 cards.
-   - **SVG/CSS puro**: zero dependência, controle total, ~0KB extra. Mas: animações manuais, accessibility DIY.
-   - **Recomendação preliminar**: SVG/CSS puro para bridge graphic horizontal (segmento colorido com marcadores); ECharts overkill para 2 retas horizontais por card.
-7. **Testes impactados** — catalogar todos os testes que tocam cards de classe:
-   - `test_rebalance_page.py::test_class_deviation_summary_renders` (integration)
-   - `test_rebalance_schemas.py::test_category_plan_row_carries_exactly_seven_fields` (unit)
-   - `tests/visual/test_snapshots.py::test_rebalance_plan_snapshot[desktop|mobile]` (visual baseline)
-   - `tests/e2e/test_rebalance_page.py` (e2e — verificar se cards são inspecionados)
-8. **Gaps de dados** — se F49 precisar de `net_action` (buy/sell/hold) no schema de classe, documentar impacto em `postprocessing._build_category_plan`, `glue.py`, `engine.py`, `solver_stub.py`, e testes de schema.
-9. **Acessibilidade** — verificar se cards atuais têm `aria-label`, roles, contraste de cor adequado (WCAG AA). Documentar gaps para F49.
-10. **Responsividade** — verificar comportamento dos cards em mobile (grid `auto-fit` com `minmax(13rem, 1fr)` em L2850). Documentar se bridge graphic cabe em viewport estreito.
-
-#### Cenários de compra/venda líquida (para documentar)
-- **Cenário A (compra)**: `delta > 0`, `deviation_pct < 0` (abaixo do alvo). Classe precisa de aporte. Bridge graphic mostra barra vermelha (atual) < barra verde (alvo), com seta verde apontando para gap.
-- **Cenário B (venda)**: `delta < 0`, `deviation_pct > 0` (acima do alvo). Classe excedeu alvo. Bridge graphic mostra barra vermelha (atual) > barra verde (alvo), com seta vermelha apontando para redução.
-- **Cenário C (hold)**: `delta ≈ 0`, `deviation_pct ≈ 0`. Classe no alvo. Bridge graphic mostra barras alinhadas, cor neutra.
-- Documentar se `delta = 0` significa exatamente hold ou se há threshold (F19: `min_deviation_value` e `min_deviation_pct`).
-
-#### Regras de cálculo e estados
-- `current_pct` = `current_value / total_current_value * 100` (server-side, `postprocessing.py` L255-256)
-- `target_pct` = `target_weight * 100` (server-side, `postprocessing.py`)
-- `deviation_pct` = `current_pct - target_pct` (server-side)
-- `delta` = `projected_value - current_value` (server-side)
-- `projected_pct` = `projected_value / totalProjected * 100` (client-side, `rebalance.html` L377-380)
-- Estados visuais atuais: `--above` (deviation >= 0, borda verde), `--below` (deviation < 0, borda vermelha)
-
-#### Requisitos de escala interna por card
-- Cada card mostra: nome da classe, Atual (%), Alvo (%), Desvio (pp), Valor (R$), Projetado (%).
-- Bridge graphic substituirá ou complementará esses 6 campos.
-- Card mínimo: ~13rem largura (CSS grid `minmax`). Bridge graphic deve caber nesse espaço.
-- Número de cards = número de classes de ativos (tipicamente 4-8: Renda Fixa, Ações, FIIs, ETFs, Cripto, Exterior, etc.).
-
-#### Acessibilidade e responsividade
-- Cards atuais: sem `aria-label` individual (apenas `aria-label="Resumo por classe"` no container).
-- Contraste: `--ink` sobre `--surface` OK; `--ink-muted` sobre `--surface` pode falhar WCAG AA (verificar).
-- Mobile: grid `auto-fit` colapsa para 1 coluna em telas < 13rem. Bridge graphic deve ser legível nessa largura.
-- Bridge graphic precisa de: `aria-label` descritivo por card, fallback textual se SVG não renderizar, contraste mínimo 4.5:1.
-
-#### Decisão ECharts vs SVG/CSS
-- **Favor SVG/CSS**: bridge graphic é 2 barras horizontais por card (atual vs alvo) + marcador de gap. Não precisa de tooltip, zoom, pan, ou animações complexas. SVG inline + CSS variables = zero dependência, bundle size zero, controle total de tema (dark mode via `var(--*)`).
-- **Favor ECharts**: se owner quiser tooltips interativos, animações de transição, ou futuros gráficos mais complexos (pizza de composição, linha temporal). Bundle ~250KB gzipped.
-- **Recomendação**: SVG/CSS puro. ECharts só se owner insistir após ver protótipo SVG.
-
-#### Dados e campos esperados
-| Campo | Tipo | Origem | Usado no card atual | Usado no bridge graphic (F49) |
-|-------|------|--------|---------------------|-------------------------------|
-| `category_name` | str | schema | sim (header) | sim (header) |
-| `current_value` | float | schema | não diretamente | sim (barra atual, se escala monetária) |
-| `projected_value` | float | schema | não diretamente | sim (barra projetada) |
-| `delta` | float | schema | sim (Valor R$) | sim (seta de gap) |
-| `target_pct` | float | schema | sim (Alvo %) | sim (barra alvo) |
-| `current_pct` | float | schema | sim (Atual %) | sim (barra atual %) |
-| `deviation_pct` | float | schema | sim (Desvio pp) | sim (cor da seta) |
-| `projected_pct` | float | computado front | sim (Projetado %) | sim (barra projetada %) |
-| `net_action` | str | **não existe** | — | precisa computar: `delta > 0 ? 'buy' : delta < 0 ? 'sell' : 'hold'` |
-
-#### Arquivos a inspecionar
-1. `src/omaha/templates/_rebalance_plan.html` — HTML dos cards (L41-78), container `rebalance-class-summary`
-2. `src/omaha/templates/rebalance.html` — Alpine `_computeCategories` (L373-384), `classCardClass` (L434-436), formatters
-3. `src/omaha/rebalance/schemas.py` — `RebalanceCategoryPlanRow` (L41-53), 7 campos
-4. `src/omaha/rebalance/postprocessing.py` — `_build_category_plan` (L230-278), cálculo de weights/gaps
-5. `src/omaha/rebalance/glue.py` — tradução de native para schema v1 (L193-233)
-6. `src/omaha/rebalance/engine.py` — `_translate_category_plan` (L140-148)
-7. `src/omaha/rebalance/solver_stub.py` — `RebalanceCategoryPlanRowNative` (L57-66)
-8. `src/omaha/static/app.css` — estilos `.rebalance-class-card*` (L2850-2914)
-9. `tests/test_rebalance_page.py` — `test_class_deviation_summary_renders` e testes de cards
-10. `tests/test_rebalance_schemas.py` — `test_category_plan_row_carries_exactly_seven_fields` (L197-214)
-11. `tests/visual/test_snapshots.py` — `test_rebalance_plan_snapshot` (L75-97)
-12. `tests/e2e/test_rebalance_page.py` — verificar se cards são inspecionados nos e2e
-
-#### Testes e aceitação da investigação
-- [ ] Notas em `openspec/.temp_assets/t30-notes.md` cobrem todos os 10 pontos do escopo.
-- [ ] Campos do schema documentados com tipos e origem.
-- [ ] Cálculo de `projected_pct` documentado com referência a linha do código.
-- [ ] `delta` confirmado como compra/venda líquida (ou documentada exceção).
-- [ ] Decisão ECharts vs SVG/CSS documentada com prós/contras e recomendação.
-- [ ] Testes impactados listados com caminhos exatos.
-- [ ] Gaps de dados documentados (se `net_action` precisa ser adicionado).
-- [ ] Nenhum arquivo de produção alterado.
-
-#### Dependências
-- Nenhuma hard dependency. Pode rodar em paralelo com T27, T28, T29, F48.
-- F49 depende desta fatia (T30 deve completar antes de propor F49).
-
-#### Riscos
-- **Baixo**: investigação pura, zero risco de regressão.
-- **Médio**: se `delta` não representar compra/venda líquida, F49 precisará de campo adicional no schema (impacto em postprocessing, glue, engine, stub, testes).
-
-#### Critério de pronto
-- Notas técnicas entregues em `openspec/.temp_assets/t30-notes.md`.
-- Nenhum arquivo de produção ou teste alterado.
-- F49 pode ser proposta com base nas notas sem ambiguidade restante.
-
-Progress: pending
+Status: `Archived` — 2026-07-27
+Goal: entregar investigação técnica source-linked para propor F49 bridge graphic, com decisão SVG/CSS puro e gaps de dados documentados.
+Archive: `openspec/changes/archive/2026-07-27-t30-investigar-cards-classes-dados-e-chart-lib/`
 
 ### F49 - Bridge graphic com linguagem visual para cards de classe
 Status: `Ready` — implementação futura (depende de T30)
@@ -775,12 +662,11 @@ Archive: `openspec/changes/archive/2026-07-26-d03-gate-de-performance-de-testes-
 ## Recommended Execution Order
 
 **Active queue:**
-2. T30 (Ready) — investigação técnica dos cards e decisão SVG/CSS vs ECharts.
-3. F49 (Ready, bloqueada por T30) — bridge graphic dos cards de classe.
+1. F49 (Ready) — bridge graphic dos cards de classe, desbloqueada após T30.
 
 **Archived since prior queue:** T27, T28, T29, I07 e D03. Não são trabalho ativo.
 
-Order note: D03 saiu da fila após arquivamento; T30 permanece antes de F49 por dependência.
+Order note: D03 saiu da fila após arquivamento; F49 ficou disponível após arquivamento de T30.
 
 Order note: F41-F45 são melhorias visuais na tabela de patrimônio. Ordens sugeridas:
 1. F43 (corrigir fonte) — CSS-only, correção visual rápida
