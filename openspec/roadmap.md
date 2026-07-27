@@ -475,13 +475,10 @@ Goal: garantir rotina completa verde em até 5 minutos com cobertura de testes/h
 Archive: `openspec/changes/archive/2026-07-26-t29-investigar-e-corrigir-testes-falhando/`
 
 ### F48 - PoC sincronização MyProfit via Playwright
-Status: `Applying` — 2026-07-21
-Goal: criar PoC assistida que autentica no MyProfit, recusa modal opcional de 2FA, navega até `StockDetail.aspx`, exporta posição CSV e captura o download; sem integração com botão, banco ou importação nesta fatia.
-Candidate OpenSpec change id: `f48-poc-sincronizacao-myprofit-playwright`
-Spec link: `openspec/changes/f48-poc-sincronizacao-myprofit-playwright/`
-Files: `src/omaha/config.py`, `.env.example`, `pyproject.toml`, `scripts/` ou módulo de integração dedicado, `tests/`
-Notes: a criação e calibração dos seletores/fluxo será acompanhada pelo owner etapa a etapa. Credenciais somente server-side via `.env`; nunca registrar valores em código, logs, screenshots ou traces. Reutilizar Playwright Python existente; validar download contra parser CSV existente sem persistir posições.
-Progress: Playwright 1.61.0 instalado (pyproject.toml + lockfile). Chromium 1228 presente em ~/.cache/ms-playwright. Unit (452 passed) + integration (377 passed) + myprofit_poc (18 passed) verdes. E2E/BDD timeouts classificados como pré-existentes/fora de escopo (T28). Login/navegação real ainda não iniciados — aguardando confirmação do owner para prosseguir com tarefas 2.3 e 2.4.
+Status: `Archived` — 2026-07-27
+Goal: encerrar PoC Playwright MyProfit após bloqueio pré-login, sem caminho automatizado suportado.
+Archive: `openspec/changes/archive/2026-07-27-f48-poc-sincronizacao-myprofit-playwright/`
+Note: experimento falho; F50 segue como sucessora offline.
 
 ### I07 - Profile-based model/provider/effort management for OpenCode agents
 Status: `Archived` — 2026-07-25
@@ -778,7 +775,6 @@ Archive: `openspec/changes/archive/2026-07-26-d03-gate-de-performance-de-testes-
 ## Recommended Execution Order
 
 **Active queue:**
-1. F48 (Applying) — aguarda confirmação do owner para executar login/navegação real no MyProfit.
 2. T30 (Ready) — investigação técnica dos cards e decisão SVG/CSS vs ECharts.
 3. F49 (Ready, bloqueada por T30) — bridge graphic dos cards de classe.
 

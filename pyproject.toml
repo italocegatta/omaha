@@ -243,8 +243,6 @@ test-pattern     = { cmd = "uv run pytest -v -k",                               
 test-one         = { cmd = "uv run pytest -v",                                        help = "Run a single test by node id:  task test-one tests/test_X.py::test_y" }
 
 # ── Optional external PoC ───────────────────────────────────────────────────
-myprofit-poc     = { cmd = "uv run python -m scripts.myprofit_poc",                 help = "Show MyProfit PoC readiness; browser flow is owner-gated" }
-
 # ── Lint / format ───────────────────────────────────────────────────────────
 lint    = { cmd = "uv run prek run --all-files",  help = "Run prek hooks: ruff format check, ruff --fix, hygiene" }
 format  = { cmd = "uv run ruff format .",          help = "Auto-format the codebase with ruff" }

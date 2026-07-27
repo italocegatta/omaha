@@ -249,7 +249,6 @@ _UNIT_FILES = frozenset(
         "tests/test_seed_from_csv_loaders.py",
         "tests/test_seed_from_csv_validation.py",
         "tests/test_iconography_tokens.py",
-        "tests/test_myprofit_poc.py",
         "tests/test_policy_mutations.py",
     }
 )
