@@ -34,10 +34,20 @@ orchestrator. You do NOT route to propose/apply/review/finalize.
    - Read `AGENTS.md` for project constraints and rules.
 
 2. **Analyze the demand:**
-   - What user-visible behavior changes?
-   - What files/modules are touched?
-   - What tests exist or need to be created?
-   - Are there dependencies on existing slices (Ready or Applying)?
+    - What user-visible behavior changes?
+    - What files/modules are touched?
+    - What tests exist or need to be created?
+    - Are there dependencies on existing slices (Ready or Applying)?
+
+### Visual and interaction fidelity protocol
+
+For visual or interaction work, record these requirements in the roadmap slice.
+
+- Build a fidelity ledger: literal user requirement -> perceived semantic -> required rendering/interaction -> source field/calculation -> forbidden reinterpretation -> evidence.
+- Treat sketches, screenshots, annotated mocks, and worked numeric examples as normative requirements, not inspiration.
+- State visual grammar: objects; relationships, direction, and sequence; meaning of colors, labels, and absence; invariants; and prohibited generic alternatives.
+- State each numeric mapping: source; unit and sign; visual property; comparison reference; expected scenario output; and zero, boundary, and missing-data behavior.
+- Apply no-inference stop rule: do not select or substitute generic chart/UI patterns or technical mechanisms while visual grammar is ambiguous. Ask concise owner questions, or create a discovery/mock-only slice and mark the implementation slice Blocked.
 
 3. **Decompose into slices:**
    - Prefer small, objective slices: one problem, one coherent scope, one testable increment.
@@ -64,11 +74,21 @@ orchestrator. You do NOT route to propose/apply/review/finalize.
    - Add dependency entries if slices depend on each other.
 
 6. **Return summary to orchestrator:**
-   - Number of slices created.
-   - Brief description of each (id + title + 1-line goal).
-   - Recommended execution order.
-   - Any dependencies or ordering constraints.
-   - Whether explore is needed before propose for each slice.
+    - Number of slices created.
+    - Brief description of each (id + title + 1-line goal).
+    - Recommended execution order.
+    - Any dependencies or ordering constraints.
+    - Whether explore is needed before propose for each slice.
+
+### Visual-work handoff
+
+For every visual or interaction slice, record in its roadmap entry and return to
+the orchestrator: fidelity ledger, visual grammar, numeric mappings, scenario
+acceptance examples, prohibitions, and unresolved decisions. Require owner
+approval of a static mock, prototype, or browser rendering before Apply. Record
+that approval as a handoff dependency; propose must carry gate into change
+artifacts, and Apply cannot start until approval is recorded. This is a
+requirement handoff, not agent routing or artifact creation by slice.
 
 ## Output format
 
@@ -130,3 +150,8 @@ Before writing slices, verify:
 - [ ] Dependencies between slices are explicit
 - [ ] No slice duplicates existing roadmap work
 - [ ] Slice size fits in one context window for propose + apply
+- [ ] Each sketch, screenshot, annotated mock, and worked numeric example has a visual evidence source in the fidelity ledger
+- [ ] Acceptance checks verify intended semantic perception and interaction, not component or DOM presence alone
+- [ ] Visual grammar, numeric mappings, prohibitions, and zero/boundary/missing behavior are explicit
+- [ ] Unresolved visual or technical ambiguity follows the no-inference stop rule
+- [ ] Owner mock/prototype/browser-rendering approval is a recorded dependency before Apply

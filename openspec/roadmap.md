@@ -478,7 +478,6 @@ Archive: `openspec/changes/archive/2026-07-26-t29-investigar-e-corrigir-testes-f
 Status: `Archived` — 2026-07-27
 Goal: encerrar PoC Playwright MyProfit após bloqueio pré-login, sem caminho automatizado suportado.
 Archive: `openspec/changes/archive/2026-07-27-f48-poc-sincronizacao-myprofit-playwright/`
-Note: experimento falho; F50 segue como sucessora offline.
 
 ### I07 - Profile-based model/provider/effort management for OpenCode agents
 Status: `Archived` — 2026-07-25
@@ -495,12 +494,16 @@ Goal: entregar investigação técnica source-linked para propor F49 bridge grap
 Archive: `openspec/changes/archive/2026-07-27-t30-investigar-cards-classes-dados-e-chart-lib/`
 
 ### F49 - Bridge graphic com linguagem visual para cards de classe
-Status: `Ready` — implementação futura (depende de T30)
-Goal: substituir conteúdo numérico dos cards de classe por bridge graphic horizontal (atual → alvo) sem escala entre cards, apenas dentro do card. Mostrar resultado líquido (compra ou venda) por classe com cores, ícones e efeitos para evidenciar acima/abaixo do alvo e contribuição do rebalanceamento para enquadramento. Cenário 1: abaixo do alvo, compra, gap residual. Cenário 2: acima do alvo, venda, gap 0. Cores: verde (abaixo/compra), vermelho (acima/venda).
+Status: `Blocked` — 2026-07-27 (superseded por F52; abordagem manual abandonada pelo owner)
+Goal: substituir resumo numérico por waterfall/bridge monetária mantível em cada card de classe, com sequência normativa `Atual → Compra/Venda líquida → Desvio residual → Alvo`; escala BRL independente por card e referenciada ao valor atual, sem comparação entre cards.
 Candidate OpenSpec change id: `f49-bridge-graphic-linguagem-visual-cards-classe`
 Spec link: `openspec/changes/f49-bridge-graphic-linguagem-visual-cards-classe/`
-Files: `src/omaha/templates/_rebalance_plan.html`, `src/omaha/templates/rebalance.html`, `src/omaha/static/app.css`, `src/omaha/rebalance/schemas.py`, `tests/test_rebalance_page.py`, `tests/test_rebalance_schemas.py`, `tests/visual/test_snapshots.py`
-Dependencies: T30 (investigação deve completar antes de propor)
+Files: `src/omaha/templates/_rebalance_plan.html`, `src/omaha/templates/rebalance.html`, `src/omaha/static/app.css`, `src/omaha/rebalance/schemas.py`, `tests/test_rebalance_page.py`
+Notes: Fidelity ledger: quatro etapas monetárias visíveis — `Atual → Compra/Venda líquida → Desvio residual → Alvo`; cada etapa exibe BRL e percentual pareados. Geometria usa valores BRL referenciados ao valor atual dentro do próprio card; não há escala compartilhada entre cards. Compra/venda líquida deve representar trades mistos compensados, sem tratar operação líquida como classe negociável/executável. Proibidos: gráfico percentual genérico, overlay atual/projetado, marcador de alvo por ponto/bolinha. Cores, ícones e efeitos distinguem contribuição e estado sem depender apenas de cor. Fallback textual, WCAG AA, mobile 320px e tokens dark mode obrigatórios. Mapeamento de campos BRL, fontes, sinais, arredondamento, zero, limites e ausente são perguntas de proposta; não inferir comportamento. Gate: owner aprova mock/protótipo visual e mapping antes de implementação runtime.
+Acceptance: Ações — Atual R$100k/14.6%, compra líquida R$25k/0.2%, residual R$25k/0.2%, Alvo R$150k/15%. FII — Atual R$120k/15.2%, venda líquida R$20k/0.2%, residual R$0/0%, Alvo R$100k/15%. Sequência, BRL/% pareados e escala local devem ser preservados; tabela por ativo e contratos não relacionados não mudam.
+Progress: 2026-07-27 — implementação manual (SVG/HTML artesanal) abandonada após rejeições visuais repetidas. Lições e regras aprovadas documentadas em `openspec/.temp_assets/f49-bridge-handoff.md`; mock aprovado permanece em `/rebalanceamento/bridge-mock`. Substituída por F52 (ECharts). Change folder `f49-bridge-graphic-linguagem-visual-cards-classe` preservada como histórico; não retomar.
+
+<!-- Historical contract superseded by corrected F49 ledger above; retained for audit only.
 
 #### Objetivo
 Transformar os cards de classe de resumo numérico (Atual/Alvo/Desvio/Valor/Projetado) em bridge graphic horizontal que mostra visualmente a trajetória de cada classe: posição atual → posição alvo, com resultado líquido do rebalanceamento (compra/venda) evidenciado por cor, ícone e seta.
@@ -649,24 +652,72 @@ Transformar os cards de classe de resumo numérico (Atual/Alvo/Desvio/Valor/Proj
 - Dark mode funciona sem hardcoded colors.
 - Owner aprova visual no browser (refresh-for-test).
 
-Notes: requer decisão de chart lib (ECharts vs SVG/CSS puro — preferência do owner por ECharts, mas propor alternativa simples). Atualizar visual baseline após implementação. Verificar impacto em `test_category_plan_row_carries_exactly_seven_fields` se schema mudar. Campos atuais: `current_pct`, `target_pct`, `deviation_pct`, `delta` — podem ser suficientes para bridge; `net_action` (buy/sell/hold) pode precisar ser computado ou adicionado ao schema.
-Progress: pending
+Notes: BLOQUEADA: implementação atual viola gramática visual aprovada pelo owner; não iniciar mais implementação, review ou finalização nesta fatia. Preservar change id e artifacts históricos. A correção será planejada em F50/F51; F49 não deve ser renomeada, apagada ou retomada.
+Progress: 2026-07-27 — proposta criada em `openspec/changes/f49-bridge-graphic-linguagem-visual-cards-classe/`; validação anterior passou. Implementação/review interrompidos por contrato visual incorreto; substituição planejada sem alterar histórico.
+
+-->
+
+### F50 - Mock aprovado da ponte monetária dos cards de classe
+Status: `Deprecated` — 2026-07-27 (owner directed correction to remain entirely in F49; no separate execution slice)
+Goal: historical split rejected; mock/prototype approval is now a gate inside F49.
+Candidate OpenSpec change id: `f50-mock-aprovado-ponte-monetaria-cards-classe`
+Spec link: `openspec/changes/f50-mock-aprovado-ponte-monetaria-cards-classe/`
+Files: `src/omaha/templates/_rebalance_plan.html`, `src/omaha/templates/rebalance.html`, `src/omaha/rebalance/schemas.py`, `src/omaha/rebalance/glue.py`, `src/omaha/rebalance/postprocessing.py`
+Dependencies: F49 apenas como histórico bloqueado; não depende de implementação F49. F51 depende de mock e mapeamento aprovados pelo owner.
+Notes: Deprecated per owner direction; mock, mapping, ledger and approval gate absorbed into F49.
+Progress: pending — propor mock; pending — obter aprovação owner; pending — registrar mapping/grammar final; pending — spec verification.
+
+### F51 - Integrar ponte monetária aprovada nos cards de classe
+Status: `Deprecated` — 2026-07-27 (owner directed correction to remain entirely in F49; no separate execution slice)
+Goal: historical split rejected; runtime integration is now part of F49 after its approval gate.
+Candidate OpenSpec change id: `f51-integrar-ponte-monetaria-aprovada-cards-classe`
+Spec link: `openspec/changes/f51-integrar-ponte-monetaria-aprovada-cards-classe/`
+Files: `src/omaha/templates/_rebalance_plan.html`, `src/omaha/templates/rebalance.html`, `src/omaha/static/app.css`, `src/omaha/rebalance/schemas.py`, `tests/test_rebalance_page.py`
+Dependencies: None; runtime work absorbed into F49.
+Notes: Deprecated per owner direction; runtime integration absorbed into F49 after its owner-approval gate.
+Progress: pending — proposta; pending — owner handoff F50 confirmado; pending — implementação; pending — review; pending — refresh-for-test; pending — finalização.
 
 ### D03 - Gate de performance de testes nos agentes apply e review
 Status: `Archived` — 2026-07-26
 Goal: separar validação focada do apply de uma única suíte completa temporizada no review, com teto de cinco minutos sem reduzir cobertura.
 Archive: `openspec/changes/archive/2026-07-26-d03-gate-de-performance-de-testes-nos-agentes/`
 
+### F52 - Waterfall ECharts nos cards de classe
+Status: `Applying` — 2026-07-27
+Goal: substituir o waterfall manual HTML/CSS quebrado dentro dos cards de classe reais do `/rebalanceamento` por renderização Apache ECharts que reproduz EXATAMENTE o mock aprovado pelo owner (`src/omaha/templates/rebalance_bridge_mock.html`, rota `/rebalanceamento/bridge-mock`), com UM helper JS de renderização reutilizado por todos os cards.
+Candidate OpenSpec change id: `f52-waterfall-echarts-nos-cards-de-classe`
+Spec link: `openspec/changes/f52-waterfall-echarts-nos-cards-de-classe/`
+Files: `src/omaha/templates/_rebalance_plan.html`, `src/omaha/templates/rebalance.html`, `src/omaha/static/app.css`, `tests/test_rebalance_page.py`, `tests/visual/test_snapshots.py`
+Dependencies: handoff `openspec/.temp_assets/f49-bridge-handoff.md` (referência normativa obrigatória antes de propor); F49 superseded — nenhum reaproveitamento do código de renderização manual, EXCETO mock aprovado, payload `window.__rebalancePlan` e helpers puros aprovados (`_niceAxis`, `_formatBRLShort`, `_plannedTotal`, `_targetForCategory`, ε `DISPLAY_TOLERANCE`). F50/F51 deprecated, sem dependência.
+Notes:
+- **Referência normativa:** `openspec/.temp_assets/f49-bridge-handoff.md` — contrato visual aprovado (§1), regras de negócio runtime (§2), lições aprendidas (§3), inventário verificado do que substituir/remover/preservar (§4), diretriz ECharts (§5). Ler integralmente antes de propor. Mock aprovado + spec delta de F49 são leitura complementar.
+- **Context7 obrigatório:** antes/durante o propose, consultar documentação ATUAL do Apache ECharts via Context7 — receita de waterfall (barra empilhada com série base transparente), API de `stack`, theming (registro de tema ou `getComputedStyle` + re-registro no swap dark), `tooltip: { show: false }`, eixo Y (`min: 0`, `max`/`interval` do `_niceAxis`, `axisLabel.formatter` short scale, `splitLine` em todo tick), labels de série (lib cuida de colisão — lição 3, NÃO reposicionar à mão), resize responsivo (`ResizeObserver`/320px). Objetivo declarado pelo owner: gráficos de fácil manutenção.
+- **Vendor/CDN:** decisão de design no propose (vendored em `static/vendor/` vs CDN) — não é fatia separada. Justificar manutenção + offline.
+- **Fidelity ledger (mock aprovado é normativo, não inspiração):** requisito literal → ponte monetária por classe aprovada no mock; semântica percebida → trajetória `Atual → Compra/Venda → Desvio → Alvo` em BRL dentro do próprio card; renderização exigida → ECharts empilhado com totais ancorados em zero e deltas flutuantes entre níveis cumulativos C1/C2/C3; fonte de dados → payload existente `window.__rebalancePlan` (agregação alvo via `_targetForCategory`, denominador via `_plannedTotal`); evidência → handoff §1/§2 + mock L18-109.
+- **Gramática visual (handoff §1):** sequência fixa 4 etapas; totais `Atual`/`Alvo` azuis `--class-1` ancorados em 0; deltas Compra (verde `--positive`) / Venda (vermelho `--negative`) / Desvio não-zero (âmbar `--alert-warn`), zero = linha sólida neutra SEM barra; conectores cumulativos tracejados sem pontos; escala local BRL por card, Y de R$0 com 4-5 ticks bonitos (1/2/2,5/5 × 10ⁿ, teto = próximo tick estritamente acima de `max(Atual, Projetado, Alvo)`, menor teto → menor passo); grid horizontal em todo tick; largura de barra 45% centralizada; nomes das etapas SOMENTE no eixo X centralizados; rótulos sobre barra SOMENTE valor absoluto short scale + percentual; shell `.rebalance-class-card` EXATO preservado; gráfico ocupa todo o conteúdo disponível (sem footer/status/equação); estado acima/abaixo apenas via borda + `aria-label` (vermelho/azul), gráfico não comunica estado por fundo; legível em 320px sem overflow; dark mode via tokens (proibido cor hardcoded — WCAG AA, DESIGN.md §6).
+- **Mapeamentos numéricos:** short scale obrigatória em TODOS os rótulos e eixo Y — `R$ 113.746,00` → `R$ 113,7k` (1 casa, PT-BR; < 1000 integral); percentuais de etapa = `round(abs(valor_etapa) / total_final_planejado × 100, 1)` com `total_final_planejado = Σ asset_plan.target_value` finitos (NUNCA derivar de `target_pct` — denominador é total corrente, ver handoff §2); ε = `DISPLAY_TOLERANCE = 0.0001` classifica Compra/Venda/zero; cenário de aceite: Ações `R$100k/14,6% → +R$25k/0,2% → +R$25k/0,2% → R$150k/15%` (ticks `0/50,0k/100,0k/150,0k/200,0k`), FII `R$120k/15,2% → -R$20k/0,2% → R$0/0% → R$100k/15%` (ticks `0/50,0k/100,0k/150,0k`).
+- **Zero/borda/ausente:** desvio dentro de ε → etapa válida `R$ 0` + `0%` sem barra; classe sem linhas `asset_plan` ou input não-finito ou `total_final_planned <= 0` → fallback `Dados indisponíveis para esta ponte`, SEM instanciar chart, SEM `R$0` inferido, SEM geometria falsa.
+- **Proibições (reinterpretar o mock = falha):** gráfico percentual genérico, overlay atual/projetado, marcador/bolinha de alvo, delta ancorado em zero como total, 4 mini-barras antigas, escala compartilhada entre cards, loop SVG/Alpine, tooltip-only como informação, nomes repetidos na barra, controle de trade por classe, cores hardcoded. Textos removidos NÃO podem voltar: aviso `Sugestões abaixo dos mínimos viram Manter.` e linha visível `Compra/Venda líquida` + valor (nome da etapa líquida apenas em `aria-label`). Display-only: saldo líquido é informativo, nunca ordem executável; tabela por ativo é a única fonte de ação; solver/thresholds/métricas globais intocados.
+- **Limpeza:** remover CSS morto `.rebalance-waterfall-*` (app.css L2893-3002), `.rebalance-bridge-svg/-track/-residual/-marker/-legend` (L3009-3056) e overrides 360px associados (L3066-3073); reescrever `.rebalance-class-card-bridge` como container do chart; preservar shell `.rebalance-class-card*` (L2855-2888) e grid `.rebalance-class-summary` (L2848-2854) EXATOS; substituir DOM manual em `_rebalance_plan.html` L52-83 mantendo header L49-51, `data-testid`, tabela `.rebalance-asset-section` e fallback de indisponibilidade (inventário completo no handoff §4).
+- **Mock route:** `/rebalanceamento/bridge-mock` + `rebalance_bridge_mock.html` NÃO mexer durante a implementação; aposentar somente após owner aprovar a versão ECharts por side-by-side (aposentadoria pode ser follow-up mínimo no finalize/propose, registrar no propose).
+- Gate visual: mock já aprovado pelo owner — NÃO há gate de mock novo; o gate é paridade visual da implementação ECharts com o mock aprovado, verificada pelo owner antes do archive.
+Acceptance: side-by-side com `/rebalanceamento/bridge-mock` sem divergência perceptível em desktop + viewport 320px + dark mode (owner aprova); todas as regras de negócio do handoff §2 preservadas (short scale `R$ 113,7k` em barras e eixo Y, ε `0.0001`, estado `Dados indisponíveis para esta ponte` sem chart, denominador `total_final_planned`); shell do card e `aria-labels` intactos; textos removidos ausentes; testes comportamentais focados (renderização ECharts por card, estados compra/venda/zero/indisponível, agregações) + suíte completa verde + baseline visual atualizado sem diff não-autorizado; refresh-for-test com receipt obrigatório (PRD §4.9).
+Progress: pending — propose (ler handoff + Context7 ECharts); pending — spec verification pós-propose; pending — apply; pending — review; pending — refresh-for-test receipt; pending — owner visual parity approval (gate antes do archive); pending — spec verification pós-apply; pending — archive (+ aposentar mock route se aprovado).
+
 ---
 
 ## Recommended Execution Order
 
 **Active queue:**
-1. F49 (Ready) — bridge graphic dos cards de classe, desbloqueada após T30.
+1. F52 (Ready) — waterfall ECharts nos cards de classe reproduzindo o mock aprovado; handoff `openspec/.temp_assets/f49-bridge-handoff.md` como referência normativa.
+
+**Order note:** F52 substitui F49 (waterfall manual HTML/CSS abandonado pelo owner). F49 será marcado `Blocked`/superseded pelo orchestrator — não reabrir, não reutilizar código de renderização (exceto mock aprovado + payload + helpers puros listados em F52/Dependencies). F50/F51 seguem deprecated.
+
+**Archived history:** F48 permanece registro de PoC Playwright sem sucesso; não reabrir, renomear ou alterar sua change folder.
 
 **Archived since prior queue:** T27, T28, T29, I07 e D03. Não são trabalho ativo.
 
-Order note: D03 saiu da fila após arquivamento; F49 ficou disponível após arquivamento de T30.
+Order note: F49 correction absorbs mock approval and runtime integration after owner direction. F50/F51 deprecated and excluded from execution.
 
 Order note: F41-F45 são melhorias visuais na tabela de patrimônio. Ordens sugeridas:
 1. F43 (corrigir fonte) — CSS-only, correção visual rápida

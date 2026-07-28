@@ -5,7 +5,6 @@
 - Playwright via WSL recebeu `403` antes do login; login normal no navegador funcionou.
 - Nenhum modal 2FA foi observado ao vivo; nenhum bypass foi tentado.
 - Código e testes F48 foram removidos, junto com toda configuração, taskipy e allow-list exclusivos da PoC.
-- F50 é sucessor offline; acesso ao vivo permanece gateado por aprovação do provider.
 
 - [x] 1.1 Definir módulo/script isolado da PoC e comando de execução manual, sem adicionar fluxo à aplicação web.
 - [x] 1.2 Adicionar `MYPROFIT_EMAIL` e `MYPROFIT_PASSWORD` ao `.env.example` sem valores reais e validar falha antes de iniciar navegador quando ausentes.
@@ -29,4 +28,3 @@
 - [x] 4.1 Criar testes offline para configuração, seleção condicional do modal, captura simulada do download e compatibilidade com fixture CSV existente.
 - [x] 4.2 Garantir que suite padrão não acessa `myprofitweb.com` e que navegação real seja opt-in/manual.
 - [x] 4.3 Rodar lint e testes definidos pelo repositório usando tarefas taskipy; registrar limitações observadas no MyProfit.
-- [x] 4.4 Registrar conclusão experimental sanitizada, remoção do código/testes F48 e ausência de botão `Sincronizar` ou integração com modal; F50 segue como sucessor offline com gate ao vivo por aprovação do provider.
