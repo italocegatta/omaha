@@ -676,7 +676,7 @@ def post_rebalanceamento(
     min_deviation_value: str = Form(default=""),
     min_deviation_pct: str = Form(default=""),
 ) -> Response:
-    """Run the rebalance pipeline and re-render the page with the plan.
+    """Run the rebalance pipeline and redirect (303) back to the page (PRG).
 
     ``contribution`` is bound as a raw string because the wire
     boundary (HTML form) is untyped — we parse it here so a
@@ -690,7 +690,13 @@ def post_rebalanceamento(
     gates ``contribution < 0`` client-side for v1 (withdrawal is a
     Phase 4 feature). Solver validation failures map to
     ``form_error`` with the validation message verbatim — the page
-    re-renders, no redirect, no 4xx.
+    re-renders directly (200, no redirect) so the message survives;
+    no 4xx. The success path follows POST/Redirect/GET: the aporte
+    is persisted in session by ``_materialize_rebalance_plan`` and
+    the 303 makes the browser follow up with GET, so the current
+    document is a GET response and refresh never re-submits the
+    form. The active profile is session-bound, so the redirect
+    target carries no query string.
 
     F07 — Família sentinel: the ``require_profile_writable`` dep
     raises 409 ``household_read_only`` while the family session flag
@@ -758,7 +764,10 @@ def post_rebalanceamento(
         )
 
     try:
-        plan = _materialize_rebalance_plan(
+        # Side effect is the point: persists the aporte in session so
+        # the post-redirect GET recomputes the same plan. The plan
+        # itself is rendered by that GET, not here (PRG).
+        _materialize_rebalance_plan(
             request,
             db,
             profile,
@@ -785,17 +794,7 @@ def post_rebalanceamento(
             ),
         )
 
-    return _render_rebalance(
-        request,
-        db,
-        user,
-        profile,
-        plan=plan,
-        min_deviation_value=_resolved_threshold(
-            parsed_min_deviation_value, DEFAULT_MIN_DEVIATION_VALUE
-        ),
-        min_deviation_pct=_resolved_threshold(parsed_min_deviation_pct, DEFAULT_MIN_DEVIATION_PCT),
-    )
+    return RedirectResponse("/rebalanceamento", status_code=303)
 
 
 @router.get("/rebalance")

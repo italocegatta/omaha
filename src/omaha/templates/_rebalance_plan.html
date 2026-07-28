@@ -35,7 +35,6 @@
               data-testid="rebalance-threshold-pct" />
     </div>
   </div>
-  <p class="rebalance-params-note">Sugestões abaixo dos mínimos viram Manter.</p>
 
   {# Class deviation summary — horizontal cards #}
   {% if plan.category_plan %}
@@ -45,33 +44,25 @@
     <template x-for="c in displayCategories" :key="c.category_name">
       <div class="rebalance-class-card"
            :class="classCardClass(c)"
+           :aria-label="categoryAriaLabel(c)"
            :data-testid="'rebalance-class-card-' + c.category_name">
         <div class="rebalance-class-card-header">
           <span class="rebalance-class-card-name" x-text="c.category_name"></span>
         </div>
-        <div class="rebalance-class-card-metrics">
-          <div class="rebalance-class-card-metric">
-            <span class="rebalance-class-card-label">Atual</span>
-            <strong x-text="formatPct1(c.current_pct)"></strong>
-          </div>
-          <div class="rebalance-class-card-metric">
-            <span class="rebalance-class-card-label">Alvo</span>
-            <strong x-text="formatPct1(c.target_pct)"></strong>
-          </div>
-          <div class="rebalance-class-card-metric"
-               :class="c.deviation_pct >= 0 ? 'rebalance-deviation--pos' : 'rebalance-deviation--neg'">
-            <span class="rebalance-class-card-label">Desvio</span>
-            <strong x-text="formatDeviationPp(c.deviation_pct)"></strong>
-          </div>
-          <div class="rebalance-class-card-metric"
-               :class="c.delta >= 0 ? 'rebalance-deviation--pos' : 'rebalance-deviation--neg'">
-            <span class="rebalance-class-card-label">Valor</span>
-            <strong x-text="formatBRL(c.delta)"></strong>
-          </div>
-        </div>
-        <div class="rebalance-class-card-projected">
-          <span class="rebalance-class-card-label">Projetado</span>
-          <strong x-text="formatPct1(c.projected_pct)"></strong>
+        <div class="rebalance-class-card-bridge"
+             data-testid="rebalance-class-bridge"
+             :class="bridgeAvailable(c) ? '' : 'rebalance-class-card-bridge--unavailable'">
+          {# F52 — single ECharts container per card, rendered by the one
+             shared `renderBridgeChart` helper (rebalance.html). `x-if`
+             keeps unavailable cards free of any chart instance (design
+             D8): the element never exists, so `x-init` never runs. #}
+          <template x-if="bridgeAvailable(c)">
+            <div data-testid="rebalance-class-chart"
+                 role="img"
+                 :aria-label="waterfallAriaLabel(c)"
+                 x-init="bridgeAvailable(c) && $nextTick(() => renderBridgeChart($el, c))"></div>
+          </template>
+          <p class="rebalance-bridge-unavailable" x-show="!bridgeAvailable(c)">Dados indisponíveis para esta ponte</p>
         </div>
       </div>
     </template>

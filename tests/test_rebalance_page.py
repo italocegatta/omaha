@@ -294,12 +294,17 @@ def _mutate_position_current_value(
 def test_post_rebalanceamento_valid_contribution_renders_plan(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
-    """``POST /rebalanceamento`` with a valid finite aporte renders the plan."""
+    """Valid aporte: POST redirects (303, PRG) and the follow-up GET renders the plan."""
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
-    response = client.post("/rebalanceamento", data={"contribution": "5000.00"})
+    post_response = client.post(
+        "/rebalanceamento", data={"contribution": "5000.00"}, follow_redirects=False
+    )
+    assert post_response.status_code == 303
+    assert post_response.headers["location"] == "/rebalanceamento"
 
+    response = client.get(post_response.headers["location"])
     assert response.status_code == 200
     body = response.text
     # Plan layout rendered.
@@ -316,30 +321,45 @@ def test_post_rebalanceamento_valid_contribution_renders_plan(
     assert 'data-testid="rebalance-filter-bar"' not in body
 
 
-def test_post_rebalanceamento_thresholds_round_trip_into_rendered_plan(
+def test_post_rebalanceamento_success_redirect_renders_plan_with_default_thresholds(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
-    """Threshold fields submit as real form inputs and re-render current values."""
+    """PRG contract: success POST → 303; the GET recomputes with default thresholds.
+
+    Threshold fields are ephemeral form state — only the aporte is
+    persisted in session (per profile). After the redirect the GET
+    re-renders the plan with the default thresholds (1000.0 / 1.0).
+    In this scenario (class deviation R$ 1.500 / 0,375%) both the
+    submitted thresholds (2500 / 2) and the defaults gate the plan to
+    all-hold, so the plan itself is unchanged by the redirect.
+    """
     _seed_class(1, "RF", "50", [("Selic", "100")], _omaha_test_env=_omaha_test_env)
     _seed_class(1, "RV", "50", [("PETR4", "100")], _omaha_test_env=_omaha_test_env)
     _seed_positions(_omaha_test_env, {"Selic": 201_500.0, "PETR4": 198_500.0})
     _login_and_select(client, profile_id=1)
 
-    response = client.post(
+    post_response = client.post(
         "/rebalanceamento",
         data={
             "contribution": "0",
             "min_deviation_value": "2500",
             "min_deviation_pct": "2",
         },
+        follow_redirects=False,
     )
+    assert post_response.status_code == 303
+    assert post_response.headers["location"] == "/rebalanceamento"
 
+    response = client.get(post_response.headers["location"])
     assert response.status_code == 200
     body = response.text
+    assert 'data-testid="rebalance-plan"' in body
+    # Threshold inputs render the defaults — thresholds do not survive the PRG.
     assert 'name="min_deviation_value"' in body
     assert 'name="min_deviation_pct"' in body
-    assert 'value="2500.0"' in body or 'value="2500"' in body
-    assert 'value="2.0"' in body or 'value="2"' in body
+    assert 'value="1000.0"' in body or 'value="1000"' in body
+    assert 'value="1.0"' in body or 'value="1"' in body
+    # 0,375% deviation stays below the default pct threshold → all-hold.
     assert '"action": "hold"' in body or '"action":"hold"' in body
 
 
@@ -364,12 +384,17 @@ def test_post_rebalanceamento_negative_threshold_renders_form_error(
 def test_post_rebalanceamento_zero_contribution_renders_plan(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
-    """``contribution = 0`` renders the plan (zero is valid)."""
+    """``contribution = 0``: POST redirects (303, PRG); GET renders the plan."""
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
-    response = client.post("/rebalanceamento", data={"contribution": "0"})
+    post_response = client.post(
+        "/rebalanceamento", data={"contribution": "0"}, follow_redirects=False
+    )
+    assert post_response.status_code == 303
+    assert post_response.headers["location"] == "/rebalanceamento"
 
+    response = client.get(post_response.headers["location"])
     assert response.status_code == 200
     assert 'data-testid="rebalance-plan"' in response.text
     assert 'data-testid="rebalance-params-bar"' in response.text
@@ -403,12 +428,15 @@ def test_post_rebalanceamento_negative_contribution_renders_form_error(
 def test_post_rebalanceamento_missing_contribution_renders_zero_plan(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
-    """Missing ``contribution`` field normalizes to zero and renders plan."""
+    """Missing ``contribution`` normalizes to zero; POST → 303 → GET renders plan."""
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
-    response = client.post("/rebalanceamento", data={})
+    post_response = client.post("/rebalanceamento", data={}, follow_redirects=False)
+    assert post_response.status_code == 303
+    assert post_response.headers["location"] == "/rebalanceamento"
 
+    response = client.get(post_response.headers["location"])
     assert response.status_code == 200
     body = response.text
     assert 'data-testid="rebalance-plan"' in body
@@ -425,7 +453,12 @@ def test_rebalanceamento_persists_aporte_per_profile_and_recomputes_on_get(
     _seed_positions(_omaha_test_env, {"IVVB11": 4321.0})
     _login_and_select(client, profile_id=1)
 
-    response = client.post("/rebalanceamento", data={"contribution": "5000"})
+    post_response = client.post(
+        "/rebalanceamento", data={"contribution": "5000"}, follow_redirects=False
+    )
+    assert post_response.status_code == 303
+    assert post_response.headers["location"] == "/rebalanceamento"
+    response = client.get(post_response.headers["location"])
     assert response.status_code == 200
     assert '"contribution": 5000.0' in response.text or '"contribution":5000.0' in response.text
 
@@ -449,7 +482,11 @@ def test_rebalanceamento_logout_clears_persisted_aporte(
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
-    response = client.post("/rebalanceamento", data={"contribution": "5000"})
+    post_response = client.post(
+        "/rebalanceamento", data={"contribution": "5000"}, follow_redirects=False
+    )
+    assert post_response.status_code == 303
+    response = client.get(post_response.headers["location"])
     assert response.status_code == 200
     assert '"contribution": 5000.0' in response.text or '"contribution":5000.0' in response.text
 
@@ -514,7 +551,11 @@ def test_asset_plan_table_has_eight_poc_parity_columns(
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
-    response = client.post("/rebalanceamento", data={"contribution": "5000"})
+    post_response = client.post(
+        "/rebalanceamento", data={"contribution": "5000"}, follow_redirects=False
+    )
+    assert post_response.status_code == 303
+    response = client.get(post_response.headers["location"])
     assert response.status_code == 200
     body = response.text
 
@@ -609,7 +650,12 @@ def test_asset_plan_operation_cell_includes_trade_quantity(
 
     monkeypatch.setattr(pages_routes, "run_rebalance", fake_run_rebalance)
 
-    response = client.post("/rebalanceamento", data={"contribution": "0"})
+    post_response = client.post(
+        "/rebalanceamento", data={"contribution": "0"}, follow_redirects=False
+    )
+    assert post_response.status_code == 303
+    # The follow-up GET recomputes through the same patched run_rebalance.
+    response = client.get(post_response.headers["location"])
     assert response.status_code == 200
     body = response.text
 
@@ -624,17 +670,176 @@ def test_asset_plan_operation_cell_includes_trade_quantity(
 
 
 def test_class_deviation_summary_renders(
-    client: TestClient, _omaha_test_env: dict[str, str]
+    client: TestClient, _omaha_test_env: dict[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The class deviation summary section renders with class cards."""
+    """The class summary renders accessible bridges for each net-operation state."""
+    from omaha.rebalance.schemas import (
+        RebalanceAssetPlanRow,
+        RebalanceCategoryPlanRow,
+        RebalancePlanMetrics,
+        RebalancePlanResponse,
+    )
+    from omaha.routes import pages as pages_routes
+
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
-    response = client.post("/rebalanceamento", data={"contribution": "5000"})
+    def fake_run_rebalance(db, profile, contribution, **kwargs):  # noqa: ARG001
+        return RebalancePlanResponse(
+            asset_plan=[
+                RebalanceAssetPlanRow(
+                    asset_key="buy-asset",
+                    asset_name="Buy asset",
+                    category_name="Compra abaixo",
+                    current_value=15.0,
+                    target_value=30.0,
+                    buy_amount=7.0,
+                    sell_amount=0.0,
+                    trade_quantity=1.0,
+                    projected_value=22.0,
+                    action="buy",
+                ),
+                RebalanceAssetPlanRow(
+                    asset_key="sell-asset",
+                    asset_name="Sell asset",
+                    category_name="Venda acima",
+                    current_value=35.0,
+                    target_value=20.0,
+                    buy_amount=0.0,
+                    sell_amount=10.0,
+                    trade_quantity=1.0,
+                    projected_value=25.0,
+                    action="sell",
+                ),
+                RebalanceAssetPlanRow(
+                    asset_key="hold-asset",
+                    asset_name="Hold asset",
+                    category_name="Manter alvo",
+                    current_value=25.0,
+                    target_value=25.0,
+                    buy_amount=0.0,
+                    sell_amount=0.0,
+                    trade_quantity=0.0,
+                    projected_value=25.0,
+                    action="hold",
+                ),
+            ],
+            category_plan=[
+                RebalanceCategoryPlanRow(
+                    category_name="Compra abaixo",
+                    current_value=15.0,
+                    projected_value=22.0,
+                    delta=5000.0,
+                    target_pct=25.0,
+                    current_pct=15.0,
+                    deviation_pct=-10.0,
+                ),
+                RebalanceCategoryPlanRow(
+                    category_name="Venda acima",
+                    current_value=35.0,
+                    projected_value=25.0,
+                    delta=-8000.0,
+                    target_pct=25.0,
+                    current_pct=35.0,
+                    deviation_pct=10.0,
+                ),
+                RebalanceCategoryPlanRow(
+                    category_name="Manter alvo",
+                    current_value=25.0,
+                    projected_value=25.0,
+                    delta=0.0001,
+                    target_pct=25.0,
+                    current_pct=25.0,
+                    deviation_pct=0.0,
+                ),
+            ],
+            metrics=RebalancePlanMetrics(
+                contribution=0.0,
+                total_buy=5000.0,
+                total_sell=8000.0,
+                residual_cash=0.0,
+                current_deviation_pct=0.0,
+                projected_deviation_pct=0.0,
+            ),
+            warnings=[],
+            applied_policy="sentinel",
+        )
+
+    monkeypatch.setattr(pages_routes, "run_rebalance", fake_run_rebalance)
+    post_response = client.post(
+        "/rebalanceamento", data={"contribution": "0"}, follow_redirects=False
+    )
+    assert post_response.status_code == 303
+    # The follow-up GET recomputes through the same patched run_rebalance.
+    response = client.get(post_response.headers["location"])
     assert response.status_code == 200
     body = response.text
 
     assert 'data-testid="rebalance-class-summary"' in body
+    assert body.count("rebalance-class-card-") >= 3
+    assert 'data-testid="rebalance-class-bridge"' in body
+    # F52 — bridge is one ECharts container per available card, rendered by
+    # the single shared helper (design D2): container testid + role +
+    # aria-label + x-init wiring.
+    assert 'data-testid="rebalance-class-chart"' in body
+    assert 'role="img"' in body
+    assert "waterfallAriaLabel(c)" in body
+    assert 'x-init="bridgeAvailable(c) && $nextTick(() => renderBridgeChart($el, c))"' in body
+    # Net-operation names stay aria-only (semantic labels). Owner
+    # directive (supersedes OQ2): the zero-operation stage renders a
+    # BLANK x-axis category name — `_bridgeStageName` returns '' for
+    # the hold tone — while the aria keeps the full `Sem operação
+    # líquida` and `Compra`/`Venda` keep their visible axis names.
+    assert "Compra líquida" in body
+    assert "Venda líquida" in body
+    assert "Sem alteração líquida" in body
+    assert "Sem operação líquida" in body
+    assert "'Sem operação';" not in body
+    assert "if (stage.tone === 'purchase') return 'Compra';" in body
+    assert "if (stage.tone === 'sale') return 'Venda';\n        return '';" in body
+    assert "Atual" in body and "Alvo" in body and "Desvio" in body
+    assert "DISPLAY_TOLERANCE = 0.0001" in body
+    assert "categoryAriaLabel(c)" in body
+    # Shell + state accents preserved exactly.
+    assert "rebalance-class-card--above" in body
+    assert "rebalance-class-card--below" in body
+    assert "rebalance-class-card-net--" not in body
+    # Vendored ECharts runtime (D1) + single-helper wiring (D2).
+    assert '<script defer src="/static/vendor/echarts.min.js"></script>' in body
+    assert "window.renderBridgeChart = function (el, category, plan)" in body
+    assert "_bridgeOption(model" in body
+    # Manual waterfall implementation fully removed (D9/D10): no selectors,
+    # no manual-SVG bridge classes, no Alpine loop. The chart is ECharts with
+    # the SVG renderer, so a client-side ECharts <svg> is allowed — assert the
+    # dead manual-bridge classnames instead of zero <svg> tags.
+    assert "rebalance-waterfall-" not in body
+    assert "rebalance-bridge-svg" not in body
+    assert "rebalance-bridge-track" not in body
+    assert "rebalance-bridge-residual" not in body
+    assert "rebalance-bridge-marker" not in body
+    assert "rebalance-bridge-legend" not in body
+    # Removed texts must not return; the net-stage VALUE line is gone and
+    # its name survives only inside JS string literals (aria), never as
+    # visible `>…<` element content.
+    assert "Sugestões abaixo dos mínimos viram Manter." not in body
+    assert ">Compra líquida<" not in body
+    assert ">Venda líquida<" not in body
+    # Approved math reused: two-sided adaptive nice-axis scale (owner
+    # directive 2026-07-28 — the retired one-sided `_niceAxis(maximum)`
+    # became `_niceAxisRange(minimum, maximum)`; floor mirrors the
+    # ceiling so ticks stay on nice numbers) + totals rebased onto the
+    # floor (base series anchors at `floor`, not 0, so raising yAxis.min
+    # never clips Atual/Alvo) + planned total denominator + unavailable
+    # fallback + category deltas on the wire.
+    assert "_niceAxisRange(Math.min.apply(null, levels), Math.max.apply(null, levels))" in body
+    assert "[floor, Math.min(c1, c2), Math.min(c2, c3), floor]" in body
+    assert "min: floor," in body
+    assert "function _niceAxis(maximum)" not in body
+    assert "total_final_planned" in body
+    assert "Dados indisponíveis para esta ponte" in body
+    assert '"delta": 5000.0' in body or '"delta":5000.0' in body
+    assert '"delta": -8000.0' in body or '"delta":-8000.0' in body
+    assert '"delta": 0.0001' in body or '"delta":0.0001' in body
 
 
 # ---------------------------------------------------------------------------
@@ -660,7 +865,11 @@ def test_footer_policy_and_stub_banner_not_rendered(
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
-    response = client.post("/rebalanceamento", data={"contribution": "5000"})
+    post_response = client.post(
+        "/rebalanceamento", data={"contribution": "5000"}, follow_redirects=False
+    )
+    assert post_response.status_code == 303
+    response = client.get(post_response.headers["location"])
     assert response.status_code == 200
     body = response.text
 
@@ -673,7 +882,11 @@ def test_warnings_panel_not_rendered(client: TestClient, _omaha_test_env: dict[s
     _seed_two_classes(_omaha_test_env)
     _login_and_select(client, profile_id=1)
 
-    response = client.post("/rebalanceamento", data={"contribution": "5000"})
+    post_response = client.post(
+        "/rebalanceamento", data={"contribution": "5000"}, follow_redirects=False
+    )
+    assert post_response.status_code == 303
+    response = client.get(post_response.headers["location"])
     assert response.status_code == 200
     body = response.text
 

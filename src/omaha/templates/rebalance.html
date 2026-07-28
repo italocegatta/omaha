@@ -1,5 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Rebalanceamento — Omaha{% endblock %}
+{% block head_extra %}
+{# F52 — vendored Apache ECharts 6.1.0 UMD (design D1). Only this page
+   consumes it. `defer` does NOT guarantee ordering vs Alpine here: Alpine
+   starts at its own defer execution (readyState 'interactive'), so on a
+   cold load `x-init` can fire before this script finishes downloading.
+   `renderBridgeChart` handles that by retrying via requestAnimationFrame
+   until `window.echarts` exists (bounded by document 'complete'). #}
+<script defer src="/static/vendor/echarts.min.js"></script>
+{% endblock %}
 {% block content %}
 {# rebalance-page — server-side rendered plan on /rebalanceamento.
    The form wraps the entire card so it's present in all states
@@ -110,6 +119,493 @@
       var sign = n >= 0 ? '+' : '';
       return sign + n.toFixed(0) + '%';
     };
+
+    var DISPLAY_TOLERANCE = 0.0001;
+
+    function _numberOrZero(value) {
+      var number = Number(value);
+      return Number.isFinite(number) ? number : 0;
+    }
+
+    function _finite(value) {
+      var number = Number(value);
+      return Number.isFinite(number) ? number : null;
+    }
+
+    function _categoryPct(category, key) {
+      return _numberOrZero(category && category[key]);
+    }
+
+    // F52 follow-up (owner directive 2026-07-28) — two-sided nice axis:
+    // the floor mirrors the ceiling rationale, per card. ONE nice step
+    // ({1,2,2.5,5}×10ⁿ family, same as the retired one-sided `_niceAxis`)
+    // serves both bounds: floor = LARGEST step multiple strictly below
+    // the minimum level, ceiling = SMALLEST step multiple strictly above
+    // the maximum level. The strict sides guarantee every total bar keeps
+    // visible height even when a level lands exactly on a tick. Step
+    // candidates target ~3-5 intervals over the level span; within that
+    // window the tightest total range wins (ties: finer step) — the
+    // two-sided analogue of the old "smallest ceiling" least-headroom
+    // rule, so ticks keep landing on round values.
+    function _niceAxisRange(minimum, maximum) {
+      // A value within a relative ε of a step multiple counts as exact:
+      // the strict bound moves one more interval outward (absorbs FP
+      // noise so `100k` never becomes a floor at `min = 100k`).
+      function lowerBound(value, step) {
+        var index = Math.floor(value / step);
+        if (value - index * step <= step * 1e-9) index -= 1;
+        return index * step;
+      }
+      function upperBound(value, step) {
+        var index = Math.ceil(value / step);
+        if (index * step - value <= step * 1e-9) index += 1;
+        return index * step;
+      }
+      function evaluate(step) {
+        var floor = lowerBound(minimum, step);
+        var ceiling = upperBound(maximum, step);
+        return { floor: floor, ceiling: ceiling, step: step, intervals: Math.round((ceiling - floor) / step) };
+      }
+      var span = maximum - minimum;
+      if (!(span > 0) || !Number.isFinite(span)) {
+        // Near-zero span (all three levels ~equal): derive the step from
+        // the level magnitude itself — the smallest family member ≥
+        // |level|/4 — then bracket with the same strict bounds, so the
+        // card still gets a round floor below and ceiling above instead
+        // of a degenerate zero-height axis.
+        var reference = Math.max(Math.abs(maximum), Math.abs(minimum), 1) / 4;
+        var exponent = Math.floor(Math.log10(reference));
+        var degenerateStep = null;
+        [1, 2, 2.5, 5].forEach(function (base) {
+          var candidate = base * Math.pow(10, exponent);
+          if (candidate >= reference && degenerateStep === null) degenerateStep = candidate;
+        });
+        return evaluate(degenerateStep === null ? Math.pow(10, exponent + 1) : degenerateStep);
+      }
+      var candidates = [];
+      var spanExponent = Math.floor(Math.log10(span / 4));
+      [-1, 0, 1].forEach(function (offset) {
+        var magnitude = Math.pow(10, spanExponent + offset);
+        [1, 2, 2.5, 5].forEach(function (base) {
+          candidates.push(evaluate(base * magnitude));
+        });
+      });
+      var inWindow = candidates.filter(function (candidate) {
+        return candidate.intervals >= 3 && candidate.intervals <= 5;
+      });
+      var pool = inWindow.length ? inWindow : candidates;
+      pool.sort(function (a, b) {
+        if (!inWindow.length) {
+          var delta = Math.abs(a.intervals - 4) - Math.abs(b.intervals - 4);
+          if (delta !== 0) return delta;
+        }
+        return (a.ceiling - a.floor) - (b.ceiling - b.floor) || a.step - b.step;
+      });
+      return pool[0] || evaluate(Math.max(span / 4, 1));
+    }
+
+    function _plannedTotal(plan) {
+      var total = 0;
+      var rows = plan && Array.isArray(plan.asset_plan) ? plan.asset_plan : [];
+      for (var i = 0; i < rows.length; i += 1) {
+        var value = _finite(rows[i] && rows[i].target_value);
+        if (value === null) return null;
+        total += value;
+      }
+      return Number.isFinite(total) ? total : null;
+    }
+
+    function _bridgeData(category, plan) {
+      var current = _finite(category && category.current_value);
+      var projected = _finite(category && category.projected_value);
+      var rows = plan && Array.isArray(plan.asset_plan) ? plan.asset_plan.filter(function (row) {
+        return String(row.category_name) === String(category.category_name);
+      }) : [];
+      var target = rows.length ? rows.reduce(function (sum, row) { return sum + Number(row.target_value); }, 0) : null;
+      var total_final_planned = _plannedTotal(plan);
+      var total = total_final_planned;
+      if (current === null || projected === null || target === null || !Number.isFinite(target) || total === null || !Number.isFinite(total) || total <= 0) return null;
+      var delta = projected - current;
+      var residual = target - projected;
+      // F52 — stages keep the approved math (C1=Atual, delta=Compra/Venda,
+      // residual=Desvio, C3=Alvo; ε = DISPLAY_TOLERANCE) but no longer emit
+      // manual plot geometry: the ECharts option builder (`_bridgeOption`)
+      // owns layout now. X-axis display names (`Atual`, `Compra`/`Venda`/
+      // blank for zero-operation, `Desvio`, `Alvo`) are derived there from
+      // id/tone; `semanticLabel` remains the aria-only full name.
+      var stages = [
+        { id: 'current', semanticLabel: 'Atual', value: current, displayValue: current, tone: 'total', pctLabel: _formatPctBR(current / total * 100) },
+        { id: 'operation', semanticLabel: Math.abs(delta) <= DISPLAY_TOLERANCE ? 'Sem operação líquida' : (delta > 0 ? 'Compra líquida' : 'Venda líquida'), value: delta, displayValue: delta, tone: Math.abs(delta) <= DISPLAY_TOLERANCE ? 'hold' : (delta > 0 ? 'purchase' : 'sale'), pctLabel: _formatPctBR(Math.abs(delta) / total * 100) },
+        { id: 'residual', semanticLabel: Math.abs(residual) <= DISPLAY_TOLERANCE ? 'Sem desvio residual' : 'Desvio residual', value: residual, displayValue: Math.abs(residual) <= DISPLAY_TOLERANCE ? 0 : residual, tone: 'residual', pctLabel: _formatPctBR(Math.abs(residual) / total * 100) },
+        { id: 'target', semanticLabel: 'Alvo', value: target, displayValue: target, tone: 'total', pctLabel: _formatPctBR(target / total * 100) },
+      ];
+      var levels = [current, projected, target];
+      var axis = _niceAxisRange(Math.min.apply(null, levels), Math.max.apply(null, levels));
+      return {
+        stages: stages,
+        floor: axis.floor,
+        ceiling: axis.ceiling,
+        step: axis.step,
+        ticks: Array.from({ length: axis.intervals + 1 }, function (_, index) {
+          var value = axis.floor + axis.step * index;
+          return { value: value, label: String(value), position: (value - axis.floor) / (axis.ceiling - axis.floor) * 100 };
+        }),
+      };
+    }
+
+    function _formatBRLShort(value) {
+      var raw = (value === null || value === undefined || Number.isNaN(Number(value))) ? 0 : Number(value);
+      if (!Number.isFinite(raw)) return 'R$\u00a00';
+      var abs = Math.abs(raw);
+      var sign = raw < 0 ? '-' : '';
+      if (abs >= 1000) {
+        var k = (abs / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+        return sign + 'R$\u00a0' + k + 'k';
+      }
+      return raw.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    }
+
+    // F52 — PT-BR percentage for bridge labels (mock-exact: `14,6%`, `15%`,
+    // `0%` — comma decimal, no trailing `.0`). Distinct from the table's
+    // `formatPct1` (dot, fixed 1 decimal), which the bridge must NOT use.
+    function _formatPctBR(value) {
+      var n = Number(value);
+      if (!Number.isFinite(n)) return '0%';
+      return n.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 1 }) + '%';
+    }
+
+    // F52 — signed short scale for delta stages (`+R$ 25,0k` / `-R$ 20,0k`).
+    // `_formatBRLShort` alone carries no `+` for positives.
+    function _signedShort(value) {
+      var n = Number(value) || 0;
+      return (n < 0 ? '-' : '+') + _formatBRLShort(Math.abs(n));
+    }
+
+    function _netAction(category) {
+      var delta = _numberOrZero(category && category.delta);
+      if (delta > DISPLAY_TOLERANCE) return 'buy';
+      if (delta < -DISPLAY_TOLERANCE) return 'sell';
+      return 'hold';
+    }
+
+    function _netLabel(category) {
+      var action = _netAction(category);
+      if (action === 'buy') return 'Compra líquida';
+      if (action === 'sell') return 'Venda líquida';
+      return 'Sem alteração líquida';
+    }
+
+    function _targetForCategory(category, plan) {
+      var rows = plan && Array.isArray(plan.asset_plan) ? plan.asset_plan.filter(function (row) {
+        return String(row.category_name) === String(category && category.category_name);
+      }) : [];
+      if (!rows.length) return null;
+      var total = rows.reduce(function (sum, row) { return sum + Number(row.target_value); }, 0);
+      return Number.isFinite(total) ? total : null;
+    }
+
+     function _categoryAriaLabel(category) {
+       var name = String(category && category.category_name || 'Classe sem nome');
+       var data = _bridgeData(category, window.__rebalancePlan);
+       if (!data) return name + ': Dados indisponíveis para esta ponte';
+       var target = _targetForCategory(category, window.__rebalancePlan);
+       var current = _finite(category && category.current_value);
+        var state = Math.abs(current - target) <= DISPLAY_TOLERANCE ? 'no alvo' : (current > target ? 'acima do alvo' : 'abaixo do alvo');
+        return name + ': ' + state;
+     }
+
+    // ── F52 bridge chart (ECharts) ──────────────────────────────────────────
+    // ONE render helper for every class card (design D2). Normative visual
+    // contract: openspec/specs/rebalance-page/spec.md — sequence
+    // Atual → Compra/Venda → Desvio → Alvo; local BRL scale per card; short
+    // scale on every number; no tooltip; no animation (deterministic canvas
+    // for snapshots + side-by-side gate). Owner directive 2026-07-28:
+    // totals are rebased onto a per-card adaptive floor (`_niceAxisRange`) —
+    // geometry only; labels stay true.
+
+    // Design D4 — tokens resolved at render time from CSS custom properties
+    // (no hardcoded colors, no registerTheme). App tokens are `oklch(...)`,
+    // which canvas may not serialize uniformly, so each color is resolved
+    // through a hidden probe element: the browser computes a concrete color
+    // string. The 70% split-line blend resolves `color-mix(in srgb,
+    // var(--border) 70%, transparent)` exactly like the mock grid. The app
+    // has a single dark theme with no runtime toggle, so results cache.
+    var _bridgeTokenCache = null;
+
+    function _resolveCssColor(expression) {
+      var probe = document.createElement('i');
+      probe.style.display = 'none';
+      probe.style.color = expression;
+      document.body.appendChild(probe);
+      var resolved = getComputedStyle(probe).color;
+      document.body.removeChild(probe);
+      return resolved;
+    }
+
+    function _bridgeTokens() {
+      if (_bridgeTokenCache) return _bridgeTokenCache;
+      function token(name) { return _resolveCssColor('var(' + name + ')'); }
+      _bridgeTokenCache = {
+        class1: token('--class-1'),
+        positive: token('--positive'),
+        negative: token('--negative'),
+        alertWarn: token('--alert-warn'),
+        ink: token('--ink'),
+        inkMuted: token('--ink-muted'),
+        border: token('--border'),
+        grid: _resolveCssColor('color-mix(in srgb, var(--border) 70%, transparent)'),
+      };
+      return _bridgeTokenCache;
+    }
+
+    // X-axis stage names (names live ONLY on the axis — never repeated in
+    // bar labels). Owner directive (supersedes mock/OQ2): the
+    // zero-operation stage renders NO visible x-name — an empty category
+    // label, which also frees the bottom zone to a single line; the aria
+    // label keeps the full `Sem operação líquida` via `semanticLabel`
+    // either way. `Compra`/`Venda` are untouched.
+    function _bridgeStageName(stage) {
+      if (stage.id === 'operation') {
+        if (stage.tone === 'purchase') return 'Compra';
+        if (stage.tone === 'sale') return 'Venda';
+        return '';
+      }
+      if (stage.id === 'residual') return 'Desvio';
+      return stage.id === 'current' ? 'Atual' : 'Alvo';
+    }
+
+    // Bar label value line: totals plain short scale; deltas signed
+    // (`+R$ 25,0k`); within-ε stages collapse to `R$ 0` with NO bar
+    // geometry (design D5 — label-only, mock-exact).
+    function _bridgeStageValueText(stage) {
+      var isDelta = stage.id === 'operation' || stage.id === 'residual';
+      if (!isDelta) return _formatBRLShort(stage.displayValue);
+      return Math.abs(stage.value) <= DISPLAY_TOLERANCE ? _formatBRLShort(0) : _signedShort(stage.value);
+    }
+
+    function _bridgeOption(model, tokens, compact) {
+      var stages = model.stages;
+      var floor = model.floor;                      // adaptive axis floor
+      var c1 = stages[0].value;                     // Atual
+      var c2 = stages[0].value + stages[1].value;   // Projetado (Atual + delta)
+      var c3 = stages[3].value;                     // Alvo
+      var toneColor = {
+        total: tokens.class1,
+        purchase: tokens.positive,
+        sale: tokens.negative,
+        residual: tokens.alertWarn,
+        hold: tokens.inkMuted,
+      };
+      // Waterfall = transparent stacked base + value series (handbook
+      // recipe). Owner directive (2026-07-28): totals (Atual/Alvo) are
+      // rebased onto the per-card adaptive floor — base `floor`, height
+      // `value - floor` — so raising `yAxis.min` never clips them; deltas
+      // keep floating between cumulative levels (always above the floor);
+      // within-ε stages carry value 0 (label floats on the base). ONLY
+      // geometry is rebased: labels, connectors and aria keep the true
+      // absolute values (`c1/c2/c3`, `stage.displayValue`).
+      var baseData = [floor, Math.min(c1, c2), Math.min(c2, c3), floor];
+      var valueData = stages.map(function (stage) {
+        var isTotal = stage.id === 'current' || stage.id === 'target';
+        return {
+          value: isTotal
+            ? stage.value - floor
+            : (Math.abs(stage.value) <= DISPLAY_TOLERANCE ? 0 : Math.abs(stage.value)),
+          itemStyle: { color: toneColor[stage.tone] || tokens.inkMuted },
+        };
+      });
+      // Owner font directive (supersedes the mock-size era): chart text is
+      // the page UI face — Inter first, same stack as `app.css` body.
+      // x-names 15px / value (R$) 14px / pct 11.55px desktop, all at true
+      // weight 300 (Inter variable axis now loads 300 via base.html
+      // `wght@300..700`). Compact (≤360px) sizes scale by the old
+      // compact/desktop ratios that already passed the owner's 320px gate:
+      // xName 10.1/11.5≈0.878 → 13, strong 10.05/13.5≈0.744 → 10.4,
+      // pct 10.05/11.55≈0.870 → 10. Y-axis labels stay removed per owner
+      // directive: plot fills the card canvas, splitLines stay.
+      var fontFamily = '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      var strongSize = compact ? 10.4 : 14;
+      var pctSize = compact ? 10 : 11.55;
+      var xNameSize = compact ? 13 : 15;
+      return {
+        animation: false,
+        tooltip: { show: false },
+        // Owner directive (supersedes mock): no y-label gutter — the plot
+        // fills the canvas minus minimal general padding. `containLabel`
+        // off for exact control. top = value+pct stack above the tallest
+        // bar (distance 4 + 2 lines + 1px pad: 34.4px desktop [14·1.15 +
+        // 11.55·1.15] / 28.5px compact [10.4·1.15 + 10·1.15] → 35 / 30,
+        // unchanged — the 13.5→14 bump stays inside the old headroom).
+        // bottom = x-name zone, a SINGLE line: the zero-op stage renders
+        // '' and `Compra`/`Venda`/`Desvio`/`Atual`/`Alvo` never wrap at
+        // width 62/52 (margin 9 + one line: 24.75px desktop [15·1.05] /
+        // 22.65px compact [13·1.05] → 26 / 24). Measured Inter 300 name
+        // widths: `Compra` 55.56px at 15px (fits 62) / 48.15px at 13px —
+        // the old compact width 44 wrapped it onto a clipped second
+        // line, so compact widened 44→52 (3.85px headroom); desktop 62
+        // unchanged. Compact left/right 6 (not 4) so a
+        // 10-char signed label (`+R$ 125,0k`) centered above the
+        // first/last bar of a ≤360px chart keeps ≥0.5px inside the
+        // canvas; desktop charts (>360px) keep 4 — the wider band
+        // already leaves ≥6px. `outerBoundsMode: 'none'` is REQUIRED on
+        // ECharts 6: the default `auto` silently shrinks the plot per
+        // card to fit overflowing labels (data-dependent geometry —
+        // cards disagreed by 11px).
+        grid: {
+          left: compact ? 6 : 4,
+          right: compact ? 6 : 4,
+          top: compact ? 30 : 35,
+          bottom: compact ? 24 : 26,
+          containLabel: false,
+          outerBoundsMode: 'none',
+        },
+        xAxis: {
+          type: 'category',
+          data: stages.map(_bridgeStageName),
+          axisTick: { show: false },
+          axisLine: { lineStyle: { color: tokens.border } },
+          axisLabel: {
+            interval: 0,
+            hideOverlap: false,
+            color: tokens.inkMuted,
+            fontFamily: fontFamily,
+            fontWeight: 300,
+            fontSize: xNameSize,
+            lineHeight: xNameSize * 1.05,
+            width: compact ? 52 : 62,
+            overflow: 'break',
+            margin: 9,
+          },
+        },
+        yAxis: {
+          type: 'value',
+          min: floor,
+          max: model.ceiling,
+          interval: model.step,
+          axisLine: { show: false },
+          axisTick: { show: false },
+          // Owner directive: y labels off (they stole horizontal space);
+          // min/max/interval still govern scale + splitLines.
+          axisLabel: { show: false },
+          splitLine: { show: true, lineStyle: { width: 1, color: tokens.grid } },
+        },
+        series: [
+          {
+            type: 'bar',
+            stack: 'bridge',
+            silent: true,
+            emphasis: { disabled: true },
+            itemStyle: { color: 'transparent' },
+            label: { show: false },
+            data: baseData,
+          },
+          {
+            type: 'bar',
+            stack: 'bridge',
+            barWidth: '45%',
+            itemStyle: { borderRadius: [2, 2, 0, 0] },
+            emphasis: { disabled: true },
+            label: {
+              show: true,
+              position: 'top',
+              distance: 4,
+              formatter: function (params) {
+                var stage = stages[params.dataIndex];
+                return '{val|' + _bridgeStageValueText(stage) + '}\n{pct|' + stage.pctLabel + '}';
+              },
+              rich: {
+                val: { fontFamily: fontFamily, fontWeight: 300, color: tokens.ink, fontSize: strongSize, lineHeight: strongSize * 1.15, align: 'center' },
+                pct: { fontFamily: fontFamily, fontWeight: 300, color: tokens.inkMuted, fontSize: pctSize, lineHeight: pctSize * 1.15, align: 'center', padding: [1, 0, 0, 0] },
+              },
+            },
+            // Dashed cumulative connectors between bar centers, no endpoint
+            // dots (mock `.f49-mock-connector`: 1px dashed --ink-muted).
+            markLine: {
+              symbol: ['none', 'none'],
+              silent: true,
+              animation: false,
+              label: { show: false },
+              lineStyle: { type: 'dashed', width: 1, color: tokens.inkMuted },
+              data: [
+                [{ coord: [0, c1] }, { coord: [1, c1] }],
+                [{ coord: [1, c2] }, { coord: [2, c2] }],
+                [{ coord: [2, c3] }, { coord: [3, c3] }],
+              ],
+            },
+            data: valueData,
+          },
+        ],
+      };
+    }
+
+    var _bridgeRegistry = [];
+    var _bridgeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(function (entries) {
+      entries.forEach(function (entry) {
+        var el = entry.target;
+        var chart = window.echarts && window.echarts.getInstanceByDom(el);
+        if (!chart) return;
+        var compact = el.clientWidth <= 360;
+        if (compact !== el._bridgeCompact) {
+          // Canvas does not read CSS media queries — rebuild the option
+          // with the compact font set across the 360px breakpoint (D7).
+          var item = _bridgeRegistry.filter(function (it) { return it.el === el; })[0];
+          if (item) _applyBridgeOption(el, item.category, item.plan);
+        } else {
+          chart.resize();
+        }
+      });
+    });
+
+    function _applyBridgeOption(el, category, plan) {
+      var chart = window.echarts.getInstanceByDom(el);
+      if (!chart) return;
+      var model = _bridgeData(category, plan);
+      if (!model) return;
+      el._bridgeCompact = el.clientWidth <= 360;
+      chart.setOption(_bridgeOption(model, _bridgeTokens(), el._bridgeCompact), true);
+    }
+
+    window.renderBridgeChart = function (el, category, plan) {
+      plan = plan || window.__rebalancePlan;
+      if (!el) return;
+      if (!window.echarts) {
+        // Cold-load race: Alpine starts at its own `defer` execution
+        // (readyState is already 'interactive'), so this x-init microtask
+        // can run while the later echarts defer script is still downloading.
+        // Re-check each frame until the library executes. Bounded: once
+        // readyState is 'complete' every deferred script has run (or failed
+        // to load), so if echarts is still missing we give up silently and
+        // the card simply renders without a chart instance.
+        if (document.readyState !== 'complete') {
+          requestAnimationFrame(function () { window.renderBridgeChart(el, category, plan); });
+        }
+        return;
+      }
+      // Design D8 — unavailable state never creates a chart instance; the
+      // template's fallback paragraph is the only render for that card.
+      if (!_bridgeData(category, plan)) return;
+      if (!window.echarts.getInstanceByDom(el)) window.echarts.init(el, null, { renderer: 'svg' });
+      _applyBridgeOption(el, category, plan);
+      if (!el._bridgeObserved) {
+        el._bridgeObserved = true;
+        _bridgeRegistry.push({ el: el, category: category, plan: plan });
+        if (_bridgeObserver) _bridgeObserver.observe(el);
+      }
+    };
+
+    window.addEventListener('resize', function () {
+      _bridgeRegistry.forEach(function (item) {
+        var chart = window.echarts && window.echarts.getInstanceByDom(item.el);
+        if (!chart) return;
+        var compact = item.el.clientWidth <= 360;
+        if (compact !== item.el._bridgeCompact) {
+          _applyBridgeOption(item.el, item.category, item.plan);
+        } else {
+          chart.resize();
+        }
+      });
+    });
+    // ── end F52 bridge chart ────────────────────────────────────────────────
 
     var _actionLabel = f.actionLabel || function (action) {
       if (action === 'buy') return 'Comprar';
@@ -415,10 +911,6 @@
         actionLabel: _actionLabel,
         formatBRL: _formatBRL,
         formatPct: _formatPct,
-        formatPct1: function (value) {
-          if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
-          return Number(value).toFixed(1) + '%';
-        },
         formatQuantity: _formatQty,
         formatDeviationPp: _formatDeviationPp,
         formatDeviationCombined: function (row) {
@@ -432,8 +924,27 @@
             ' (' + _formatQty(row.trade_quantity, row.asset_name) + ')';
         },
         classCardClass: function (c) {
-          return c.deviation_pct >= 0 ? 'rebalance-class-card--above' : 'rebalance-class-card--below';
+          var current = _finite(c && c.current_value);
+          var target = _targetForCategory(c, this.plan);
+          if (current === null || target === null || !Number.isFinite(target)) return '';
+          if (Math.abs(current - target) <= DISPLAY_TOLERANCE) return '';
+          return current > target ? 'rebalance-class-card--above' : 'rebalance-class-card--below';
         },
+        bridgeAvailable: function (c) {
+          return Boolean(_bridgeData(c, this.plan));
+        },
+        waterfallAriaLabel: function (c) {
+          var data = _bridgeData(c, this.plan);
+          var current = _finite(c && c.current_value);
+          var target = _targetForCategory(c, this.plan);
+          var state = Math.abs(current - target) <= DISPLAY_TOLERANCE ? 'no alvo' : (current > target ? 'acima do alvo' : 'abaixo do alvo');
+          return String(c.category_name) + ': ' + state + ', ' + data.stages.map(function (stage) {
+            return stage.semanticLabel + ' ' + _formatBRL(stage.displayValue) + ' ' + stage.pctLabel;
+          }).join(', ');
+        },
+        netAction: _netAction,
+        netLabel: _netLabel,
+        categoryAriaLabel: _categoryAriaLabel,
         rowClass: _rowClass,
         headerFilterLabel: function (key, value) {
           return key === 'action' ? _actionLabel(value) : value;

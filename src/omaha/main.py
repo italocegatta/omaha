@@ -46,7 +46,11 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from omaha.config import settings
 from omaha.logging_config import configure_logging
-from omaha.middleware import AccessLogMiddleware, NoStoreHTMLMiddleware
+from omaha.middleware import (
+    AccessLogMiddleware,
+    NoStoreHTMLMiddleware,
+    StaticCacheControlMiddleware,
+)
 from omaha.routes import admin as admin_routes
 from omaha.routes import assets as assets_routes
 from omaha.routes import auth as auth_routes
@@ -199,6 +203,12 @@ def create_app() -> FastAPI:
     # injected on the way OUT to the browser.
     app.add_middleware(AccessLogMiddleware)
     app.add_middleware(NoStoreHTMLMiddleware)
+    # StaticCacheControlMiddleware adds ``Cache-Control: no-cache`` to
+    # /static/ asset responses so the browser revalidates them (cheap
+    # 304 via etag) instead of heuristically serving a stale app.css /
+    # echarts.min.js. It only touches /static/ — NoStoreHTMLMiddleware
+    # skips that prefix, so the two never contend on the same response.
+    app.add_middleware(StaticCacheControlMiddleware)
 
     # Bind a single Jinja2Templates to app.state so every route can
     # reach it via ``request.app.state.templates``. Sharing one

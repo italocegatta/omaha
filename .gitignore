@@ -37,6 +37,11 @@ __pycache__/
 venv/
 target/
 vendor/
+# F52 — the vendored ECharts runtime is a committed source artifact
+# (spec D1: served from the app's own static path, never a CDN).
+# Re-include it so a fresh clone has a working chart runtime.
+!src/omaha/static/vendor/
+!src/omaha/static/vendor/**
 *.log
 coverage/
 coverage.xml

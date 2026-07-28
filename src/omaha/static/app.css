@@ -2854,25 +2854,26 @@ td.editing {
 }
 .rebalance-class-card {
   min-width: 0;
-  padding: 0.85rem 1rem 0.9rem;
+  /* F52 owner tuning: shell padding reduced so the bridge chart owns a
+     larger share of the card (was 0.85rem 1rem 0.9rem). */
+  padding: 0.5rem 0.6rem 0.55rem;
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
   border-top: 3px solid var(--border);
   background: var(--surface);
   font-size: 0.85rem;
   box-shadow: 0 2px 8px rgba(8, 10, 20, 0.08);
-  transition: border-top-color 150ms ease, background 150ms ease;
 }
 .rebalance-class-card--above {
-  border-top-color: var(--positive);
-  background: color-mix(in srgb, var(--positive) 6%, var(--surface));
-}
-.rebalance-class-card--below {
   border-top-color: var(--negative);
   background: color-mix(in srgb, var(--negative) 6%, var(--surface));
 }
+.rebalance-class-card--below {
+  border-top-color: var(--class-1);
+  background: color-mix(in srgb, var(--class-1) 6%, var(--surface));
+}
 .rebalance-class-card-header {
-  margin-bottom: 0.7rem;
+  margin-bottom: 0.35rem;
 }
 .rebalance-class-card-name {
   font-weight: 700;
@@ -2881,36 +2882,35 @@ td.editing {
   font-size: 1.05rem;
   letter-spacing: -0.005em;
 }
-.rebalance-class-card-metrics {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem 0.85rem;
-  color: var(--ink-muted);
-  font-size: 0.8rem;
-}
-.rebalance-class-card-metrics strong {
-  color: var(--ink);
-}
-.rebalance-class-card-metric {
-  display: flex;
-  flex-direction: column;
-  gap: 0.18rem;
-}
 .rebalance-class-card-label {
   font-size: 0.68rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-muted);
 }
-.rebalance-class-card-projected {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-top: 0.75rem;
-  padding-top: 0.6rem;
-  border-top: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-  font-size: 0.9rem;
-  font-weight: 600;
+/* F52 — bridge is now an ECharts canvas container. Height = mock total
+   (9.8rem plot + 1.8rem x-label zone); the manual waterfall geometry it
+   replaced was removed with the F52 slice. */
+.rebalance-class-card-bridge {
+  min-width: 0;
+  height: 11.6rem;
+  margin: 0.1rem 0 0.3rem;
+}
+.rebalance-class-card-bridge [data-testid="rebalance-class-chart"] {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+}
+.rebalance-bridge-unavailable {
+  margin: 1.5rem 0;
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+  text-align: center;
+}
+@media (max-width: 360px) {
+  .rebalance-class-card {
+    padding-inline: 0.5rem;
+  }
 }
 
 .rebalance-filter-option {

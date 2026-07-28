@@ -143,6 +143,9 @@ captura o contrato.
   - `cv01` — 1 com base serif (estilo humanist).
   - `ss01` — open digits 6/9.
   - `ss02` — zero/O disambiguation.
+  - `wght@300..700` — range ampliado de `400..700` (F52) para suprir
+    o weight 300 verdadeiro dos rótulos dos charts (linhas "Chart"
+    na tabela de escala). Red Hat Display não tem pesos leves.
   Defaults preservados se a variable não carregar.
 - **Display sans**: `Red Hat Display` 700+, sans. Aplicada em
   portfolio header (Investido / Valor Atual / Ganho), hero numerals
@@ -171,6 +174,9 @@ Display sizes preenchem mais superfície (per SI maximal).
 | Label / caption     | 0.78rem | 500 | 0.04em uppercase     | Reserved for class labels; eyebrow labels per component inventory |
 | Numeric (display)   | 1.4rem | 700   | -0.01em, tnum        | Red Hat Display; portfolio header values |
 | Numeric (inline)    | 0.92rem | 500 | tnum                 | Inter; asset rows              |
+| Chart x-axis name   | 15px (compact 13px) | 300 | 0     | Inter variable; rebalance waterfall stage names (F52). Compact ≤360px. |
+| Chart value (R$)    | 14px (compact 10.4px) | 300 | 0     | Inter; short-scale BRL bar labels (F52). Canvas text — no `tnum`/feature-settings. |
+| Chart percent       | 11.55px (compact 10px) | 300 | 0    | Inter; second bar-label line below the value (F52). |
 
 Letter-spacing floor: nothing tighter than -0.04em on display. The current
 CSS has no display letter-spacing declared; the polish pass sets -0.02em

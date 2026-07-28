@@ -49,6 +49,11 @@ rules, §3 lessons, §4 verified inventory, §5 ECharts directive).
 - Removed texts MUST NOT return: `Sugestões abaixo dos mínimos viram Manter.`
   and any visible `Compra/Venda líquida` line + value (net stage name remains
   aria-label-only).
+- **PRG on submit (owner-approved):** `POST /rebalanceamento` success path
+  now redirects (303) to `GET /rebalanceamento` instead of rendering the plan
+  with 200 — fixes the browser form-resubmission warning and the chart loss on
+  refresh. User-submitted thresholds are ephemeral: consumed at POST, reset to
+  defaults after the redirect (see design D13).
 
 ## Capabilities
 
@@ -61,9 +66,11 @@ None.
 - `rebalance-page`: the class-card bridge requirement changes its rendering
   contract from manual HTML/CSS plot geometry (F49, superseded and never
   visually approved in runtime) to an ECharts-rendered waterfall with the same
-  business semantics, mandatory short-scale labels (`R$ 113,7k`) on bars and Y
-  axis, disabled tooltip, and token-resolved colors; manual DOM/CSS selectors
-  are removed from the contract.
+  business semantics, mandatory short-scale bar labels (`R$ 113,7k`), a
+  per-card adaptive axis floor (not `R$0`) with hidden y-axis labels and
+  splitLines on every tick, Inter weight 300 chart text, disabled tooltip, and
+  token-resolved colors; manual DOM/CSS selectors are removed from the
+  contract.
 
 ## Impact
 
@@ -76,11 +83,21 @@ None.
   `.rebalance-class-card-bridge` rewrite. Shell `.rebalance-class-card*`
   (L2855-2888) and `.rebalance-class-summary` (L2848-2854) preserved EXACTLY.
 - Tests: `tests/test_rebalance_page.py` (bridge assertions updated —
-  `rebalance-waterfall-grid/zero-line/connector` markers disappear),
+  `rebalance-waterfall-grid/zero-line/connector` markers disappear; PRG
+  contract + default-thresholds-after-redirect locked by
+  `test_post_rebalanceamento_success_redirect_renders_plan_with_default_thresholds`),
   `tests/visual/test_snapshots.py` baselines regenerated
   (`UPDATE_VISUAL_BASELINES=1`).
-- No changes to routes (except the untouched mock route), `schemas.py` wire,
-  solver, thresholds, global metrics, seed, or migrations.
+- Routes: `POST /rebalanceamento` success path changed 200 → 303 (PRG): the
+  aporte is persisted per-profile in session and the browser follows the
+  redirect with a GET, which eliminates the form-resubmission warning and the
+  chart loss on refresh; solver validation errors still render 200 directly
+  with `form_error`. The mock route `/rebalanceamento/bridge-mock`
+  (`pages.py`) + `rebalance_bridge_mock.html` ARE added as the normative
+  side-by-side reference and are retired in the post-approval finalize
+  follow-up below.
+- No changes to `schemas.py` wire, solver, threshold defaults, global
+  metrics, seed, or migrations.
 - Dependency: + Apache ECharts (Apache-2.0, vendored, version pinned in
   tasks.md). No build step — full UMD min build.
 - Follow-up after owner approval (finalize, minimal): delete

@@ -515,6 +515,32 @@ def test_dashboard_sends_no_store_cache_control(client: TestClient) -> None:
     )
 
 
+def test_static_assets_carry_no_cache_and_html_stays_no_store(client: TestClient) -> None:
+    """F52: ``StaticCacheControlMiddleware`` MUST pin ``Cache-Control:
+    no-cache`` on ``/static/*`` so the browser revalidates ``app.css`` /
+    ``echarts.min.js`` before reuse — the recurring "empty cards" symptom
+    came from heuristic caching of a stale asset under a fresh HTML doc.
+    ``no-cache`` (not ``no-store``) keeps the bytes stored and turns the
+    freshness check into a cheap ``304`` via the existing etag. HTML pages
+    keep their stricter ``no-store`` from ``NoStoreHTMLMiddleware``.
+    """
+    _login_and_select(client, profile_name="Italo")
+
+    css = client.get("/static/app.css")
+    assert css.status_code == 200, css.text
+    assert css.headers.get("cache-control") == "no-cache", (
+        f"expected Cache-Control: no-cache on /static/app.css, got "
+        f"{css.headers.get('cache-control')!r}"
+    )
+
+    dashboard = client.get("/")
+    assert dashboard.status_code == 200, dashboard.text
+    assert dashboard.headers.get("cache-control") == "no-store", (
+        f"expected Cache-Control: no-store on HTML page, got "
+        f"{dashboard.headers.get('cache-control')!r}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # class-section-consolidated-totals — header stats + colgroup
 # ---------------------------------------------------------------------------

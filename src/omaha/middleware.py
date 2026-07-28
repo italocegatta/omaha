@@ -1,6 +1,6 @@
 """ASGI middleware for the Omaha app.
 
-Currently exposes two middlewares:
+Currently exposes three middlewares:
 
 - :class:`AccessLogMiddleware` emits one structured log line per
   HTTP request, capturing method, path, status, duration, and
@@ -10,6 +10,13 @@ Currently exposes two middlewares:
   on HTML responses from authenticated routes so the browser always
   fetches the latest dashboard template (defense against stale
   ``<select>`` markup during dev / iteration on UI).
+- :class:`StaticCacheControlMiddleware` injects
+  ``Cache-Control: no-cache`` on ``/static/`` asset responses so the
+  browser revalidates them every load (cheap 304 via the etag that
+  StaticFiles already emits). Without an explicit directive the
+  browser applies heuristic caching to ``app.css`` / ``echarts.min.js``
+  and can paint a stale pre-change asset even after the HTML document
+  is fresh — the recurring "empty cards" symptom during UI iteration.
 """
 
 from __future__ import annotations
@@ -100,7 +107,7 @@ class AccessLogMiddleware:
             )
 
 
-__all__ = ["AccessLogMiddleware", "NoStoreHTMLMiddleware"]
+__all__ = ["AccessLogMiddleware", "NoStoreHTMLMiddleware", "StaticCacheControlMiddleware"]
 
 
 class NoStoreHTMLMiddleware:
@@ -165,6 +172,67 @@ class NoStoreHTMLMiddleware:
                 new_headers.append((name, value))
             if not replaced:
                 new_headers.append((b"cache-control", b"no-store"))
+
+            new_message = dict(message)
+            new_message["headers"] = new_headers
+            await send(new_message)
+
+        await self.app(scope, receive, wrapped_send)
+
+
+_STATIC_PREFIX = "/static/"
+
+
+class StaticCacheControlMiddleware:
+    """Inject ``Cache-Control: no-cache`` on ``/static/`` asset responses.
+
+    Starlette's :class:`~starlette.staticfiles.StaticFiles` emits an
+    ``etag`` and ``last-modified`` but no ``Cache-Control``. In the
+    absence of an explicit directive the browser falls back to
+    heuristic caching and may reuse a stale ``app.css`` /
+    ``echarts.min.js`` without revalidating — even when the HTML
+    document itself is fresh (``NoStoreHTMLMiddleware`` already forces
+    ``no-store`` on HTML). The result is the recurring "empty cards"
+    symptom: a fresh page wiring up a stale, pre-change asset.
+
+    ``no-cache`` forces the browser to revalidate before reuse; the
+    existing etag turns that revalidation into a cheap ``304 Not
+    Modified`` so assets are still effectively cached on the LAN. This
+    deliberately uses ``no-cache`` (not ``no-store``) so the asset
+    bytes stay stored and only the freshness check hits the server.
+
+    The middleware only touches paths under ``/static/`` and replaces
+    any pre-existing ``cache-control`` header (case-insensitive) so the
+    directive is unambiguous. HTML, JSON (``/api/*``), and the login
+    page are left to their existing handling.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or not scope.get("path", "").startswith(_STATIC_PREFIX):
+            await self.app(scope, receive, send)
+            return
+
+        async def wrapped_send(message: dict) -> None:
+            if message["type"] != "http.response.start":
+                await send(message)
+                return
+
+            raw_headers: list[tuple[bytes, bytes]] = list(message.get("headers", []))
+            new_headers: list[tuple[bytes, bytes]] = []
+            replaced = False
+            for name, value in raw_headers:
+                if name.lower() == b"cache-control":
+                    if not replaced:
+                        new_headers.append((b"cache-control", b"no-cache"))
+                        replaced = True
+                    # Drop subsequent Cache-Control headers too.
+                    continue
+                new_headers.append((name, value))
+            if not replaced:
+                new_headers.append((b"cache-control", b"no-cache"))
 
             new_message = dict(message)
             new_message["headers"] = new_headers

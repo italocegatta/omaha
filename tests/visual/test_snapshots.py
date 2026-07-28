@@ -45,6 +45,17 @@ def test_rebalance_form_snapshot(visual_page, live_url_visual: str, visual_viewp
         '[data-testid="rebalance-form"]',
         '[data-testid="rebalance-plan"]',
     )
+    # F52 — deterministic wait for the ECharts SVG renderer: every chart
+    # container (if any) must have its <svg> attached before screenshot
+    # (animation:false paints once; avoids capturing a half-rendered chart).
+    visual_page.wait_for_function(
+        """() => {
+            const charts = document.querySelectorAll('[data-testid="rebalance-class-chart"]');
+            if (!charts.length) return true;
+            return [...charts].every((c) => c.querySelector('svg'));
+        }""",
+        timeout=10_000,
+    )
     compare_or_update_screenshot(visual_page, "rebalance-form", visual_viewport)
 
 
@@ -65,11 +76,23 @@ def test_rebalance_plan_snapshot(visual_page, live_url_visual: str, visual_viewp
         '[data-testid="rebalance-plan"]',
         '[data-testid="rebalance-params-bar"]',
         '[data-testid="rebalance-asset-table"]',
+        '[data-testid="rebalance-class-summary"]',
+        '[data-testid="rebalance-class-bridge"]',
     )
     visual_page.wait_for_function(
         "() => document.querySelectorAll('[data-testid^=\"rebalance-asset-row-\"]').length > 0",
         timeout=10_000,
     )
+    # F52 — wait for ECharts SVG charts to render before snapshotting.
+    visual_page.wait_for_function(
+        """() => {
+            const charts = document.querySelectorAll('[data-testid="rebalance-class-chart"]');
+            if (!charts.length) return true;
+            return [...charts].every((c) => c.querySelector('svg'));
+        }""",
+        timeout=10_000,
+    )
+    visual_page.wait_for_timeout(400)
     compare_or_update_screenshot(visual_page, "rebalance-plan", visual_viewport)
 
 

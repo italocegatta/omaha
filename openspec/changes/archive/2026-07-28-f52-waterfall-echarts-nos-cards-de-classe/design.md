@@ -28,8 +28,9 @@ for visual snapshots; legible at 320px.
 schemas, thresholds, global metrics, seed; reintroducing removed texts;
 fixing the unrelated pre-existing accent inconsistency between the two
 `rebalance-page` requirements (L320-348 says green-above/red-below; shell CSS
-and handoff say red-above/blue-below — out of scope, shell preserved as-is);
-Alpine CDN vendoring (pre-existing, separate concern).
+and handoff say red-above/blue-below — the shell itself follows the normative
+red-above/blue-below contract; see the D9 note); Alpine CDN vendoring
+(pre-existing, separate concern).
 
 ## Decisions
 
@@ -225,6 +226,13 @@ Remove from `src/omaha/static/app.css`:
 Preserve EXACTLY: `.rebalance-class-summary` (L2848-2854) and
 `.rebalance-class-card*` shell incl. `--above`/`--below` (L2855-2888).
 
+**Note (apply-time):** the shell `--above`/`--below` accent was aligned to the
+normative contract — red-above (`--negative`) / blue-below (`--class-1`),
+matching the delta spec (red-above/blue-below state language) and handoff §4;
+the code is correct and the inconsistency flagged in non-goals is resolved for
+the shell (the stale green-above/red-below wording lives in a separate
+main-spec requirement and is not touched by this slice).
+
 ### D10 — Template/JS surgery map
 
 `_rebalance_plan.html`: replace L53-81 (manual DOM inside
@@ -276,6 +284,57 @@ approves side-by-side, finalize performs the minimal follow-up: delete
 template, route (`src/omaha/routes/pages.py:667-698`), and
 `openspec/.temp_assets/f49-bridge-handoff.md` in the archive commit. If the
 owner requests changes instead, the mock remains the reference.
+
+### D13 — PRG on `POST /rebalanceamento` + ephemeral thresholds (owner-approved)
+
+**Decision:** the success path of `POST /rebalanceamento` returns a 303
+redirect to `/rebalanceamento` (POST/Redirect/GET) instead of rendering the
+plan with 200. The aporte is persisted per-profile in session
+(`_materialize_rebalance_plan`); the post-redirect GET recomputes and renders
+the plan. Solver validation errors still render the page directly (200) with
+`form_error` verbatim — no 4xx — so the error message survives.
+
+**Rationale:** rendering the plan as the 200 response to a POST left it on a
+POST document: refreshing re-submitted the form (browser confirmation prompt)
+and, after the ECharts swap, a refresh wiped the chart. PRG makes the rendered
+plan always a GET document; the session-bound active profile means the
+redirect target carries no query string.
+
+**Ephemeral thresholds — accepted trade-off:** user-submitted
+`min_deviation_value/pct` are consumed to compute the plan at POST time, then
+discarded — the redirect's GET recomputes with the defaults (`1000.0` /
+`1.0`) and the threshold inputs re-render at defaults. Only the aporte
+survives the PRG (per-profile, in session). This is intentional: thresholds
+are display state for one computation, not persisted profile configuration;
+persisting them would need session or schema state the page does not have,
+and accepting the reset is the price of a refresh-safe URL.
+
+**Test lock:**
+`tests/test_rebalance_page.py::test_post_rebalanceamento_success_redirect_renders_plan_with_default_thresholds`
+(303 → `location: /rebalanceamento`; GET renders the plan; threshold inputs
+show defaults).
+
+### D14 — Owner directives that supersede mock-era decisions (recorded in tasks.md §7-§9)
+
+After approving the ECharts charts, the owner issued directives that override
+mock details carried by earlier decisions; the delta spec encodes the
+normative result and this note records which design text is now historical:
+
+- **Blank zero-operation x-name** (tasks §7.1) supersedes D6's `Sem operação`
+  axis literal — the hold stage renders an empty x category; aria keeps
+  `Sem operação líquida`. OQ2 is resolved by this directive.
+- **Two-sided adaptive y-axis + hidden y-labels** (tasks §8 + owner directive)
+  supersedes D3's `yAxis.min:0` zero anchor and its visible
+  `axisLabel.formatter=_formatBRLShort` ticks: floor/ceiling both land on nice
+  step multiples strictly outside the level range (`_niceAxisRange`), totals
+  are rebased onto the floor (geometry only), `axisLabel.show:false`, and
+  splitLines stay on every tick.
+- **Inter weight 300 chart text** (tasks §9) supersedes the mock-era font
+  sizes/weights in D3: x-names 15px / value 14px / pct 11.55px desktop
+  (compact 13 / 10.4 / 10), all at true weight 300; `base.html` loads Inter
+  `wght@300..700` (widened from `400..700`) — see DESIGN.md chart rows.
+
+OQ1 (zero stage label-only, mock-exact) stands as implemented and approved.
 
 ## Risks
 

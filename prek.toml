@@ -8,6 +8,10 @@
 # shared skill library used by the GSD agent (not project code), and
 # ``.gsd/`` is the GSD workspace metadata. Pre-commit's own docs
 # recommend a top-level ``exclude`` for vendored / generated content.
+# ``src/omaha/static/vendor/`` holds pinned third-party UMD bundles
+# (e.g. Apache ECharts, F52): minified, >1 MB, not our code — excluded
+# from hygiene + the 1024 KB large-file gate exactly like other vendored
+# assets.
 exclude = '''
 (?x)^(
     \.agents/.*
@@ -17,6 +21,7 @@ exclude = '''
   | backups/.*
   | certs/.*
   | mutants/.*
+  | src/omaha/static/vendor/.*
 )$
 '''
 
