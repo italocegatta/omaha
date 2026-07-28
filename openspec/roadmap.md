@@ -702,7 +702,53 @@ Notes:
 - **Mock route:** `/rebalanceamento/bridge-mock` + `rebalance_bridge_mock.html` NÃO mexer durante a implementação; aposentar somente após owner aprovar a versão ECharts por side-by-side (aposentadoria pode ser follow-up mínimo no finalize/propose, registrar no propose).
 - Gate visual: mock já aprovado pelo owner — NÃO há gate de mock novo; o gate é paridade visual da implementação ECharts com o mock aprovado, verificada pelo owner antes do archive.
 Acceptance: side-by-side com `/rebalanceamento/bridge-mock` sem divergência perceptível em desktop + viewport 320px + dark mode (owner aprova); todas as regras de negócio do handoff §2 preservadas (short scale `R$ 113,7k` em barras e eixo Y, ε `0.0001`, estado `Dados indisponíveis para esta ponte` sem chart, denominador `total_final_planned`); shell do card e `aria-labels` intactos; textos removidos ausentes; testes comportamentais focados (renderização ECharts por card, estados compra/venda/zero/indisponível, agregações) + suíte completa verde + baseline visual atualizado sem diff não-autorizado; refresh-for-test com receipt obrigatório (PRD §4.9).
-Progress: pending — propose (ler handoff + Context7 ECharts); pending — spec verification pós-propose; pending — apply; pending — review; pending — refresh-for-test receipt; pending — owner visual parity approval (gate antes do archive); pending — spec verification pós-apply; pending — archive (+ aposentar mock route se aprovado).
+Progress: propose DONE (4 artifacts, validate --strict ✓); apply DONE (ECharts 6.1.0 vendored, focused tests green, receipt emitted); T29 pre-existing manifest fix DONE (reverted incomplete 1025→1027 rename); review round 1 CHANGES_REQUESTED (gitignore vendor blocker + aria state + nits) → fixes applied; full-suite re-review interrupted; owner testou → charts initially empty = stale browser cache (no Cache-Control on HTML), resolvido com hard refresh; 2026-07-28 owner visual feedback: remover labels do eixo Y + gráfico preencher todo espaço do card (respeitar título + padding geral) → DONE (grid containLabel:false, y axisLabel.show:false, CSS intocado); 2026-07-28 owner reportou pixelização no zoom = canvas raster (renderer padrão) → DONE trocar para renderer SVG (echarts.init com renderer:'svg'), vira elemento vetorial DOM, probe 6/6 svg 0 canvas; 2026-07-28 cards vazios DE NOVO no browser do owner — causa REAL: assets estáticos (app.css/echarts.min.js) sem Cache-Control → cache heurístico → CSS/JS velho na página fresca (HTML já era no-store; SVG funcionava, probe 6/6) → DONE: StaticCacheControlMiddleware em middleware.py+main.py seta Cache-Control:no-cache em /static/* (HTML mantido no-store, endossado); 2026-07-28 owner: gráfico some no refresh + alerta "reenviar formulário?" — diagnóstico HIGH: gráfico OK (GET/POST/re-POST 6/6 svg); raiz = violação POST-Redirect-GET pré-existente em post_rebalanceamento (pages.py:701 renderiza 200 em vez de 303) → bugfix cirúrgico separado do F52 (sucesso POST→303→GET); 2026-07-28 owner: gráfico some no HARD REFRESH mas volta em reload/navegação — diagnóstico HIGH (reproduzido EXP C throttled): race de loading, x-init do Alpine roda antes do echarts.min.js (1.1MB frio), renderBridgeChart return silencioso sem retry/RO; fix = rAF-retry até window.echarts existir + corrigir comentário errado (rebalance.html:4-6) + teste regressão e2e que atrasa echarts; 2026-07-28 owner aprovou visual (SVG/tamanho/espaço); NOVO pedido: eixo Y com piso adaptativo por card (menor valor arredondado p/ baixo, espelhando o teto) → implementar _niceAxisRange(min,max) + rebasear barras de total (Atual/Alvo) para o piso (evitar clipping; labels seguem valores reais; consequência = barras de total relativas ao piso, comunicado ao owner); 2026-07-28 owner aprovou eixo adaptativo; pedido padronização de fonte do gráfico: fontFamily Inter (RHD descartada — só carrega 700/800), x-names 15px/300, valor R$ 14px/300, pct 300 por consistência; CRÍTICO: Inter hoje carrega 400..700 (sem 300) → alargar base.html p/ Inter:wght@300..700 senão 300 vira fallback; pending — owner re-approval F52; pending — full-suite review; pending — archive F52 (+ commits separados: PRG fix, cache race fix + aposentar mock route).
+
+### F53 - Ordem dos cards de classe no rebalanceamento
+Status: `Ready`
+Goal: exibir os cards de classe do `/rebalanceamento` na ordem normativa `RF Pós, RF Dinâmica, FII, Ações, Internacional, Cripto`, sem alterar conteúdo, estilo ou solver.
+Candidate OpenSpec change id: `f53-ordem-dos-cards-de-classe-no-rebalanceamento`
+Spec link: `openspec/changes/f53-ordem-dos-cards-de-classe-no-rebalanceamento/`
+Files: `src/omaha/templates/rebalance.html` (`rebalanceCategorySortFn` L774-799, `categorySortKey` L849, `_computeCategories` L856-867), `src/omaha/templates/_rebalance_plan.html` (loop dos cards L44), `tests/test_rebalance_page.py`, `tests/visual/test_snapshots.py`
+Notes:
+- Mecanismo atual (investigado 2026-07-28): `_computeCategories()` reordena `plan.category_plan` via `localeCompare(category_name)` (default `categorySortKey: 'category_name'`) — cards aparecem em ordem ALFABÉTICA (Ações, Cripto, FII, Internacional, RF Dinâmica, RF Pós). O payload do servidor já chega em `display_order` (`builders.py` L122 → `postprocessing._build_category_plan` L278 `sort_values(["category_order", ...])`), mas o JS descarta a ordem.
+- Ordem normativa (user verbatim): RF Pós, RF Dinâmica, FII, Ações, Internacional, Cripto.
+- **Decisão owner 2026-07-28:** mapa nome→posição no JS (opção a) — efeito visível imediato, independente de F54. Propose define fallback explícito para classe não listada (sugestão: final da lista) e o destino de `sortByCategory`. PROIBIDO adicionar campo de ordem ao schema — `RebalanceCategoryPlanRow` tem exatamente 7 campos (`test_category_plan_row_carries_exactly_seven_fields`).
+- Dependência: **F52 está `Applying` e toca `rebalance.html` + `_rebalance_plan.html` agora** → executar SOMENTE após F52 arquivar (mínimo: apply completo) para evitar conflito na mesma região de cards.
+- Scope guard: NÃO alterar conteúdo dos cards (waterfall F52), CSS, métricas globais, tabela por ativo ou solver. Apenas a ordem de renderização.
+- Testes: nenhum teste atual asserta ordem posicional dos cards (apenas contagem `>= 3` em `test_rebalance_page.py` L779) — apply deve adicionar assertion de ordem. Baseline visual `rebalance-plan` desloca — atualizar no apply.
+Progress: pending — propose; pending — apply; pending — review; pending — refresh-for-test; pending — archive.
+
+### F54 - Ordem dos blocos de classe no patrimônio
+Status: `Ready`
+Goal: exibir os blocos de tabelas de classe do `/patrimonio` na ordem normativa `RF Pós, RF Dinâmica, FII, Ações, Internacional, Cripto` via renumeração do `display_order` no seed CSV, sem alterar conteúdo ou estilo dos blocos.
+Candidate OpenSpec change id: `f54-ordem-dos-blocos-de-classe-no-patrimonio`
+Spec link: `openspec/changes/f54-ordem-dos-blocos-de-classe-no-patrimonio/`
+Files: `data/seed/ana_classes.csv`, `data/seed/italo_classes.csv`, `src/omaha/routes/pages.py` (`order_by(AssetClass.display_order)` L251, `_CLASS_COLORS` L935-951), `src/omaha/templates/_patrimonio_class_section.html` (loop L2), `tests/test_seed_from_csv.py`
+Notes:
+- Mecanismo atual (investigado 2026-07-28): Jinja `{% for c in class_aggregates %}` ← `pages.py` `.order_by(AssetClass.display_order)` ← coluna `display_order` do seed CSV (PRD §4.3 — CSV é a fonte única de seed). Ordem atual em ambos os perfis: RF Dinâmica(0), RF Pós(1), Internacional(2), FII(3), Cripto(4), Ações(5).
+- Renumeração normativa: RF Pós=0, RF Dinâmica=1, FII=2, Ações=3, Internacional=4, Cripto=5. As 6 classes existem em `ana_classes.csv` e `italo_classes.csv`; não há classes extras no seed (classes criadas via UI/import usam `max+1` — sem impacto).
+- **Decisão owner 2026-07-28:** ACEITAR rotação de cores — `_CLASS_COLORS` posicional mantido como está; classes herdam a cor da nova posição. Escopo mínimo: somente renumeração dos CSVs, zero mudança em `pages.py`.
+- Visão família segue automático (pages.py L1294/L1338 ordena por min `display_order` dos membros).
+- Dependência: executar após F52 arquivar (mínimo apply completo) — fila única evita churn de baseline visual enquanto F52 atualiza snapshots.
+- Scope guard: NÃO alterar conteúdo/estilo dos blocos, agregações, filtros ou rotas além do estritamente necessário para a ordem. Solver intocado.
+- Testes: `test_seed_from_csv.py` L233-238 compara display_order CSV↔DB dinamicamente (segue verde com CSV renumerado, mas deve rodar); apply precisa de `task db-reset` + suíte seed. Baseline visual `patrimonio` desloca — atualizar no apply.
+Progress: pending — propose; pending — apply; pending — review; pending — refresh-for-test; pending — archive.
+
+### F55 - Aumentar tamanho da fonte do menu principal
+Status: `Ready`
+Goal: aumentar em 50% o font-size dos nomes das páginas (Patrimônio, Rebalanceamento, Rentabilidade, Proventos) na tab nav superior (`.tab-nav__btn`), sem alterar nada além disso.
+Candidate OpenSpec change id: `f55-aumentar-tamanho-da-fonte-do-menu-principal`
+Spec link: `openspec/changes/f55-aumentar-tamanho-da-fonte-do-menu-principal/`
+Files: `src/omaha/static/app.css` (`.tab-nav__btn` L716-728 desktop; override mobile L2006-2009), `src/omaha/templates/base.html` (nav L94-112 — somente leitura/referência), `tests/visual/test_snapshots.py`
+Notes:
+- Regra atual (investigado 2026-07-28): `.tab-nav__btn { font-size: 0.9rem }` (app.css L721, desktop) → +50% = **1.35rem**. Override mobile em `@media (max-width: 480px)`: `font-size: 0.85rem` (L2007).
+- **Decisão owner 2026-07-28:** mobile também +50% → `1.275rem` (override 480px atualizado junto).
+- Scope guard: alterar SOMENTE o `font-size` dos títulos da tab nav. `line-height`/`padding` APENAS se o crescimento quebrar visualmente (altura do header, underline `--accent` do tab ativo, alinhamento com wordmark/chips à direita) — justificar no apply. Tipografia (Inter → Red Hat Display 700 no tab ativo), peso, cor e gap NÃO mudam.
+- Verificar baseline entre tabs ativo/inativo (famílias diferentes) após o aumento.
+- Dependência: **F52 está `Applying` e toca `app.css` agora** → executar após F52 arquivar (mínimo apply completo).
+- Baselines visuais de página (header aparece nos snapshots) deslocam — atualizar no apply.
+Progress: pending — propose; pending — apply; pending — review; pending — refresh-for-test; pending — archive.
 
 ---
 
@@ -710,6 +756,11 @@ Progress: pending — propose (ler handoff + Context7 ECharts); pending — spec
 
 **Active queue:**
 1. F52 (Ready) — waterfall ECharts nos cards de classe reproduzindo o mock aprovado; handoff `openspec/.temp_assets/f49-bridge-handoff.md` como referência normativa.
+2. F53 (Ready) — ordem normativa dos cards de classe no rebalanceamento; mesma região de `rebalance.html`/`_rebalance_plan.html` que F52 → só iniciar após F52 sair de `Applying`.
+3. F54 (Ready) — ordem normativa dos blocos de classe no patrimônio via `display_order` do seed CSV; propose resolve a pergunta de cor posicional (`_CLASS_COLORS`) com o owner.
+4. F55 (Ready) — fonte da tab nav +50%; CSS-only e independente de F53/F54, mas `app.css` é zona F52 até o archive.
+
+Order note (2026-07-28): F53/F54/F55 derivados da demanda de ordem de classes + fonte do menu. F53 e F54 NÃO compartilham fonte de ordenação hoje — rebalanceamento ordena client-side por `localeCompare(category_name)` e patrimônio ordena server-side por `display_order` do seed — por isso três fatias distintas. Se o propose de F53 escolher "respeitar ordem do payload", o efeito visível de F53 só se completa com o seed renumerado de F54 (o propose pode recomendar inverter F53↔F54 na fila; decisão do orchestrator no gate).
 
 **Order note:** F52 substitui F49 (waterfall manual HTML/CSS abandonado pelo owner). F49 será marcado `Blocked`/superseded pelo orchestrator — não reabrir, não reutilizar código de renderização (exceto mock aprovado + payload + helpers puros listados em F52/Dependencies). F50/F51 seguem deprecated.
 
