@@ -34,7 +34,6 @@ class Settings(BaseSettings):
     # isolation contract in ``tests/conftest.py``.
     DATABASE_URL: str = "sqlite:///./data/portfolio.db"
     ADMIN_PASSWORD: str | None = None
-
     # S06: production-readiness knobs. All four are read at import
     # time (Settings is instantiated eagerly) and feed both the
     # logging config (LOG_LEVEL / LOG_FORMAT) and the secure-cookie

@@ -22,7 +22,7 @@
 # (`oc` is a backward-compatible alias for `agent-profile`)
 
 [default]
-profile = "openai-balanced"
+profile = "alibaba-high"
 
 # ── openai-cheap ──────────────────────────────────────────────────────────────
 [profiles.openai-cheap.roadmap]
@@ -168,3 +168,77 @@ effort = "medium"
 provider = "xiaomi-token-plan-sgp"
 model = "mimo-v2.5"
 effort = "medium"
+
+
+# ── alibaba-balanced ──────────────────────────────────────────────────────────
+[profiles.alibaba-balanced.roadmap]
+provider = "bailian-token-plan-personal"
+model = "qwen3.7-max"
+effort = "medium"
+
+[profiles.alibaba-balanced.explore]
+provider = "bailian-token-plan-personal"
+model = "qwen3.7-max"
+effort = "medium"
+
+[profiles.alibaba-balanced.slice]
+provider = "bailian-token-plan-personal"
+model = "qwen3.7-max"
+effort = "medium"
+
+[profiles.alibaba-balanced.propose]
+provider = "bailian-token-plan-personal"
+model = "qwen3.7-max"
+effort = "medium"
+
+[profiles.alibaba-balanced.apply]
+provider = "bailian-token-plan-personal"
+model = "qwen3.7-max"
+effort = "medium"
+
+[profiles.alibaba-balanced.review]
+provider = "bailian-token-plan-personal"
+model = "qwen3.7-max"
+effort = "medium"
+
+[profiles.alibaba-balanced.finalize]
+provider = "bailian-token-plan-personal"
+model = "qwen3.7-max"
+effort = "medium"
+
+
+# ── alibaba-high ──────────────────────────────────────────────────────────────
+[profiles.alibaba-high.roadmap]
+provider = "bailian-token-plan-personal"
+model = "qwen3.8-max-preview"
+effort = "high"
+
+[profiles.alibaba-high.explore]
+provider = "bailian-token-plan-personal"
+model = "qwen3.8-max-preview"
+effort = "high"
+
+[profiles.alibaba-high.slice]
+provider = "bailian-token-plan-personal"
+model = "qwen3.8-max-preview"
+effort = "high"
+
+[profiles.alibaba-high.propose]
+provider = "bailian-token-plan-personal"
+model = "qwen3.8-max-preview"
+effort = "high"
+
+[profiles.alibaba-high.apply]
+provider = "bailian-token-plan-personal"
+model = "qwen3.8-max-preview"
+effort = "high"
+
+[profiles.alibaba-high.review]
+provider = "bailian-token-plan-personal"
+model = "qwen3.8-max-preview"
+effort = "high"
+
+[profiles.alibaba-high.finalize]
+provider = "bailian-token-plan-personal"
+model = "qwen3.8-max-preview"
+effort = "high"
