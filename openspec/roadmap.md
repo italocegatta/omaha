@@ -749,9 +749,8 @@ Progress: pending — propose; pending — apply; pending — review; pending �
 
 ### D04 - Corrigir spec drift do POST /rebalanceamento
 Status: `Archived` — 2026-07-29
-Goal: corrigir requisitos de `rebalance-page` que descreviam `POST /rebalanceamento` retornando 200 pós-PRG fix da F52 (303→GET).
+Goal: corrigir o requisito da spec `rebalance-page` que ainda descrevia `POST /rebalanceamento` retornando 200; o código (PRG fix F52) retorna 303 → GET.
 Archive: `openspec/changes/archive/2026-07-29-d04-corrigir-spec-drift-post-rebalanceamento/`
-Caveat: PRG fix da F52 (commit `054f320`) já retornava 303; delta corrigiu texto de spec sem alterar código.
 
 ---
 
