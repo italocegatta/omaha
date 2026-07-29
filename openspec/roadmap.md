@@ -710,23 +710,15 @@ Notes:
 - Ordem resolvida client-side por mapa nome→posição em `rebalance.html` (sort dead removido); classes fora do mapa renderizam ao final em ordem alfabética. `RebalanceCategoryPlanRow` (7 campos) e payload intactos. Requisito sincronizado em `openspec/specs/rebalance-page/spec.md`.
 
 ### F54 - Ordem dos blocos de classe no patrimônio
-Status: `Ready`
-Goal: exibir os blocos de tabelas de classe do `/patrimonio` na ordem normativa `RF Pós, RF Dinâmica, FII, Ações, Internacional, Cripto` via renumeração do `display_order` no seed CSV, sem alterar conteúdo ou estilo dos blocos.
-Candidate OpenSpec change id: `f54-ordem-dos-blocos-de-classe-no-patrimonio`
-Spec link: `openspec/changes/f54-ordem-dos-blocos-de-classe-no-patrimonio/`
-Files: `data/seed/ana_classes.csv`, `data/seed/italo_classes.csv`, `src/omaha/routes/pages.py` (`order_by(AssetClass.display_order)` L251, `_CLASS_COLORS` L935-951), `src/omaha/templates/_patrimonio_class_section.html` (loop L2), `tests/test_seed_from_csv.py`
+Status: `Archived` — 2026-07-29
+Goal: exibir os blocos de tabelas de classe do `/patrimonio` na ordem normativa `RF Pós, RF Dinâmica, FII, Ações, Internacional, Cripto` via renumeração do `display_order` no seed CSV.
+Archive: `openspec/changes/archive/2026-07-29-f54-ordem-dos-blocos-de-classe-no-patrimonio/`
 Notes:
-- Mecanismo atual (investigado 2026-07-28): Jinja `{% for c in class_aggregates %}` ← `pages.py` `.order_by(AssetClass.display_order)` ← coluna `display_order` do seed CSV (PRD §4.3 — CSV é a fonte única de seed). Ordem atual em ambos os perfis: RF Dinâmica(0), RF Pós(1), Internacional(2), FII(3), Cripto(4), Ações(5).
-- Renumeração normativa: RF Pós=0, RF Dinâmica=1, FII=2, Ações=3, Internacional=4, Cripto=5. As 6 classes existem em `ana_classes.csv` e `italo_classes.csv`; não há classes extras no seed (classes criadas via UI/import usam `max+1` — sem impacto).
-- **Decisão owner 2026-07-28:** ACEITAR rotação de cores — `_CLASS_COLORS` posicional mantido como está; classes herdam a cor da nova posição. Escopo mínimo: somente renumeração dos CSVs, zero mudança em `pages.py`.
-- Visão família segue automático (pages.py L1294/L1338 ordena por min `display_order` dos membros).
-- Dependência: executar após F52 arquivar (mínimo apply completo) — fila única evita churn de baseline visual enquanto F52 atualiza snapshots.
-- Scope guard: NÃO alterar conteúdo/estilo dos blocos, agregações, filtros ou rotas além do estritamente necessário para a ordem. Solver intocado.
-- Testes: `test_seed_from_csv.py` L233-238 compara display_order CSV↔DB dinamicamente (segue verde com CSV renumerado, mas deve rodar); apply precisa de `task db-reset` + suíte seed. Baseline visual `patrimonio` desloca — atualizar no apply.
-Progress: pending — propose; pending — apply; pending — review; pending — refresh-for-test; pending — archive.
+- Escopo mínimo: somente renumeração dos CSVs, zero mudança em `pages.py`. Cores rotacionam posicionalmente (owner aceitou).
+- Gate: edições em `data/seed/` exigem permissão explícita do owner por ação.
 
 ### F55 - Aumentar tamanho da fonte do menu principal
-Status: `Ready`
+Status: `Spec Proposed`
 Goal: aumentar em 50% o font-size dos nomes das páginas (Patrimônio, Rebalanceamento, Rentabilidade, Proventos) na tab nav superior (`.tab-nav__btn`), sem alterar nada além disso.
 Candidate OpenSpec change id: `f55-aumentar-tamanho-da-fonte-do-menu-principal`
 Spec link: `openspec/changes/f55-aumentar-tamanho-da-fonte-do-menu-principal/`
@@ -750,16 +742,15 @@ Archive: `openspec/changes/archive/2026-07-29-d04-corrigir-spec-drift-post-rebal
 ## Recommended Execution Order
 
 **Active queue:**
-1. F54 (Ready) — ordem normativa dos blocos de classe no patrimônio via `display_order` do seed CSV; propose resolve a pergunta de cor posicional (`_CLASS_COLORS`) com o owner.
-2. F55 (Ready) — fonte da tab nav +50%; CSS-only e independente de F54 (`app.css` livre após archive de F52).
+1. F55 (Spec Proposed) — fonte da tab nav +50%; CSS-only, `app.css` livre após archive de F52/F54.
 
-Order note (2026-07-29): F53 arquivado — rebalanceamento já ordena client-side por mapa nome→posição, independente do seed (a hipótese "respeitar ordem do payload" não se confirmou, F54 não é pré-requisito de F53). F54 primeiro por completar a mesma demanda de ordem normativa no patrimônio; F55 é CSS-only independente e pode rodar em paralelo se o WIP permitir.
+Order note (2026-07-29): F54 arquivado — blocos de classe do patrimônio já ordenados normativamente via `display_order` do seed CSV. F55 é CSS-only independente; pode rodar em paralelo se o WIP permitir.
 
 **Order note:** F52 substitui F49 (waterfall manual HTML/CSS abandonado pelo owner). F49 está `Archived` (superseded) em `openspec/changes/archive/2026-07-28-f49-bridge-graphic-linguagem-visual-cards-classe/` — não reabrir, não reutilizar código de renderização (exceto mock aprovado + payload + helpers puros listados em F52/Dependencies). F50/F51 seguem deprecated.
 
 **Archived history:** F48 permanece registro de PoC Playwright sem sucesso; não reabrir, renomear ou alterar sua change folder.
 
-**Archived since prior queue:** F53 (ordem normativa dos cards, 2026-07-29), F52 (waterfall ECharts, commit `054f320`, 2026-07-28), T27, T28, T29, I07 e D03. Não são trabalho ativo.
+**Archived since prior queue:** F54 (ordem normativa dos blocos, 2026-07-29), F53 (ordem normativa dos cards, 2026-07-29), F52 (waterfall ECharts, commit `054f320`, 2026-07-28), T27, T28, T29, I07 e D03. Não são trabalho ativo.
 
 Order note: F49 correction absorbs mock approval and runtime integration after owner direction. F50/F51 deprecated and excluded from execution.
 
