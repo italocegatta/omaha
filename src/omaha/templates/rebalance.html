@@ -784,31 +784,24 @@
       };
     }
 
-    function rebalanceCategorySortFn(key, dir) {
-      var NUMERIC_KEYS = {
-        current_value: 1,
-        projected_value: 1,
-        delta: 1,
-        target_pct: 1,
-        current_pct: 1,
-        deviation_pct: 1,
-      };
-      return function (a, b) {
-        var cmp = 0;
-        if (key in NUMERIC_KEYS) {
-          var av = Number(a[key]) || 0;
-          var bv = Number(b[key]) || 0;
-          cmp = av - bv;
-        } else {
-          cmp = String(a[key] || '').localeCompare(String(b[key] || ''));
-        }
-        if (cmp === 0) {
-          cmp = String(a.category_name || '').localeCompare(
-            String(b.category_name || '')
-          );
-        }
-        return dir === 'asc' ? cmp : -cmp;
-      };
+    var CATEGORY_DISPLAY_ORDER = [
+      'RF Pós',
+      'RF Dinâmica',
+      'FII',
+      'Ações',
+      'Internacional',
+      'Cripto',
+    ];
+
+    function categoryDisplayOrder(a, b) {
+      var ai = CATEGORY_DISPLAY_ORDER.indexOf(a.category_name);
+      var bi = CATEGORY_DISPLAY_ORDER.indexOf(b.category_name);
+      if (ai === -1) ai = CATEGORY_DISPLAY_ORDER.length;
+      if (bi === -1) bi = CATEGORY_DISPLAY_ORDER.length;
+      if (ai !== bi) return ai - bi;
+      return String(a.category_name || '').localeCompare(
+        String(b.category_name || '')
+      );
     }
 
     window.rebalancePage = function (initial) {
@@ -859,8 +852,6 @@
           sell_amount: { min: null, max: null },
           projected_value: { min: null, max: null },
         },
-        categorySortKey: 'category_name',
-        categorySortDir: 'asc',
         displayCategories: [],
         init: function () {
           this.displayRows = this.plan.asset_plan.slice();
@@ -875,9 +866,7 @@
               ? (Number(c.projected_value) / totalProjected * 100)
               : 0;
             return Object.assign({}, c, { projected_pct: proj });
-          }).sort(
-            rebalanceCategorySortFn(this.categorySortKey, this.categorySortDir)
-          );
+          }).sort(categoryDisplayOrder);
         },
         sortBy: function (key) {
           if (this.sortKey === key) {
@@ -890,23 +879,9 @@
             rebalanceSortFn(this.sortKey, this.sortDir)
           );
         },
-        sortByCategory: function (key) {
-          if (this.categorySortKey === key) {
-            this.categorySortDir =
-              this.categorySortDir === 'asc' ? 'desc' : 'asc';
-          } else {
-            this.categorySortKey = key;
-            this.categorySortDir = 'asc';
-          }
-          this._computeCategories();
-        },
         sortIndicator: function (key) {
           if (this.sortKey !== key) return '';
           return this.sortDir === 'asc' ? '▲' : '▼';
-        },
-        sortIndicatorCategory: function (key) {
-          if (this.categorySortKey !== key) return '';
-          return this.categorySortDir === 'asc' ? '↑' : '↓';
         },
         actionLabel: _actionLabel,
         formatBRL: _formatBRL,

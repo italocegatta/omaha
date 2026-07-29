@@ -840,6 +840,22 @@ def test_class_deviation_summary_renders(
     assert '"delta": 5000.0' in body or '"delta":5000.0' in body
     assert '"delta": -8000.0' in body or '"delta":-8000.0' in body
     assert '"delta": 0.0001' in body or '"delta":0.0001' in body
+    # F53 — class cards use the fixed normative order map; dead category
+    # sort surface is gone.
+    assert "var CATEGORY_DISPLAY_ORDER = [" in body
+    assert "'RF Pós'," in body
+    assert "'RF Dinâmica'," in body
+    assert "'FII'," in body
+    assert "'Ações'," in body
+    assert "'Internacional'," in body
+    assert "'Cripto'," in body
+    assert "function categoryDisplayOrder(a, b)" in body
+    assert ".sort(categoryDisplayOrder);" in body
+    assert "rebalanceCategorySortFn" not in body
+    assert "categorySortKey" not in body
+    assert "categorySortDir" not in body
+    assert "sortByCategory" not in body
+    assert "sortIndicatorCategory" not in body
 
 
 # ---------------------------------------------------------------------------

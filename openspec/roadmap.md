@@ -703,19 +703,11 @@ Acceptance: side-by-side com `/rebalanceamento/bridge-mock` sem divergência per
 Progress: propose DONE (4 artifacts, validate --strict ✓); apply DONE (ECharts 6.1.0 vendored, focused tests green, receipt emitted); T29 pre-existing manifest fix DONE (reverted incomplete 1025→1027 rename); review round 1 CHANGES_REQUESTED (gitignore vendor blocker + aria state + nits) → fixes applied; full-suite re-review interrupted; owner testou → charts initially empty = stale browser cache (no Cache-Control on HTML), resolvido com hard refresh; 2026-07-28 owner visual feedback: remover labels do eixo Y + gráfico preencher todo espaço do card (respeitar título + padding geral) → DONE (grid containLabel:false, y axisLabel.show:false, CSS intocado); 2026-07-28 owner reportou pixelização no zoom = canvas raster (renderer padrão) → DONE trocar para renderer SVG (echarts.init com renderer:'svg'), vira elemento vetorial DOM, probe 6/6 svg 0 canvas; 2026-07-28 cards vazios DE NOVO no browser do owner — causa REAL: assets estáticos (app.css/echarts.min.js) sem Cache-Control → cache heurístico → CSS/JS velho na página fresca (HTML já era no-store; SVG funcionava, probe 6/6) → DONE: StaticCacheControlMiddleware em middleware.py+main.py seta Cache-Control:no-cache em /static/* (HTML mantido no-store, endossado); 2026-07-28 owner: gráfico some no refresh + alerta "reenviar formulário?" — diagnóstico HIGH: gráfico OK (GET/POST/re-POST 6/6 svg); raiz = violação POST-Redirect-GET pré-existente em post_rebalanceamento (pages.py:701 renderiza 200 em vez de 303) → bugfix cirúrgico separado do F52 (sucesso POST→303→GET); 2026-07-28 owner: gráfico some no HARD REFRESH mas volta em reload/navegação — diagnóstico HIGH (reproduzido EXP C throttled): race de loading, x-init do Alpine roda antes do echarts.min.js (1.1MB frio), renderBridgeChart return silencioso sem retry/RO; fix = rAF-retry até window.echarts existir + corrigir comentário errado (rebalance.html:4-6) + teste regressão e2e que atrasa echarts; 2026-07-28 owner aprovou visual (SVG/tamanho/espaço); NOVO pedido: eixo Y com piso adaptativo por card (menor valor arredondado p/ baixo, espelhando o teto) → implementar _niceAxisRange(min,max) + rebasear barras de total (Atual/Alvo) para o piso (evitar clipping; labels seguem valores reais; consequência = barras de total relativas ao piso, comunicado ao owner); 2026-07-28 owner aprovou eixo adaptativo; pedido padronização de fonte do gráfico: fontFamily Inter (RHD descartada — só carrega 700/800), x-names 15px/300, valor R$ 14px/300, pct 300 por consistência; CRÍTICO: Inter hoje carrega 400..700 (sem 300) → alargar base.html p/ Inter:wght@300..700 senão 300 vira fallback; DONE — archived 2026-07-28 (commit `054f320`, full suite 1.028 nodes green, owner aprovou todas as melhorias; mock aposentado, specs sincronizadas, change arquivado).
 
 ### F53 - Ordem dos cards de classe no rebalanceamento
-Status: `Ready`
+Status: `Archived` — 2026-07-29
 Goal: exibir os cards de classe do `/rebalanceamento` na ordem normativa `RF Pós, RF Dinâmica, FII, Ações, Internacional, Cripto`, sem alterar conteúdo, estilo ou solver.
-Candidate OpenSpec change id: `f53-ordem-dos-cards-de-classe-no-rebalanceamento`
-Spec link: `openspec/changes/f53-ordem-dos-cards-de-classe-no-rebalanceamento/`
-Files: `src/omaha/templates/rebalance.html` (`rebalanceCategorySortFn` L774-799, `categorySortKey` L849, `_computeCategories` L856-867), `src/omaha/templates/_rebalance_plan.html` (loop dos cards L44), `tests/test_rebalance_page.py`, `tests/visual/test_snapshots.py`
+Archive: `openspec/changes/archive/2026-07-29-f53-ordem-dos-cards-de-classe-no-rebalanceamento/`
 Notes:
-- Mecanismo atual (investigado 2026-07-28): `_computeCategories()` reordena `plan.category_plan` via `localeCompare(category_name)` (default `categorySortKey: 'category_name'`) — cards aparecem em ordem ALFABÉTICA (Ações, Cripto, FII, Internacional, RF Dinâmica, RF Pós). O payload do servidor já chega em `display_order` (`builders.py` L122 → `postprocessing._build_category_plan` L278 `sort_values(["category_order", ...])`), mas o JS descarta a ordem.
-- Ordem normativa (user verbatim): RF Pós, RF Dinâmica, FII, Ações, Internacional, Cripto.
-- **Decisão owner 2026-07-28:** mapa nome→posição no JS (opção a) — efeito visível imediato, independente de F54. Propose define fallback explícito para classe não listada (sugestão: final da lista) e o destino de `sortByCategory`. PROIBIDO adicionar campo de ordem ao schema — `RebalanceCategoryPlanRow` tem exatamente 7 campos (`test_category_plan_row_carries_exactly_seven_fields`).
-- Dependência: **F52 está `Applying` e toca `rebalance.html` + `_rebalance_plan.html` agora** → executar SOMENTE após F52 arquivar (mínimo: apply completo) para evitar conflito na mesma região de cards.
-- Scope guard: NÃO alterar conteúdo dos cards (waterfall F52), CSS, métricas globais, tabela por ativo ou solver. Apenas a ordem de renderização.
-- Testes: nenhum teste atual asserta ordem posicional dos cards (apenas contagem `>= 3` em `test_rebalance_page.py` L779) — apply deve adicionar assertion de ordem. Baseline visual `rebalance-plan` desloca — atualizar no apply.
-Progress: pending — propose; pending — apply; pending — review; pending — refresh-for-test; pending — archive.
+- Ordem resolvida client-side por mapa nome→posição em `rebalance.html` (sort dead removido); classes fora do mapa renderizam ao final em ordem alfabética. `RebalanceCategoryPlanRow` (7 campos) e payload intactos. Requisito sincronizado em `openspec/specs/rebalance-page/spec.md`.
 
 ### F54 - Ordem dos blocos de classe no patrimônio
 Status: `Ready`
@@ -758,17 +750,16 @@ Archive: `openspec/changes/archive/2026-07-29-d04-corrigir-spec-drift-post-rebal
 ## Recommended Execution Order
 
 **Active queue:**
-1. F53 (Ready) — ordem normativa dos cards de classe no rebalanceamento; mesma região de `rebalance.html`/`_rebalance_plan.html` (F52 arquivado 2026-07-28 → dependência satisfeita).
-2. F54 (Ready) — ordem normativa dos blocos de classe no patrimônio via `display_order` do seed CSV; propose resolve a pergunta de cor posicional (`_CLASS_COLORS`) com o owner.
-3. F55 (Ready) — fonte da tab nav +50%; CSS-only e independente de F53/F54 (`app.css` livre após archive de F52).
+1. F54 (Ready) — ordem normativa dos blocos de classe no patrimônio via `display_order` do seed CSV; propose resolve a pergunta de cor posicional (`_CLASS_COLORS`) com o owner.
+2. F55 (Ready) — fonte da tab nav +50%; CSS-only e independente de F54 (`app.css` livre após archive de F52).
 
-Order note (2026-07-28): F53/F54/F55 derivados da demanda de ordem de classes + fonte do menu. F53 e F54 NÃO compartilham fonte de ordenação hoje — rebalanceamento ordena client-side por `localeCompare(category_name)` e patrimônio ordena server-side por `display_order` do seed — por isso três fatias distintas. Se o propose de F53 escolher "respeitar ordem do payload", o efeito visível de F53 só se completa com o seed renumerado de F54 (o propose pode recomendar inverter F53↔F54 na fila; decisão do orchestrator no gate).
+Order note (2026-07-29): F53 arquivado — rebalanceamento já ordena client-side por mapa nome→posição, independente do seed (a hipótese "respeitar ordem do payload" não se confirmou, F54 não é pré-requisito de F53). F54 primeiro por completar a mesma demanda de ordem normativa no patrimônio; F55 é CSS-only independente e pode rodar em paralelo se o WIP permitir.
 
 **Order note:** F52 substitui F49 (waterfall manual HTML/CSS abandonado pelo owner). F49 está `Archived` (superseded) em `openspec/changes/archive/2026-07-28-f49-bridge-graphic-linguagem-visual-cards-classe/` — não reabrir, não reutilizar código de renderização (exceto mock aprovado + payload + helpers puros listados em F52/Dependencies). F50/F51 seguem deprecated.
 
 **Archived history:** F48 permanece registro de PoC Playwright sem sucesso; não reabrir, renomear ou alterar sua change folder.
 
-**Archived since prior queue:** F52 (waterfall ECharts, commit `054f320`, 2026-07-28), T27, T28, T29, I07 e D03. Não são trabalho ativo.
+**Archived since prior queue:** F53 (ordem normativa dos cards, 2026-07-29), F52 (waterfall ECharts, commit `054f320`, 2026-07-28), T27, T28, T29, I07 e D03. Não são trabalho ativo.
 
 Order note: F49 correction absorbs mock approval and runtime integration after owner direction. F50/F51 deprecated and excluded from execution.
 

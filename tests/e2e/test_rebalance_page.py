@@ -232,6 +232,35 @@ class TestRebalancePage:
 
         assert page.locator(SELECTORS["rebalance_class_summary"]).count() == 1
 
+        # F53 — class cards hydrate in normative order (known classes
+        # first, unknown classes after, alphabetically).
+        page.wait_for_function(
+            "() => document.querySelectorAll("
+            "'[data-testid^=\"rebalance-class-card-\"]').length >= 1",
+            timeout=5000,
+        )
+        cards_in_normative_order = page.evaluate(
+            """() => {
+                const order = ['RF Pós', 'RF Dinâmica', 'FII', 'Ações', 'Internacional', 'Cripto'];
+                const names = Alpine.$data(document.querySelector('[data-testid="rebalance-plan"]'))
+                    .displayCategories.map((c) => c.category_name);
+                const key = (n) => {
+                    const i = order.indexOf(n);
+                    return i === -1 ? order.length : i;
+                };
+                for (let i = 1; i < names.length; i += 1) {
+                    const prevKey = key(names[i - 1]);
+                    const currKey = key(names[i]);
+                    if (prevKey > currKey) return false;
+                    if (prevKey === currKey && names[i - 1].localeCompare(names[i]) > 0) {
+                        return false;
+                    }
+                }
+                return true;
+            }"""
+        )
+        assert cards_in_normative_order, "class cards are not in normative order"
+
     def test_asset_table_poc_parity_interactions(self, page: Page, live_url: str) -> None:
         """POC-format table sorts and filters hydrated Alpine rows."""
         _login_and_select_italo(page, live_url)
