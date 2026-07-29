@@ -165,8 +165,8 @@ def test_runner_reconciliation_rejects_duplicate_node_across_lanes() -> None:
 
 def test_runner_manifest_loader_accepts_committed_1028_population() -> None:
     manifest = runner.load_manifest()
-    assert manifest.population == 1028
-    assert len(manifest.nodes) == 1028
+    assert manifest.population == 1032
+    assert len(manifest.nodes) == 1032
     assert manifest.skip_ids == runner.EXPECTED_SKIPS
 
 

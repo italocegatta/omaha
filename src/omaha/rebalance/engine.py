@@ -124,6 +124,7 @@ def _translate_asset_plan(asset_plan_df: pd.DataFrame) -> list[RebalanceAssetPla
                 category_name=str(row.get("category_name", "")),
                 currency_code=str(row.get("currency_code", "")),
                 buy_enabled=bool(row.get("buy_enabled", False)),
+                sell_enabled=bool(row.get("sell_enabled", True)),
                 current_value=float(row.get("current_value", 0.0)),
                 target_value=float(row.get("target_value", 0.0)),
                 buy_amount=float(row.get("buy_amount", 0.0)),

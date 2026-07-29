@@ -727,14 +727,19 @@ Status: `Archived` — 2026-07-29
 Goal: corrigir o requisito da spec `rebalance-page` que ainda descrevia `POST /rebalanceamento` retornando 200; o código (PRG fix F52) retorna 303 → GET.
 Archive: `openspec/changes/archive/2026-07-29-d04-corrigir-spec-drift-post-rebalanceamento/`
 
+### F56 - Remover ativos bloqueados da tabela de rebalanceamento
+Status: `Archived` — 2026-07-29
+Goal: ativos com compra E venda bloqueadas não aparecem na tabela de ativos do `/rebalanceamento`; otimizador (solver) não é alterado.
+Archive: `openspec/changes/archive/2026-07-29-f56-remover-ativos-bloqueados-tabela-rebalanceamento/`
+
 ---
 
 ## Recommended Execution Order
 
 **Active queue:**
-_— vazio —_
+_(empty — no slices Ready)_
 
-**Archived since prior queue:** F55 (fonte tab nav +50%, 2026-07-29), F54 (ordem normativa dos blocos, 2026-07-29), F53 (ordem normativa dos cards, 2026-07-29), F52 (waterfall ECharts, commit `054f320`, 2026-07-28), T27, T28, T29, I07 e D03. Não são trabalho ativo.
+**Archived since prior queue:** F56 (ativos bloqueados removidos da tabela, 2026-07-29), F55 (fonte tab nav +50%, 2026-07-29), F54 (ordem normativa dos blocos, 2026-07-29), F53 (ordem normativa dos cards, 2026-07-29), F52 (waterfall ECharts, commit `054f320`, 2026-07-28), T27, T28, T29, I07 e D03. Não são trabalho ativo.
 
 Order note: F49 correction absorbs mock approval and runtime integration after owner direction. F50/F51 deprecated and excluded from execution.
 

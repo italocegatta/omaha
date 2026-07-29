@@ -545,3 +545,288 @@ def test_trade_quantity_derived_for_brl_usd_and_ineligible_rows(
     assert quantities["USD Sell"] == pytest.approx(20.0)
     assert quantities["USD Fallback Buy"] == pytest.approx(34.260492414986764)
     assert quantities["No Price"] is None
+
+
+# ---------------------------------------------------------------------------
+# §"Glue filters blocked assets from asset_plan" (F56)
+# ---------------------------------------------------------------------------
+
+
+def test_blocked_asset_not_in_asset_plan(
+    italo_profile: Profile, _omaha_test_env: dict[str, str]
+) -> None:
+    """Asset with buy_enabled=False AND sell_enabled=False is excluded from asset_plan."""
+    _seed_class(italo_profile.id, "RF", "100", [("Selic", "100")], _omaha_test_env)
+
+    from omaha.rebalance.solver_stub import (
+        RebalanceAssetPlanRowNative,
+        RebalanceCategoryPlanRowNative,
+        RebalancePlan,
+        RebalancePlanMetricsNative,
+    )
+
+    native_plan = RebalancePlan(
+        contribution=1000.0,
+        asset_classes=[],
+        asset_plan=[
+            RebalanceAssetPlanRowNative(
+                name="Blocked",
+                category_name="RF",
+                currency_code="BRL",
+                buy_enabled=False,
+                sell_enabled=False,
+                current_value=100.0,
+                target_value=100.0,
+                buy_amount=0.0,
+                sell_amount=0.0,
+                projected_value=100.0,
+            ),
+            RebalanceAssetPlanRowNative(
+                name="Visible",
+                category_name="RF",
+                currency_code="BRL",
+                buy_enabled=True,
+                sell_enabled=True,
+                current_value=200.0,
+                target_value=300.0,
+                buy_amount=100.0,
+                sell_amount=0.0,
+                projected_value=300.0,
+            ),
+        ],
+        category_plan=[
+            RebalanceCategoryPlanRowNative(
+                category_name="RF",
+                current_value=300.0,
+                projected_value=400.0,
+            ),
+        ],
+        metrics=RebalancePlanMetricsNative(
+            contribution=1000.0,
+            total_buy=100.0,
+            total_sell=0.0,
+            residual_cash=0.0,
+            current_deviation_pct=0.0,
+            projected_deviation_pct=0.0,
+        ),
+        warnings=[],
+        applied_policy="contribution-only",
+    )
+
+    def sentinel_solver(setup, positions, quotes, contribution):
+        return native_plan
+
+    profile = _refresh_profile(italo_profile, _omaha_test_env)
+    with _session(_omaha_test_env) as db:
+        response = run_rebalance(db, profile, contribution=1000.0, solver=sentinel_solver)
+
+    asset_names = [row.asset_name for row in response.asset_plan]
+    assert "Blocked" not in asset_names
+    assert "Visible" in asset_names
+    assert len(response.asset_plan) == 1
+
+
+def test_sell_only_enabled_asset_in_asset_plan(
+    italo_profile: Profile, _omaha_test_env: dict[str, str]
+) -> None:
+    """Asset with buy_enabled=False AND sell_enabled=True IS in asset_plan."""
+    _seed_class(italo_profile.id, "RF", "100", [("Selic", "100")], _omaha_test_env)
+
+    from omaha.rebalance.solver_stub import (
+        RebalanceAssetPlanRowNative,
+        RebalanceCategoryPlanRowNative,
+        RebalancePlan,
+        RebalancePlanMetricsNative,
+    )
+
+    native_plan = RebalancePlan(
+        contribution=1000.0,
+        asset_classes=[],
+        asset_plan=[
+            RebalanceAssetPlanRowNative(
+                name="SellOnly",
+                category_name="RF",
+                currency_code="BRL",
+                buy_enabled=False,
+                sell_enabled=True,
+                current_value=200.0,
+                target_value=100.0,
+                buy_amount=0.0,
+                sell_amount=100.0,
+                projected_value=100.0,
+            ),
+        ],
+        category_plan=[
+            RebalanceCategoryPlanRowNative(
+                category_name="RF",
+                current_value=200.0,
+                projected_value=100.0,
+            ),
+        ],
+        metrics=RebalancePlanMetricsNative(
+            contribution=1000.0,
+            total_buy=0.0,
+            total_sell=100.0,
+            residual_cash=0.0,
+            current_deviation_pct=0.0,
+            projected_deviation_pct=0.0,
+        ),
+        warnings=[],
+        applied_policy="contribution-only",
+    )
+
+    def sentinel_solver(setup, positions, quotes, contribution):
+        return native_plan
+
+    profile = _refresh_profile(italo_profile, _omaha_test_env)
+    with _session(_omaha_test_env) as db:
+        response = run_rebalance(db, profile, contribution=1000.0, solver=sentinel_solver)
+
+    asset_names = [row.asset_name for row in response.asset_plan]
+    assert "SellOnly" in asset_names
+    assert response.asset_plan[0].action == "sell"
+
+
+def test_buy_only_enabled_asset_in_asset_plan(
+    italo_profile: Profile, _omaha_test_env: dict[str, str]
+) -> None:
+    """Asset with buy_enabled=True AND sell_enabled=False IS in asset_plan."""
+    _seed_class(italo_profile.id, "RF", "100", [("Selic", "100")], _omaha_test_env)
+
+    from omaha.rebalance.solver_stub import (
+        RebalanceAssetPlanRowNative,
+        RebalanceCategoryPlanRowNative,
+        RebalancePlan,
+        RebalancePlanMetricsNative,
+    )
+
+    native_plan = RebalancePlan(
+        contribution=1000.0,
+        asset_classes=[],
+        asset_plan=[
+            RebalanceAssetPlanRowNative(
+                name="BuyOnly",
+                category_name="RF",
+                currency_code="BRL",
+                buy_enabled=True,
+                sell_enabled=False,
+                current_value=100.0,
+                target_value=200.0,
+                buy_amount=100.0,
+                sell_amount=0.0,
+                projected_value=200.0,
+            ),
+        ],
+        category_plan=[
+            RebalanceCategoryPlanRowNative(
+                category_name="RF",
+                current_value=100.0,
+                projected_value=200.0,
+            ),
+        ],
+        metrics=RebalancePlanMetricsNative(
+            contribution=1000.0,
+            total_buy=100.0,
+            total_sell=0.0,
+            residual_cash=0.0,
+            current_deviation_pct=0.0,
+            projected_deviation_pct=0.0,
+        ),
+        warnings=[],
+        applied_policy="contribution-only",
+    )
+
+    def sentinel_solver(setup, positions, quotes, contribution):
+        return native_plan
+
+    profile = _refresh_profile(italo_profile, _omaha_test_env)
+    with _session(_omaha_test_env) as db:
+        response = run_rebalance(db, profile, contribution=1000.0, solver=sentinel_solver)
+
+    asset_names = [row.asset_name for row in response.asset_plan]
+    assert "BuyOnly" in asset_names
+    assert response.asset_plan[0].action == "buy"
+
+
+def test_category_plan_and_metrics_unchanged_when_assets_filtered(
+    italo_profile: Profile, _omaha_test_env: dict[str, str]
+) -> None:
+    """category_plan and metrics are NOT affected when blocked assets are filtered."""
+    _seed_class(italo_profile.id, "RF", "100", [("Selic", "100")], _omaha_test_env)
+
+    from omaha.rebalance.solver_stub import (
+        RebalanceAssetPlanRowNative,
+        RebalanceCategoryPlanRowNative,
+        RebalancePlan,
+        RebalancePlanMetricsNative,
+    )
+
+    native_plan = RebalancePlan(
+        contribution=1000.0,
+        asset_classes=[],
+        asset_plan=[
+            RebalanceAssetPlanRowNative(
+                name="Blocked",
+                category_name="RF",
+                currency_code="BRL",
+                buy_enabled=False,
+                sell_enabled=False,
+                current_value=500.0,
+                target_value=500.0,
+                buy_amount=0.0,
+                sell_amount=0.0,
+                projected_value=500.0,
+            ),
+            RebalanceAssetPlanRowNative(
+                name="Active",
+                category_name="RF",
+                currency_code="BRL",
+                buy_enabled=True,
+                sell_enabled=True,
+                current_value=500.0,
+                target_value=1000.0,
+                buy_amount=500.0,
+                sell_amount=0.0,
+                projected_value=1000.0,
+            ),
+        ],
+        category_plan=[
+            RebalanceCategoryPlanRowNative(
+                category_name="RF",
+                current_value=1000.0,
+                projected_value=1500.0,
+            ),
+        ],
+        metrics=RebalancePlanMetricsNative(
+            contribution=1000.0,
+            total_buy=500.0,
+            total_sell=0.0,
+            residual_cash=0.0,
+            current_deviation_pct=5.0,
+            projected_deviation_pct=0.2,
+        ),
+        warnings=[],
+        applied_policy="contribution-only",
+    )
+
+    def sentinel_solver(setup, positions, quotes, contribution):
+        return native_plan
+
+    profile = _refresh_profile(italo_profile, _omaha_test_env)
+    with _session(_omaha_test_env) as db:
+        response = run_rebalance(db, profile, contribution=1000.0, solver=sentinel_solver)
+
+    # Only the active asset should be in asset_plan
+    assert len(response.asset_plan) == 1
+    assert response.asset_plan[0].asset_name == "Active"
+
+    # category_plan and metrics remain unchanged
+    assert len(response.category_plan) == 1
+    assert response.category_plan[0].category_name == "RF"
+    assert response.category_plan[0].current_value == 1000.0
+    assert response.category_plan[0].projected_value == 1500.0
+    assert response.metrics.contribution == 1000.0
+    assert response.metrics.total_buy == 500.0
+    assert response.metrics.total_sell == 0.0
+    assert response.metrics.current_deviation_pct == pytest.approx(5.0)
+    assert response.metrics.projected_deviation_pct == pytest.approx(0.2)

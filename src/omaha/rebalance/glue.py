@@ -151,6 +151,9 @@ def run_rebalance(
 
     asset_plan = []
     for row in plan_native.asset_plan:
+        # Skip assets where both buy and sell are blocked (PRD §F56)
+        if not row.buy_enabled and not getattr(row, "sell_enabled", True):
+            continue
         cv = float(row.current_value)
         tv = float(row.target_value)
         buy_amount = float(row.buy_amount)

@@ -48,6 +48,7 @@ class RebalanceAssetPlanRowNative:
     buy_amount: float
     sell_amount: float
     projected_value: float
+    sell_enabled: bool = True
     quote_price: float = math.nan
     usdbrl_rate: float = math.nan
     quote_status: str = "not-requested"
