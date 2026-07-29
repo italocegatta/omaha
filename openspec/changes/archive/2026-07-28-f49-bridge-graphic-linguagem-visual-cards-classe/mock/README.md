@@ -3,7 +3,7 @@
 Open `index.html` directly or serve this directory with:
 
 ```text
-python -m http.server 8765 --directory openspec/changes/f49-bridge-graphic-linguagem-visual-cards-classe/mock
+python -m http.server 8765 --directory openspec/changes/archive/2026-07-28-f49-bridge-graphic-linguagem-visual-cards-classe/mock
 ```
 
 Preview: `http://127.0.0.1:8765/index.html`
