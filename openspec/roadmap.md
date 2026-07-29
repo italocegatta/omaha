@@ -718,7 +718,7 @@ Notes:
 - Gate: edições em `data/seed/` exigem permissão explícita do owner por ação.
 
 ### F55 - Aumentar tamanho da fonte do menu principal
-Status: `Spec Proposed`
+Status: `Ready`
 Goal: aumentar em 50% o font-size dos nomes das páginas (Patrimônio, Rebalanceamento, Rentabilidade, Proventos) na tab nav superior (`.tab-nav__btn`), sem alterar nada além disso.
 Candidate OpenSpec change id: `f55-aumentar-tamanho-da-fonte-do-menu-principal`
 Spec link: `openspec/changes/f55-aumentar-tamanho-da-fonte-do-menu-principal/`

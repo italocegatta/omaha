@@ -1,4 +1,11 @@
 class_name,name,target_pct,display_order,buy_enabled,sell_enabled,currency_code
+RF Pós,AUPO11,100.000000,0,true,true,BRL
+RF Pós,Svn Renda Fixa Crédito,0.000000,1,true,true,BRL
+RF Pós,Tesouro Selic 2027,0.000000,2,true,true,BRL
+RF Pós,Tesouro Selic 2029,0.000000,3,true,true,BRL
+RF Pós,Tesouro Selic 2031,0.000000,4,true,true,BRL
+RF Pós,RDB Pós 120% CDI 15/05/2028 Caixinha Turbo NuCel,0.000000,5,false,false,BRL
+RF Pós,RDB Pós 120% CDI 15/05/2028 Caixinha Turbo Ultravioleta,0.000000,6,false,false,BRL
 RF Dinâmica,"CDB Pós  CDI+1,3% 05/04/2027 AGIBANK",0.000000,0,true,true,BRL
 RF Dinâmica,FIXA11,25.000000,1,true,true,BRL
 RF Dinâmica,JURO11,25.000000,2,true,true,BRL
@@ -10,24 +17,6 @@ RF Dinâmica,Tesouro IPCA+ 2045,0.000000,7,true,true,BRL
 RF Dinâmica,Tesouro IPCA+ 2050,18.750000,8,true,true,BRL
 RF Dinâmica,Tesouro Renda+ Aposentadoria Extra 2065,18.750000,9,true,true,BRL
 RF Dinâmica,CPTI11,0.000000,10,true,true,BRL
-RF Pós,AUPO11,100.000000,0,true,true,BRL
-RF Pós,Svn Renda Fixa Crédito,0.000000,1,true,true,BRL
-RF Pós,Tesouro Selic 2027,0.000000,2,true,true,BRL
-RF Pós,Tesouro Selic 2029,0.000000,3,true,true,BRL
-RF Pós,Tesouro Selic 2031,0.000000,4,true,true,BRL
-RF Pós,RDB Pós 120% CDI 15/05/2028 Caixinha Turbo NuCel,0.000000,5,false,false,BRL
-RF Pós,RDB Pós 120% CDI 15/05/2028 Caixinha Turbo Ultravioleta,0.000000,6,false,false,BRL
-Internacional,HTEK11,5.000000,0,true,true,BRL
-Internacional,IAU,10.000000,1,true,true,USD
-Internacional,IVV,25.000000,2,true,true,USD
-Internacional,IVVB11,0.000000,3,true,true,BRL
-Internacional,NUCL11,5.000000,4,true,true,BRL
-Internacional,QQQ,10.000000,5,true,true,USD
-Internacional,SMH,10.000000,6,true,true,USD
-Internacional,TFLO,1.000000,7,true,true,USD
-Internacional,VNQ,14.000000,8,true,true,USD
-Internacional,VT,20.000000,9,true,true,USD
-Internacional,Conta corrente em dólar Avenue,0.000000,10,true,true,BRL
 FII,BRCR11,6.660000,0,true,true,BRL
 FII,CPTS11,15.000000,1,true,true,BRL
 FII,LVBI11,5.000000,2,true,true,BRL
@@ -41,7 +30,6 @@ FII,VISC11,6.670000,9,true,true,BRL
 FII,XPCI11,10.000000,10,true,true,BRL
 FII,XPML11,6.670000,11,true,true,BRL
 FII,RBFM11,0.000000,12,true,true,BRL
-Cripto,BTC,100.000000,0,true,true,BRL
 Ações,GMAT3,13.340000,0,true,true,BRL
 Ações,KEPL3,10.000000,1,true,true,BRL
 Ações,PRIO3,23.330000,2,true,true,BRL
@@ -51,3 +39,15 @@ Ações,VAMO3,13.330000,5,true,true,BRL
 Ações,WIZC3,26.670000,6,true,true,BRL
 Ações,RDB Pós 100% CDI 01/08/2033,0.000000,7,false,false,BRL
 Ações,BRBI11,0.000000,8,true,true,BRL
+Internacional,HTEK11,5.000000,0,true,true,BRL
+Internacional,IAU,10.000000,1,true,true,USD
+Internacional,IVV,25.000000,2,true,true,USD
+Internacional,IVVB11,0.000000,3,true,true,BRL
+Internacional,NUCL11,5.000000,4,true,true,BRL
+Internacional,QQQ,10.000000,5,true,true,USD
+Internacional,SMH,10.000000,6,true,true,USD
+Internacional,TFLO,1.000000,7,true,true,USD
+Internacional,VNQ,14.000000,8,true,true,USD
+Internacional,VT,20.000000,9,true,true,USD
+Internacional,Conta corrente em dólar Avenue,0.000000,10,true,true,BRL
+Cripto,BTC,100.000000,0,true,true,BRL

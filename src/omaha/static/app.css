@@ -718,7 +718,7 @@ p.error, .error {
   align-items: center;
   position: relative;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 1.35rem;
   font-weight: 500;
   color: var(--ink-muted);
   text-decoration: none;
@@ -2004,7 +2004,7 @@ td.editing {
     order: 3;
   }
   .tab-nav__btn {
-    font-size: 0.85rem;
+    font-size: 1.275rem;
     padding: 0.3rem 0.1rem;
   }
 

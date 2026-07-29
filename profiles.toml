@@ -22,7 +22,7 @@
 # (`oc` is a backward-compatible alias for `agent-profile`)
 
 [default]
-profile = "alibaba-high"
+profile = "xiaomi-balanced"
 
 # ── openai-cheap ──────────────────────────────────────────────────────────────
 [profiles.openai-cheap.roadmap]
