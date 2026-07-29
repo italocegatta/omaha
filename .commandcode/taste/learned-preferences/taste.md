@@ -1,0 +1,22 @@
+# Learned Preferences
+- Communicates in Brazilian Portuguese. Respond in Portuguese unless asked otherwise. Confidence: 0.9
+- Consult tool documentation before making assumptions about configuration or behavior. When unsure how a tool works (e.g., model config for agents), check its docs rather than guessing or relying on memory. Confidence: 0.8
+- After reading documentation or configuration, perform a live test to verify it's actually working, not just statically correct. Reading config files is not enough — run a quick functional test (e.g., invoke an agent to confirm the model resolves). Confidence: 0.8
+- Prefers custom slash commands (`/command`) as the invocation method for workflows and agent orchestration, rather than manual delegation or session cloning. Confidence: 0.9
+- Assigns distinct models by agent role: `propose`, `review`, and `apply` agents use the Pro model (deepseek-v4-pro), while other agents (roadmap, explore, finalize, slice) use the Flash model (deepseek-v4-flash). When a complex multi-step task fails with Flash due to context exhaustion, switching the agent's model to Pro is the preferred fix. Confidence: 0.9
+- Values precision about which tool is being discussed — corrects the assistant when it conflates Command Code with OpenCode configurations or file paths. Confidence: 0.88
+
+- Agent definitions (e.g., `review.md`) live under `.commandcode/agents/`, not `.opencode/agents/`. When searching for agent configs, check `.commandcode/` paths first. Confidence: 0.7
+
+- When an agent fails during a task, investigate root cause methodically before trying workarounds. Isolate the failure mode step by step: check agent config/frontmatter, test with trivial pings, test with micro tasks, inspect loaded skills, verify CLI dependencies. Also use **comparative cross-agent testing**: give the same task to different agent types (apply vs general vs propose) to determine if the failure is model-specific, skill-specific, or context-specific. Confidence: 0.9
+
+- In agent failure diagnostics, **quantify the overhead cost**: measure how many lines/context the skill pre-work (CLI commands, file reads, preamble) adds before the actual task begins. Overhead quantification is key to identifying context exhaustion as root cause. Confidence: 0.85
+
+- Present diagnostics in a structured format separating symptom, root cause, and recommendation — with comparative evidence (e.g., markdown tables comparing test results across agents). The user values objective ("objetivo"), structured root-cause analysis over narrative description. Confidence: 0.8
+- Verify roadmap progress notes against actual filesystem state before acting. Roadmap metadata (progress notes, status fields) can be stale or incorrect; cross-reference with checkboxes in tasks.md, directory contents, and git status before trusting a progress claim. Confidence: 0.8
+
+- When a needed subagent is not available (missing from tool enum, metadata/registration issue, wrong name), fix the agent registration/metadata FIRST (rename, create proper config, update all references in roadmap.md and other agents), then delegate. Never use "agent not available" as justification to do the task directly — not even for "quick" shell commands like `mv` or `git commit`. The orchestrator's role is to maintain the pipeline infrastructure so it works, not to bypass it. Follow the sequence: diagnose root cause → fix the agent/config → then (and only then) invoke the agent. Confidence: 0.98
+
+- Avoid Command Code reserved agent names for custom agents. The names `explore`, `review`, `general`, and `plan` are reserved by the framework and will be rejected by the tool even if config files exist under `.commandcode/agents/`. Use prefixed variants like `code-review` and `scope-explorer` instead. When renaming, update all references: the agent's own `.md` file `name` field, `opencode.json` registry, and every other agent file that references the old name. Confidence: 0.85
+
+- OpenCode-specific frontmatter fields in Command Code agent configs cause silent failures where the agent emits pseudo-XML tool tags (`<bash>`, `<Tool>`) as plain text instead of invoking real tools. The `mode` field (subagent/primary) and `permission` blocks are OpenCode artifacts not recognized by Command Code. When an agent mysteriously outputs text instead of executing tools, check its frontmatter for unrecognized fields. Confidence: 0.82

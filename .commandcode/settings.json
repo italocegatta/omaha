@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(git:*)",
+      "Shell(which openspec 2>/dev/null && openspec version 2>/dev/null; which opsx 2>/dev/null; echo \"exit: $?\")",
+      "Shell(cd /home/juca/github/omaha && openspec status --change \"d04-corrigir-spec-drift-post-rebalanceamento\" --json 2>&1; echo \"EXIT: $?\")",
+      "Shell(cd /home/juca/github/omaha && openspec instructions apply --change \"d04-corrigir-spec-drift-post-rebalanceamento\" --json 2>&1; echo \"EXIT: $?\")",
+      "Shell(uv:*)"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}
