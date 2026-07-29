@@ -72,8 +72,9 @@ Goal: linguagem visual comum para cards, remover CLASSE, colorir por alvo (verde
 Archive: `openspec/changes/archive/2026-07-17-f25-sistema-de-cards-com-cores-de-target/`
 
 ### F26 - Padronização de tabelas e inspeção visual
-Status: `Deprecated` — 2026-07-12 (split into F27-F29)
+Status: `Deprecated` (archived) — 2026-07-12 (split into F27-F29; regularized 2026-07-28)
 Goal: padrão visual único em tabelas + inspeção visual obrigatória.
+Archive: `openspec/changes/archive/2026-07-12-f26-padronizacao-de-tabelas-e-inspecao-visual/`
 
 ### F27 - Tabela ativos espelhada do rebalanceamento
 Status: `Archived` — 2026-07-12
@@ -187,6 +188,7 @@ Archive: `openspec/changes/archive/2026-07-05-f07-familia-as-profile-option/`
 ### F08 - Palette overhaul v2 (apply D02)
 Status: `Archived` (proposal-only, no implementation) — 2026-07-07
 Archive: `openspec/changes/archive/2026-07-07-f08-palette-overhaul-v2/`
+Notes: pasta ativa duplicada removida em 2026-07-28; `tasks.md` anotado consolidado no archive.
 
 ### F09 - Typography refresh (Red Hat Display + Inter)
 Status: `Archived` — 2026-07-07
@@ -494,14 +496,13 @@ Goal: entregar investigação técnica source-linked para propor F49 bridge grap
 Archive: `openspec/changes/archive/2026-07-27-t30-investigar-cards-classes-dados-e-chart-lib/`
 
 ### F49 - Bridge graphic com linguagem visual para cards de classe
-Status: `Blocked` — 2026-07-27 (superseded por F52; abordagem manual abandonada pelo owner)
+Status: `Archived` (superseded por F52; abordagem manual abandonada) — 2026-07-28
 Goal: substituir resumo numérico por waterfall/bridge monetária mantível em cada card de classe, com sequência normativa `Atual → Compra/Venda líquida → Desvio residual → Alvo`; escala BRL independente por card e referenciada ao valor atual, sem comparação entre cards.
 Candidate OpenSpec change id: `f49-bridge-graphic-linguagem-visual-cards-classe`
-Spec link: `openspec/changes/f49-bridge-graphic-linguagem-visual-cards-classe/`
-Files: `src/omaha/templates/_rebalance_plan.html`, `src/omaha/templates/rebalance.html`, `src/omaha/static/app.css`, `src/omaha/rebalance/schemas.py`, `tests/test_rebalance_page.py`
+Archive: `openspec/changes/archive/2026-07-28-f49-bridge-graphic-linguagem-visual-cards-classe/`
 Notes: Fidelity ledger: quatro etapas monetárias visíveis — `Atual → Compra/Venda líquida → Desvio residual → Alvo`; cada etapa exibe BRL e percentual pareados. Geometria usa valores BRL referenciados ao valor atual dentro do próprio card; não há escala compartilhada entre cards. Compra/venda líquida deve representar trades mistos compensados, sem tratar operação líquida como classe negociável/executável. Proibidos: gráfico percentual genérico, overlay atual/projetado, marcador de alvo por ponto/bolinha. Cores, ícones e efeitos distinguem contribuição e estado sem depender apenas de cor. Fallback textual, WCAG AA, mobile 320px e tokens dark mode obrigatórios. Mapeamento de campos BRL, fontes, sinais, arredondamento, zero, limites e ausente são perguntas de proposta; não inferir comportamento. Gate: owner aprova mock/protótipo visual e mapping antes de implementação runtime.
 Acceptance: Ações — Atual R$100k/14.6%, compra líquida R$25k/0.2%, residual R$25k/0.2%, Alvo R$150k/15%. FII — Atual R$120k/15.2%, venda líquida R$20k/0.2%, residual R$0/0%, Alvo R$100k/15%. Sequência, BRL/% pareados e escala local devem ser preservados; tabela por ativo e contratos não relacionados não mudam.
-Progress: 2026-07-27 — implementação manual (SVG/HTML artesanal) abandonada após rejeições visuais repetidas. Lições e regras aprovadas documentadas em `openspec/.temp_assets/f49-bridge-handoff.md`; mock aprovado permanece em `/rebalanceamento/bridge-mock`. Substituída por F52 (ECharts). Change folder `f49-bridge-graphic-linguagem-visual-cards-classe` preservada como histórico; não retomar.
+Progress: 2026-07-28 — implementação manual abandonada e substituída por F52 (ECharts). Change folder arquivada como histórico em `openspec/changes/archive/2026-07-28-f49-bridge-graphic-linguagem-visual-cards-classe/`; mock/handoff preservados (handoff também em `openspec/.temp_assets/f49-bridge-handoff.md`). Não retomar.
 
 <!-- Historical contract superseded by corrected F49 ledger above; retained for audit only.
 
@@ -763,7 +764,7 @@ Archive: `openspec/changes/archive/2026-07-29-d04-corrigir-spec-drift-post-rebal
 
 Order note (2026-07-28): F53/F54/F55 derivados da demanda de ordem de classes + fonte do menu. F53 e F54 NÃO compartilham fonte de ordenação hoje — rebalanceamento ordena client-side por `localeCompare(category_name)` e patrimônio ordena server-side por `display_order` do seed — por isso três fatias distintas. Se o propose de F53 escolher "respeitar ordem do payload", o efeito visível de F53 só se completa com o seed renumerado de F54 (o propose pode recomendar inverter F53↔F54 na fila; decisão do orchestrator no gate).
 
-**Order note:** F52 substitui F49 (waterfall manual HTML/CSS abandonado pelo owner). F49 será marcado `Blocked`/superseded pelo orchestrator — não reabrir, não reutilizar código de renderização (exceto mock aprovado + payload + helpers puros listados em F52/Dependencies). F50/F51 seguem deprecated.
+**Order note:** F52 substitui F49 (waterfall manual HTML/CSS abandonado pelo owner). F49 está `Archived` (superseded) em `openspec/changes/archive/2026-07-28-f49-bridge-graphic-linguagem-visual-cards-classe/` — não reabrir, não reutilizar código de renderização (exceto mock aprovado + payload + helpers puros listados em F52/Dependencies). F50/F51 seguem deprecated.
 
 **Archived history:** F48 permanece registro de PoC Playwright sem sucesso; não reabrir, renomear ou alterar sua change folder.
 
