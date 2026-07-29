@@ -133,7 +133,13 @@
                 </div>
               </td>
               <td class="data-table-td" data-testid="class-total-current-value"><span class="hdr-valor" data-testid="class-total-value" x-text="formatMoney(classCurrentValue)"></span></td>
-              <td class="data-table-td"></td>
+              <td class="data-table-td" data-testid="class-total-position-deviation" :class="signClass(classTotalPositionDeviation)">
+                <span class="metric-placeholder" x-show="Math.abs(classTotalPositionDeviation) < 0.005">—</span>
+                <span class="metric-stack" x-show="Math.abs(classTotalPositionDeviation) >= 0.005">
+                  <span class="icon icon--sm metric-sign" x-text="signIcon(classTotalPositionDeviation)" aria-hidden="true"></span>
+                  <span x-text="formatMoney(classTotalPositionDeviation)"></span>
+                </span>
+              </td>
               <td class="data-table-td" data-testid="class-total-current-pct-class"><span class="metric-placeholder">—</span></td>
               <td class="data-table-td" data-testid="class-total-target-pct-class"><span class="metric-placeholder">—</span></td>
               <td class="data-table-td" data-testid="class-total-deviation-class" :class="signClass(classDeviationPctClass)">

@@ -682,6 +682,14 @@
         if (this.classTargetPct === null || this.classTargetPct === undefined) return null;
         return this.classCurrentPct - this.classTargetPct;
       },
+      get classTotalPositionDeviation() {
+        var total = 0;
+        for (var i = 0; i < this.assets.length; i++) {
+          var v = this.assets[i].position_deviation_value;
+          if (v !== null && v !== undefined) total += v;
+        }
+        return total;
+      },
       get classDeltaMessage() {
         var delta = this.classDelta;
         // 1-cent tolerance matches the server-side validator
