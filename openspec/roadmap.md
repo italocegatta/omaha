@@ -718,19 +718,9 @@ Notes:
 - Gate: edições em `data/seed/` exigem permissão explícita do owner por ação.
 
 ### F55 - Aumentar tamanho da fonte do menu principal
-Status: `Ready`
-Goal: aumentar em 50% o font-size dos nomes das páginas (Patrimônio, Rebalanceamento, Rentabilidade, Proventos) na tab nav superior (`.tab-nav__btn`), sem alterar nada além disso.
-Candidate OpenSpec change id: `f55-aumentar-tamanho-da-fonte-do-menu-principal`
-Spec link: `openspec/changes/f55-aumentar-tamanho-da-fonte-do-menu-principal/`
-Files: `src/omaha/static/app.css` (`.tab-nav__btn` L716-728 desktop; override mobile L2006-2009), `src/omaha/templates/base.html` (nav L94-112 — somente leitura/referência), `tests/visual/test_snapshots.py`
-Notes:
-- Regra atual (investigado 2026-07-28): `.tab-nav__btn { font-size: 0.9rem }` (app.css L721, desktop) → +50% = **1.35rem**. Override mobile em `@media (max-width: 480px)`: `font-size: 0.85rem` (L2007).
-- **Decisão owner 2026-07-28:** mobile também +50% → `1.275rem` (override 480px atualizado junto).
-- Scope guard: alterar SOMENTE o `font-size` dos títulos da tab nav. `line-height`/`padding` APENAS se o crescimento quebrar visualmente (altura do header, underline `--accent` do tab ativo, alinhamento com wordmark/chips à direita) — justificar no apply. Tipografia (Inter → Red Hat Display 700 no tab ativo), peso, cor e gap NÃO mudam.
-- Verificar baseline entre tabs ativo/inativo (famílias diferentes) após o aumento.
-- Dependência: **F52 está `Applying` e toca `app.css` agora** → executar após F52 arquivar (mínimo apply completo).
-- Baselines visuais de página (header aparece nos snapshots) deslocam — atualizar no apply.
-Progress: pending — propose; pending — apply; pending — review; pending — refresh-for-test; pending — archive.
+Status: `Archived` — 2026-07-29
+Goal: aumentar em 50% o font-size dos nomes das páginas na tab nav superior.
+Archive: `openspec/changes/archive/2026-07-29-f55-aumentar-tamanho-da-fonte-do-menu-principal/`
 
 ### D04 - Corrigir spec drift do POST /rebalanceamento
 Status: `Archived` — 2026-07-29
@@ -742,15 +732,9 @@ Archive: `openspec/changes/archive/2026-07-29-d04-corrigir-spec-drift-post-rebal
 ## Recommended Execution Order
 
 **Active queue:**
-1. F55 (Spec Proposed) — fonte da tab nav +50%; CSS-only, `app.css` livre após archive de F52/F54.
+_— vazio —_
 
-Order note (2026-07-29): F54 arquivado — blocos de classe do patrimônio já ordenados normativamente via `display_order` do seed CSV. F55 é CSS-only independente; pode rodar em paralelo se o WIP permitir.
-
-**Order note:** F52 substitui F49 (waterfall manual HTML/CSS abandonado pelo owner). F49 está `Archived` (superseded) em `openspec/changes/archive/2026-07-28-f49-bridge-graphic-linguagem-visual-cards-classe/` — não reabrir, não reutilizar código de renderização (exceto mock aprovado + payload + helpers puros listados em F52/Dependencies). F50/F51 seguem deprecated.
-
-**Archived history:** F48 permanece registro de PoC Playwright sem sucesso; não reabrir, renomear ou alterar sua change folder.
-
-**Archived since prior queue:** F54 (ordem normativa dos blocos, 2026-07-29), F53 (ordem normativa dos cards, 2026-07-29), F52 (waterfall ECharts, commit `054f320`, 2026-07-28), T27, T28, T29, I07 e D03. Não são trabalho ativo.
+**Archived since prior queue:** F55 (fonte tab nav +50%, 2026-07-29), F54 (ordem normativa dos blocos, 2026-07-29), F53 (ordem normativa dos cards, 2026-07-29), F52 (waterfall ECharts, commit `054f320`, 2026-07-28), T27, T28, T29, I07 e D03. Não são trabalho ativo.
 
 Order note: F49 correction absorbs mock approval and runtime integration after owner direction. F50/F51 deprecated and excluded from execution.
 
