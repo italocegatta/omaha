@@ -47,6 +47,7 @@ RUN uv sync --frozen --no-install-project
 # time (it needs the file to exist, not just to be referenced).
 COPY README.md ./
 COPY src ./src
+COPY scripts ./scripts
 COPY alembic ./alembic
 COPY alembic.ini ./
 
@@ -64,6 +65,7 @@ FROM python:3.12-slim AS runtime
 # through `docker save` / a registry push.
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/src /app/src
+COPY --from=builder /app/scripts /app/scripts
 COPY --from=builder /app/alembic /app/alembic
 COPY --from=builder /app/alembic.ini /app/alembic.ini
 

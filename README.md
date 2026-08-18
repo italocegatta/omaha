@@ -417,6 +417,20 @@ If you move to a different network, re-detect the IP with
 listed. `localhost` and `127.0.0.1` are never correct for a manual UI
 test session.
 
+### Docker development
+
+The development Compose stack publishes Omaha on host port `8000` and overrides
+the image's production loopback bind for LAN access:
+
+```bash
+docker compose up -d --build
+curl http://localhost:8000/healthz
+bash scripts/print_lan_url.sh
+```
+
+Open the printed URL from another computer. The health endpoint must return HTTP
+`200`. If the page times out, allow inbound TCP `8000` in host firewall.
+
 ---
 
 ## Testing the app
