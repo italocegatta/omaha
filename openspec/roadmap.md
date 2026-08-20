@@ -543,13 +543,9 @@ Goal: parametrizar credenciais MyProfit por perfil real e bloquear sincronizaç�
 Archive: `openspec/changes/archive/2026-08-20-f57-configurar-credenciais-myprofit-por-perfil/`
 
 ### F61 - Documentar ambiente local e alinhar cookie seguro
-Status: `Ready`
-Goal: documentar `OMAHA_ENV=development` em `.env.example`/README e fazer cookie de sessão usar `settings.OMAHA_ENV`, mantendo `task serve` coerente com `.env` e configuração de logs.
-Candidate OpenSpec change id: `f61-documentar-ambiente-local-e-alinhar-cookie-seguro`
-Spec link: `openspec/changes/f61-documentar-ambiente-local-e-alinhar-cookie-seguro/`
-Files to inspect: `.env.example`, `README.md`, `src/omaha/config.py`, `src/omaha/main.py`, `tests/test_auth.py`
-Notes: Follow-up aprovado após F57; escopo limitado a documentação/configuração carregada e comportamento de cookie. Não reabrir F57, não alterar semântica de destino MyProfit, credenciais reais, F58-F60 ou limpeza ampla de configuração.
-Progress log: pending — docs, runtime consistency, focused regression test
+Status: `Archived` — 2026-08-20
+Goal: documentar ambiente local e alinhar cookie seguro à configuração carregada.
+Archive: `openspec/changes/archive/2026-08-20-f61-documentar-ambiente-local-e-alinhar-cookie-seguro/`
 
 ### F58 - Integrar automação Playwright MyProfit
 Status: `Ready`

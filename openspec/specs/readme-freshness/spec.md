@@ -124,3 +124,27 @@ The `README.md` Tests section SHALL describe taskipy entrypoints using current s
 - **WHEN** an operator reads the `Tests` section in `README.md`
 - **THEN** `uv run task coverage` is described as unit + integration only
 - **AND** the section states that `reports/coverage.xml` is written only by that command
+
+### Requirement: README documents local environment mode and production distinction
+
+The `README.md` Quick start SHALL tell local operators to use the ignored
+`.env` copied from `.env.example` with `OMAHA_ENV=development`. It SHALL state
+that exact, case-sensitive `OMAHA_ENV=production` enables secure session cookies
+and default JSON logs, while development/non-production modes keep cookies
+usable over local plain HTTP and use default text logs. It SHALL preserve the
+existing `task serve` and `0.0.0.0` network guidance.
+
+#### Scenario: Local setup documents development mode
+
+- **WHEN** an operator follows the README Quick start
+- **THEN** the documented `.env` setup includes exact `OMAHA_ENV=development`
+- **AND** the command remains `uv run task serve`
+- **AND** the network bind remains `0.0.0.0`
+
+#### Scenario: README explains exact production mode
+
+- **WHEN** an operator reads the environment-mode guidance
+- **THEN** the README identifies exact case-sensitive `production` as the
+  secure-cookie/JSON-log mode
+- **AND** it does not suggest changing `ADMIN_PASSWORD=distendidos`
+- **AND** it does not include real `.env` or MyProfit credential values

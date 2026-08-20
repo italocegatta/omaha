@@ -25,6 +25,10 @@ cp .env.example .env
 #   python -c "import secrets; print(secrets.token_urlsafe(50))"
 # ADMIN_PASSWORD is the shared family password.
 # Canonical default is `distendidos` — see AGENTS.md "Family password".
+# Local mode is exact `OMAHA_ENV=development` (copied from `.env.example`).
+# Only exact, case-sensitive `OMAHA_ENV=production` enables Secure session
+# cookies and default JSON logs; development and other values use plain-HTTP
+# cookies and default text logs. Restart `uv run task serve` after `.env` edits.
 
 # MyProfit is optional and profile-specific. Replace the false placeholders
 # from `.env.example` only in ignored `.env`:

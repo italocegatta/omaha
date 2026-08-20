@@ -28,7 +28,161 @@ Each test exercises a single step of the documented flow:
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
 from fastapi.testclient import TestClient
+from starlette.middleware.sessions import SessionMiddleware
+
+from omaha.config import Settings
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _settings_from_env_file(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    content: str,
+) -> Settings:
+    """Load synthetic settings without reading repository `.env`."""
+    monkeypatch.delenv("OMAHA_ENV", raising=False)
+    monkeypatch.delenv("LOG_FORMAT", raising=False)
+    env_file = tmp_path / ".env"
+    env_file.write_text(content, encoding="utf-8")
+    return Settings(_env_file=env_file, SECRET_KEY="test-cookie-secret")
+
+
+def _session_https_only(app: object) -> bool:
+    """Read exact SessionMiddleware option from a factory-built app."""
+    middleware = next(item for item in app.user_middleware if item.cls is SessionMiddleware)
+    return middleware.kwargs["https_only"]
+
+
+def _app_from_settings(monkeypatch: pytest.MonkeyPatch, loaded: Settings) -> object:
+    """Build app from explicitly loaded settings, not process environment."""
+    import omaha.main as main_module
+
+    monkeypatch.setattr(main_module, "settings", loaded)
+    return main_module.create_app()
+
+
+def test_environment_mode_documentation() -> None:
+    """Local setup documents mode, restart requirement, and no real secrets."""
+    env_example = (REPO_ROOT / ".env.example").read_text(encoding="utf-8")
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+
+    assert env_example.count("OMAHA_ENV=development") == 1
+    assert "ADMIN_PASSWORD=distendidos" in env_example
+    assert "OMAHA_ENV=development" in readme
+    assert "ignored `.env`" in readme
+    assert "exact, case-sensitive `OMAHA_ENV=production`" in readme
+    assert "Restart `uv run task serve` after `.env` edits." in readme
+    assert "uv run task serve" in readme
+    assert "--host 0.0.0.0" in readme
+    assert "real SECRET_KEY" in readme
+    assert "MYPROFIT_ITALO_PASSWORD / MYPROFIT_ITALO_DESTINATION" in readme
+    assert "https://myprofit.invalid/" not in readme
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected_secure", "expected_log_format"),
+    (
+        ("production", True, "json"),
+        ("development", False, "text"),
+        ("Production", False, "text"),
+        ("staging", False, "text"),
+    ),
+)
+def test_session_cookie_mode_uses_loaded_settings(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    mode: str,
+    expected_secure: bool,
+    expected_log_format: str,
+) -> None:
+    """Cookie and default log mode follow exact value loaded from `.env` file."""
+    loaded = _settings_from_env_file(
+        monkeypatch,
+        tmp_path,
+        f"OMAHA_ENV={mode}\n",
+    )
+    app = _app_from_settings(monkeypatch, loaded)
+
+    assert mode == loaded.OMAHA_ENV
+    assert loaded.effective_log_format == expected_log_format
+    assert _session_https_only(app) is expected_secure
+
+
+def test_session_cookie_does_not_follow_later_process_environment_change(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Middleware keeps loaded development mode after process environment drifts."""
+    loaded = _settings_from_env_file(
+        monkeypatch,
+        tmp_path,
+        "OMAHA_ENV=development\n",
+    )
+    monkeypatch.setenv("OMAHA_ENV", "production")
+    app = _app_from_settings(monkeypatch, loaded)
+
+    assert loaded.OMAHA_ENV == "development"
+    assert _session_https_only(app) is False
+
+
+def test_environment_mode_load_precedence_and_log_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Process environment wins before load; exact defaults remain mode-specific."""
+    env_file = tmp_path / ".env"
+    env_file.write_text("OMAHA_ENV=development\n", encoding="utf-8")
+    monkeypatch.setenv("OMAHA_ENV", "production")
+    monkeypatch.delenv("LOG_FORMAT", raising=False)
+    production = Settings(_env_file=env_file, SECRET_KEY="test-cookie-secret")
+    production_app = _app_from_settings(monkeypatch, production)
+
+    assert production.OMAHA_ENV == "production"
+    assert production.effective_log_format == "json"
+    assert _session_https_only(production_app) is True
+
+    monkeypatch.delenv("OMAHA_ENV", raising=False)
+    development = Settings(_env_file=env_file, SECRET_KEY="test-cookie-secret")
+    development_app = _app_from_settings(monkeypatch, development)
+
+    assert development.OMAHA_ENV == "development"
+    assert development.effective_log_format == "text"
+    assert _session_https_only(development_app) is False
+
+
+def test_explicit_log_format_does_not_change_cookie_mode(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Explicit log format wins only for logs, not session-cookie security."""
+    loaded = _settings_from_env_file(
+        monkeypatch,
+        tmp_path,
+        "OMAHA_ENV=development\nLOG_FORMAT=json\n",
+    )
+    app = _app_from_settings(monkeypatch, loaded)
+
+    assert loaded.effective_log_format == "json"
+    assert _session_https_only(app) is False
+
+    production_file = tmp_path / "production.env"
+    production_file.write_text(
+        "OMAHA_ENV=production\nLOG_FORMAT=text\n",
+        encoding="utf-8",
+    )
+    production = Settings(
+        _env_file=production_file,
+        SECRET_KEY="test-cookie-secret",
+    )
+    production_app = _app_from_settings(monkeypatch, production)
+
+    assert production.effective_log_format == "text"
+    assert _session_https_only(production_app) is True
 
 
 def test_index_unauthenticated_redirects_to_login(client: TestClient) -> None:

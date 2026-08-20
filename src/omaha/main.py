@@ -188,7 +188,7 @@ def create_app() -> FastAPI:
         SessionMiddleware,
         secret_key=settings.SECRET_KEY,
         session_cookie="omaha_session",
-        https_only=os.environ.get("OMAHA_ENV") == "production",
+        https_only=settings.OMAHA_ENV == "production",
         same_site="lax",
     )
     # AccessLogMiddleware is added AFTER SessionMiddleware so it ends
