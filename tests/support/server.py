@@ -64,11 +64,19 @@ def run_test_server(
     )
 
     try:
-        wait_for_port("127.0.0.1", port, timeout=30.0)
-    except Exception:
-        proc.terminate()
-        log_handle.close()
-        raise RuntimeError(f"uvicorn did not start. output:\n{read_log_tail(log_path)}") from None
+        wait_for_port("127.0.0.1", port, timeout=30.0, process=proc)
+    except Exception as exc:
+        shutdown_uvicorn(
+            proc,
+            label=label,
+            host="127.0.0.1",
+            port=port,
+            log_handle=log_handle,
+            log_path=log_path,
+        )
+        raise RuntimeError(
+            f"uvicorn did not start ({exc}). output:\n{read_log_tail(log_path)}"
+        ) from None
 
     base_url = f"http://127.0.0.1:{port}"
     try:

@@ -4,7 +4,7 @@ Agent routing doc for the omaha repository. This file is **navigation only** —
 it points at the canonical sources. **It does not redefine rules.**
 
 > Golden rule: before touching anything, read
-> **[openspec/PRD.md](openspec/PRD.md) §4 (Regras de Ouro)**. The 12 standing
+> **[openspec/PRD.md](openspec/PRD.md) §4 (Regras de Ouro)**. The 14 standing
 > rules below are transcrito there. PRD is the single source of truth; this
 > file is the table of contents.
 
@@ -16,6 +16,7 @@ it points at the canonical sources. **It does not redefine rules.**
 |------------------------------------------------------------------------|--------------------------------------------------------|
 | Know what omaha is, who uses it, why it exists                         | [PRODUCT.md](PRODUCT.md)                               |
 | Understand the visual system (tokens, type, elevation, motion)         | [DESIGN.md](DESIGN.md)                                 |
+| Follow agentic development and test gates                              | [AGENTIC_DEVELOPMENT.md](AGENTIC_DEVELOPMENT.md)       |
 | Read a capability's contract (`SHALL` behavior)                        | `openspec/specs/<slug>/spec.md`                        |
 | Pick up the **next unit of work**                                      | `openspec/roadmap.md`                                  |
 | Create / apply / archive a change                                      | `openspec-roadmap` (orchestrates the OpenSpec CLI skills) |
@@ -23,6 +24,7 @@ it points at the canonical sources. **It does not redefine rules.**
 | Look at the source-of-truth seed                                      | `data/seed/` + [data/seed/README.md](data/seed/README.md) |
 | See the running app                                                    | `bash scripts/print_lan_url.sh` → open the LAN URL     |
 | Run a test subset                                                      | `task test-unit` / `test-integration` / `test-e2e` / `test-bdd` |
+| Check suite duration contract                                          | [tests/PERFORMANCE.md](tests/PERFORMANCE.md)           |
 
 ---
 
@@ -91,8 +93,8 @@ live under `.opencode/skills/`.
 | **slice** | `.opencode/agents/slice.md` | subagent | Decomposes user demand into atomic, coherent OpenSpec slices. Writes slices to roadmap. Uses grill-me to sharpen decomposition. |
 | **explore** | `.opencode/agents/explore.md` | subagent | Clarifies ambiguous scope before proposal. Reads codebase, investigates, hands off focused context to propose. |
 | **propose** | `.opencode/agents/propose.md` | subagent | Creates proposal.md, design.md, tasks.md, and delta specs for one slice. |
-| **apply** | `.opencode/agents/apply.md` | subagent | Implements tasks from an OpenSpec change. Follows surgical fix model for bugfixes (PRD §4.14). |
-| **review** | `.opencode/agents/review.md` | subagent | Reviews implementation against spec. Runs tests. Returns APPROVED or CHANGES_REQUESTED. |
+| **apply** | `.opencode/agents/apply.md` | subagent | Implements from durable change dossier, runs focused tests, returns `READY_FOR_REVIEW`. |
+| **review** | `.opencode/agents/review.md` | subagent | Audits whole change, records durable findings, runs one full suite, returns APPROVED/CHANGES_REQUESTED/BLOCKED. |
 | **finalize** | `.opencode/agents/finalize.md` | subagent | Archives change, syncs specs, commits, pushes. |
 
 | Skill | Path | Powers |
@@ -100,7 +102,7 @@ live under `.opencode/skills/`.
 | openspec-roadmap | `.opencode/skills/openspec-roadmap/SKILL.md` | roadmap agent lifecycle logic |
 | openspec-propose | `.opencode/skills/openspec-propose/SKILL.md` | propose agent |
 | openspec-apply-change | `.opencode/skills/openspec-apply-change/SKILL.md` | apply agent |
-| code-review | `.opencode/skills/code-review/SKILL.md` | review agent |
+| code-review | `.opencode/skills/code-review/SKILL.md` | external ad-hoc review only; never the OpenSpec review gate |
 | openspec-archive-change | `.opencode/skills/openspec-archive-change/SKILL.md` | finalize agent |
 | openspec-sync-specs | `.opencode/skills/openspec-sync-specs/SKILL.md` | finalize agent |
 | refresh-for-test | `.opencode/skills/refresh-for-test/SKILL.md` | delivery verification |
@@ -124,7 +126,7 @@ Launch OpenCode with a named profile that sets per-role model/provider/effort:
 
 ```bash
 uv run task agent-profile -- --profile openai-cheap     # explicit profile
-uv run task agent-profile                                # default (xiaomi-balanced)
+uv run task agent-profile                                # default (openai-luna-balanced)
 uv run task agent-profile -- --list-profiles             # show available profiles
 # `oc` is a backward-compatible alias for `agent-profile`
 ```
@@ -133,15 +135,20 @@ uv run task agent-profile -- --list-profiles             # show available profil
 
 | Profile | Roadmap | Propose/Apply/Explore | Review/Finalize | Slice | Effort |
 |---------|---------|----------------------|-----------------|-------|--------|
-| `xiaomi-balanced` (default) | mimo-v2.5-pro | mimo-v2.5-pro | mimo-v2.5 | mimo-v2.5-pro | medium |
+| `xiaomi-balanced` | mimo-v2.5-pro | mimo-v2.5-pro | mimo-v2.5 | mimo-v2.5-pro | medium |
 | `openai-xiaomi-balanced` | gpt-5.4-mini | mimo-v2.5-pro | mimo-v2.5 | gpt-5.4-mini | mixed |
 | `openai-balanced` | gpt-5.4 | gpt-5.4 | gpt-5.4-mini | gpt-5.4 | high |
 | `openai-cheap` | gpt-5.4-mini | gpt-5.4-mini | gpt-5.4-mini | gpt-5.4-mini | high |
 
+**Active TOML profile:** `openai-luna-balanced` uses `openai/gpt-5.6-luna` for
+all seven roles: `high` effort for roadmap, propose, apply, and explore;
+`medium` for slice and review; `low` for finalize.
+
 **Resolution chain** (highest priority first):
 1. CLI `--profile <name>`
 2. Env var `OPENCODE_PROFILE`
-3. `profiles.toml` `[default] profile = "<name>"`
+3. `profiles.toml` `[default] profile = "<name>"` (currently
+   `openai-luna-balanced`)
 4. Built-in default: `xiaomi-balanced`
 
 **Custom profiles:** create `profiles.toml` at repo root:
@@ -187,12 +194,16 @@ worktrees.
 3. **Propose.** Delegate to `openspec-propose` with the slice's
    `Candidate OpenSpec change id` exactly — no goal-derived slugs.
 4. **Verify spec health** after `propose`, fix, then proceed.
-5. **Apply.** Delegate to `openspec-apply-change`. Code goes under the
-   change's `tasks.md`.
-6. **Verify spec health** after `apply`.
-7. **Archive.** Delegate to `openspec-archive-change`. Update roadmap
-   status to `Archived`.
-8. **Verify spec health** after `archive`. Pick next.
+5. **Apply.** Delegate to `openspec-apply-change`. It reads the durable
+   dossier, records execution evidence, runs focused tests, and returns
+   `READY_FOR_REVIEW` while slice remains `Applying`.
+6. **Review.** Delegate to `review`. It verifies exact change, audits complete
+   scope, records findings, and runs one full suite. Only `APPROVED` moves
+   slice to `Applied`; `BLOCKED` stops for owner decision.
+7. **Owner validate.** Present `Applied` delivery before archive or commit.
+8. **Archive.** After owner authorization, delegate to
+   `openspec-archive-change`, update roadmap to `Archived`, verify spec health,
+   and pick next.
 
 For **bugfixes < 30 min** or isolated tweaks, skip the OpenSpec loop —
 just fix and ship. The OpenSpec gate exists for changes that touch tests
@@ -202,7 +213,7 @@ or production behavior; a one-line CSS patch does not.
 
 ## 4. Standing rules — READ [PRD §4](openspec/PRD.md#4-regras-de-ouro-operational-invariants)
 
-The 12 invariants below live in PRD §4. Linking here so this doc stays
+The 14 invariants below live in PRD §4. Linking here so this doc stays
 useful as a quick pointer. **Edit them only in the PRD.**
 
 1. **Family password — locked** (`distendidos`) — PRD §4.1
@@ -217,7 +228,8 @@ useful as a quick pointer. **Edit them only in the PRD.**
 10. **Brand register — domestic, no ornament** — PRD §4.10
 11. **DB mutation contract — destructive routes formalized** (R06 platform safety) — PRD §4.11
 12. **Agent — prod DB is untouchable without explicit authorization** (2026-07-07, after incident) — PRD §4.12
-13. **Fix cirúrgico — agente não reescreve código funcional** (2026-07-16, after incident) — PRD §4.14
+13. **Testes — suite verde, sem máscara e dentro de 300s** — PRD §4.13
+14. **Fix cirúrgico — agente não reescreve código funcional** (2026-07-16, after incident) — PRD §4.14
 
 ---
 
@@ -231,8 +243,8 @@ decomposed first via this layer.
 | 1    | PRD or issue                                                    | `openspec/PRD.md` (this repo) or issue tracker                              |
 | 2    | Decompose into prioritized slices                               | `openspec/roadmap.md`                                                       |
 | 3    | Slice status `Ready` → create OpenSpec change                   | `openspec-propose` → `openspec/changes/<Candidate OpenSpec change id>/`      |
-| 4    | Implement                                                       | `openspec-apply-change` (slice → `Applying` → `Applied`)                    |
-| 5    | Complete                                                        | `openspec-archive-change` (slice → `Archived`)                              |
+| 4    | Implement + review                                              | `openspec-apply-change` → `review` (slice `Applying` → `Applied`)          |
+| 5    | Owner-authorized completion                                     | `openspec-archive-change` (slice → `Archived`)                              |
 
 **Rules (must follow):**
 
@@ -250,6 +262,12 @@ decomposed first via this layer.
   `openspec_roadmap.quality_gate`) after each lifecycle gate and resolve
   issues before the next gate.
 - Update the roadmap after every `propose`, `apply`, and `archive`.
+- Keep technical discoveries, task evidence, and review rounds in active change
+  `design.md` / `tasks.md`, never roadmap or prompt history.
+- `proposal.md` and delta specs change only after owner-approved scope change.
+- `apply` runs focused tests; `review` owns one full suite and may request at
+  most two remediation passes before work becomes `Blocked`.
+- Owner validates an approved change before archive and commit.
 - **After every `apply` that touches runtime code (routes, templates,
   models, seed, migrations, static assets), the agent MUST invoke the
   `refresh-for-test` skill and emit the mandatory delivery receipt

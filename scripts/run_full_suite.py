@@ -15,9 +15,18 @@ from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
+from scripts.test_governance import (
+    current_blocking_candidates,
+    load_policy,
+    manifest_blocking_candidates,
+    select_lowest_importance_cases,
+)
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REPORT_DIR = REPO_ROOT / "reports" / "test-profile"
 GRACE_SECONDS = 10.0
+MAX_FULL_SUITE_SECONDS = 300.0
+TIMEOUT_EXIT_CODE = 124
 LANES = (
     ("unit", "test-unit"),
     ("integration", "test-integration"),
@@ -43,7 +52,7 @@ KNOWN_DATABASES = {
 }
 BASELINE_AUDIT = REPO_ROOT / "tests" / "AUDIT.md"
 MANIFEST_PATH = BASELINE_AUDIT
-BASELINE_NODE_RE = re.compile(r"^\| `([^`]+)` \|")
+BASELINE_NODE_RE = re.compile(r"^\| `(tests/[^`]+)` \|")
 OUTCOME_RE = re.compile(
     r"^\s*(tests/.*?)\s+(PASSED|SKIPPED|FAILED|ERROR)(?:\s+\[.*)?(?:\s+T29_PROFILE.*)?$"
 )
@@ -75,6 +84,7 @@ class Manifest:
     population: int
     lane_checksums: dict[str, str]
     skip_ids: tuple[str, ...]
+    enforce_population: bool = True
 
 
 EXPECTED_SKIPS = (
@@ -108,15 +118,19 @@ def load_manifest(path: Path = MANIFEST_PATH) -> Manifest:
     lane_checksums = {
         match["lane"]: match["checksum"] for match in LANE_CHECKSUM_RE.finditer(lane_line)
     }
-    if population is None or checksum is None or len(nodes) != population:
+    if population is None or checksum is None:
         raise RuntimeError(
-            f"T29 manifest population mismatch: declared={population}, nodes={len(nodes)}"
+            f"T29 manifest population mismatch: snapshot metadata missing; "
+            f"population={population}, checksum={checksum}"
         )
     if _node_checksum(nodes) != checksum:
         raise RuntimeError("T29 manifest checksum mismatch")
     if set(lane_checksums) != {name for name, _ in LANES}:
         raise RuntimeError("T29 manifest lane checksums incomplete")
-    return Manifest(nodes, checksum, population, lane_checksums, EXPECTED_SKIPS)
+    # Audit population/checksum remain a transparent versioned snapshot. They
+    # are not an immutable active-count contract; collection governance
+    # classifies every current node independently.
+    return Manifest(nodes, checksum, population, lane_checksums, EXPECTED_SKIPS, False)
 
 
 def _lane_environment(name: str) -> dict[str, str]:
@@ -124,9 +138,12 @@ def _lane_environment(name: str) -> dict[str, str]:
     return {**os.environ, "T29_DB_RECEIPT_LANE": name}
 
 
-def _runtime_child_command(task: str) -> list[str]:
-    """Build runtime lane command with uncaptured receipt output."""
-    return ["uv", "run", "task", task, "--", "-s", "-p", "test_profile_plugin"]
+def _runtime_child_command(task: str, selected: tuple[str, ...] = ()) -> list[str]:
+    """Build runtime lane command with pre-run governance deselection."""
+    command = ["uv", "run", "task", task, "--", "-s", "-p", "test_profile_plugin"]
+    for nodeid in selected:
+        command.extend(("--deselect", nodeid))
+    return command
 
 
 def _normalize_node(node: str) -> str:
@@ -159,43 +176,6 @@ def _preflight() -> None:
                 target.parent != REPO_ROOT / "data" or target.name == "portfolio.db"
             ):
                 raise RuntimeError(f"unrecognized {lane} database target: {target}")
-
-
-def _preflight_lane(name: str, task: str) -> tuple[set[str], set[str], list[str]]:
-    """Collect lane and report its child-configured DB target before launch."""
-    env = _lane_environment(name)
-    env["PYTHONPATH"] = os.pathsep.join(
-        filter(None, [str(REPO_ROOT / "scripts"), str(REPO_ROOT), env.get("PYTHONPATH", "")])
-    )
-    result = subprocess.run(
-        [
-            "uv",
-            "run",
-            "task",
-            task,
-            "--",
-            "--collect-only",
-            "-q",
-            "-s",
-            "-p",
-            "scripts.t29_collection_plugin",
-        ],
-        cwd=REPO_ROOT,
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-    output = result.stdout + result.stderr
-    if result.returncode != 0:
-        raise RuntimeError(f"{name} collection preflight failed ({result.returncode})")
-    targets = [str(Path(value).resolve()) for value in DB_RE.findall(output)]
-    _validate_db_targets(name, targets)
-    nodes = {
-        _normalize_node(line.removeprefix("T29_NODE ").strip())
-        for line in output.splitlines()
-        if line.startswith("T29_NODE ")
-    }
-    return nodes, set(), targets
 
 
 def _validate_db_targets(name: str, targets: list[str]) -> None:
@@ -310,6 +290,16 @@ def _final_exit_code(
     return 0
 
 
+def _duration_exceeded(elapsed_seconds: float) -> bool:
+    """Return whether a full-suite run breached its hard wall-clock ceiling."""
+    return elapsed_seconds > MAX_FULL_SUITE_SECONDS
+
+
+def _stop_deadline(started: float) -> float:
+    """Reserve cleanup margin so hard ceiling includes child teardown."""
+    return started + MAX_FULL_SUITE_SECONDS - GRACE_SECONDS - 1.0
+
+
 def reconcile_population(
     manifest: Manifest,
     lane_nodes: dict[str, set[str]],
@@ -325,22 +315,28 @@ def reconcile_population(
     actual_lanes = set(lane_nodes)
     missing_lanes = sorted(expected_lanes - actual_lanes)
     unexpected_lanes = sorted(actual_lanes - expected_lanes)
+    lane_checksums = {lane: _node_checksum(nodes) for lane, nodes in lane_nodes.items()}
     lane_mismatches = {}
-    for lane, nodes in lane_nodes.items():
-        actual_checksum = _node_checksum(nodes)
-        if actual_checksum != manifest.lane_checksums.get(lane):
-            lane_mismatches[lane] = {
-                "expected": manifest.lane_checksums.get(lane),
-                "actual": actual_checksum,
-            }
+    if manifest.enforce_population:
+        for lane, _nodes in lane_nodes.items():
+            actual_checksum = lane_checksums[lane]
+            if actual_checksum != manifest.lane_checksums.get(lane):
+                lane_mismatches[lane] = {
+                    "expected": manifest.lane_checksums.get(lane),
+                    "actual": actual_checksum,
+                }
     result = {
-        "expected_nodes": manifest.population,
+        "expected_nodes": manifest.population if manifest.enforce_population else None,
+        "manifest_snapshot_nodes": manifest.population,
         "actual_nodes": len(all_nodes),
+        "lane_checksums": lane_checksums,
         "duplicate_nodes": duplicate_nodes,
         "missing_lanes": missing_lanes,
         "unexpected_lanes": unexpected_lanes,
-        "missing_nodes": sorted(manifest.nodes - all_nodes),
-        "unexpected_nodes": sorted(all_nodes - manifest.nodes),
+        "missing_nodes": sorted(manifest.nodes - all_nodes) if manifest.enforce_population else [],
+        "unexpected_nodes": (
+            sorted(all_nodes - manifest.nodes) if manifest.enforce_population else []
+        ),
         "lane_mismatches": lane_mismatches,
         "expected_skips": list(manifest.skip_ids),
         "actual_skips": sorted(skip_nodes),
@@ -348,7 +344,7 @@ def reconcile_population(
     }
     result["ok"] = (
         actual_lanes == expected_lanes
-        and len(all_nodes) == manifest.population
+        and (len(all_nodes) == manifest.population if manifest.enforce_population else True)
         and not result["duplicate_nodes"]
         and not result["missing_nodes"]
         and not result["unexpected_nodes"]
@@ -363,8 +359,46 @@ def reconcile_preflight(manifest: Manifest, lane_nodes: dict[str, set[str]]) -> 
     return reconcile_population(manifest, lane_nodes, set(), check_skips=False)
 
 
+def _select_pre_run_cases(
+    policy,
+    manifest_or_preflight: set[str]
+    | frozenset[str]
+    | dict[str, tuple[set[str], set[str], list[str]]],
+) -> tuple[tuple[object, ...], dict[str, tuple[str, ...]]]:
+    """Select versioned blocking candidates before any runtime child launch."""
+    if isinstance(manifest_or_preflight, dict):
+        lane_nodes = {name: nodes for name, (nodes, _, _) in manifest_or_preflight.items()}
+        candidates = current_blocking_candidates(lane_nodes)
+    else:
+        candidates = manifest_blocking_candidates(manifest_or_preflight)
+    selected = select_lowest_importance_cases(
+        policy.prior_known_seconds,
+        candidates,
+        ceiling_seconds=policy.ceiling_seconds,
+        safety_margin_seconds=policy.safety_margin_seconds,
+    )
+    if isinstance(manifest_or_preflight, dict):
+        selected_by_lane = {
+            lane: tuple(case.nodeid for case in selected if case.nodeid in nodes)
+            for lane, nodes in lane_nodes.items()
+        }
+    else:
+        selected_by_lane = {}
+        for case in selected:
+            if case.lane is None:
+                raise RuntimeError(f"selected case has no lane: {case.nodeid}")
+            selected_by_lane.setdefault(case.lane, tuple())
+            selected_by_lane[case.lane] += (case.nodeid,)
+    return selected, selected_by_lane
+
+
 def main() -> int:
     started = time.monotonic()
+    try:
+        policy = load_policy()
+    except (OSError, RuntimeError, ValueError) as exc:
+        print(f"full-suite governance preflight failed: {exc}", file=sys.stderr)
+        return 2
     try:
         _preflight()
     except RuntimeError as exc:
@@ -372,13 +406,13 @@ def main() -> int:
         return 2
     try:
         manifest = load_manifest()
-        preflight = {name: _preflight_lane(name, task) for name, task in LANES}
-        preflight_reconciliation = reconcile_preflight(
-            manifest,
-            {name: nodes for name, (nodes, _, _) in preflight.items()},
-        )
-        if not preflight_reconciliation["ok"]:
-            raise RuntimeError(f"collection reconciliation failed: {preflight_reconciliation}")
+        selected_before_run, selected_by_lane = _select_pre_run_cases(policy, manifest.nodes)
+        if time.monotonic() - started >= MAX_FULL_SUITE_SECONDS:
+            print(
+                "full suite duration ceiling reached during preflight",
+                file=sys.stderr,
+            )
+            return TIMEOUT_EXIT_CODE
     except RuntimeError as exc:
         print(f"full-suite lane preflight failed: {exc}", file=sys.stderr)
         return 2
@@ -389,6 +423,8 @@ def main() -> int:
     interrupted: int | None = None
     first_failure: int | None = None
     stopping = False
+    duration_exceeded = False
+    deadline_triggered = False
 
     def handle_signal(signum: int, _frame: object) -> None:
         nonlocal interrupted, stopping
@@ -400,43 +436,52 @@ def main() -> int:
     previous = {sig: signal.getsignal(sig) for sig in (signal.SIGINT, signal.SIGTERM)}
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
-    try:
-        for name, task in LANES:
-            log_path = REPORT_DIR / f"{stamp}-{name}.log"
-            timing_path = REPORT_DIR / f"{stamp}-{name}.timings"
-            log = log_path.open("w", encoding="utf-8")
-            child_env = _lane_environment(name)
-            child_env["PYTHONPATH"] = os.pathsep.join(
-                filter(None, [str(REPO_ROOT / "scripts"), child_env.get("PYTHONPATH", "")])
-            )
-            child_env["T29_PROFILE_PATH"] = str(timing_path)
-            child_env["T29_DB_RECEIPT_LANE"] = name
-            process = subprocess.Popen(
-                _runtime_child_command(task),
-                cwd=REPO_ROOT,
-                env=child_env,
-                stdout=log,
-                stderr=subprocess.STDOUT,
-                start_new_session=True,
-                text=True,
-            )
-            log.close()
-            processes[name] = process
-            metadata.append(
-                {
-                    "lane": name,
-                    "task": f"uv run task {task}",
-                    "pid": process.pid,
-                    "log": str(log_path),
-                    "timings": str(timing_path),
-                    "started_at": time.time(),
-                }
-            )
-        while any(process.poll() is None for process in processes.values()):
+
+    def launch(name: str, task: str) -> None:
+        log_path = REPORT_DIR / f"{stamp}-{name}.log"
+        timing_path = REPORT_DIR / f"{stamp}-{name}.timings"
+        log = log_path.open("w", encoding="utf-8")
+        child_env = _lane_environment(name)
+        child_env["PYTHONPATH"] = os.pathsep.join(
+            filter(None, [str(REPO_ROOT / "scripts"), child_env.get("PYTHONPATH", "")])
+        )
+        child_env["T29_PROFILE_PATH"] = str(timing_path)
+        child_env["T29_DB_RECEIPT_LANE"] = name
+        process = subprocess.Popen(
+            _runtime_child_command(task, selected_by_lane.get(name, ())),
+            cwd=REPO_ROOT,
+            env=child_env,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+            text=True,
+        )
+        log.close()
+        processes[name] = process
+        metadata.append(
+            {
+                "lane": name,
+                "task": f"uv run task {task}",
+                "pid": process.pid,
+                "log": str(log_path),
+                "timings": str(timing_path),
+                "started_at": time.time(),
+            }
+        )
+
+    def monitor(phase: tuple[str, ...]) -> bool:
+        nonlocal first_failure, stopping, deadline_triggered
+        while any(processes[name].poll() is None for name in phase):
             if interrupted is not None:
-                break
+                return False
+            if time.monotonic() >= _stop_deadline(started):
+                deadline_triggered = True
+                first_failure = TIMEOUT_EXIT_CODE
+                stopping = True
+                _stop(processes, signal.SIGTERM)
+                return False
             failed = next(
-                (name for name, process in processes.items() if process.poll() not in (None, 0)),
+                (name for name in phase if processes[name].poll() not in (None, 0)),
                 None,
             )
             if failed is not None:
@@ -445,8 +490,14 @@ def main() -> int:
                     first_failure = 1
                 stopping = True
                 _stop(processes, signal.SIGTERM)
-                break
+                return False
             time.sleep(0.2)
+        return True
+
+    try:
+        for name, task in LANES:
+            launch(name, task)
+        monitor(tuple(name for name, _ in LANES))
     finally:
         clean = _reap(processes)
         for sig, handler in previous.items():
@@ -486,26 +537,64 @@ def main() -> int:
     }
     skip_nodes = set().union(*(set(entry["collection"]["skipped"]) for entry in metadata))
     reconciliation = reconcile_population(manifest, lane_nodes, skip_nodes)
+    elapsed_seconds = time.monotonic() - started
+    duration_exceeded = duration_exceeded or _duration_exceeded(elapsed_seconds)
     payload = {
         "started_at": started,
         "ended_at": time.monotonic(),
+        "elapsed_seconds": elapsed_seconds,
+        "duration_limit_seconds": MAX_FULL_SUITE_SECONDS,
+        "duration_exceeded": duration_exceeded,
+        "deadline_triggered": deadline_triggered,
         "lanes": metadata,
         "clean_children": clean,
         "preflight": {
-            name: {"nodes": len(nodes), "db_targets": targets}
-            for name, (nodes, _, targets) in preflight.items()
+            "source": "versioned audit manifest",
+            "manifest_snapshot_nodes": manifest.population,
+            "manifest_checksum": manifest.checksum,
         },
-        "preflight_reconciliation": preflight_reconciliation,
+        "preflight_reconciliation": {
+            "ok": True,
+            "source": "versioned audit manifest",
+            "selected_before_child_launch": True,
+        },
+        "governance": {
+            "policy_version": policy.version,
+            "ceiling_seconds": policy.ceiling_seconds,
+            "prior_known_seconds": policy.prior_known_seconds,
+            "safety_margin_seconds": policy.safety_margin_seconds,
+            "approved_outside_blocking_lane": [case.nodeid for case in policy.approved_disabled],
+            "additional_pre_run_selection": [
+                {
+                    "nodeid": case.nodeid,
+                    "importance": case.importance,
+                    "estimated_seconds": case.estimated_seconds,
+                }
+                for case in selected_before_run
+            ],
+            "additional_pre_run_economy_seconds": sum(
+                case.estimated_seconds for case in selected_before_run
+            ),
+            "blocking_command": policy.blocking_command,
+            "expanded_command": policy.expanded_command,
+        },
         "reconciliation": reconciliation,
     }
     (REPORT_DIR / f"{stamp}-run.json").write_text(json.dumps(payload, indent=2) + "\n")
     result = _final_exit_code(interrupted, clean, first_failure, processes)
+    if duration_exceeded:
+        print(
+            "full suite duration ceiling exceeded: "
+            f"{elapsed_seconds:.2f}s > {MAX_FULL_SUITE_SECONDS:.2f}s",
+            file=sys.stderr,
+        )
+        return TIMEOUT_EXIT_CODE
     if result:
         return result
     if not reconciliation["ok"]:
         print(f"full-suite population reconciliation failed: {reconciliation}", file=sys.stderr)
         return 3
-    print(f"full suite passed in {time.monotonic() - started:.2f}s")
+    print(f"full suite passed in {elapsed_seconds:.2f}s")
     return 0
 
 

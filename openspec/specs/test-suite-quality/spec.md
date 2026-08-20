@@ -9,15 +9,26 @@ Archive/merge must wait for a green full suite, not just a green subset.
 For this slice, the canonical regression families are BDD and e2e browser/workflow tests, including import modal and visible navigation/import flows; a red result in any of them SHALL block delivery until the failing expectation is corrected in the owning test or runtime code.
 
 Canonical routine SHALL include unit, integration, audit integration, E2E, BDD,
-and retained visual coverage. T29 performance acceptance requires three fresh
-canonical runs, each green and <=300 seconds through cleanup, matching immutable
-1,043-node manifest by node IDs, lane membership, checksum, and two exact skip
-identities.
+and retained visual coverage. Current suite state is reported by node IDs, lane
+membership, checksums, and two exact skip identities; active node count is a
+snapshot, not a delivery contract. T29's historical 1,043-node evidence is
+dated history and is not authoritative for current population.
+
+Every canonical `uv run task test` delivery run SHALL finish in <=300 seconds
+through cleanup. This is a hard delivery ceiling, not telemetry. A green run
+above the ceiling SHALL block review and archive until the measured bottleneck
+is remediated without reducing tests, lanes, skips, or coverage.
 
 #### Scenario: Full suite is red and delivery is blocked
 - **WHEN** `uv run task test` fails
 - **THEN** the change stays open
 - **AND** no archive step marks it delivered
+
+#### Scenario: Full suite exceeds duration ceiling
+- **WHEN** `uv run task test` exits green after more than 300 seconds including cleanup
+- **THEN** review returns `CHANGES_REQUESTED`
+- **AND** no archive step marks it delivered
+- **AND** remediation preserves the accepted test population and coverage
 
 #### Scenario: Browser-visible change still needs full suite green
 - **WHEN** a change touches runtime code, templates, routes, models, seed, migrations, or static assets
@@ -32,7 +43,8 @@ identities.
 #### Scenario: Three consecutive full routines prove ceiling
 - **WHEN** T29 claims canonical full-routine performance acceptance
 - **THEN** three fresh `uv run task test` runs are green and <=300 seconds
-- **AND** each run matches 1,043-node immutable manifest and two exact skips
+- **AND** each run reports reconciled current lanes, classification coverage,
+  protected coverage, and two exact skips
 
 #### Scenario: Ceiling proof misses
 - **WHEN** any fresh required proof run is red, exceeds 300 seconds, differs from
@@ -63,19 +75,51 @@ The matrix MUST document which buckets produce coverage reports and which do not
 - **AND** the matrix shows `bdd`, `e2e`, and `visual` as non-coverage buckets
 - **AND** the canonical coverage command is `task coverage` (unit + integration only)
 
-### Requirement: T29 accepted population is explicit and immutable
+### Requirement: Every collected node has governed importance
 
-After exact owner-authorized desktop removal, repository SHALL commit canonical
-manifest with 1,043 stable node IDs, lane membership, two exact skip identities,
-and deterministic checksum. Audit SHALL record 18 focused harness nodes and
-retained eight-node desktop matrix. No test removal, skip, xfail, disable, lane
-reduction, or coverage move is permitted beyond prior mobile history and exact
-assets/classes desktop removal.
+Every collected test node/case SHALL receive exactly one explicit importance
+classification from `critical`, `high`, `normal`, or `low`. Collection SHALL
+fail when a node cannot be classified, and governance validation SHALL report
+classification coverage for current suite state. Parametrized instances inherit
+classification as individual collected node/cases.
 
-#### Scenario: Canonical run matches accepted population
-- **WHEN** runner completes canonical `uv run task test` collection
-- **THEN** it compares population against committed 1,043-node manifest/checksum
-- **AND** it fails reconciliation for any node, lane, checksum, or skip mismatch
+#### Scenario: Unclassified node is detectable
+- **WHEN** a new test node does not match the versioned importance policy
+- **THEN** collection or focused governance validation fails
+- **AND** it cannot silently enter any blocking lane
+
+#### Scenario: Current suite state is transparent
+- **WHEN** an operator inspects the governance report
+- **THEN** it can distinguish current blocking nodes from versioned outside-lane
+  cases, importance levels, lane checksums, and protected coverage
+
+### Requirement: Ceiling policy selects only lowest importance before execution
+
+If measured or prior-known cost in the versioned blocking manifest predicts that
+canonical execution would exceed the hard 300-second ceiling, the runner SHALL
+deterministically select only lowest-importance versioned cases before launching
+blocking children. It SHALL never decide at timeout time. Disabled cases SHALL
+remain discoverable in their source and runnable through a separately named
+expanded lane. Each selection record SHALL include rationale, owner/date,
+protected contract, replacement coverage, and measured or prior-known
+cost/savings. The blocking runner SHALL not launch a second full-lane collection
+pass solely to make this selection.
+
+#### Scenario: Pre-run selection is deterministic
+- **WHEN** preflight forecast exceeds 300 seconds
+- **THEN** selection orders importance first, then known cost, then stable node ID
+- **AND** selected cases are recorded before blocking execution starts
+
+#### Scenario: Forecast is within ceiling
+- **WHEN** preflight forecast is at or below 300 seconds
+- **THEN** no new case is disabled by timing policy
+- **AND** existing owner-approved outside-lane cases remain versioned and
+  separately runnable
+
+#### Scenario: Expanded lane restores selected cases
+- **WHEN** an operator runs the named expanded lane
+- **THEN** versioned outside-lane cases are collected and executable
+- **AND** blocking output does not claim their execution as green coverage
 
 ### Requirement: Browser-backed throughput changes require repeated-run evidence
 Any harness change that widens fixture scope, reuses browser/server resources, or changes the concurrency class of `bdd`, `e2e`, or `visual` suites SHALL be justified by repeated focused verification on the affected family. If a suite stays serial or keeps per-test browser launch because reuse is too risky, the decision record MUST say so explicitly.
@@ -299,3 +343,61 @@ A test file SHALL NOT appear in both `_INTEGRATION_PREFIXES` and `_UNIT_FILES` i
 - **WHEN** a contributor inspects `tests/conftest.py`
 - **THEN** the intersection of `_INTEGRATION_PREFIXES` entries and `_UNIT_FILES` entries is empty
 - **AND** every test file in `tests/*.py` appears in at most one allow-list
+
+### Requirement: T32 selective pruning remains versioned and auditable
+
+Owner-approved selective pruning SHALL keep each pruned case discoverable in
+its owning test file with stable node/case identity and an explicit
+`t32_pruned` prioritization rationale. The blocking visual task SHALL exclude
+only this named marker; it SHALL NOT delete the case, remove its suite, or
+claim omitted execution as green coverage. Each record SHALL include category,
+redundancy group, protected contract, replacement node IDs and lanes, measured
+before/after evidence, owner, date, and record version. T32's approved record
+is authoritative in `tests/AUDIT.md` and `openspec/roadmap.md`, dated
+2026-08-19.
+
+#### Scenario: Pruned case remains discoverable
+
+- **WHEN** an operator collects `tests/visual/test_snapshots.py` without the
+  blocking marker expression
+- **THEN** each approved T32 node/case remains present with its stable ID
+- **AND** its source test carries the `t32_pruned` rationale
+
+#### Scenario: Blocking visual lane excludes only approved T32 cases
+
+- **WHEN** `uv run task test-visual` runs
+- **THEN** it excludes only `t32_pruned` cases
+- **AND** canonical replacement coverage remains in the blocking lane
+- **AND** no new skip, xfail, placeholder, whole-suite removal, or silent lane
+  reduction is introduced
+
+#### Scenario: T32 record has complete contract evidence
+
+- **WHEN** review inspects `tests/AUDIT.md`
+- **THEN** all 12 approved visual cases have node ID, category, group,
+  protected contract, replacement node/lane, owner/date/version, and measured
+  evidence
+- **AND** the accepted blocking population/checksum remains reconciled
+
+### Requirement: BDD harness remains deterministic during expanded-lane concurrency
+
+The canonical BDD task SHALL complete its 51 collected scenarios deterministically
+both in isolation and while `test-t32-expanded` runs concurrently. The BDD lane
+SHALL remain serial without skipping, xfail-ing, deselecting, removing, or pruning
+scenarios.
+
+#### Scenario: Isolated BDD lane is green
+- **WHEN** `uv run task test-bdd` runs from fresh test-server/DB state
+- **THEN** all 51 BDD scenarios pass
+- **AND** zero scenario fails with `net::ERR_CONNECTION_REFUSED` on port 8766
+
+#### Scenario: Expanded lane does not invalidate BDD
+- **WHEN** `uv run task test-bdd` and `uv run task test-t32-expanded` run concurrently
+- **THEN** BDD reports 51 passed and zero failed
+- **AND** expanded lane retains governed selected cases
+- **AND** no BDD scenario is removed from collection or execution
+
+#### Scenario: BDD refusal blocks delivery rather than being masked
+- **WHEN** BDD loses its live server or port 8766 during execution
+- **THEN** lane reports failure with server/process/port evidence
+- **AND** no browser retry, skip, xfail, or lane reduction claims success

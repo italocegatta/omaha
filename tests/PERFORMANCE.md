@@ -1,17 +1,20 @@
 # Performance baseline — Omaha test suite
 
-Visual policy: desktop-only (`1440x900`) by owner authorization dated
-2026-07-26. Omaha is not used or supported on mobile. Exactly ten mobile visual
-nodes and matching mobile baselines were removed; this does not claim mobile
-CSS, layout, or interaction works. All desktop visual scenarios, lanes, browser
-harnesses, and non-visual coverage remain.
+Visual policy: desktop-only blocking lane (`1440x900`) by owner authorization
+dated 2026-07-26 and T32 decision dated 2026-08-19. Ten mobile cases plus two
+desktop duplicate snapshot cases remain versioned in `test_snapshots.py` with
+`t32_pruned` rationale, but are excluded from standard blocking execution.
+This does not claim mobile CSS, layout, or interaction works. All canonical
+replacement coverage, desktop visual scenarios, browser harnesses, and
+non-visual coverage remain.
 
 Data da coleta: 2026-07-25
 Ambiente: Linux x86_64, Python 3.12.13, pytest 9.1.1, SQLite
 Branch: T29 working tree
 
-> Snapshot de baseline: contagens e tempos registrados abaixo servem para
-> triagem de regressão nesta coleta; não são contrato de duração.
+> O contrato de duração da suite completa é `<=300s`, medido por wall-clock
+> desde o início de `task test` até cleanup dos processos filhos. Os tempos
+> históricos abaixo servem para triagem; não substituem o gate automatizado.
 
 ## Commands
 
@@ -36,7 +39,7 @@ uv run task test                   # suite completa concorrente: seis lanes
 | audit integration | `uv run task test-audit-integration` | 40 | 40 | 0 | 0 | 0 | measured in full runner |
 | e2e | `uv run task test-e2e` | 49 | 48 | 1 | 0 | 0 | 195,31 s |
 | BDD | `uv run task test-bdd` | 51 | 51 | 0 | 0 | 0 | 198,00 s |
-| visual | `uv run task test-visual` | 20 | 20 | 0 | 0 | 0 | 82,24 s |
+| visual | `uv run task test-visual` | 8 selected / 20 versioned | 8 | 0 | 0 | 12 T32-pruned | 105.27 s |
 
 > **Reconciliação:** Coletados = Passaram + Falharam + Pulados + Deselecionados.
 > Deselecionados em unit/integration são testes filtrados pelo marcador
@@ -79,15 +82,25 @@ Gate pré-merge para PRs. Coverage XML vai para `reports/coverage.xml`.
 
 Roda tudo: unit + integration + audit integration + e2e + visual + BDD.
 
+**Teto absoluto:** `<=300s` por execução completa, incluindo cleanup. Resultado
+verde acima do teto é falha e bloqueia review/archive.
+
 **Baseline serial:** 610.17 s, 1,024 passed + 2 skipped.
-**Concurrent profile runs:** historical observations only; not proof.
-Three consecutive canonical runs completed the Phase B final gate.
+Esse valor é diagnóstico histórico e não é uma execução válida do gate.
+O runner canônico usa lanes concorrentes, sem remover população ou cobertura.
+Uma execução válida precisa terminar dentro do teto e reconciliar população,
+lanes, checksum, skips e cleanup.
+Three consecutive canonical runs completed the Phase B final gate. Their
+1,043-node population is historical T29 evidence, not an immutable current
+count contract.
 
 ## Phase B proof receipt
 
 - **Run stamps:** `20260726T190307`, `20260726T190824`, `20260726T191307`
 - **Wall time per run (receipt JSON):** `280.98s`, `276.10s`, `274.77s` (all <=300s)
 - **Baseline collection checksum:** `a77e2a45fa2ff6c9854a945870f0489c54c332aa2a3dd4845970e256f06d40c8` (1,043 nodes)
+- **Current-state note:** current governance reports 1,032 blocking nodes plus
+  12 versioned T32 cases; historical checksum remains evidence only.
 - **Lane checksums:** unit `bdfe4cb037d726636f0899bc72618f7cbe3ba255497fa0ac7c481bd33b9b057c`; integration `6711cc2ff451cabc34e2ac7c74ad3519dfec8bf4034027456f5985545c33b7a2`; audit `0d0832484bd349cb35aa77573321597780721c1a9f6df2ca95be22fc22d2eab6`; e2e `6d81bb92d6101042427dbeea230d2e633ee089f842e6df7fd1a032cfea034e40`; bdd `a8543643bbf371fcd508c4822a79aa609b0abdd6b1e2a74a184f629e807e57db`; visual `d7481c04e1d95966d4965284d324c67dbcda21923c080932a1801f011a03c031`
 - **Skip IDs:** `tests/test_dockerfile.py::test_docker_build_pro_image_succeeds`, `tests/test_dockerfile.py::test_docker_run_pro_image_runs_as_omaha_user`
 - **Per-lane exit codes:** all six lanes `0` on all three runs
@@ -104,10 +117,75 @@ movement is not full-routine coverage.
 
 ## Final hotspot decision
 
-Phase B proof is complete. Owner-authorized mobile removal remains exactly ten
-mobile visual nodes; owner-authorized desktop duplicate removal is exactly
-`assets-table[desktop]` and `classes[desktop]`, with matching desktop baselines.
-No further node, lane, skip, xfail, or coverage change is accepted.
+Phase B proof is complete. Owner-authorized T32 pruning remains exactly ten
+mobile visual nodes plus `assets-table[desktop]` and `classes[desktop]`, with
+matching replacement coverage. No further node, lane, skip, xfail, or coverage
+change is accepted.
+
+## T32 selective-pruning record
+
+- **Decision:** approved cases remain versioned with explicit prioritization
+  rationale and are excluded only from `uv run task test-visual`.
+- **Owner/date:** repository owner / 2026-08-19.
+- **Record version:** `t32.v5`.
+- **Standard command:** `uv run task test-visual` (`-m 'not t32_pruned'`).
+- **Retained-case command:** `uv run task test-visual-pruned` (named schedule;
+  evidence retained in this register and `tests/AUDIT.md`).
+- **Baseline evidence:** 20 versioned visual nodes, 82.24s historical T29
+  lane snapshot; full canonical proofs 280.98s, 276.10s, and 274.77s with
+  `clean_children=true`.
+- **Candidate evidence:** 8 blocking visual nodes, 105.27s fresh taskipy
+  lane run on 2026-08-19; accepted population 1,032 nodes and checksum
+  `d67c89bae5bac62cb15a73af1e44c2685169c65bd2df36dbc1e7100cc7476cd7`.
+- **Measured delta:** `82.24s - 105.27s = -23.03s`; no positive savings
+  demonstrated in this environment. This is recorded as a timing rejection
+  for any additional pruning, not permission to broaden T32 scope.
+
+### Importance and pre-run selection policy
+
+Every collected node/case receives exactly one `critical`, `high`, `normal`, or
+`low` classification from `tests/fixtures/test_importance.json`; missing
+classification fails collection. Current prior-known full-suite observation is
+301.04s. Deterministic policy keeps 10.00s safety headroom and selects before
+child launch from versioned manifest state by lowest importance, then known cost,
+then stable node ID when forecast requires it. Already-disabled T32 cases are
+excluded from candidates; no second full-lane collection pass runs.
+The manifest contains 30 dark-mode unit candidates. The blocking-lane disabled
+subset contains 23 `low` cases, with 11.252s prior-known economy and 289.788s
+forecast; the two existing `normal` checks remain blocking and versioned. The
+expanded unit schedule runs all 30 versioned candidates through `uv run task
+test-t32-expanded`, together with the 12 cases in `uv run task
+test-visual-pruned`.
+
+| Stable node ID | Classification | Rationale | Protected contract | Replacement coverage | Owner/date/version | Measured cost |
+|---|---|---|---|---|---|---:|
+| `tests/test_dark_mode_tokens.py::test_class_swatches_against_bg[1]` | normal | Existing low-value Class-1 dark-mode boundary check retained in T32 evidence; no new pruning | Class-1 dark-mode token remains contrasted against `--bg` | Remaining class-swatch cases plus CSS token audit | repository owner / 2026-08-19 / `t32.v5` | 0.847s |
+| `tests/test_dark_mode_tokens.py::test_negative_ink_on_negative_passes_aa` | normal | Existing low-value negative status contrast check retained in T32 evidence; no new pruning | Negative status ink remains readable on negative fill | Status-ink siblings plus CSS token audit | repository owner / 2026-08-19 / `t32.v5` | 0.786s |
+
+Fresh T32 canonical receipt: `uv run task test` passed in `284.35s` on
+2026-08-20 (`20260820T003216`), all six lanes exited 0, children were clean,
+current reconciliation was green, and margin was `15.65s` under hard 300s.
+Lane collection: unit 480 (478 passed + 2 skipped), integration 382, audit 40,
+e2e 51, BDD 51, visual 8; 1,012 nodes executed after 23 pre-run
+deselections and two declared skips. BDD focused proof separately passed all
+51 cases in 187.76s.
+
+### Baseline review evidence
+
+Expanded lane command: `UPDATE_VISUAL_BASELINES=1 uv run task test-visual-pruned`.
+Result: 12 selected, 12 passed, 8 deselected, 100.54s on 2026-08-19 using
+isolated `data/test_visual.db`; expanded unit portion also passed all 30
+versioned candidates. All 12 generated baseline files were inspected
+individually before retention; review found no stale, blank, or error page.
+Node-to-file review table lives in `tests/AUDIT.md` §T32-E3.
+
+| Group | Category | Protected contract | Canonical replacement | Lane | Cases |
+|---|---|---|---|---|---|
+| `T32-G1-mobile` | `snapshot` | Each page/state structural visual contract | Matching `[desktop]` node for each case | visual blocking | 10 mobile cases listed in `tests/AUDIT.md` |
+| `T32-G2-desktop-duplicates` | `snapshot` | Asset-table and class-section structure | `tests/e2e/test_asset_table.py::TestS10AssetTable::test_table_sort_by_each_column`; `tests/e2e/test_class_section_alignment.py::TestClassSectionAlignment::test_class_total_value_aligned_with_valor_th` | e2e blocking | `assets_table[desktop]`, `classes[desktop]` |
+
+No candidate was selected from timeout pressure, a green run above 300s, a
+failure mask, an undocumented carve-out, or whole-suite/bucket removal.
 
 ### Browser lanes
 

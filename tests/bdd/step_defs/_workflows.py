@@ -178,7 +178,6 @@ def create_one_class(page: Page, live_url: str, name: str, target_pct: int) -> N
     with page.expect_response(re.compile(r".*/api/classes$"), timeout=30000) as resp_info:
         modal.locator('[data-testid="new-class-modal-submit"]').click()
     assert resp_info.value.status == 201
-    page.goto(f"{live_url}/", wait_until="commit", timeout=60000)
     page.wait_for_selector(
         f'[data-testid="class-summary-row"]:has([data-testid="class-section-name"]:text-is("{name}"))',
         timeout=30000,

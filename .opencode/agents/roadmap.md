@@ -91,17 +91,18 @@ For each slice, decide if `Explore` is needed before `Propose`:
 Then advance through gates in order:
 
 1. **Propose** — `@propose` creates proposal, design, tasks. Slice → `Spec Proposed`.
-3. **Apply** — `@apply` implements. Slice → `Applied`.
-4. **Review** — `@review` reviews implementation, runs tests, produces report.
-   - If **APPROVED**: proceed to Finalize.
-   - If **CHANGES_REQUESTED**: loop back to Apply with review report, then Review again.
-5. **Finalize** — `@finalize` syncs specs, archives change, commits, pushes. Also compacts the slice entry in roadmap.md: archived slice stores only Status, Goal (one line), and Archive path — enough to find its spec or change folder.
-6. **Validate** — orchestrator presents the completed slice to the user for manual validation.
-   - Only after user authorizes: update roadmap status to `Archived` and summarize the slice
-     following the compact historical pattern.
-   - Slice → `Archived`.
-
-Stop condition for review loop: `@review` returns APPROVED, or after max retries (report to user for decision).
+2. **Apply** — `@apply` implements and records durable execution evidence in
+   change. Slice stays `Applying`; result must be `READY_FOR_REVIEW`.
+3. **Review** — `@review` audits whole slice, runs one full suite, and writes
+   durable findings in `tasks.md`.
+   - `APPROVED`: orchestrator marks slice `Applied`.
+   - `CHANGES_REQUESTED`: send complete open finding set to `@apply` as
+     remediation `1/2` or `2/2`; slice stays `Applying`.
+   - `BLOCKED`, or a third repair request: stop and request owner decision.
+4. **Validate** — after review approval, present delivery to owner for manual
+   validation. Do not archive or commit before explicit owner authorization.
+5. **Finalize** — only after authorization, `@finalize` syncs specs, archives,
+   commits, pushes, and compacts roadmap history. Slice → `Archived`.
 
 ## Stage agent routing — provider priority reference
 
@@ -115,9 +116,9 @@ Edit this table when you want to swap provider priority or change models.
 | 0 | Demand → Slices | `slice` | `openspec-roadmap`, `grill-me` |
 | 1 | Demand → Scope | `explore` | `openspec-explore` |
 | 2 | Scope → Spec Proposed | `propose` | `openspec-propose` |
-| 3 | Spec Proposed → Applied | `apply` | `openspec-apply-change` |
-| 4 | Applied → Reviewed | `review` | `code-review` |
-| 5 | Reviewed → Finalized | `finalize` | `openspec-sync-specs`, `openspec-archive-change` |
+| 3 | Spec Proposed → Applying | `apply` | `openspec-apply-change` |
+| 4 | Applying → Applied | `review` | `openspec-verify-change` + local review contract |
+| 5 | Applied → Archived | `finalize` | `openspec-sync-specs`, `openspec-archive-change` |
 
 ### Model resolution — CRITICAL
 
@@ -149,29 +150,48 @@ source of truth for model/provider/effort per role.
 5. For each slice, advance through the pipeline:
    a. Decide if `Explore` is needed (scope ambiguous, blocked, multiple approaches).
    b. Route to `@propose` with exact `Candidate OpenSpec change id`.
-   c. Route to `@apply` — it runs the full test suite. All tests must pass.
-   d. Route to `@review` — it runs the full test suite independently.
-      - If CHANGES_REQUESTED (test failures or code issues): loop back to `@apply`.
-      - If APPROVED: proceed.
-   e. Route to `@finalize`.
-   f. Present completed slice for user validation.
-6. After user authorizes, update roadmap: slice → `Archived`.
+   c. Route to `@apply` with change dossier paths. It runs focused tests only
+      and returns `READY_FOR_REVIEW`.
+   d. Route to `@review` with apply handoff. It runs exactly one full suite and
+      records complete finding set in `tasks.md`.
+      - If CHANGES_REQUESTED: loop back with every open finding; maximum two
+        remediation passes.
+      - If BLOCKED: stop for owner decision.
+      - If APPROVED: mark slice `Applied`.
+   e. Present `Applied` delivery for owner validation.
+   f. After explicit authorization, route to `@finalize`.
 
 Pass each stage agent only the context it needs for one slice:
    - user demand / requested command
    - slice id and title
    - current status
-   - exact `Candidate OpenSpec change id`
-   - `Spec link`
-   - files to inspect / linked change files
-   - repo constraints from `AGENTS.md` and `openspec/config.yaml`
+    - exact `Candidate OpenSpec change id`
+    - `Spec link`
+    - files to inspect / linked change files
+    - current `design.md` and `tasks.md` sections carrying implementation
+      decisions, execution evidence, and prior review findings
+    - repo constraints from `AGENTS.md` and `openspec/config.yaml`
    - if calling `explore`, pass only the unclear points that block proposal
     - exact stop condition for that stage
     - SMART acceptance criteria, completion boundary, and escalation point
 
 Run required verification gates after each lifecycle change.
 
-Stop condition for review loop: `@review` returns APPROVED, or after max retries (report to user for decision).
+For every initial apply prompt, include:
+
+```
+Gate: Initial Apply
+Slice / change: <exact ids>
+Objective: <one sentence>
+Read before editing: <proposal.md, design.md, tasks.md, delta specs, mapped files>
+Expected result: READY_FOR_REVIEW
+Excluded scope: <paths/behavior>
+Focused validation: <from tasks.md>
+Stop: BLOCKED_FOR_IMPLEMENTATION_BRIEF or BLOCKED_SCOPE_CHANGE; do not guess.
+```
+
+For remediation, include review round, every open finding ID, required
+change/acceptance, and `remediation N/2`. Never send "fix review".
 
 ## Parent session contract
 
@@ -185,7 +205,8 @@ Stop condition for review loop: `@review` returns APPROVED, or after max retries
 
 - **Edit permission is ONLY for `openspec/roadmap.md` and `openspec/config.yaml`.** Every other file operation must go through `task()` delegation.
 - Never invent slice IDs — use exact `Candidate OpenSpec change id` from roadmap.
-- Run spec verification after propose/apply/finalize — delegate this to the appropriate sub-agent.
+- Run spec verification after propose/apply/finalize — `review` performs
+  post-apply verification with exact change id before approval.
 - Keep roadmap as planning file only — do not duplicate change artifacts.
 - Respect token ceilings from `openspec/config.yaml`.
 - Never collapse multiple pipeline gates into one stage session.
@@ -193,30 +214,31 @@ Stop condition for review loop: `@review` returns APPROVED, or after max retries
 - Never proceed without a roadmap — bootstrap first, then continue.
 - NEVER delegate to `general` subagent_type for pipeline gates — only the stage agents above.
 - Decomposition must be delegated to `@slice` — do not do it inline in the orchestrator.
-- **No slice can be marked `Applied` or `Archived` if any test is red.** If `@review` reports test failures, loop back to `@apply` until all tests pass. This is non-negotiable.
+- **No slice can be marked `Applied` or `Archived` if any test is red.** Route
+  only attributable failures to `@apply`; unknown, environmental, or
+  pre-existing failures are `BLOCKED`, never guesswork.
 - `git push` timeout: use **480000ms** (8 minutes). Pre-commit hooks run lint + tests on push.
 
 ## Fix context protocol (PRD §4.14)
 
-When delegating a **bugfix slice** to `apply`, the orchestrator MUST
-include in the prompt:
+When delegating a **bugfix slice** to `apply`, the orchestrator MUST include:
 
-1. **`git diff HEAD~1` output** — shows what the user last changed.
-   The subagent must NOT revert or overwrite these changes.
+1. **Instruction to capture `git diff HEAD~1` before editing** — roadmap cannot
+   run bash. Apply records relevant pre-existing boundaries in `tasks.md`
+   Execution Evidence and must not overwrite them.
 2. **Exact files affected** — list the specific files, not "inspect everything".
 3. **Exact bug description** — what is broken, where, expected vs actual.
 4. **Instruction: "mínimo absoluto"** — only change what is broken.
    No refactoring, no reformatting, no "improvements" to working code.
 5. **Post-fix check** — subagent must return a diff showing ONLY the
    fix, confirming no functional code was altered.
-6. **Test gate** — after the fix, run `uv run task test`. All tests must pass.
-   If a test fails, classify it (test drift vs code bug vs regression) and fix.
-   No delivery with red tests.
+6. **Test gate** — apply runs focused tests. Review owns one full `uv run task
+   test` run, classification, duration receipt, and approval.
 
 If the fix touches CSS, templates, or JS, delegate to `apply` with the
 surgical fix model context. The subagent handles the minimal change.
 
-After `@apply` returns, the orchestrator MUST delegate to `@review`
-before marking the slice as `Applied`. `@review` runs the full test
-suite independently. If `@review` reports test failures, loop back
-to `@apply` with the failure report.
+After `@apply` returns `READY_FOR_REVIEW`, orchestrator MUST delegate to
+`@review` before marking slice `Applied`. If review requests changes, send its
+complete durable finding set to apply; stop after two remediation passes or any
+`BLOCKED` verdict.

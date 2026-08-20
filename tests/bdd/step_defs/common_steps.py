@@ -172,13 +172,16 @@ def click_button(page: Page, label: str):
         try:
             loc.first.wait_for(state="visible", timeout=5000)
             loc.first.click()
-            return
         except Exception:
             visible = loc.locator("visible=true")
             if visible.count() > 0:
                 visible.first.click()
-                return
-            continue
+            else:
+                continue
+        if label == "Sair":
+            page.wait_for_url(re.compile(r"/login(?:\?.*)?$"), timeout=30000)
+            page.locator('input[name="username"]').wait_for(state="visible", timeout=30000)
+        return
     candidates = [
         f'button:has-text("{label}")',
         f'[data-testid="{label}"]',
@@ -198,15 +201,18 @@ def click_button(page: Page, label: str):
         try:
             loc.first.wait_for(state="visible", timeout=5000)
             loc.first.click()
-            return
         except Exception:
             # First match hidden (Alpine x-show on closed modal).
             # Try a fresh lookup with Playwright's :visible engine.
             visible = loc.locator("visible=true")
             if visible.count() > 0:
                 visible.first.click()
-                return
-            continue
+            else:
+                continue
+        if label == "Sair":
+            page.wait_for_url(re.compile(r"/login(?:\?.*)?$"), timeout=30000)
+            page.locator('input[name="username"]').wait_for(state="visible", timeout=30000)
+        return
     raise AssertionError(f"botão/link {label!r} não encontrado")
 
 

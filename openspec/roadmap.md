@@ -23,6 +23,11 @@ Comandos rápidos suportados: `status`, `next`, `next:dry`, `start <id>`,
 
 `Ready` → `Spec Proposed` → `Applying` → `Applied` → `Archived`, mais `Blocked`.
 
+`Applying` inclui apply e review. Apply retorna `READY_FOR_REVIEW`; somente
+review `APPROVED` move a fatia para `Applied`. Owner valida antes de archive e
+commit. Decisões de implementação, evidências e findings vivem na change, em
+`design.md` e `tasks.md`, não neste roadmap.
+
 ## Parallelism and WIP limits
 
 - Múltiplas fatias podem coexistir em `Spec Proposed`.
@@ -35,7 +40,7 @@ Comandos rápidos suportados: `status`, `next`, `next:dry`, `start <id>`,
 ## Spec verification gate (mandatory)
 
 - Após `openspec-propose` → verificar spec antes de `openspec-apply-change`.
-- Após `openspec-apply-change` → verificar spec antes de `openspec-archive-change`.
+- Após `openspec-apply-change` → `review` verifica change antes de `Applied`.
 - Após `openspec-archive-change` → verificar spec antes de escolher a próxima fatia.
 - Falha = parar, resolver, re-rodar, continuar.
 
@@ -72,9 +77,7 @@ Goal: linguagem visual comum para cards, remover CLASSE, colorir por alvo (verde
 Archive: `openspec/changes/archive/2026-07-17-f25-sistema-de-cards-com-cores-de-target/`
 
 ### F26 - Padronização de tabelas e inspeção visual
-Status: `Deprecated` (archived) — 2026-07-12 (split into F27-F29; regularized 2026-07-28)
-Goal: padrão visual único em tabelas + inspeção visual obrigatória.
-Archive: `openspec/changes/archive/2026-07-12-f26-padronizacao-de-tabelas-e-inspecao-visual/`
+Status: `Deprecated` — 2026-07-12 (split into F27-F29)
 
 ### F27 - Tabela ativos espelhada do rebalanceamento
 Status: `Archived` — 2026-07-12
@@ -165,8 +168,7 @@ Status: `Archived` — 2026-07-04
 Archive: `openspec/changes/archive/2026-07-04-f02-top-level-tab-nav-and-patrimonio/`
 
 ### F03 - Página Rentabilidade
-Status: `Closed` — 2026-07-06 (owner deferiu)
-Archive: `openspec/changes/archive/2026-07-06-f03-rentabilidade-page/`
+Status: `Deprecated` — 2026-07-06 (owner deferiu)
 
 ### F04 - Página Proventos
 Status: `Deprecated` — 2026-07-06 (owner: "F03 e F04 só no futuro")
@@ -535,14 +537,78 @@ Archive: `openspec/changes/archive/2026-07-29-f56-remover-ativos-bloqueados-tabe
 
 ---
 
+### F57 - Configurar credenciais MyProfit por perfil
+Status: `Ready`
+Goal: parametrizar credenciais e destino MyProfit por perfil ativo, usando Italo/Ana separados e bloqueando sincronização em Família.
+Candidate OpenSpec change id: `f57-configurar-credenciais-myprofit-por-perfil`
+Spec link: `openspec/changes/f57-configurar-credenciais-myprofit-por-perfil/`
+Files to inspect: `src/omaha/config.py`, `.env.example`, `src/omaha/auth.py`, `src/omaha/models.py`, `README.md`
+Notes: Nunca expor ou logar segredos; placeholders `.env.example` separados `MYPROFIT_ITALO_*` e `MYPROFIT_ANA_*`; mapear somente perfis reais, não Família. Testes usam valores falsos e não acessam MyProfit.
+Progress log: pending — config/spec/tests
+
+### F58 - Integrar automação Playwright MyProfit
+Status: `Ready`
+Goal: encapsular login headless e download CSV de posição do MyProfit, reaproveitando fluxo comprovado pela POC e retornando erros operacionais sem mutar DB.
+Candidate OpenSpec change id: `f58-integrar-automacao-playwright-myprofit`
+Spec link: `openspec/changes/f58-integrar-automacao-playwright-myprofit/`
+Files to inspect: `~/myprofit/cloak_download.py`, `~/myprofit/requirements.txt`, `src/omaha/`, `pyproject.toml`
+Notes: POC completa: `launch_persistent_context`, login por email/senha, dismiss de 2FA “Mais tarde/Later”, `StockDetail.aspx`, menu Export → CSV, `expect_download`; definir timeout/limpeza de arquivo/perfil temporário e mensagens sanitizadas. Não copiar `.env` da POC.
+Progress log: pending — connector/spec/unit tests
+
+### F59 - Executar sincronização em background e entregar preview
+Status: `Ready`
+Goal: disparar job assíncrono por perfil, expor estado/polling e transformar CSV baixado em preview da importação existente, abrindo revisão somente após sucesso.
+Candidate OpenSpec change id: `f59-executar-sincronizacao-background-e-entregar-preview`
+Spec link: `openspec/changes/f59-executar-sincronizacao-background-e-entregar-preview/`
+Files to inspect: `src/omaha/routes/imports.py`, `src/omaha/routes/pages.py`, `src/omaha/main.py`, `src/omaha/csv_import.py`, `src/omaha/models.py`
+Notes: Falha de login/download = estado de erro + mensagem na página, sem modal; sucesso deve reutilizar `/api/import/preview`/`$store.importModal` sem commit automático. Definir concorrência, expiração, isolamento de arquivo por job e cleanup. Qualquer commit continua sujeito a `db-mutation-safety`, confirmação explícita, snapshot/audit e DB prod intocável durante testes.
+Progress log: pending — job/route/spec/integration tests
+
+### F60 - Adicionar ação Atualizar posição no patrimônio
+Status: `Ready`
+Goal: exibir `Atualizar posição` ao lado de `Importar CSV`, iniciar job para perfil real e preservar revisão manual seguida do clique existente em `Importar`.
+Candidate OpenSpec change id: `f60-adicionar-acao-atualizar-posicao-no-patrimonio`
+Spec link: `openspec/changes/f60-adicionar-acao-atualizar-posicao-no-patrimonio/`
+Files to inspect: `src/omaha/templates/_patrimonio_actions.html`, `src/omaha/templates/patrimonio.html`, `src/omaha/static/app.css`, `src/omaha/routes/pages.py`, `src/omaha/routes/imports.py`
+Notes: Família: botão visível porém disabled/read-only, como demais mutações. Fidelity ledger: “botão ao lado” → mesma faixa e hierarquia de ações → clique inicia job sem navegação; sucesso abre janela existente de classificação/revisão; falha permanece na página e não abre modal → fontes: `view`, estado do job e preview. Gramática: ação nova pareada com upload existente; estados idle/loading/success/error/disabled; sem modal alternativo, auto-commit ou polling invisível. Mapeamentos numéricos: N/A (sem escala/dados visuais). Owner deve aprovar mock estático/protótipo ou browser rendering antes de Apply; approval é gate de handoff.
+Progress log: pending — template/state/e2e/visual tests; aguardando aprovação visual antes de Apply
+
+### T31 - Validar sincronização MyProfit ponta a ponta
+Status: `Ready`
+Goal: cobrir contratos de configuração, connector Playwright fake, estados do job, erros sem modal, Família disabled e revisão/import manual sem tocar serviços externos ou DB prod.
+Candidate OpenSpec change id: `t31-validar-sincronizacao-myprofit-ponta-a-ponta`
+Spec link: `openspec/changes/t31-validar-sincronizacao-myprofit-ponta-a-ponta/`
+Files to inspect: `tests/conftest.py`, `tests/test_imports_routes.py`, `tests/test_import_preview.py`, `tests/e2e/test_import_modal.py`, `tests/support/browser.py`
+Notes: Usar fixtures/tmp DB e Playwright mock; registrar novo prefixo em `_INTEGRATION_PREFIXES` quando aplicável; validação final via `task test-unit`, `task test-integration`, `task test-e2e`/BDD conforme cobertura. Delivery runtime exige `refresh-for-test`, sem `db-reset` sem autorização explícita.
+Progress log: pending — tests/spec alignment
+
+### T32 - Revisar política de poda seletiva sob teto de testes
+Status: `Deprecated` — 2026-08-20 (owner closed; follow-up T33)
+
+### T33 - Corrigir concorrência e ciclo de vida do harness BDD
+Status: `Archived` — 2026-08-20 (commit/push pending)
+Goal: tornar harness BDD determinístico sob execução concorrente.
+Archive: `openspec/changes/archive/2026-08-20-t33-corrigir-concorrencia-e-ciclo-de-vida-do-harness-bdd/`
+Notes: Archive/sync complete; stable specs 68/68. Commit/push blocked because `tests/scripts/test_t29_harness.py` mixes T33 and T32 hunks, preventing safe T33-only staging.
+
 ## Recommended Execution Order
 
 **Active queue:**
-_(empty — no slices Ready)_
+ F57 → F58 → F59 → F60 → T31
 
 **Archived since prior queue:** F56, F55, F54, F53, F52, T27, T28, T29, I07, D03. Não são trabalho ativo.
 
-Order note: F50/F51 deprecated (absorvidos por F49).
+Order note: T33 archived; commit/push pending owner decision on mixed worktree staging. T32 remains deprecated/closed. F50/F51 deprecated (absorvidos por F49).
+
+## Dependencies
+
+- F57 bloqueia F58: connector só pode ler configuração validada e perfil real.
+- F58 bloqueia F59: job depende do connector e de seu contrato de falhas/arquivo.
+- F59 bloqueia F60: UI depende do endpoint/job status e da entrega do preview existente.
+- F60 e T31 dependem de F59; T31 valida integração dos contratos concluídos e pode ser preparada em paralelo após F58.
+- F60 tem gate adicional: aprovação owner de mock/protótipo/browser rendering antes de Apply; propose deve carregar gate e Apply fica bloqueado sem registro.
+- T32 deprecated/closed; policy delivery retained, but unresolved BDD harness failure is owned by T33. Future pruning remains blocked without equivalent record.
+- T33 não depende de T32; resolve somente concorrência, ciclo de vida de servidor/porta 8766 e determinismo da lane BDD antes das fatias seguintes.
 
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed.

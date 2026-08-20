@@ -136,3 +136,25 @@ The function SHALL return a dict containing:
 - **WHEN** a test calls `subprocess.run([..., "alembic", "upgrade", "head"], env=make_test_env(url))`
 - **THEN** alembic reads the correct `DATABASE_URL` from the env dict
 - **AND** migrations apply to the intended database
+
+### Requirement: Shared test-server lifecycle preserves lane ownership
+
+The shared test-server lifecycle helper SHALL provide deterministic startup and
+teardown for BDD/e2e/visual callers, detect child startup failure rather than an
+unrelated listener, expose abnormal lifecycle evidence, and reap the spawned child.
+Existing hosts, ports, browser selection, and caller DB paths remain unchanged.
+
+#### Scenario: Lifecycle helper fails on dead child
+- **WHEN** spawned uvicorn child exits before requested port is ready
+- **THEN** helper raises with child return code and captured log tail
+- **AND** it does not yield a live URL
+
+#### Scenario: Lifecycle helper tears down deterministically
+- **WHEN** caller exits helper context normally or by exception
+- **THEN** child is terminated/reaped using existing bounded cleanup
+- **AND** bound port or abnormal return code is logged as diagnostic evidence
+
+#### Scenario: Existing lane contracts remain unchanged
+- **WHEN** BDD, e2e, or visual callers use shared helper
+- **THEN** each caller keeps current host, assigned port, DB path, test env, and browser scope
+- **AND** no caller gains undocumented retry, skip, xfail, or coverage change

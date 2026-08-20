@@ -116,6 +116,12 @@ TRACE_DIR_ENV_VAR = "OMAHA_E2E_TRACE_DIR"
 _BROWSER_CONTEXTS: dict[int, list[Any]] = {}
 
 
+def _browser_scope(*, fixture_name: str, config: pytest.Config) -> str:
+    """Reuse browser process in isolated canonical browser lanes."""
+    del fixture_name, config
+    return "session" if os.environ.get("T29_DB_RECEIPT_LANE") in {"e2e", "bdd"} else "function"
+
+
 def _trace_artifact_path(base_dir: Path, nodeid: str) -> Path:
     slug = re.sub(r"[^A-Za-z0-9._-]+", "_", nodeid).strip("_") or "trace"
     return base_dir / f"{slug}.zip"
@@ -176,14 +182,13 @@ def clean_italo_short_ttl() -> None:
     yield
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope=_browser_scope)
 def _browser():
-    """Per-function chromium browser process to avoid asyncio loop pollution.
+    """Launch browser with lane-specific lifetime.
 
-    The session-scoped version is faster, but when the BDD subset (or any
-    pytest-asyncio/anyio tests) runs in the same process they leave an
-    asyncio event loop on the main thread. Playwright's sync API refuses
-    to run inside an existing loop, so we isolate each browser instance.
+    Canonical E2E and BDD lanes own separate pytest processes and reuse one
+    browser process, avoiding repeated Chromium startup while retaining a fresh
+    context per test. Other callers keep function scope for loop isolation.
     """
     from playwright.sync_api import sync_playwright
 

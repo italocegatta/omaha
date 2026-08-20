@@ -76,6 +76,7 @@ openspec_roadmap:
   quality_gate:
     applied_requires:
       - tests_pass
+      - duration_within_ceiling
       - affected_specs_updated
       - no_unrelated_files_changed
       - acceptance_verified

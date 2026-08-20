@@ -275,34 +275,34 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     warned_paths: set[str] = set()
     for item in items:
         existing = {m.name for m in item.iter_markers()}
-        if "unit" in existing or "integration" in existing:
-            continue
-        path = str(item.fspath)
-        if "/tests/e2e/" in path or "/tests/visual/" in path:
-            continue
-        if "/tests/bdd/" in path:
-            item.add_marker(pytest.mark.bdd)
-            continue
-        if "/tests/audit_integration/" in path:
-            item.add_marker(pytest.mark.integration)
-            continue
-        if any(prefix in path for prefix in _INTEGRATION_PREFIXES):
-            item.add_marker(pytest.mark.integration)
-            continue
-        if path.endswith("/tests/conftest.py"):
-            continue
-        if any(path.endswith(p) for p in _UNIT_FILES):
-            item.add_marker(pytest.mark.unit)
-            continue
-        item.add_marker(pytest.mark.unit)
-        if path not in warned_paths:
-            warned_paths.add(path)
-            import warnings
+        if "unit" not in existing and "integration" not in existing:
+            path = str(item.fspath)
+            if "/tests/e2e/" not in path and "/tests/visual/" not in path:
+                if "/tests/bdd/" in path:
+                    item.add_marker(pytest.mark.bdd)
+                elif "/tests/audit_integration/" in path or any(
+                    prefix in path for prefix in _INTEGRATION_PREFIXES
+                ):
+                    item.add_marker(pytest.mark.integration)
+                elif not path.endswith("/tests/conftest.py"):
+                    if any(path.endswith(p) for p in _UNIT_FILES):
+                        item.add_marker(pytest.mark.unit)
+                    else:
+                        item.add_marker(pytest.mark.unit)
+                        if path not in warned_paths:
+                            warned_paths.add(path)
+                            import warnings
 
-            warnings.warn(
-                f"{path} matches no integration prefix and is not in tests/e2e/. "
-                f"Tagged as unit. If this file hits DB / TestClient, "
-                f"add its prefix to _INTEGRATION_PREFIXES in tests/conftest.py.",
-                UnknownTestPath,
-                stacklevel=2,
-            )
+                            warnings.warn(
+                                f"{path} matches no integration prefix and is not in tests/e2e/. "
+                                f"Tagged as unit. If this file hits DB / TestClient, "
+                                f"add its prefix to _INTEGRATION_PREFIXES in tests/conftest.py.",
+                                UnknownTestPath,
+                                stacklevel=2,
+                            )
+        from scripts.test_governance import classify_item
+
+        try:
+            item.add_marker(pytest.mark.importance(classify_item(item)))
+        except ValueError as exc:
+            raise pytest.UsageError(str(exc)) from exc

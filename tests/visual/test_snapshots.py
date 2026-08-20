@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from .conftest import (
     assert_structural_content,
     compare_or_update_screenshot,
@@ -11,6 +13,12 @@ from .conftest import (
 )
 
 FIXTURE_PATH = Path(__file__).resolve().parent.parent / "fixtures" / "sample_broker.csv"
+
+T32_PRUNED_REASON = (
+    "T32 owner-prioritized selective pruning: case remains versioned and auditable; "
+    "standard blocking visual lane retains canonical replacement coverage."
+)
+T32_PRUNED = pytest.mark.t32_pruned(reason=T32_PRUNED_REASON)
 
 
 def test_login_snapshot(visual_page, live_url_visual: str, visual_viewport) -> None:
@@ -35,6 +43,34 @@ def test_patrimonio_snapshot(visual_page, live_url_visual: str, visual_viewport)
         text="R$",
     )
     compare_or_update_screenshot(visual_page, "patrimonio", visual_viewport)
+
+
+@T32_PRUNED
+def test_assets_table_snapshot(visual_page, live_url_visual: str, visual_viewport) -> None:
+    """Retained T32 desktop duplicate; canonical asset-table E2E owns contract."""
+    login_as_italo(visual_page, live_url_visual)
+    visual_page.goto(f"{live_url_visual}/patrimonio")
+    assert_structural_content(
+        visual_page,
+        '[data-testid="asset-table"]',
+        '[data-testid="dashboard-asset-row"]',
+        text="R$",
+    )
+    compare_or_update_screenshot(visual_page, "assets", visual_viewport)
+
+
+@T32_PRUNED
+def test_classes_snapshot(visual_page, live_url_visual: str, visual_viewport) -> None:
+    """Retained T32 desktop duplicate; canonical class-section E2E owns contract."""
+    login_as_italo(visual_page, live_url_visual)
+    visual_page.goto(f"{live_url_visual}/patrimonio")
+    assert_structural_content(
+        visual_page,
+        '[data-testid="class-summary"]',
+        '[data-testid="class-summary-row"]',
+        '[data-testid="class-section-name"]',
+    )
+    compare_or_update_screenshot(visual_page, "classes", visual_viewport)
 
 
 def test_rebalance_form_snapshot(visual_page, live_url_visual: str, visual_viewport) -> None:

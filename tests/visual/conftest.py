@@ -41,7 +41,7 @@ BASELINE_DIR = Path(__file__).resolve().parent / "baselines"
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 DEFAULT_MAX_DIFF_RATIO = 0.005
 
-ViewportName = Literal["desktop"]
+ViewportName = Literal["desktop", "mobile"]
 
 
 @dataclass(frozen=True)
@@ -51,7 +51,12 @@ class VisualViewport:
     height: int
 
 
-VIEWPORTS: tuple[VisualViewport, ...] = (VisualViewport("desktop", 1440, 900),)
+VIEWPORTS: tuple[VisualViewport, ...] = (
+    VisualViewport("desktop", 1440, 900),
+    # T32: mobile remains versioned for auditability but is not part of the
+    # blocking visual lane while owner-prioritized desktop coverage is retained.
+    VisualViewport("mobile", 375, 667),
+)
 
 
 def _visual_env() -> dict[str, str]:
@@ -104,7 +109,22 @@ def live_url_visual() -> str:
         yield url
 
 
-@pytest.fixture(params=VIEWPORTS, ids=[v.name for v in VIEWPORTS])
+@pytest.fixture(
+    params=(
+        pytest.param(VIEWPORTS[0], id="desktop"),
+        pytest.param(
+            VIEWPORTS[1],
+            id="mobile",
+            marks=pytest.mark.t32_pruned(
+                reason=(
+                    "T32 owner-prioritized selective pruning: case remains versioned "
+                    "and auditable; standard blocking visual lane retains canonical "
+                    "replacement coverage."
+                )
+            ),
+        ),
+    )
+)
 def visual_viewport(request: pytest.FixtureRequest) -> VisualViewport:
     return request.param
 

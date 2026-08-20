@@ -784,6 +784,13 @@ explícita com o agente.
 Uma change só pode ser considerada entregue se `uv run task test`
 passar sem falhas. Para change browser-visível, §4.9 continua valendo.
 
+`apply` roda apenas validação focada e retorna `READY_FOR_REVIEW`. `review`
+roda exatamente uma suite completa, registra receipt e decide `APPROVED`,
+`CHANGES_REQUESTED` ou `BLOCKED`. `Applied` só ocorre após `APPROVED`; owner
+valida antes de archive e commit. Apply/review têm no máximo duas remediações
+automáticas. Falha desconhecida, pré-existente, ambiental ou terceira rodada
+vira `Blocked`, nunca tentativa especulativa de apply.
+
 Regras:
 
 - `skip`, `skipif`, `xfail`, `pytest.skip`, `pass` vazio em teste,
@@ -795,6 +802,19 @@ Regras:
 - Arquivar change com suite vermelha é proibido. Suite vermelha vira
   trabalho pendente, não delivery.
 - Qualquer novo mascaramento detectado em review bloqueia merge.
+
+### Gate de duração — teto absoluto
+
+`uv run task test` SHALL terminar em até **300 segundos**, medidos por
+wall-clock desde o início do runner até o cleanup de todos os processos filhos.
+Suite verde acima desse teto é falha de delivery. Review SHALL retornar
+`CHANGES_REQUESTED` e finalize SHALL bloquear archive.
+
+O agente não pode remover testes, skips, cobertura ou lanes para caber no teto.
+O caminho correto é medir o gargalo e otimizar setup, isolamento, paralelismo
+seguro ou harness, preservando população e cobertura aceitas.
+
+O recibo da suite SHALL registrar duração, teto, resultado e estado de cleanup.
 
 Objetivo: evitar falso verde. Se comportamento só passa porque o
 teste foi pulado, xfailed, ou virou stub, a change não está entregue.
@@ -817,14 +837,20 @@ Regras:
 - **Bugfix ≠ refatoração.** O pretexto de "corrigir bug" não autoriza
   reorganizar CSS, renomear variáveis, ajustar espaçamento, ou
   alterar colunas.
-- **Orchestrator passa contexto explícito ao subagent.** Incluir no
-  prompt: diff do último commit, arquivos afetados, e instrução
+- **Orchestrator passa contexto explícito ao subagent.** Como não executa
+  bash, ele instrui apply a capturar `git diff HEAD~1`, identificar limites de
+  trabalho pré-existente em `tasks.md`, listar arquivos afetados e seguir
   "mínimo absoluto — só o que está quebrado".
 - **Subagent que recebe tarefa de fix** deve: (1) ler o estado atual
   dos arquivos, (2) localizar o bug exato, (3) aplicar a menor
   mudança possível, (4) reportar o que mudou com diff antes/depois.
 - **Review pós-fix** verifica: o diff contém APENAS a correção? Algum
-  código funcional foi alterado? Se sim, rejeitar e reverter.
+  código funcional foi alterado? Se sim, rejeitar e exigir reversão pelo
+  apply; review não modifica código.
+- **Registro permanente:** decisões técnicas entram em `design.md`; tarefas,
+  diffs delimitados, validação e findings de review entram em `tasks.md`.
+  Não apagar rounds anteriores. `proposal.md` e delta specs só mudam após
+  autorização owner para mudança de escopo/comportamento.
 
 Exceção: refatoração explícita é uma slice separada (prefixo `R`),
 nunca disfarçada de bugfix.
@@ -885,8 +911,9 @@ Ready ─▶ Spec Proposed ─▶ Applying ─▶ Applied ─▶ Archived
 |------------------|-----------------------------------|-----------------------------------------------------------|
 | Pick slice       | humano ou agente                   | nada                                                      |
 | Change criado    | `openspec-propose`                | status `Spec Proposed`, `Spec link` apontando ao change  |
-| Aplicação início | `openspec-apply-change`           | status `Applying`                                         |
-| Validado         | durante apply                     | status `Applied`, comandos de validação listados          |
+| Aplicação início | `openspec-apply-change`           | status `Applying`; `READY_FOR_REVIEW` + teste focado      |
+| Revisado         | `review`                          | suite completa, findings duráveis; `APPROVED` → `Applied` |
+| Validado owner   | humano                            | autoriza archive e commit                                  |
 | Arquivado        | `openspec-archive-change`         | status `Archived`, path archive + data                    |
 | Bloco            | manual                            | status `Blocked`, questão aberta                          |
 
@@ -922,7 +949,7 @@ Entre `propose`/`apply`/`archive`, rodar o comando de verificação de spec
 do repo e corrigir issues antes de continuar:
 
 - após `openspec-propose` → verificar antes de `openspec-apply-change`
-- após `openspec-apply-change` → verificar antes de `openspec-archive-change`
+- após `openspec-apply-change` → `review` verifica antes de marcar `Applied`
 - após `openspec-archive-change` → verificar antes de escolher próxima fatia
 
 Falha na verificação → parar, resolver, re-rodar, continuar.

@@ -19,12 +19,13 @@ Workflow — follow this order exactly:
 1. Load `openspec-sync-specs`.
 2. Load `openspec-archive-change`.
 3. Read selected slice in `openspec/roadmap.md`, linked change, and `openspec/config.yaml`. Use exact `Candidate OpenSpec change id`.
-4. Confirm review resolved test drift and all configured quality-gate requirements pass. Do not change code or tests during finalization; return failed work to the orchestrator for `apply` and `review`.
+4. Confirm change is `Applied` only after `APPROVED` review, full suite finished in <=300 seconds including cleanup, all findings in `tasks.md` are resolved, configured quality gates pass, and owner manually validated delivery. Do not change code or tests during finalization; return failed work to orchestrator for `apply` and `review`.
 5. **FIRST: Sync delta specs from the change to main specs.** This is mandatory before archiving. Never skip sync.
 6. **THEN: Archive the applied change.** Only after sync succeeds.
 7. **AFTER archive: Run repository OpenSpec spec verification.** Do not recommend a next slice if verification fails.
 8. **THEN: Update `openspec/roadmap.md`.** Compact the finalized slice AND scan all other archived/deprecated slices for verbosity (see rules below).
-9. Run refresh-for-test receipt when runtime code is touched.
+9. Confirm required `refresh-for-test` receipt was recorded by apply before
+   owner validation. Do not rerun delivery setup during finalization.
 
 **Rule: sync ALWAYS runs before archive. No exceptions.** If sync fails, do not archive — report the error to the orchestrator.
 

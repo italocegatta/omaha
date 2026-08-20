@@ -61,6 +61,10 @@ The canonical invocation is `uv run task <name>` (which activates the
 venv and runs the `task` console script); the same works as plain
 `task <name>` once the venv is on `$PATH`.
 
+Agent-driven development rules live in
+[`AGENTIC_DEVELOPMENT.md`](AGENTIC_DEVELOPMENT.md). Test duration contract and
+performance evidence live in [`tests/PERFORMANCE.md`](tests/PERFORMANCE.md).
+
 Discover them any time with `uv run task --list`.
 
 | Task               | What it does                                                                    |
@@ -531,10 +535,18 @@ uv run task coverage       # unit + integration with term-missing + coverage XML
 uv run task test-e2e       # Playwright browser tests
 uv run task test-bdd       # BDD browser scenarios
 uv run task test-visual    # visual-regression browser tests
+uv run task test-visual-pruned # expanded T32 lane for versioned outside-lane cases
 uv run task test-file tests/test_X.py   # single file
 uv run task test-pattern "smoke"          # name-substring match
 uv run task lint           # ruff + format check + hygiene
 ```
+
+Full suite delivery has hard wall-clock ceiling of `300s`, including child
+process cleanup. Green output above ceiling is failed delivery.
+Active test count is current-state telemetry, not contract. Governance contract
+is complete importance classification, protected coverage, deterministic
+pre-run selection, transparent lane state, and green blocking execution under
+300s. T32 outside-lane cases remain versioned and separately runnable.
 
 The e2e suite needs Playwright + a one-time `uv run task install-e2e`.
 

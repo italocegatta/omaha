@@ -146,14 +146,16 @@ def _proof_text(stamps: Sequence[str], receipts: Sequence[ProofReceipt] | None) 
 
 def _coverage_text(removed_nodes: Sequence[str]) -> str:
     if not removed_nodes:
-        return "No owner-approved coverage removals supplied"
+        return "No T32 cases outside the standard blocking lane supplied"
     if any(not isinstance(node, str) or not node.strip() for node in removed_nodes):
         raise SystemExit("removed_nodes must contain non-empty strings")
     if len(set(removed_nodes)) != len(removed_nodes):
         raise SystemExit("removed_nodes must be unique")
     if set(removed_nodes) != AUTHORIZED_REMOVALS:
         raise SystemExit("removed_nodes must exactly match authorized visual removals")
-    return "Owner-approved coverage removals: " + ", ".join(f"`{node}`" for node in removed_nodes)
+    return "T32 versioned cases outside standard blocking lane: " + ", ".join(
+        f"`{node}`" for node in removed_nodes
+    )
 
 
 def normalize_node(node: str) -> str:

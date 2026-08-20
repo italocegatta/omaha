@@ -2,16 +2,61 @@
 
 from __future__ import annotations
 
+import socket
 from types import SimpleNamespace
 
 import pytest
 
 from scripts import build_test_inventory as inventory
 from scripts import run_full_suite as runner
+from scripts import test_governance as governance
 from scripts import test_profile_plugin as profile_plugin
 from tests.support import db as db_support
+from tests.support import server as server_support
 
 pytestmark = pytest.mark.unit
+
+
+def test_t33_server_does_not_accept_stale_listener_for_dead_child(monkeypatch, tmp_path) -> None:
+    """A listener not owned by spawned child cannot satisfy startup readiness."""
+
+    class DeadProcess:
+        pid = 41001
+        returncode = 1
+
+        def poll(self):
+            return self.returncode
+
+        def terminate(self):
+            return None
+
+        def wait(self, timeout=None):
+            del timeout
+            return self.returncode
+
+        def kill(self):
+            return None
+
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    port = listener.getsockname()[1]
+    log_handle = (tmp_path / "stale-listener.log").open("w+", encoding="utf-8")
+    monkeypatch.setattr(server_support.subprocess, "Popen", lambda *args, **kwargs: DeadProcess())
+    monkeypatch.setattr(server_support, "uvicorn_log_file", lambda *args, **kwargs: log_handle)
+    try:
+        with (
+            pytest.raises(RuntimeError, match="uvicorn did not start") as exc_info,
+            server_support.run_test_server(
+                tmp_path / "test.db",
+                port,
+                label="t33-stale-listener",
+            ),
+        ):
+            pytest.fail("dead child must not yield URL backed by stale listener")
+        assert "returncode=1" in str(exc_info.value)
+    finally:
+        listener.close()
 
 
 @pytest.mark.parametrize(
@@ -95,6 +140,75 @@ def test_runner_returns_first_lane_failure_after_sibling_term() -> None:
         "integration": SimpleNamespace(returncode=-15),
     }
     assert runner._final_exit_code(None, True, 7, processes) == 7
+    for elapsed_seconds, expected in (
+        (299.999, False),
+        (300.0, False),
+        (300.001, True),
+    ):
+        assert runner._duration_exceeded(elapsed_seconds) is expected
+    candidates = (
+        governance.DisabledCase("tests/low.py::test_expensive", "low", 2.0),
+        governance.DisabledCase("tests/normal.py::test_small", "normal", 1.0),
+        governance.DisabledCase("tests/low.py::test_small", "low", 1.0),
+    )
+    selected = governance.select_lowest_importance_cases(303.0, candidates, ceiling_seconds=300.0)
+    assert [case.nodeid for case in selected] == [
+        "tests/low.py::test_expensive",
+        "tests/low.py::test_small",
+    ]
+    assert governance.select_lowest_importance_cases(299.0, candidates, ceiling_seconds=300.0) == ()
+    headroom_candidates = (
+        governance.DisabledCase("tests/low.py::test_a", "low", 5.26),
+        governance.DisabledCase("tests/low.py::test_b", "low", 5.26),
+    )
+    assert [
+        case.nodeid
+        for case in governance.select_lowest_importance_cases(
+            300.38,
+            headroom_candidates,
+            ceiling_seconds=300.0,
+            safety_margin_seconds=5.0,
+        )
+    ] == ["tests/low.py::test_a", "tests/low.py::test_b"]
+    assert runner._runtime_child_command(
+        "test-visual", ("tests/visual/test_snapshots.py::test_login_snapshot[mobile]",)
+    )[-2:] == ["--deselect", "tests/visual/test_snapshots.py::test_login_snapshot[mobile]"]
+
+
+def test_pre_run_selection_uses_current_blocking_candidates_only() -> None:
+    policy = governance.load_policy()
+    candidates = policy.pre_run_candidates
+    preflight = {
+        lane: (
+            {candidate.nodeid for candidate in candidates} if lane == "unit" else set(),
+            set(),
+            [],
+        )
+        for lane, _ in runner.LANES
+    }
+    selected, selected_by_lane = runner._select_pre_run_cases(policy, preflight)
+    assert selected
+    assert set(case.nodeid for case in selected) < set(case.nodeid for case in candidates)
+    assert selected_by_lane["unit"] == tuple(case.nodeid for case in selected)
+    assert not set(case.nodeid for case in selected) & governance._approved_nodeids()
+
+
+def test_pre_run_selection_uses_versioned_manifest_before_launch() -> None:
+    policy = governance.load_policy()
+    selected, selected_by_lane = runner._select_pre_run_cases(
+        policy,
+        {
+            *[case.nodeid for case in policy.pre_run_candidates],
+            *[case.nodeid for case in policy.approved_disabled],
+        },
+    )
+    assert len(selected) == 23
+    assert selected[0].nodeid.endswith("test_class_swatches_against_bg[5]")
+    assert selected[-1].nodeid.endswith("test_documented_pairs_pass")
+    assert selected_by_lane == {
+        "unit": tuple(case.nodeid for case in selected),
+    }
+    assert not set(selected_by_lane["unit"]) & governance._approved_nodeids()
 
 
 def _manifest(
@@ -129,16 +243,16 @@ def test_runner_reconciliation_accepts_exact_population_and_skips() -> None:
     result = runner.reconcile_population(_manifest(lanes), lanes, set(runner.EXPECTED_SKIPS))
     assert result["ok"] is True
 
-    large_lanes = _synthetic_1043_lanes()
+    large_lanes = _synthetic_current_lanes()
     large_manifest = _manifest(large_lanes)
     large_preflight = runner.reconcile_preflight(large_manifest, large_lanes)
     assert large_preflight["ok"] is True
-    assert large_preflight["actual_nodes"] == 1043
+    assert large_preflight["actual_nodes"] == 1032
     assert large_preflight["lane_mismatches"] == {}
 
 
-def _synthetic_1043_lanes() -> dict[str, set[str]]:
-    nodes = [f"tests/test_manifest.py::test_node_{index}" for index in range(1043)]
+def _synthetic_current_lanes() -> dict[str, set[str]]:
+    nodes = [f"tests/test_manifest.py::test_node_{index}" for index in range(1032)]
     lanes: dict[str, set[str]] = {}
     for index, (lane, _) in enumerate(runner.LANES):
         lanes[lane] = set(nodes[index :: len(runner.LANES)])
@@ -163,11 +277,20 @@ def test_runner_reconciliation_rejects_duplicate_node_across_lanes() -> None:
     assert result["duplicate_nodes"] == ["tests/test_one.py::test_one"]
 
 
-def test_runner_manifest_loader_accepts_committed_1028_population() -> None:
+def test_runner_manifest_loader_accepts_current_audit_snapshot(request) -> None:
     manifest = runner.load_manifest()
     assert manifest.population == 1032
     assert len(manifest.nodes) == 1032
     assert manifest.skip_ids == runner.EXPECTED_SKIPS
+    assert manifest.enforce_population is False
+    classifications = governance.validate_collected_items(request.session.items)
+    assert len(classifications) == len(request.session.items)
+    assert set(classifications.values()) <= set(governance.IMPORTANCE_LEVELS)
+    assert governance.classify_node("tests/e2e/test_contract.py::test_flow") == "critical"
+    audit_node = "tests/audit_integration/test_contract.py::test_audit"
+    assert governance.classify_node(audit_node) == "high"
+    assert governance.classify_node("tests/test_contract.py::test_unit") == "normal"
+    assert governance.classify_node(governance.load_policy().approved_disabled[0].nodeid) == "low"
 
 
 def test_runner_manifest_loader_rejects_1026_or_missing_manifest(tmp_path) -> None:
@@ -340,9 +463,9 @@ def test_inventory_rejects_unexpected_node(tmp_path, monkeypatch) -> None:
         inventory.profile_nodes("stamp")
 
 
-def test_inventory_builds_valid_1026_node_three_run_fixture(tmp_path, monkeypatch) -> None:
+def test_inventory_builds_valid_current_node_three_run_fixture(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(inventory, "ROOT", tmp_path)
-    nodes = {f"tests/test_generated.py::test_node_{index}" for index in range(1044)}
+    nodes = {f"tests/test_generated.py::test_node_{index}" for index in range(1032)}
     monkeypatch.setattr(inventory, "baseline_nodes", lambda: nodes)
     report_dir = tmp_path / "reports" / "test-profile"
     report_dir.mkdir(parents=True)
@@ -352,4 +475,4 @@ def test_inventory_builds_valid_1026_node_three_run_fixture(tmp_path, monkeypatc
             (report_dir / f"{stamp}-{lane}.timings").write_text(
                 "".join(f"T29_PROFILE 0.100000000s call {node}\n" for node in lane_nodes)
             )
-    assert inventory.build(["one", "two", "three"]).count("| `tests/") == 1044
+    assert inventory.build(["one", "two", "three"]).count("| `tests/") == 1032

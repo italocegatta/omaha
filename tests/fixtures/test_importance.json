@@ -1,0 +1,272 @@
+{
+  "version": "t32.v5",
+  "ceiling_seconds": 300.0,
+  "prior_known_seconds": 301.04,
+  "safety_margin_seconds": 10.0,
+  "importance_levels": ["critical", "high", "normal", "low"],
+  "lane_importance": {
+    "critical": "critical",
+    "high": "high",
+    "normal": "normal"
+  },
+  "blocking_command": "uv run task test",
+  "expanded_command": "uv run task test-t32-expanded",
+  "approved_disabled": [
+    {
+      "nodeid": "tests/visual/test_snapshots.py::test_assets_table_snapshot[desktop]",
+      "importance": "low",
+      "estimated_seconds": 5.26
+    },
+    {
+      "nodeid": "tests/visual/test_snapshots.py::test_assets_table_snapshot[mobile]",
+      "importance": "low",
+      "estimated_seconds": 5.26
+    },
+    {
+      "nodeid": "tests/visual/test_snapshots.py::test_classes_snapshot[desktop]",
+      "importance": "low",
+      "estimated_seconds": 5.26
+    },
+    {
+      "nodeid": "tests/visual/test_snapshots.py::test_classes_snapshot[mobile]",
+      "importance": "low",
+      "estimated_seconds": 5.26
+    },
+    {
+      "nodeid": "tests/visual/test_snapshots.py::test_import_form_snapshot[mobile]",
+      "importance": "low",
+      "estimated_seconds": 5.26
+    },
+    {
+      "nodeid": "tests/visual/test_snapshots.py::test_import_review_snapshot[mobile]",
+      "importance": "low",
+      "estimated_seconds": 5.26
+    },
+    {
+      "nodeid": "tests/visual/test_snapshots.py::test_login_snapshot[mobile]",
+      "importance": "low",
+      "estimated_seconds": 5.26
+    },
+    {
+      "nodeid": "tests/visual/test_snapshots.py::test_patrimonio_snapshot[mobile]",
+      "importance": "low",
+      "estimated_seconds": 5.26
+    },
+    {
+      "nodeid": "tests/visual/test_snapshots.py::test_proventos_stub_snapshot[mobile]",
+      "importance": "low",
+      "estimated_seconds": 5.26
+    },
+    {
+      "nodeid": "tests/visual/test_snapshots.py::test_rebalance_form_snapshot[mobile]",
+      "importance": "low",
+      "estimated_seconds": 5.26
+    },
+    {
+      "nodeid": "tests/visual/test_snapshots.py::test_rebalance_plan_snapshot[mobile]",
+      "importance": "low",
+      "estimated_seconds": 5.26
+    },
+    {
+      "nodeid": "tests/visual/test_snapshots.py::test_rentabilidade_stub_snapshot[mobile]",
+      "importance": "low",
+      "estimated_seconds": 5.26
+    }
+  ],
+  "pre_run_candidates": [
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_class_swatches_against_bg[1]",
+      "importance": "normal",
+      "estimated_seconds": 0.847,
+      "lane": "unit",
+      "classification": "normal",
+      "rationale": "Existing low-value Class-1 dark-mode boundary check retained in T32 evidence; no new pruning.",
+      "protected_contract": "Class-1 dark-mode token remains contrasted against --bg",
+      "replacement_coverage": "Remaining class-swatch cases plus CSS token audit",
+      "owner": "repository owner",
+      "date": "2026-08-19",
+      "record_version": "t32.v5"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_negative_ink_on_negative_passes_aa",
+      "importance": "normal",
+      "estimated_seconds": 0.786,
+      "lane": "unit",
+      "classification": "normal",
+      "rationale": "Existing low-value negative status contrast check retained in T32 evidence; no new pruning.",
+      "protected_contract": "Negative status ink remains readable on negative fill",
+      "replacement_coverage": "Status-ink siblings plus CSS token audit",
+      "owner": "repository owner",
+      "date": "2026-08-19",
+      "record_version": "t32.v5"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_class_swatches_against_bg[2]",
+      "importance": "low",
+      "estimated_seconds": 0.549,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_class_swatches_against_bg[3]",
+      "importance": "low",
+      "estimated_seconds": 0.583,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_class_swatches_against_bg[4]",
+      "importance": "low",
+      "estimated_seconds": 0.605,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_class_swatches_against_bg[5]",
+      "importance": "low",
+      "estimated_seconds": 0.647,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_class_swatches_against_bg[6]",
+      "importance": "low",
+      "estimated_seconds": 0.582,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_body_bg_is_catppuccin_frappe",
+      "importance": "low",
+      "estimated_seconds": 0.406,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_ink_on_bg_passes_aa",
+      "importance": "low",
+      "estimated_seconds": 0.520,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_ink_muted_on_bg_passes_aa",
+      "importance": "low",
+      "estimated_seconds": 0.541,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_class_2_hue_disambiguated_from_positive",
+      "importance": "low",
+      "estimated_seconds": 0.410,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_positive_ink_on_positive_passes_aa",
+      "importance": "low",
+      "estimated_seconds": 0.500,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_status_inks_are_dark_on_dark_mode",
+      "importance": "low",
+      "estimated_seconds": 0.381,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_error_fg_on_error_bg_passes_aa",
+      "importance": "low",
+      "estimated_seconds": 0.540,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_error_pair_is_dark_bg_with_lifted_fg",
+      "importance": "low",
+      "estimated_seconds": 0.421,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_color_focus_against_bg_passes_3to1",
+      "importance": "low",
+      "estimated_seconds": 0.534,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_surface_lights_over_bg",
+      "importance": "low",
+      "estimated_seconds": 0.605,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_surface_sunk_drops_below_bg",
+      "importance": "low",
+      "estimated_seconds": 0.424,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_legacy_aliases_intact",
+      "importance": "low",
+      "estimated_seconds": 0.404,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_color_scheme_is_dark",
+      "importance": "low",
+      "estimated_seconds": 0.002,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_no_prefers_color_scheme_media_query",
+      "importance": "low",
+      "estimated_seconds": 0.001,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_documented_pairs_pass",
+      "importance": "low",
+      "estimated_seconds": 0.323,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_class_3_hue_gap_from_negative_ge_90",
+      "importance": "low",
+      "estimated_seconds": 0.449,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_positive_lightness_ge_074",
+      "importance": "low",
+      "estimated_seconds": 0.568,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_positive_lightness_above_accent",
+      "importance": "low",
+      "estimated_seconds": 0.416,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_positive_hue_gap_from_accent_ge_6",
+      "importance": "low",
+      "estimated_seconds": 0.400,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_class_colors_tuple_parity_with_class_3",
+      "importance": "low",
+      "estimated_seconds": 0.444,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_class_colors_tuple_all_oklch_no_hex",
+      "importance": "low",
+      "estimated_seconds": 0.002,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_class_tint_tokens_exist_for_all_runtime_slots",
+      "importance": "low",
+      "estimated_seconds": 0.001,
+      "lane": "unit"
+    },
+    {
+      "nodeid": "tests/test_dark_mode_tokens.py::test_runtime_css_has_no_legacy_white_or_hex_tint_backgrounds",
+      "importance": "low",
+      "estimated_seconds": 0.001,
+      "lane": "unit"
+    }
+  ]
+}

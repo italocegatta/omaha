@@ -5,38 +5,45 @@
       "description": "Entry alias for roadmap orchestration from main session.",
       "mode": "primary",
       "model": "{ROADMAP_PROVIDER}/{ROADMAP_MODEL}",
+      "reasoningEffort": "{ROADMAP_EFFORT}",
       "temperature": 0.2
     },
     "propose": {
       "description": "Proposal builder for one slice.",
       "mode": "subagent",
-      "model": "{PROPOSE_PROVIDER}/{PROPOSE_MODEL}"
+      "model": "{PROPOSE_PROVIDER}/{PROPOSE_MODEL}",
+      "reasoningEffort": "{PROPOSE_EFFORT}"
     },
     "apply": {
       "description": "Implementation agent for one slice.",
       "mode": "subagent",
-      "model": "{APPLY_PROVIDER}/{APPLY_MODEL}"
+      "model": "{APPLY_PROVIDER}/{APPLY_MODEL}",
+      "reasoningEffort": "{APPLY_EFFORT}"
     },
     "review": {
       "description": "Code review agent for one implemented slice.",
       "mode": "subagent",
-      "model": "{REVIEW_PROVIDER}/{REVIEW_MODEL}"
+      "model": "{REVIEW_PROVIDER}/{REVIEW_MODEL}",
+      "reasoningEffort": "{REVIEW_EFFORT}"
     },
     "finalize": {
       "description": "Archive, sync, commit, and push agent for one slice.",
       "mode": "subagent",
       "model": "{FINALIZE_PROVIDER}/{FINALIZE_MODEL}",
+      "reasoningEffort": "{FINALIZE_EFFORT}",
       "prompt": "You finalize one OpenSpec change. After syncing specs and archiving the change folder, update openspec/roadmap.md: compact the slice entry to just Status, Goal (one line), and Archive path. Remove Candidate OpenSpec change id, Spec link, Files, Notes, Progress, Scope. An archived slice needs only enough info to reach its spec or change folder."
     },
     "explore": {
       "description": "Requirements exploration agent for one slice.",
       "mode": "subagent",
-      "model": "{EXPLORE_PROVIDER}/{EXPLORE_MODEL}"
+      "model": "{EXPLORE_PROVIDER}/{EXPLORE_MODEL}",
+      "reasoningEffort": "{EXPLORE_EFFORT}"
     },
     "slice": {
       "description": "Decompose user demand into atomic, coherent OpenSpec slices and register them in the roadmap.",
       "mode": "subagent",
       "model": "{SLICE_PROVIDER}/{SLICE_MODEL}",
+      "reasoningEffort": "{SLICE_EFFORT}",
       "temperature": 0.2
     }
   }

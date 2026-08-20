@@ -100,6 +100,7 @@ BUILTIN_PROFILES: dict[str, dict[str, Profile]] = dict(_BUILTIN)
 DEFAULT_PROFILE = "xiaomi-balanced"
 
 PROFILE_DESCRIPTIONS: dict[str, str] = {
+    "openai-luna-balanced": "All roles: OpenAI gpt-5.6-luna, variable effort by role (TOML active)",
     "openai-cheap": "All roles: gpt-5.4-mini, high effort (cheapest OpenAI)",
     "openai-balanced": "Heavy roles: gpt-5.4, light roles: gpt-5.4-mini, high effort",
     "openai-xiaomi-balanced": "OpenAI for routing/slice, Xiaomi for execution, mixed effort",
@@ -222,6 +223,7 @@ def render_template(
         prefix = role_name.upper()
         placeholders[f"{prefix}_MODEL"] = role_profile.model
         placeholders[f"{prefix}_PROVIDER"] = role_profile.provider
+        placeholders[f"{prefix}_EFFORT"] = role_profile.effort
     rendered = template
     for key, value in placeholders.items():
         rendered = rendered.replace(f"{{{key}}}", value)
@@ -254,14 +256,20 @@ def write_config_atomic(content: str, dest: Path) -> None:
 
 def _print_profiles() -> None:
     """Print available profiles with one-line descriptions."""
+    toml_profiles = _load_toml_profiles()
+    available = sorted(set(BUILTIN_PROFILES) | set(toml_profiles))
+    configured_default = _resolve_profile_name()
     print("Available profiles:\n")
-    for name in sorted(BUILTIN_PROFILES):
-        desc = PROFILE_DESCRIPTIONS.get(name, "")
+    for name in available:
+        desc = PROFILE_DESCRIPTIONS.get(name, "TOML-defined profile")
         marker = " (default)" if name == DEFAULT_PROFILE else ""
+        if name == configured_default:
+            marker += " (active)"
         print(f"  {name}{marker}")
         print(f"    {desc}")
     print()
     print(f"Default: {DEFAULT_PROFILE}")
+    print(f"Configured: {configured_default}")
     print("Override: --profile <name> or OPENCODE_PROFILE=<name>")
 
 

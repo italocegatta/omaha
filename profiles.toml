@@ -7,8 +7,9 @@
 #   4. Built-in default: `xiaomi-balanced`
 #
 # Available profiles:
+#   openai-luna-balanced — OpenAI gpt-5.6-luna with variable effort (active)
 #   openai-cheap           — all roles gpt-5.4-mini, high effort (cheapest OpenAI)
-#   openai-balanced        — heavy roles gpt-5.4, light roles gpt-5.4-mini (← active)
+#   openai-balanced        — heavy roles gpt-5.4, light roles gpt-5.4-mini
 #   openai-xiaomi-balanced — OpenAI routing, Xiaomi execution, mixed effort
 #   xiaomi-balanced        — all roles Xiaomi mimo models, medium effort
 #
@@ -22,7 +23,43 @@
 # (`oc` is a backward-compatible alias for `agent-profile`)
 
 [default]
-profile = "xiaomi-balanced"
+profile = "openai-luna-balanced"
+
+# ── openai-luna-balanced (active) ────────────────────────────────────────────
+[profiles.openai-luna-balanced.roadmap]
+provider = "openai"
+model = "gpt-5.6-luna"
+effort = "high"
+
+[profiles.openai-luna-balanced.propose]
+provider = "openai"
+model = "gpt-5.6-luna"
+effort = "high"
+
+[profiles.openai-luna-balanced.apply]
+provider = "openai"
+model = "gpt-5.6-luna"
+effort = "high"
+
+[profiles.openai-luna-balanced.review]
+provider = "openai"
+model = "gpt-5.6-luna"
+effort = "medium"
+
+[profiles.openai-luna-balanced.finalize]
+provider = "openai"
+model = "gpt-5.6-luna"
+effort = "low"
+
+[profiles.openai-luna-balanced.explore]
+provider = "openai"
+model = "gpt-5.6-luna"
+effort = "high"
+
+[profiles.openai-luna-balanced.slice]
+provider = "openai"
+model = "gpt-5.6-luna"
+effort = "medium"
 
 # ── openai-cheap ──────────────────────────────────────────────────────────────
 [profiles.openai-cheap.roadmap]

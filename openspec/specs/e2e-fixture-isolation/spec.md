@@ -96,3 +96,25 @@ Playwright) so it runs as part of `uv run task test-unit` and
 - **AND** `uv run pytest tests/bdd tests/e2e` runs to completion
   with all tests green (the bdd and e2e suites can coexist in the
   same pytest session)
+
+### Requirement: Session-scoped BDD server readiness and ownership are explicit
+
+The BDD session-scoped uvicorn fixture SHALL require its spawned child to be alive
+and the BDD-owned endpoint accepting connections on 8766. Startup and teardown
+SHALL expose child liveness, abnormal exit, port availability, and lane ownership,
+while preserving BDD port and DB isolation.
+
+#### Scenario: BDD readiness belongs to spawned child
+- **WHEN** `tests/bdd/conftest.py::live_url` starts its session server
+- **THEN** readiness succeeds only when spawned child is alive and endpoint accepts
+- **AND** stale or unrelated listener cannot satisfy readiness
+
+#### Scenario: Startup failure is loud
+- **WHEN** spawned BDD uvicorn exits or cannot own port 8766 before readiness
+- **THEN** fixture fails with actionable process/port/log evidence
+- **AND** it does not yield URL backed by another lane or stale server
+
+#### Scenario: BDD teardown releases lifecycle resources
+- **WHEN** session-scoped BDD fixture exits normally or after scenario error
+- **THEN** child is reaped, abnormal return codes remain observable, and port 8766 is checked
+- **AND** e2e ports 8765/8767 and lane-owned DB files remain unaffected

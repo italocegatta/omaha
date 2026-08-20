@@ -28,11 +28,21 @@ def port_is_free(host: str, port: int) -> bool:
     return True
 
 
-def wait_for_port(host: str, port: int, timeout: float = 20.0) -> None:
-    """Block until ``host:port`` accepts a TCP connection or raise."""
+def wait_for_port(
+    host: str,
+    port: int,
+    timeout: float = 20.0,
+    *,
+    process: subprocess.Popen | None = None,
+) -> None:
+    """Block until child-owned ``host:port`` accepts a TCP connection or raise."""
     deadline = time.monotonic() + timeout
     last_err: Exception | None = None
     while time.monotonic() < deadline:
+        if process is not None and (returncode := process.poll()) is not None:
+            raise RuntimeError(
+                f"server child exited before {host}:{port} became ready; returncode={returncode}"
+            )
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.settimeout(0.5)
             try:
