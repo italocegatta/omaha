@@ -547,14 +547,23 @@ Status: `Archived` — 2026-08-20
 Goal: documentar ambiente local e alinhar cookie seguro à configuração carregada.
 Archive: `openspec/changes/archive/2026-08-20-f61-documentar-ambiente-local-e-alinhar-cookie-seguro/`
 
+### F62 - Remover destination do contrato MyProfit
+Status: `Deprecated` — 2026-08-20 (owner folded removal into F58)
+Goal: remover contrato F57-derived de destination por perfil; email/senha continuam isolados, e connector usa `StockDetail.aspx` sem selector de destino.
+Candidate OpenSpec change id: `f62-remover-destination-do-contrato-myprofit`
+Spec link: `openspec/changes/f62-remover-destination-do-contrato-myprofit/`
+Files to inspect: `src/omaha/config.py`, `.env.example`, `README.md`, `tests/test_f57_myprofit_profile_config.py`, `openspec/specs/myprofit-profile-credentials/spec.md`
+Notes: Follow-up owns removal only; do not mutate F57 archive. Remove `MYPROFIT_ITALO_DESTINATION`/`MYPROFIT_ANA_DESTINATION`, destination field/property, required/blank/placeholder validation, redaction assertions, README/.env template mentions, F57 tests, and F57-derived delta/stable-spec requirements. Update coupled `tests/test_auth.py` assertion as needed. Preserve profile isolation, email/password secrets, Família guard, and offline boundary. No Playwright, jobs, UI, secrets, or broad config cleanup. F58 remains non-actionable until F62 archives.
+Progress log: deprecated — owner classified as small connector prerequisite; absorbed by F58 before Playwright implementation
+
 ### F58 - Integrar automação Playwright MyProfit
-Status: `Ready`
-Goal: encapsular login headless e download CSV de posição do MyProfit, reaproveitando fluxo comprovado pela POC e retornando erros operacionais sem mutar DB.
+Status: `Applying`
+Goal: remover configuração `destination` sem modulador e encapsular login headless/download CSV MyProfit, reaproveitando fluxo POC e retornando erros operacionais sem mutar DB.
 Candidate OpenSpec change id: `f58-integrar-automacao-playwright-myprofit`
 Spec link: `openspec/changes/f58-integrar-automacao-playwright-myprofit/`
-Files to inspect: `~/myprofit/cloak_download.py`, `~/myprofit/requirements.txt`, `src/omaha/`, `pyproject.toml`
-Notes: POC completa: `launch_persistent_context`, login por email/senha, dismiss de 2FA “Mais tarde/Later”, `StockDetail.aspx`, menu Export → CSV, `expect_download`; definir timeout/limpeza de arquivo/perfil temporário e mensagens sanitizadas. Não copiar `.env` da POC.
-Progress log: pending — connector/spec/unit tests
+Files to inspect: `~/myprofit/cloak_download.py`, `~/myprofit/requirements.txt`, `src/omaha/config.py`, `.env.example`, `README.md`, `tests/test_f57_myprofit_profile_config.py`, `src/omaha/`, `pyproject.toml`
+Notes: Primeiro remover `MYPROFIT_<PROFILE>_DESTINATION`, campo/validação/docs/testes/spec derivados de F57; preservar email/senha isolados e guarda Família. Connector usa direto `StockDetail.aspx`, sem selector. POC: `launch_persistent_context`, login email/senha, dismiss 2FA “Mais tarde/Later”, Export → CSV, `expect_download`; definir timeout/limpeza de arquivo/perfil temporário e mensagens sanitizadas. Não copiar `.env` POC.
+Progress log: review R2 changes requested 2026-08-20 — clean full suite green 252.01s; remediate R1-F02 explicit interaction timeouts (1/2)
 
 ### F59 - Executar sincronização em background e entregar preview
 Status: `Ready`
@@ -594,25 +603,46 @@ Goal: tornar harness BDD determinístico sob execução concorrente.
 Archive: `openspec/changes/archive/2026-08-20-t33-corrigir-concorrencia-e-ciclo-de-vida-do-harness-bdd/`
 Notes: Archive/sync complete; stable specs 68/68. Commit/push blocked because `tests/scripts/test_t29_harness.py` mixes T33 and T32 hunks, preventing safe T33-only staging.
 
+### D05 - Formalizar contrato operacional de limpeza e preflight
+Status: `Blocked` — 2026-08-20
+Goal: tornar explícito contrato apply/review para recursos de teste: apply limpa somente recursos que criou/possui; review executa preflight antes da suíte canônica, registra resíduo atribuído à execução e para com diagnóstico seguro quando estado não é confiável.
+Candidate OpenSpec change id: `d05-formalizar-contrato-operacional-de-limpeza-e-preflight`
+Spec link: `openspec/changes/d05-formalizar-contrato-operacional-de-limpeza-e-preflight/`
+Files to inspect: `.opencode/agents/apply.md`, `.opencode/agents/review.md`, `.opencode/skills/openspec-apply-change/SKILL.md`, `AGENTIC_DEVELOPMENT.md`
+Notes: Track A, protocol/docs only; no runner, taskipy, test, or application edits. Define ownership ledger for child/process-group/port/log/temp/DB resources; apply cleanup is bounded to resources recorded as run-owned and remains idempotent. Review preflight runs before `uv run task test`, captures PID/PGID/port/timestamps/owner evidence and residue classification, records receipt, and returns `BLOCKED` for unknown/pre-existing/foreign residue rather than attempting repair. Checklist SHALL never authorize broad kill, name-pattern kill, host-wide port cleanup, or indiscriminate descendant termination. Preserve six lanes, fail-fast, coverage, all tests/skips, and 300s gate. Acceptance: protocol text gives exact stop/ownership/escalation rules; apply/review handoffs require cleanup and residue evidence; one controlled foreign-resource scenario proves no termination; one owned-resource scenario proves bounded cleanup; no change to F58 or `R1-F02`.
+Progress log: review R2 blocked 2026-08-20 — bootstrap suite red with unknown PID/visual baseline failures; D05 documentation audit passed but cannot become Applied with red suite
+
+### I08 - Corrigir runner taskipy para cleanup e telemetria por lane
+Status: `Archived` — 2026-08-20
+Goal: endurecer runner taskipy com cleanup ownership e telemetria completa por lane.
+Archive: `openspec/changes/archive/2026-08-20-i08-corrigir-runner-taskipy-cleanup-e-telemetria-por-lane/`
+
 ## Recommended Execution Order
 
 **Active queue:**
-  F61 → F58 → F59 → F60 → T31
+  F58 (independent) ∥ D05 → I08 → F59 → F60 → T31
 
 **Archived since prior queue:** F56, F55, F54, F53, F52, T27, T28, T29, I07, D03. Não são trabalho ativo.
 
-Order note: F57 archived; F61 now unblocked. T33/T32 remain archived; F50/F51 deprecated.
+Order note: F57/F61 archived; F62 deprecated because owner folded small destination removal into F58. T33/T32 remain archived; F50/F51 deprecated.
 
 ## Dependencies
 
 - F57 bloqueia F61: follow-up corrige lacuna de documentação e consistência descoberta na validação de F57.
-- F61 bloqueia F58: connector deve consumir ambiente local documentado e comportamento de configuração carregada antes de iniciar automação.
+- F62 deprecated: its destination-removal scope is absorbed by F58 without reopening F57 archive.
+- F61 bloqueava F58 e está archived; F58 inicia removendo configuration `destination` sem modulador antes da automação.
 - F58 bloqueia F59: job depende do connector e de seu contrato de falhas/arquivo.
 - F59 bloqueia F60: UI depende do endpoint/job status e da entrega do preview existente.
 - F60 e T31 dependem de F59; T31 valida integração dos contratos concluídos e pode ser preparada em paralelo após F58.
 - F60 tem gate adicional: aprovação owner de mock/protótipo/browser rendering antes de Apply; propose deve carregar gate e Apply fica bloqueado sem registro.
 - T32 closed/superseded by T33; concurrent-BDD refusal is historical, and harness correction transferred to T33. Future pruning remains blocked without equivalent record.
 - T33 não depende de T32; resolve somente concorrência, ciclo de vida de servidor/porta 8766 e determinismo da lane BDD antes das fatias seguintes.
+- D05 and I08 are test-runner hygiene follow-ups from F58/F61 review retries; they do not reopen, block, or alter F58, F61, T33, or F58 `R1-F02`.
+- I08 normally depends on D05's approved ownership/stop vocabulary; owner
+  explicitly authorizes I08 to consume D05's audited vocabulary while D05
+  remains `Blocked` because documentation-only review full-suite noise is
+  unrelated. I08 cannot claim D05 approved/archived and must preserve existing
+  T33 lifecycle behavior and six-lane canonical ordering.
 
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed.

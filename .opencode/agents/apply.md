@@ -42,6 +42,55 @@ code. Record durable implementation knowledge in selected OpenSpec change:
 - Resolve review findings in `tasks.md` by stable IDs. State changed
   files/symbols, focused validation, and result. Never delete prior findings.
 
+For every apply validation run, establish ownership before resource use. Maintain
+one ledger per run. Each entry MUST contain:
+
+| Field | Required evidence |
+|---|---|
+| `resource_kind` | child process, process group, port, log, temporary path, or test DB resource |
+| `resource_id` | PID, PGID, port, log/path, or DB identity as applicable |
+| `owner` | current change/run and agent identity |
+| `owner_evidence` | run-created registration, with identity and start timestamp recorded before use |
+| `started_at` / `ended_at` | timestamps; `ended_at` is filled on exit or cleanup attempt |
+| `status` | active, exited, absent, cleanup-attempted, or blocked |
+| `classification` | `owned-current-run`, `pre-existing`, `foreign`, `unknown`, `absent`, or `owned-cleaned` |
+| `evidence` | observed identity, lifecycle, and ownership facts |
+| `cleanup_result` | exact bounded result, including idempotent no-op or incomplete outcome |
+
+An observed PID, PGID, port, name, path, descendant, or DB path alone never
+proves ownership. Test DB resources remain test-only; production DB and
+unrelated files are never cleanup targets.
+
+Apply resource decision procedure:
+
+1. Record ledger identity, owner evidence, and `started_at` before launching or
+   using resource.
+2. Before cleanup, match exact current-run ledger entry and classify residue.
+3. Clean only `owned-current-run` entries. An already absent, closed, or removed
+   entry becomes recorded idempotent `absent`/no-op; it is not rediscovered.
+4. Leave `pre-existing`, `foreign`, `unknown`, or contradictory state untouched;
+   stop, preserve known failure evidence, and escalate. PID-not-found, PID reuse,
+   vanished children, and EPIPE are races to record, not reasons to retry or
+   adopt resource.
+5. Record `ended_at`, cleanup result, final classification, residue, and decision
+   in receipt before `READY_FOR_REVIEW`.
+
+This protocol explicitly forbids broad kill, process-name/pattern kill,
+host-wide port cleanup, indiscriminate descendant termination, foreign-resource
+adoption, production-DB cleanup, and deletion of unrecorded files. D05 changes
+documentation only; it performs no runtime process operation. Future runner
+mechanics belong to I08.
+
+Canonical review isolation policy: the single review suite SHALL run only on an
+isolated runner. Trusted review preflight requires no relevant unowned process,
+listener, or test-temporary resource; only absent state or resources registered
+with current-run ownership evidence may remain. There is no foreign-resource
+baseline exception and no allowlist exception. If preflight finds a relevant
+pre-existing, foreign, unknown, or otherwise unowned resource, review MUST stop
+before launching the suite, record inventory/evidence in its receipt, and request
+an isolated environment. Review MUST NOT adopt, kill, free, delete, mask, or
+allowlist that resource. This is a safe stop/escalation, not a cleanup request.
+
 Do not rewrite `proposal.md` or delta specs to make implementation appear
 correct. If discovery changes user behavior, scope, acceptance criteria, or a
 formal requirement, stop with `BLOCKED_SCOPE_CHANGE`. Orchestrator must obtain
@@ -63,6 +112,10 @@ After every implementation pass:
 2. Run smallest relevant test set covering that behavior. Prefer focused
    commands such as a specific pytest file, test node, or related taskipy task.
 3. Report exact command and result.
+
+Focused validation may create resources. Apply must preserve the ledger and
+bounded-cleanup receipt around that run, while retaining focused-only
+validation. Do not run the routine canonical full suite here.
 
 For behavior changes, add or update test coverage in the same pass. Use the
 RED -> GREEN loop for critical business rules, financial calculations, and
@@ -109,6 +162,9 @@ Tasks: <completed/total; open IDs if any>
 Files and symbols changed: <list>
 Focused validation: <command> -> <result>
 Acceptance evidence: <list>
+Ownership ledger receipt: <run id; required fields; owner evidence; timestamps; classifications; cleanup results; residue>
+Cleanup decision: <owned entries cleaned/no-op, or safe BLOCKED diagnosis; no foreign action>
+Canonical review isolation: <preflight result; relevant process/listener/test-temp inventory; no baseline or allowlist exception>
 Pre-existing worktree boundaries: <files/hunks not owned by this slice>
 Open decision or blocker: <none or exact decision>
 ```

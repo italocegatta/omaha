@@ -77,6 +77,30 @@ Implement tasks from an OpenSpec change.
    - Mark task complete in the tasks file: `- [ ]` → `- [x]`
    - Continue to next task
 
+   For any validation run that creates or launches resources, first create a
+   per-run ownership ledger. Every entry records `resource_kind` and
+   `resource_id` (PID, PGID, port, log, temporary path, or test DB resource as
+   applicable), `owner`, `owner_evidence`, `started_at`, `ended_at`, `status`,
+   `classification`, `evidence`, and `cleanup_result`. Record identity and
+   owner evidence before use; matching name, port, path, PID, or descendant is
+   not ownership proof.
+
+   Cleanup decision is ledger-scoped: target only exact entries classified
+   `owned-current-run`; record already absent/closed/removed entries as
+   idempotent no-op; classify final state as `owned-cleaned` or another allowed
+   residue class; and include receipt before `READY_FOR_REVIEW`. Stop without
+   cleanup when state is `pre-existing`, `foreign`, `unknown`, contradictory,
+   or incomplete. Preserve known lane/fail-fast/deadline evidence for
+   PID-not-found, PID reuse, vanished-child, or EPIPE races and escalate.
+
+   The later canonical review suite requires an isolated runner: review
+   preflight must find no unowned relevant process, listener, or test-temporary
+   resource. No foreign-resource baseline or allowlist exception exists. If
+   preflight finds one, review must block before `uv run task test`, request an
+   isolated environment, and record evidence. Neither apply nor review may
+   adopt, kill, free, delete, mask, or allowlist foreign residue; this is safe
+   escalation, not permission for host cleanup.
+
    **Pause if:**
    - Task is unclear → ask for clarification
    - Implementation reveals a design issue → suggest updating artifacts
@@ -151,6 +175,13 @@ What would you like to do?
 - Update task checkbox immediately after completing each task
 - Pause on errors, blockers, or unclear requirements - don't guess
 - Use contextFiles from CLI output, don't assume specific file names
+
+Never authorize broad kill, process-name/pattern kill, host-wide port cleanup,
+indiscriminate descendant termination, foreign-resource adoption,
+production-DB cleanup, or deletion of unrecorded files. This skill documents
+the protocol; it does not perform runtime process operations. Preserve focused
+taskipy validation and do not add routine `uv run task test` to apply; review
+owns one canonical full-suite invocation after trusted preflight.
 
 **Fluid Workflow Integration**
 

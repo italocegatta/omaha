@@ -1,58 +1,4 @@
-# dev-tasks Specification
-
-## Purpose
-Taskipy shortcut tasks for development workflow automation — covering Docker, database operations, code quality, and project onboarding.
-
-## Requirements
-
-### Requirement: DB migration inspection commands
-The system SHALL provide taskipy shortcuts for inspecting Alembic migration state — current revision, full history, and rollback.
-
-#### Scenario: Show current revision
-- **WHEN** user runs `uv run task db-current`
-- **THEN** output shows the current Alembic revision head
-
-#### Scenario: Show migration history
-- **WHEN** user runs `uv run task db-history`
-- **THEN** output shows the full Alembic migration timeline
-
-#### Scenario: Rollback one migration
-- **WHEN** user runs `uv run task db-downgrade`
-- **THEN** Alembic reverts the last migration
-
-### Requirement: Docker dev stack shortcuts
-The system SHALL provide taskipy shortcuts for the dev Docker Compose stack (docker-compose.yml) — build, up, down.
-
-#### Scenario: Build dev image
-- **WHEN** user runs `uv run task docker-build`
-- **THEN** Docker Compose builds the dev image from docker-compose.yml
-
-#### Scenario: Start dev stack
-- **WHEN** user runs `uv run task docker-up`
-- **THEN** Docker Compose starts the dev stack in detached mode
-
-#### Scenario: Stop dev stack
-- **WHEN** user runs `uv run task docker-down`
-- **THEN** Docker Compose stops and removes the dev containers
-
-### Requirement: Docker prod stack shortcuts
-The system SHALL provide taskipy shortcuts for the production Docker Compose stack (prod.yml) — up, down, logs, rebuild.
-
-#### Scenario: Start prod stack
-- **WHEN** user runs `uv run task prod-up`
-- **THEN** Docker Compose starts the prod stack from prod.yml in detached mode
-
-#### Scenario: Stop prod stack
-- **WHEN** user runs `uv run task prod-down`
-- **THEN** Docker Compose stops and removes the prod containers
-
-#### Scenario: Follow prod logs
-- **WHEN** user runs `uv run task prod-logs`
-- **THEN** Docker Compose streams logs from all prod services
-
-#### Scenario: Rebuild and deploy prod
-- **WHEN** user runs `uv run task prod-rebuild`
-- **THEN** Docker builds the prod image and restarts the stack
+## MODIFIED Requirements
 
 ### Requirement: Test coverage report
 The system SHALL provide taskipy shortcuts for coverage reporting. Canonical
@@ -86,7 +32,6 @@ timeout telemetry. Run receipt MUST include elapsed wall-clock through cleanup,
 deadline/300-second classification, final cleanup verdict, and six-lane
 reconciliation evidence. Missing evidence MUST be explicit and SHALL NOT be
 treated as success.
-
 The run identity and six placeholder lane records SHALL be durably persisted
 before the first child launch. Runner SHALL attempt durable receipt persistence
 after launch, child failure, stop/reap cleanup, lane log/timing/DB collection,
@@ -98,10 +43,10 @@ used for serialization failures, and receipt failure SHALL remain non-zero.
 For T29, runner SHALL compare every canonical execution against committed
 immutable post-removal 1,043-node manifest/checksum. Comparison SHALL include
 exact node-ID set, lane membership, checksum, and two exact skip identities.
-Eighteen focused T29 harness nodes remain deliberate coverage. Runner SHALL NOT
-obtain match through deletion, skip, xfail, disable, or lane reduction, except
-historical mobile removal and exact owner-authorized desktop removal documented
-in `visual-regression-baseline`.
+Eighteen focused T29 harness nodes remain deliberate coverage. Runner SHALL
+NOT obtain match through deletion, skip, xfail, disable, or lane reduction,
+except historical mobile removal and exact owner-authorized desktop removal
+documented in `visual-regression-baseline`.
 
 #### Scenario: Full task concurrently preserves complete coverage
 - **WHEN** operator runs `uv run task test`
@@ -119,13 +64,15 @@ in `visual-regression-baseline`.
 - **AND** incomplete or untrusted cleanup returns non-zero rather than green
 
 #### Scenario: Owned descendant survivor is bounded
-- **WHEN** current-run lane process group has a descendant still alive after grace
+- **WHEN** current-run lane process group has a descendant still alive after
+  grace
 - **THEN** runner escalates only that owned process group to SIGKILL
 - **AND** reaps launched child and records survivor/escalation evidence
 - **AND** no process outside owned group is signaled
 
 #### Scenario: Foreign process or port is preserved
-- **WHEN** cleanup or reconciliation observes a process, port, path, or DB resource without current-run ownership evidence
+- **WHEN** cleanup or reconciliation observes a process, port, path, or DB
+  resource without current-run ownership evidence
 - **THEN** runner classifies it foreign, pre-existing, or unknown
 - **AND** runner does not kill, free, delete, adopt, or broadly search for it
 - **AND** receipt records residue and cleanup as untrusted/nonzero
@@ -143,15 +90,17 @@ in `visual-regression-baseline`.
 - **AND** runner returns nonzero without inventing a successful lane result
 
 #### Scenario: Deadline includes bounded cleanup
-- **WHEN** canonical execution reaches its stop deadline or cleanup causes total elapsed time to exceed 300 seconds
-- **THEN** runner records deadline trigger, timeout code, cleanup state, and elapsed wall-clock through cleanup
+- **WHEN** canonical execution reaches its stop deadline or cleanup causes total
+  elapsed time to exceed 300 seconds
+- **THEN** runner records deadline trigger, timeout code, cleanup state, and
+  elapsed wall-clock through cleanup
 - **AND** runner returns `TIMEOUT_EXIT_CODE`
 - **AND** it does not relax ceiling, omit lanes, or rerun full suite
 
 #### Scenario: Interrupted full task reaps browser and server children
 - **WHEN** operator interrupts `uv run task test` with SIGINT or SIGTERM
-- **THEN** runner forwards signal to every running lane process group
-- **AND** waits bounded grace then kills only surviving groups
+- **THEN** runner forwards signal to every running owned lane process group
+- **AND** waits bounded grace then kills only owned survivors
 - **AND** reaps every child before returning non-zero
 
 #### Scenario: Full task refuses non-test database target
@@ -174,40 +123,3 @@ in `visual-regression-baseline`.
 #### Scenario: Browser tasks do not produce coverage
 - **WHEN** user runs `uv run task test-e2e`, `uv run task test-bdd`, or `uv run task test-visual`
 - **THEN** pytest runs with `--no-cov` flag and no `reports/coverage.xml` is written
-
-### Requirement: Lockfile update
-The system SHALL provide a taskipy shortcut for upgrading all dependencies within existing version constraints.
-
-#### Scenario: Upgrade dependencies
-- **WHEN** user runs `uv run task update`
-- **THEN** uv syncs with --upgrade flag, updating uv.lock
-
-### Requirement: SECRET_KEY generation
-The system SHALL provide a taskipy shortcut for generating a cryptographically random SECRET_KEY for .env configuration.
-
-#### Scenario: Generate secret key
-- **WHEN** user runs `uv run task secret-key`
-- **THEN** a 50-char URL-safe base64 token is printed to stdout
-
-### Requirement: Git-hook installation
-The system SHALL provide a taskipy shortcut for installing the prek git hooks into `.git/hooks/`.
-
-#### Scenario: Install prek hooks
-- **WHEN** user runs `uv run task prek-install`
-- **THEN** `prek install` populates `.git/hooks/` with the configured `pre-commit`, `pre-push`, and `commit-msg` hooks
-- **AND** the hooks are active for subsequent `git commit` and `git push` invocations
-
-#### Scenario: Install is idempotent
-- **WHEN** user runs `uv run task prek-install` more than once
-- **THEN** prek updates the existing hooks in place (does not error or duplicate)
-
-### Requirement: Housekeeping purge of debug artefacts
-Debug artefacts (`data/probe*.db`, `data/test_*.db`, `pytestdebug.log`, `data/seed/fixtures/auto_class.csv`) SHALL be candidate for deletion during housekeeping slices. The canonical live database `data/portfolio.db` SHALL remain untouched. The `.gitignore` rules SHALL continue to cover these patterns so they do not re-enter the working tree after `git clean`.
-
-#### Scenario: Debug artefacts are gitignored
-- **WHEN** developer inspects `.gitignore`
-- **THEN** `data/*`, `*.log` rules keep debug artefacts out of the working tree
-
-#### Scenario: Live portfolio DB is preserved
-- **WHEN** housekeeping slice runs purge
-- **THEN** `data/portfolio.db` is preserved (gitignored but excluded from the purge path)

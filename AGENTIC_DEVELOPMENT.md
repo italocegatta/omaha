@@ -48,6 +48,49 @@ Não exigir todas as camadas para toda mudança.
 Expected values devem vir da spec, regra de negócio ou oracle independente. Não
 calcular expected usando mesma implementação testada.
 
+### Contrato operacional de ownership, preflight e cleanup
+
+Cada execução de validação mantém um ledger por run para todo recurso que cria
+ou lança: processo filho/PID, grupo/PGID, porta, log, caminho temporário e
+recurso de DB de teste. Cada entrada registra `resource_kind`, `resource_id`,
+`owner`, `owner_evidence`, `started_at`, `ended_at`, `status`,
+`classification`, `evidence` e `cleanup_result`. Owner evidence é registro
+feito pelo run atual antes do uso, com identidade e timestamp; PID, PGID, nome,
+porta, path, descendente ou DB path observado sozinho não prova ownership.
+
+Classificações permitidas: `owned-current-run`, `pre-existing`, `foreign`,
+`unknown`, `absent` e `owned-cleaned`.
+
+- `apply` registra antes do uso e limpa somente entradas
+  `owned-current-run`. Recurso já ausente/fechado/removido vira no-op
+  idempotente registrado. Handoff precisa conter ledger, evidência, resultado,
+  resíduos e decisão antes de `READY_FOR_REVIEW`.
+- `review` faz preflight antes do único `uv run task test` canônico e postflight
+  após cleanup dos lanes/processos, com recibo antes do veredicto. Estado
+  unknown, pre-existing, foreign, contraditório ou cleanup incompleto bloqueia
+  sem lançar suite (preflight) ou sem aprovar (postflight). Nenhum recurso
+  estrangeiro é reparado.
+- A suite canônica de `review` exige runner isolado: preflight só é confiável
+  sem processo, listener ou recurso temporário de teste relevante não pertencente
+  ao run atual. Não existe exceção de baseline estrangeiro nem allowlist. Ao
+  encontrar recurso relevante pre-existing, foreign, unknown ou sem ownership,
+  `review` bloqueia antes de lançar `uv run task test`, registra inventário e
+  evidência, e solicita ambiente isolado. Não adotar, matar, liberar, apagar,
+  mascarar ou allowlistar recurso estrangeiro; parada segura, não limpeza do
+  host.
+- PID-not-found, PID reuse, child desaparecido e EPIPE são corridas a registrar;
+  preservar falha original de lane/fail-fast/deadline e escalar quando receipt
+  não for confiável. Não adotar processo/porta/path por semelhança.
+
+Proibidos: broad kill, kill por nome/pattern, limpeza host-wide de porta,
+término indiscriminado de descendentes, takeover de recurso estrangeiro,
+limpeza de DB de produção ou exclusão de arquivo não registrado. Este
+protocolo não autoriza operação de processo em D05; mecânica fica em I08.
+
+Ownership não cria lane, retry, skip, máscara ou timeout novo. Permanecem
+taskipy entrypoints, seis lanes (unit, integration, audit integration, e2e,
+bdd, visual), fail-fast, cobertura, todos testes/skips e teto absoluto de 300s.
+
 ## Registro durável da change
 
 Artefatos OpenSpec são audit trail permanente. Não usar prompt de orquestrador
@@ -62,6 +105,12 @@ ou ledger temporário como fonte de implementação.
   têm ID estável, evidência, ação exigida, escopo excluído, aceite e estado.
 - Review inicial cobre toda a slice e devolve conjunto completo. Finding tardio
   exige prova de remediação causadora ou área antes `not assessable`.
+- Execution/review receipt deve conservar run id, ledger completo, owner
+  evidence, timestamps, classificações de resíduo, resultado de cleanup,
+  decisão de stop/escalation e, no review, comando canônico, lanes, cobertura,
+  skips, fail-fast, duração, teto e precondition de isolamento do runner com
+  inventário de processos/listeners/temporários relevantes. Receipt ausente ou
+  contraditório bloqueia; baseline ou allowlist de recurso estrangeiro é inválido.
 
 ## Gate de duração
 
@@ -73,6 +122,9 @@ até cleanup dos processos filhos.
 - Finalize não arquiva acima do teto.
 - Não remover testes, skips ou cobertura para caber no teto.
 - Investigar gargalo e otimizar harness, isolamento, paralelismo seguro ou setup.
+- Receipt registra preflight/postflight, estado de cleanup, resultado, duração
+  e teto; ownership não relaxa lanes, fail-fast, cobertura, testes/skips ou
+  limite, nem autoriza uma segunda suite de reparo.
 
 ## Critério de pronto
 
