@@ -208,3 +208,9 @@ T32 population/pruning policy, archive, commit, push, and roadmap.
 Late finding reason: R3 final independent gate discovered red required BDD
 lane after R2 remediation 2/2; remediation limit reached, so no automatic
 repair loop.
+
+### Owner closure — 2026-08-20
+
+Owner authorized archival closure. R3 is historical: concurrent-BDD refusal was
+not resolved in T32. Harness correction and delivery ownership transferred to
+T33; T32 makes no claim that R3 passed.

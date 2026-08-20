@@ -583,7 +583,9 @@ Notes: Usar fixtures/tmp DB e Playwright mock; registrar novo prefixo em `_INTEG
 Progress log: pending — tests/spec alignment
 
 ### T32 - Revisar política de poda seletiva sob teto de testes
-Status: `Deprecated` — 2026-08-20 (owner closed; follow-up T33)
+Status: `Archived` — 2026-08-20 (owner-authorized historical closure; superseded by T33)
+Goal: registrar política de poda seletiva e preservar R3 como histórico.
+Archive: `openspec/changes/archive/2026-08-20-t32-revisar-politica-de-poda-seletiva-sob-teto-de-testes/`
 
 ### T33 - Corrigir concorrência e ciclo de vida do harness BDD
 Status: `Archived` — 2026-08-20 (commit/push pending)
@@ -598,7 +600,7 @@ Notes: Archive/sync complete; stable specs 68/68. Commit/push blocked because `t
 
 **Archived since prior queue:** F56, F55, F54, F53, F52, T27, T28, T29, I07, D03. Não são trabalho ativo.
 
-Order note: T33 archived; commit/push pending owner decision on mixed worktree staging. T32 remains deprecated/closed. F50/F51 deprecated (absorvidos por F49).
+Order note: T33 and T32 archived; T32 R3 is historical, with harness correction transferred to T33. F50/F51 deprecated (absorvidos por F49).
 
 ## Dependencies
 
@@ -607,7 +609,7 @@ Order note: T33 archived; commit/push pending owner decision on mixed worktree s
 - F59 bloqueia F60: UI depende do endpoint/job status e da entrega do preview existente.
 - F60 e T31 dependem de F59; T31 valida integração dos contratos concluídos e pode ser preparada em paralelo após F58.
 - F60 tem gate adicional: aprovação owner de mock/protótipo/browser rendering antes de Apply; propose deve carregar gate e Apply fica bloqueado sem registro.
-- T32 deprecated/closed; policy delivery retained, but unresolved BDD harness failure is owned by T33. Future pruning remains blocked without equivalent record.
+- T32 closed/superseded by T33; concurrent-BDD refusal is historical, and harness correction transferred to T33. Future pruning remains blocked without equivalent record.
 - T33 não depende de T32; resolve somente concorrência, ciclo de vida de servidor/porta 8766 e determinismo da lane BDD antes das fatias seguintes.
 
 **Deferred/Deprecated** (owner decides):

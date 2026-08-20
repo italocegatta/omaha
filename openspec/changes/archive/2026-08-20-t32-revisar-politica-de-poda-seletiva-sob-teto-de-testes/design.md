@@ -194,3 +194,10 @@ Chromium startup/teardown contention.
 |---|---|---|---|---|---|---:|
 | `tests/test_dark_mode_tokens.py::test_class_swatches_against_bg[1]` | normal | Existing low-value Class-1 dark-mode boundary check retained; no new pruning | Class-1 dark-mode token remains contrasted against `--bg` | Remaining class-swatch cases plus CSS token audit | repository owner / 2026-08-19 / `t32.v5` | 0.847s |
 | `tests/test_dark_mode_tokens.py::test_negative_ink_on_negative_passes_aa` | normal | Existing low-value negative status contrast check retained; no new pruning | Negative status ink remains readable on negative fill | Status-ink siblings plus CSS token audit | repository owner / 2026-08-19 / `t32.v5` | 0.786s |
+
+### Owner closure — 2026-08-20
+
+Owner authorized T32 closure as historical/superseded work. R3's concurrent-BDD
+refusal remains unresolved within T32; harness correction and delivery ownership
+transferred to T33. This closure does not claim T32 delivery approval or R3
+resolution.
