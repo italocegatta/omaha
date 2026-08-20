@@ -1,9 +1,8 @@
 class_name,name,target_pct,display_order,buy_enabled,sell_enabled,currency_code
 RF Pós,RDB Pós 120% CDI 15/05/2028 Caixinha Turbo NuCel,0.000000,1,false,false,BRL
 RF Pós,Tesouro Selic 2029,0.000000,4,false,false,BRL
-RF Pós,Tesouro Selic 2031,0.000000,5,false,false,BRL
-RF Pós,AUPO11,100.000000,6,true,true,BRL
 RF Pós,RDB Pós 120% CDI 04/06/2027 Caixinha Ultravioleta,0.000000,7,false,false,BRL
+RF Pós,AUPO11,100.000000,8,true,true,BRL
 RF Dinâmica,"CDB Pós  CDI+1,3% 05/04/2027 AGIBANK",0.000000,0,false,false,BRL
 RF Dinâmica,Tesouro IPCA+ 2035,0.000000,2,false,false,BRL
 RF Dinâmica,Tesouro IPCA+ 2045,0.000000,3,false,false,BRL
