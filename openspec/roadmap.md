@@ -538,13 +538,18 @@ Archive: `openspec/changes/archive/2026-07-29-f56-remover-ativos-bloqueados-tabe
 ---
 
 ### F57 - Configurar credenciais MyProfit por perfil
+Status: `Archived` — 2026-08-20
+Goal: parametrizar credenciais MyProfit por perfil real e bloquear sincronização em Família.
+Archive: `openspec/changes/archive/2026-08-20-f57-configurar-credenciais-myprofit-por-perfil/`
+
+### F61 - Documentar ambiente local e alinhar cookie seguro
 Status: `Ready`
-Goal: parametrizar credenciais e destino MyProfit por perfil ativo, usando Italo/Ana separados e bloqueando sincronização em Família.
-Candidate OpenSpec change id: `f57-configurar-credenciais-myprofit-por-perfil`
-Spec link: `openspec/changes/f57-configurar-credenciais-myprofit-por-perfil/`
-Files to inspect: `src/omaha/config.py`, `.env.example`, `src/omaha/auth.py`, `src/omaha/models.py`, `README.md`
-Notes: Nunca expor ou logar segredos; placeholders `.env.example` separados `MYPROFIT_ITALO_*` e `MYPROFIT_ANA_*`; mapear somente perfis reais, não Família. Testes usam valores falsos e não acessam MyProfit.
-Progress log: pending — config/spec/tests
+Goal: documentar `OMAHA_ENV=development` em `.env.example`/README e fazer cookie de sessão usar `settings.OMAHA_ENV`, mantendo `task serve` coerente com `.env` e configuração de logs.
+Candidate OpenSpec change id: `f61-documentar-ambiente-local-e-alinhar-cookie-seguro`
+Spec link: `openspec/changes/f61-documentar-ambiente-local-e-alinhar-cookie-seguro/`
+Files to inspect: `.env.example`, `README.md`, `src/omaha/config.py`, `src/omaha/main.py`, `tests/test_auth.py`
+Notes: Follow-up aprovado após F57; escopo limitado a documentação/configuração carregada e comportamento de cookie. Não reabrir F57, não alterar semântica de destino MyProfit, credenciais reais, F58-F60 ou limpeza ampla de configuração.
+Progress log: pending — docs, runtime consistency, focused regression test
 
 ### F58 - Integrar automação Playwright MyProfit
 Status: `Ready`
@@ -596,15 +601,16 @@ Notes: Archive/sync complete; stable specs 68/68. Commit/push blocked because `t
 ## Recommended Execution Order
 
 **Active queue:**
- F57 → F58 → F59 → F60 → T31
+  F61 → F58 → F59 → F60 → T31
 
 **Archived since prior queue:** F56, F55, F54, F53, F52, T27, T28, T29, I07, D03. Não são trabalho ativo.
 
-Order note: T33 and T32 archived; T32 R3 is historical, with harness correction transferred to T33. F50/F51 deprecated (absorvidos por F49).
+Order note: F57 archived; F61 now unblocked. T33/T32 remain archived; F50/F51 deprecated.
 
 ## Dependencies
 
-- F57 bloqueia F58: connector só pode ler configuração validada e perfil real.
+- F57 bloqueia F61: follow-up corrige lacuna de documentação e consistência descoberta na validação de F57.
+- F61 bloqueia F58: connector deve consumir ambiente local documentado e comportamento de configuração carregada antes de iniciar automação.
 - F58 bloqueia F59: job depende do connector e de seu contrato de falhas/arquivo.
 - F59 bloqueia F60: UI depende do endpoint/job status e da entrega do preview existente.
 - F60 e T31 dependem de F59; T31 valida integração dos contratos concluídos e pode ser preparada em paralelo após F58.

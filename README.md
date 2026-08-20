@@ -26,6 +26,13 @@ cp .env.example .env
 # ADMIN_PASSWORD is the shared family password.
 # Canonical default is `distendidos` — see AGENTS.md "Family password".
 
+# MyProfit is optional and profile-specific. Replace the false placeholders
+# from `.env.example` only in ignored `.env`:
+#   MYPROFIT_ITALO_EMAIL / MYPROFIT_ITALO_PASSWORD / MYPROFIT_ITALO_DESTINATION
+#   MYPROFIT_ANA_EMAIL   / MYPROFIT_ANA_PASSWORD   / MYPROFIT_ANA_DESTINATION
+# Never print, echo, or log these values. Família is an aggregate read-only
+# profile and is rejected before MyProfit credentials or external access.
+
 # 3. Run the dev server. Bind to 0.0.0.0 — see "Network access" below.
 #    Canonical invocation:
 uv run task serve
