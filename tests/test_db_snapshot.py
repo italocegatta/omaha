@@ -35,12 +35,14 @@ Cases
 
 from __future__ import annotations
 
+import logging
 import shutil
 import sqlite3
 from pathlib import Path
 
 import pytest
 
+from omaha.main import _prune_snapshots_on_startup
 from scripts.snapshot_db import prune_snapshots, snapshot_live_db
 
 
@@ -142,6 +144,34 @@ def test_prune_snapshots_ignores_non_matching_files(tmp_path: Path) -> None:
 def test_prune_snapshots_no_op_when_dest_dir_missing(tmp_path: Path) -> None:
     """A missing ``dest_dir`` is a no-op (the first destructive op creates it)."""
     assert prune_snapshots(tmp_path / "never-created", retention=50) == 0
+
+
+def test_startup_prune_logs_deleted_count(monkeypatch, caplog) -> None:
+    """Positive startup pruning logs count and destination without ImportError."""
+    monkeypatch.setattr("scripts.snapshot_db.prune_snapshots", lambda *args, **kwargs: 1)
+    caplog.set_level(logging.INFO, logger="omaha.main")
+
+    _prune_snapshots_on_startup()
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert any(
+        "snapshot prune: deleted 1 old snapshot(s) from data/snapshots" in message
+        for message in messages
+    )
+
+
+def test_startup_prune_does_not_log_when_nothing_deleted(monkeypatch, caplog) -> None:
+    """Zero startup pruning remains quiet and does not look up a logger."""
+    monkeypatch.setattr("scripts.snapshot_db.prune_snapshots", lambda *args, **kwargs: 0)
+    monkeypatch.setattr(
+        "omaha.logging_config.get_logger",
+        lambda name: (_ for _ in ()).throw(AssertionError("logger lookup")),
+    )
+    caplog.set_level(logging.INFO, logger="omaha.main")
+
+    _prune_snapshots_on_startup()
+
+    assert not any("snapshot prune:" in record.getMessage() for record in caplog.records)
 
 
 def test_roundtrip_snapshot_then_restore(tmp_path: Path) -> None:

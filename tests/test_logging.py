@@ -22,7 +22,7 @@ import logging
 
 import pytest
 
-from omaha.logging_config import JsonFormatter, configure_logging
+from omaha.logging_config import JsonFormatter, configure_logging, get_logger
 
 pytestmark = pytest.mark.unit
 
@@ -38,6 +38,29 @@ _THIS_MODULE = "test_logging"
 # emit. New keys can be added — the contract is on the union, not
 # the strict set — but the test fails fast on accidental drops.
 _EXPECTED_KEYS = {"ts", "level", "logger", "msg", "module", "line", "exc_info"}
+
+
+def test_get_logger_returns_named_standard_logger() -> None:
+    """The compatibility factory returns the named standard logger."""
+    logger = get_logger("omaha.test.factory")
+
+    assert logger is logging.getLogger("omaha.test.factory")
+    assert logger.name == "omaha.test.factory"
+
+
+def test_get_logger_preserves_standard_logger_identity() -> None:
+    """Repeated lookup does not configure or replace the standard logger."""
+    name = "omaha.test.factory.identity"
+    logger = logging.getLogger(name)
+    handlers = tuple(logger.handlers)
+    level = logger.level
+    propagate = logger.propagate
+
+    assert get_logger(name) is logger
+    assert get_logger(name) is logger
+    assert tuple(logger.handlers) == handlers
+    assert logger.level == level
+    assert logger.propagate == propagate
 
 
 def test_json_formatter_emits_seven_documented_keys() -> None:

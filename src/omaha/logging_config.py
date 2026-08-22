@@ -120,4 +120,9 @@ def configure_logging(level: str, fmt: str) -> None:
     logging.config.dictConfig(config)
 
 
-__all__ = ["JsonFormatter", "configure_logging"]
+def get_logger(name: str) -> logging.Logger:
+    """Return the standard-library logger identified by ``name``."""
+    return logging.getLogger(name)
+
+
+__all__ = ["JsonFormatter", "configure_logging", "get_logger"]

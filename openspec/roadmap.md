@@ -574,13 +574,9 @@ Archive: `openspec/changes/archive/2026-08-22-f60-adicionar-acao-atualizar-posic
 Notes: Archive/spec sync complete; formatter recovery is F60-only and lint/diff green; commit/push retry pending.
 
 ### R42 - Restaurar contrato get_logger
-Status: `Applied` — 2026-08-22
-Goal: restaurar compatibilidade de `omaha.logging_config.get_logger` exigida por `src/omaha/main.py:107`, permitindo startup normal e retomada da validação browser de F60.
-Candidate OpenSpec change id: `r42-restaurar-contrato-get-logger`
-Spec link: `openspec/changes/r42-restaurar-contrato-get-logger/`
-Files to inspect: `src/omaha/logging_config.py`, `src/omaha/main.py`, `tests/test_logging.py`, `tests/test_db_snapshot.py`
-Notes: manutenção mínima e cirúrgica: recuperar contrato compatível de `get_logger` e adicionar somente evidência focada de logging/startup/prune necessária para impedir regressão. Alterar `main.py` apenas se indispensável ao contrato. Excluir F60 UI, comportamento F59/job, connector/MyProfit, refatoração ampla de logging, harness/test runner e qualquer mudança de trabalho atual não relacionada. Após `Applied`, F60 continua bloqueada até owner autorizar parada exata do PID 115075, executar refresh autorizado e confirmar startup/browser retry; não parar processo nem refresh nesta fatia.
-Progress log: proposal/design/tasks + delta spec created; strict change validation 1/1 and stable specs 71/71 passed. Apply complete: thin compatibility export + focused regression tests; 15 focused tests, lint/change 1/1/stable specs 71/71/diff-check green. Review R1 approved with no findings; canonical suite NOT RUN under maintenance-suspended. Owner validation/archive authorization pending.
+Status: `Archived` — 2026-08-22
+Goal: restaurar compatibilidade de `get_logger` para permitir startup normal.
+Archive: `openspec/changes/archive/2026-08-22-r42-restaurar-contrato-get-logger/`
 
 ### T31 - Validar sincronização MyProfit ponta a ponta
 Status: `Ready`
@@ -676,7 +672,7 @@ Progress log: owner confirmed 2026-08-22 — classify both position values and a
 ## Recommended Execution Order
 
 **Active queue:**
-  T34 (owner validation/archive) ∥ F59 ∥ R42 → F60 → F65 → F63 → F64 → T31; D05 → I08 remains separate existing runner-hygiene track
+  T34 (owner validation/archive) ∥ F59 → F60 → F65 → F63 → F64 → T31; D05 → I08 remains separate existing runner-hygiene track
 
 **Archived since prior queue:** F56, F55, F54, F53, F52, T27, T28, T29, I07, D03. Não são trabalho ativo.
 
@@ -689,7 +685,6 @@ Order note: F57/F61 archived; F62 deprecated because owner folded small destinat
 - F61 bloqueava F58 e está archived; F58 inicia removendo configuration `destination` sem modulador antes da automação.
 - F58 bloqueia F59: job depende do connector e de seu contrato de falhas/arquivo.
 - F59 bloqueia F60: UI depende do endpoint/job status e da entrega do preview existente.
-- R42 é manutenção independente, mas bloqueia retomada de F60: startup exige contrato `get_logger`; após R42 `Applied`, owner deve autorizar parada exata de PID 115075 e novo refresh antes da validação browser.
 - F60 e T31 dependem de F59; T31 valida integração dos contratos concluídos e pode ser preparada em paralelo após F58.
 - F60 tem gate adicional: aprovação owner de mock/protótipo/browser rendering antes de Apply; propose deve carregar gate e Apply fica bloqueado sem registro.
 - T32 closed/superseded by T33; concurrent-BDD refusal is historical, and harness correction transferred to T33. Future pruning remains blocked without equivalent record.
