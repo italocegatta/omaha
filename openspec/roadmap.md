@@ -565,13 +565,13 @@ Archive: `openspec/changes/archive/2026-08-22-f58-integrar-automacao-playwright-
 Status: `Archived` — 2026-08-22
 Goal: executar sincronização MyProfit em background e entregar preview seguro para revisão.
 Archive: `openspec/changes/archive/2026-08-22-f59-executar-sincronizacao-background-e-entregar-preview/`
-Notes: Archive/spec sync and local commit `67b0518` complete; pre-push fixture drift fixed (`F59UNMATCHED`), 19 job + 24 import focused tests/lint/diff green. Stable `myprofit-sync-job` Requirement 0 scenario structure repaired without behavior change; specs 74/74 green. Supplemental review/commit/push pending.
+Notes: Archive/spec sync and supplemental fixture/spec repair complete; commits `67b0518` + `8a84680` pushed.
 
 ### F60 - Adicionar ação Atualizar posição no patrimônio
 Status: `Archived` — 2026-08-22
 Goal: exibir `Atualizar posição` ao lado de `Importar CSV`, iniciar job para perfil real e preservar revisão manual seguida do clique existente em `Importar`.
 Archive: `openspec/changes/archive/2026-08-22-f60-adicionar-acao-atualizar-posicao-no-patrimonio/`
-Notes: Archive/spec sync complete; formatter recovery is F60-only and lint/diff green; commit/push retry pending.
+Notes: Archive/spec sync and local commit `24c32cb2` pushed with F59 supplemental delivery.
 
 ### R42 - Restaurar contrato get_logger
 Status: `Archived` — 2026-08-22
@@ -608,17 +608,16 @@ Notes: Track A, protocol/docs only; no runner, taskipy, test, or application edi
 Progress log: review R2 blocked 2026-08-20 — bootstrap suite red with unknown PID/visual baseline failures; D05 documentation audit passed but cannot become Applied with red suite
 
 ### I08 - Corrigir runner taskipy para cleanup e telemetria por lane
-Status: `Blocked` — 2026-08-20
+Status: `Archived` — 2026-08-22
 Goal: endurecer runner taskipy com cleanup ownership e telemetria completa por lane.
-Archive prepared: `openspec/changes/archive/2026-08-20-i08-corrigir-runner-taskipy-cleanup-e-telemetria-por-lane/`
-Progress log: archive/sync prepared and specs 70/70 green; commit/push blocked by 6 unrelated F58 MyProfit test failures in pre-commit suite; staged I08 files isolated
+Archive: `openspec/changes/archive/2026-08-20-i08-corrigir-runner-taskipy-cleanup-e-telemetria-por-lane/`
+Notes: Review R5 APPROVED; canonical suite 240.60s green; stable specs 70/70; commit `3b1bce5` on `origin/main`.
 
 ### T34 - Diagnosticar e corrigir bloqueadores do runner/harness para F58
-Status: `Applied` — 2026-08-22
-Goal: obter uma única execução canônica confiável e verde de `uv run task test`, diagnosticando com evidência limitada e corrigindo somente boundaries confirmadas nos três sintomas F58 R6: lineage PID da integration, ciclo de vida/readiness visual em `127.0.0.1:8768` e receipt de ownership dos temporários pytest da execução atual.
-Candidate OpenSpec change id: `t34-diagnosticar-e-corrigir-bloqueadores-do-runner-harness-para-f58`
-Spec link: `openspec/changes/t34-diagnosticar-e-corrigir-bloqueadores-do-runner-harness-para-f58/`
-Files to inspect: `scripts/run_full_suite.py`, `tests/support/server.py`, `tests/support/browser.py`, `tests/conftest.py`, `tests/scripts/test_t29_harness.py`
+Status: `Archived` — 2026-08-22
+Goal: corrigir boundaries confirmadas do runner/harness para F58.
+Archive: `openspec/changes/archive/2026-08-22-t34-diagnosticar-e-corrigir-bloqueadores-do-runner-harness-para-f58/`
+Archive: `openspec/changes/archive/2026-08-22-t34-diagnosticar-e-corrigir-bloqueadores-do-runner-harness-para-f58/`
 Notes: Escopo único absorve T35 e I09; nenhuma alteração em F58, produto, DB, seed, host ou `/tmp` amplo. Plano faseado: (1) capturar evidência bounded de owner/run, PID/PGID/parent-child/exit/wait, readiness/port/log e temporários current-run; (2) reparar somente fault confirmado, usando `tests/support/server.py`/`tests/support/browser.py` para visual ou boundary equivalente do runner, sem reabrir T33; (3) adicionar/ajustar testes focados em `tests/scripts/test_t29_harness.py`; (4) executar uma única suíte canônica autorizada. Instrumentação não é deliverable separado: existe apenas para diagnosis/correction dentro desta fatia. Preservar seis lanes, ordem e entrypoints taskipy, fail-fast, coverage, todos testes/skips, isolamento DB, receipt/reconciliation e teto de 300s. Proibir retry, skip/xfail, remoção/serialização de lane, broad process discovery/kill, cleanup host-wide ou limpeza ampla de `/tmp`; correções fora de boundary runner/harness viram decisão de escopo, não nova fatia. T33 archived e I08 archived/preparado permanecem somente referências/constraints; não reabrir nem alterar. Owner deve confirmar este escopo antes de `propose`.
 Notes: Escopo único absorve T35 e I09; nenhuma alteração em F58, produto, DB, seed, host ou `/tmp` amplo. Plano faseado: (1) capturar evidência bounded de owner/run, PID/PGID/parent-child/exit/wait, readiness/port/log e temporários current-run; (2) reparar somente fault confirmado, usando `tests/support/server.py`/`tests/support/browser.py` para visual ou boundary equivalente do runner, sem reabrir T33; (3) adicionar/ajustar testes focados em `tests/scripts/test_t29_harness.py`; (4) executar uma única suíte canônica autorizada. Instrumentação não é deliverable separado: existe apenas para diagnosis/correction dentro desta fatia. Preservar seis lanes, ordem e entrypoints taskipy, fail-fast, coverage, todos testes/skips, isolamento DB, receipt/reconciliation e teto de 300s. Proibir retry, skip/xfail, remoção/serialização de lane, broad process discovery/kill, cleanup host-wide ou limpeza ampla de `/tmp`; correções fora de boundary runner/harness viram decisão de escopo, não nova fatia. Acceptance: cada sintoma tem timeline/owner evidence; focused runner tests pass; uma única execução posterior de `uv run task test` sai 0 com seis lanes verdes, fail-fast preservado, coverage/skips/reconciliation e cleanup trusted, sem resíduo current-run, em <=300s. F58 só deixa `Blocked` após esse receipt. T33 archived e I08 archived/preparado permanecem somente referências/constraints; não reabrir nem alterar. Owner deve confirmar este escopo antes de `propose`.
 Progress log: review R5 approved 2026-08-22 — exact temp ownership policy verified; 71 harness, 70 final focused, and 8 receipt tests green; lint/spec/diff checks pass. Canonical suite `NOT RUN — maintenance-suspended`; no open findings. Awaiting owner validation before archive/commit.

@@ -140,8 +140,11 @@ The function SHALL return a dict containing:
 ### Requirement: Shared test-server lifecycle preserves lane ownership
 
 The shared test-server lifecycle helper SHALL provide deterministic startup and
-teardown for BDD/e2e/visual callers, detect child startup failure rather than an
-unrelated listener, expose abnormal lifecycle evidence, and reap the spawned child.
+teardown for BDD/e2e/visual callers: it SHALL compose requested lane DB
+environment, record run/lane-linked parent PID, child PID, actual PGID, launch,
+readiness, port, log, exit, and teardown evidence, detect child startup failure
+rather than an unrelated listener, expose abnormal lifecycle evidence, and reap
+the spawned child.
 Existing hosts, ports, browser selection, and caller DB paths remain unchanged.
 
 #### Scenario: Lifecycle helper fails on dead child
@@ -158,3 +161,26 @@ Existing hosts, ports, browser selection, and caller DB paths remain unchanged.
 - **WHEN** BDD, e2e, or visual callers use shared helper
 - **THEN** each caller keeps current host, assigned port, DB path, test env, and browser scope
 - **AND** no caller gains undocumented retry, skip, xfail, or coverage change
+
+### Requirement: Current-run pytest temporary ownership is receipt-bound
+
+Shared DB/conftest support SHALL publish the exact pytest base temporary path
+for each canonical run/lane using runner identity, preserving safe dynamic DB
+bootstrap, marker allow-lists, and production-DB refusal. Reconciliation SHALL
+inspect only declared exact paths. Exact owned current-run paths may receive
+bounded cleanup and become `owned-cleaned`; exact absent paths are `absent`.
+Missing, mismatched, pre-existing, foreign, contradictory, or incomplete
+evidence inside declared boundaries remains untouched and untrusted/non-zero;
+out-of-bound paths are preserved/non-target. Helpers SHALL NOT discover
+`pytest-of-*`, traverse/delete broad `/tmp`, or infer parent cleanup.
+
+#### Scenario: Lane publishes exact temp ownership
+
+- **WHEN** canonical lane session starts with run/lane identity
+- **THEN** support emits one exact pytest temp-root receipt tied to run and lane
+- **AND** existing DB receipt and safe DB binding remain unchanged
+
+#### Scenario: Out-of-bound pytest path is preserved and non-target
+
+- **WHEN** observed pytest path is outside every declared boundary
+- **THEN** support records preserved/non-target without cleanup or adoption

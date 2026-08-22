@@ -159,6 +159,16 @@ and exact owner-authorized desktop removal documented in
 - **AND** reaps launched child and records survivor/escalation evidence
 - **AND** no process outside owned group is signaled
 
+Each lane SHALL receive the run/lane identity and an exact pytest temporary-root
+boundary and publish that path in a lane-scoped receipt. Runner SHALL reconcile
+only canonical runner-declared exact paths: an exact current-run receipt match
+with proven ownership and bounded cleanup is `owned-cleaned`; an exact absent
+path is `absent`. Missing, mismatched, pre-existing, foreign, contradictory, or
+incomplete evidence inside the declared boundary SHALL remain untouched and be
+untrusted/non-zero. Paths outside declared boundaries SHALL be preserved as
+non-target and SHALL NOT block alone. Runner SHALL NOT discover `pytest-of-*`,
+scan/delete broad `/tmp`, or infer parent cleanup targets.
+
 #### Scenario: Foreign process or port is preserved
 - **WHEN** cleanup or reconciliation observes a process, port, path, or DB resource without current-run ownership evidence
 - **THEN** runner classifies it foreign, pre-existing, or unknown
@@ -217,6 +227,18 @@ and exact owner-authorized desktop removal documented in
 - **AND** suspension makes only parallel canonical full-suite result non-blocking for apply, review, and pre-push enforcement
 - **AND** no test, lane, marker, skip, xfail, retry, coverage, or command is deleted, disabled, weakened, or reclassified
 - **AND** reactivation requires resolution of concurrent dynamic SQLite readonly-DB and BDD browser-timeout diagnosis followed by one isolated green six-lane run through cleanup in `<=300s`
+
+#### Scenario: Current-run pytest temp root reconciles exactly
+
+- **WHEN** lane publishes an exact pytest temp root under its run/lane boundary
+- **THEN** runner records ownership and post-exit state as `absent` or `owned-cleaned`
+- **AND** mismatched, pre-existing, foreign, or contradictory roots remain untouched
+
+#### Scenario: Out-of-bound temporary observation is non-target
+
+- **WHEN** preflight observes a temporary path outside every declared boundary
+- **THEN** runner records it as preserved/non-target without cleanup
+- **AND** runner does not adopt, delete, allowlist, or infer broad cleanup
 
 ### Requirement: Lockfile update
 The system SHALL provide a taskipy shortcut for upgrading all dependencies within existing version constraints.
