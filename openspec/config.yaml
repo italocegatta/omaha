@@ -75,8 +75,26 @@ openspec_roadmap:
     compact_history_after_archived_slices: 8
   quality_gate:
     applied_requires:
+      # Under maintenance-suspended, tests_pass means applicable focused
+      # product tests; canonical duration applies only after reactivation.
       - tests_pass
-      - duration_within_ceiling
+      - duration_within_ceiling_when_canonical_gate_active
       - affected_specs_updated
       - no_unrelated_files_changed
       - acceptance_verified
+  # Owner-authorized I10 maintenance state. This changes enforcement timing,
+  # never test population or task availability.
+  canonical_full_suite_gate:
+    status: maintenance-suspended
+    command: "uv run task test"
+    individual_commands:
+      - "uv run task test-unit"
+      - "uv run task test-integration"
+      - "uv run task test-audit-integration"
+      - "uv run task test-e2e"
+      - "uv run task test-bdd"
+      - "uv run task test-visual"
+    affected_boundary: "parallel canonical full-suite apply/review/pre-push gate only"
+    focused_policy: "applicable focused commands and product behavior tests remain mandatory"
+    reactivation_trigger: "resolve concurrent dynamic SQLite readonly-DB and BDD browser-timeout diagnosis, then one isolated green six-lane run through cleanup <=300s"
+    prohibited: "delete/disable tests or commands; add skip/xfail/retry; remove lanes or coverage; alter product/DB/process state"

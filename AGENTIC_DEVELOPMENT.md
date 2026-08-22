@@ -5,7 +5,7 @@
 Construir cada mudança como:
 
 ```text
-spec -> dossiê técnico -> apply/teste focado -> review integral/suite única -> validação owner -> finalize
+spec -> dossiê técnico -> apply/teste focado -> review integral/suite única quando gate ativo -> validação owner -> finalize
 ```
 
 Não exigir TDD mecânico para toda alteração. Usar TDD `RED -> GREEN -> REFACTOR`
@@ -35,9 +35,13 @@ Não exigir todas as camadas para toda mudança.
 5. `apply` registra em `design.md` decisões técnicas descobertas e em
    `tasks.md` execução, evidência e validação focada.
 6. `review` audita escopo inteiro, registra em lote findings duráveis em
-   `tasks.md` e roda exatamente uma vez `uv run task test`.
-7. `review` aprova apenas suite verde em <=300s, critérios atendidos e nenhum
-   finding bloqueante aberto. Só então slice vira `Applied`.
+   `tasks.md` e roda exatamente uma vez `uv run task test` somente quando gate
+   canônico está ativo; em `maintenance-suspended`, registra `NOT RUN` e audita
+   evidência focada.
+7. `review` aprova apenas testes de comportamento aplicáveis verdes, critérios
+   atendidos e nenhum finding bloqueante aberto. Com gate canônico ativo, exige
+   suite verde em <=300s; suspenso, ausência de suite é não-bloqueante.
+   Só então slice vira `Applied`.
 8. Apply resolve todos findings abertos da rodada juntos. Máximo duas
    remediações; falha desconhecida, decisão de escopo ou terceira rodada vira
    `Blocked` para owner.
@@ -65,19 +69,26 @@ Classificações permitidas: `owned-current-run`, `pre-existing`, `foreign`,
   `owned-current-run`. Recurso já ausente/fechado/removido vira no-op
   idempotente registrado. Handoff precisa conter ledger, evidência, resultado,
   resíduos e decisão antes de `READY_FOR_REVIEW`.
-- `review` faz preflight antes do único `uv run task test` canônico e postflight
-  após cleanup dos lanes/processos, com recibo antes do veredicto. Estado
-  unknown, pre-existing, foreign, contraditório ou cleanup incompleto bloqueia
-  sem lançar suite (preflight) ou sem aprovar (postflight). Nenhum recurso
-  estrangeiro é reparado.
+- `review` faz preflight antes do único `uv run task test` canônico somente
+  quando gate está ativo e postflight após cleanup dos lanes/processos, com
+  recibo antes do veredicto. Durante suspensão, registra gate não executado e
+  audita focused evidence. Para paths
+  temporários, só paths exatos de run/lane declarados pelo runner são
+  relevantes: match exato de receipt/ownership do run atual pode ser limpo em
+  limite e vira `owned-cleaned`; path declarado exatamente ausente vira
+  `absent`. Mismatch, unknown, foreign, contraditório ou incompleto dentro da
+  boundary declarada fica intocado e bloqueia a operação afetada. Observação
+  temporária fora de toda boundary declarada vira `preserved/non-target` e não
+  bloqueia sozinha. Não inferir relevância por nome/parent, descobrir
+  `pytest-of-*`, nem usar allowlist literal.
 - A suite canônica de `review` exige runner isolado: preflight só é confiável
-  sem processo, listener ou recurso temporário de teste relevante não pertencente
-  ao run atual. Não existe exceção de baseline estrangeiro nem allowlist. Ao
-  encontrar recurso relevante pre-existing, foreign, unknown ou sem ownership,
-  `review` bloqueia antes de lançar `uv run task test`, registra inventário e
-  evidência, e solicita ambiente isolado. Não adotar, matar, liberar, apagar,
-  mascarar ou allowlistar recurso estrangeiro; parada segura, não limpeza do
-  host.
+  sem processo, listener, DB de teste ou recurso temporário dentro de boundary
+  declarada com estado unowned. Não existe exceção de baseline estrangeiro nem
+  allowlist para recursos declarados. Ao encontrar estado relevante
+  pre-existing, foreign, unknown, contraditório ou incompleto, `review`
+  bloqueia antes de lançar `uv run task test`, registra inventário e evidência,
+  e solicita ambiente isolado. Não adotar, matar, liberar, apagar, mascarar ou
+  allowlistar recurso estrangeiro; parada segura, não limpeza do host.
 - PID-not-found, PID reuse, child desaparecido e EPIPE são corridas a registrar;
   preservar falha original de lane/fail-fast/deadline e escalar quando receipt
   não for confiável. Não adotar processo/porta/path por semelhança.
@@ -90,6 +101,15 @@ protocolo não autoriza operação de processo em D05; mecânica fica em I08.
 Ownership não cria lane, retry, skip, máscara ou timeout novo. Permanecem
 taskipy entrypoints, seis lanes (unit, integration, audit integration, e2e,
 bdd, visual), fail-fast, cobertura, todos testes/skips e teto absoluto de 300s.
+
+### Suspensão temporária I10
+
+`maintenance-suspended` afeta somente resultado da suíte canônica paralela como
+gate obrigatório apply/review/pre-push. Cada change ainda roda comandos focados
+aplicáveis; testes de comportamento de produto continuam obrigatórios. `task
+test` e comandos individuais permanecem disponíveis. Reativação exige resolver
+diagnóstico concorrente de SQLite dinâmico readonly e timeout BDD browser, então
+obter uma suíte canônica isolada verde em seis lanes e `<=300s` através cleanup.
 
 ## Registro durável da change
 
@@ -114,11 +134,13 @@ ou ledger temporário como fonte de implementação.
 
 ## Gate de duração
 
-`uv run task test` deve terminar em **até 300 segundos**, medidos desde início
-até cleanup dos processos filhos.
+Quando gate canônico está ativo, `uv run task test` deve terminar em **até 300
+segundos**, medidos desde início até cleanup dos processos filhos. Suspensão
+não relaxa esse teto; apenas torna resultado ausente não-bloqueante até
+reativação.
 
-- Suite verde acima de 300 segundos = falha de delivery.
-- Review não aprova acima do teto.
+- Suite verde acima de 300 segundos = falha de delivery quando gate ativo.
+- Review não aprova acima do teto quando gate ativo.
 - Finalize não arquiva acima do teto.
 - Não remover testes, skips ou cobertura para caber no teto.
 - Investigar gargalo e otimizar harness, isolamento, paralelismo seguro ou setup.
@@ -130,9 +152,9 @@ até cleanup dos processos filhos.
 
 ```text
 Spec atendida.
-Teste adequado passou.
-Suite completa passou.
-Duração <= 300s.
+Testes de comportamento aplicáveis passaram.
+Suíte completa passou e duração <= 300s quando gate canônico ativo; ou receipt
+`NOT RUN — maintenance-suspended` durante suspensão owner-authorized.
 Nenhum teste foi enfraquecido.
 Review independente aprovou.
 Owner validou antes de archive/commit.

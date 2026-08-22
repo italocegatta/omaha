@@ -60,8 +60,9 @@ _KNOWN_AVG_LABELS = (
     "preco de aquisicao",
     "avg price",
     "avg cost",
+    "avg_price",
 )
-_KNOWN_CUR_LABELS = ("preco atual", "preco de mercado", "current price", "preco")
+_KNOWN_CUR_LABELS = ("preco atual", "preco de mercado", "current price", "preco", "current_price")
 
 # broker-csv-import-totals: the broker also publishes per-row totals
 # (``Total investido`` / ``Total atual``). Match the same substring

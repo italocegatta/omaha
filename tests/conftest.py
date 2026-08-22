@@ -49,11 +49,12 @@ from __future__ import annotations
 # CRITICAL ORDERING: env setup + omaha.db import must happen BEFORE any
 # `import pytest` and BEFORE pytest discovers test modules. Keep this
 # block at the very top of the file.
+import json
 import os
 from pathlib import Path
 
 from tests.support.db import (
-    emit_db_receipt,
+    emit_temp_root_receipt,
     prepare_safe_test_database,
     prepare_worker_database,
     run_alembic_upgrade,
@@ -71,7 +72,9 @@ else:
     _SAFE_DATABASE = prepare_safe_test_database(_REPO_ROOT_FOR_ALEMBIC)
 _SAFE_DB_FILE = _SAFE_DATABASE.path
 _SAFE_SNAPSHOT_DIR = _SAFE_DATABASE.snapshot_dir
-emit_db_receipt(("unit", "integration", "audit"), _SAFE_DB_FILE)
+_TEMP_ROOT_BOUNDARY = os.environ.get("T29_TEMP_ROOT_BOUNDARY")
+if _TEMP_ROOT_BOUNDARY:
+    emit_temp_root_receipt(Path(_TEMP_ROOT_BOUNDARY))
 
 # NOW we can import pytest + fastapi. Anything below this line runs
 # AFTER SessionLocal is bound to the safe DB.
@@ -79,6 +82,31 @@ import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def pytest_runtest_logreport(report: pytest.TestReport) -> None:
+    """Keep per-test failure tracebacks in canonical lane output."""
+    if not report.failed:
+        return
+    try:
+        process_pgid = os.getpgid(os.getpid())
+    except OSError:
+        process_pgid = None
+    print(
+        "\nT29_TEST_FAILURE "
+        + json.dumps(
+            {
+                "run_id": os.environ.get("T29_RUN_ID", "unscoped"),
+                "lane": os.environ.get("T29_DB_RECEIPT_LANE", "unscoped"),
+                "nodeid": report.nodeid,
+                "phase": report.when,
+                "pid": os.getpid(),
+                "pgid": process_pgid,
+                "traceback": getattr(report, "longreprtext", str(report.longrepr)),
+            }
+        ),
+        flush=True,
+    )
 
 
 def _verify_session_local_is_safe() -> None:
@@ -118,6 +146,11 @@ def _omaha_test_env(tmp_path_factory: pytest.TempPathFactory) -> dict[str, str]:
     **autouse=True:** guarantees ``_omaha_test_env`` runs at
     session start so the seed runs even if no test requests it.
     """
+    actual_temp_root = tmp_path_factory.getbasetemp()
+    if _TEMP_ROOT_BOUNDARY is None or (
+        actual_temp_root.resolve() != Path(_TEMP_ROOT_BOUNDARY).resolve()
+    ):
+        emit_temp_root_receipt(actual_temp_root)
     db_file = Path(os.environ["DATABASE_URL"].replace("sqlite:///", ""))
     return {"db_path": str(db_file), "db_url": os.environ["DATABASE_URL"]}
 
@@ -250,6 +283,7 @@ _UNIT_FILES = frozenset(
         "tests/test_seed_from_csv_validation.py",
         "tests/test_iconography_tokens.py",
         "tests/test_policy_mutations.py",
+        "tests/test_myprofit_connector.py",
     }
 )
 

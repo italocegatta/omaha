@@ -270,7 +270,6 @@ def add_one_asset(
     with page.expect_response(re.compile(r".*/api/assets$"), timeout=30000) as resp_info:
         modal.locator('[data-testid="dashboard-add-asset-submit"]').click()
     assert resp_info.value.status == 201
-    page.goto(f"{live_url}/", wait_until="commit", timeout=60000)
     page.wait_for_selector(
         f'[data-testid="dashboard-asset-row"]:has([data-testid="asset-row-name-text"]:text-is("{ticker}"))',
         state="visible",

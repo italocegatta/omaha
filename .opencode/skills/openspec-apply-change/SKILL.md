@@ -93,13 +93,23 @@ Implement tasks from an OpenSpec change.
    or incomplete. Preserve known lane/fail-fast/deadline evidence for
    PID-not-found, PID reuse, vanished-child, or EPIPE races and escalate.
 
-   The later canonical review suite requires an isolated runner: review
-   preflight must find no unowned relevant process, listener, or test-temporary
-   resource. No foreign-resource baseline or allowlist exception exists. If
-   preflight finds one, review must block before `uv run task test`, request an
-   isolated environment, and record evidence. Neither apply nor review may
-   adopt, kill, free, delete, mask, or allowlist foreign residue; this is safe
-   escalation, not permission for host cleanup.
+   The later canonical review suite requires an isolated runner. For temporary
+   paths, only canonical runner-declared exact run/lane paths are relevant. An
+   exact current-run receipt/ownership match may be bounded-cleaned and recorded
+   `owned-cleaned`; an exact absent declared path is `absent`. Mismatch,
+   unknown, foreign, contradictory, or incomplete state inside a declared
+   boundary stays untouched and blocks the affected handoff/review. Out-of-bound
+   temporary observations are recorded `preserved/non-target` and cannot block
+   alone. Relevance is never inferred from pathname or parent; do not discover
+   `pytest-of-*` or allowlist literal paths.
+
+   Review preflight must find no unowned relevant process, listener, test DB, or
+   declared-boundary temporary resource. No foreign-resource baseline or
+   allowlist exception exists for declared resources. If preflight finds one,
+   review must block before `uv run task test`, request an isolated environment,
+   and record evidence. Neither apply nor review may adopt, kill, free, delete,
+   mask, or allowlist foreign residue; this is safe escalation, not permission
+   for host cleanup.
 
    **Pause if:**
    - Task is unclear → ask for clarification

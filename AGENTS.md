@@ -94,7 +94,7 @@ live under `.opencode/skills/`.
 | **explore** | `.opencode/agents/explore.md` | subagent | Clarifies ambiguous scope before proposal. Reads codebase, investigates, hands off focused context to propose. |
 | **propose** | `.opencode/agents/propose.md` | subagent | Creates proposal.md, design.md, tasks.md, and delta specs for one slice. |
 | **apply** | `.opencode/agents/apply.md` | subagent | Implements from durable change dossier, runs focused tests, returns `READY_FOR_REVIEW`. |
-| **review** | `.opencode/agents/review.md` | subagent | Audits whole change, records durable findings, runs one full suite, returns APPROVED/CHANGES_REQUESTED/BLOCKED. |
+| **review** | `.opencode/agents/review.md` | subagent | Audits whole change, records durable findings, runs one full suite only when canonical gate active, returns APPROVED/CHANGES_REQUESTED/BLOCKED. |
 | **finalize** | `.opencode/agents/finalize.md` | subagent | Archives change, syncs specs, commits, pushes. |
 
 | Skill | Path | Powers |
@@ -198,8 +198,10 @@ worktrees.
    dossier, records execution evidence, runs focused tests, and returns
    `READY_FOR_REVIEW` while slice remains `Applying`.
 6. **Review.** Delegate to `review`. It verifies exact change, audits complete
-   scope, records findings, and runs one full suite. Only `APPROVED` moves
-   slice to `Applied`; `BLOCKED` stops for owner decision.
+    scope, records findings, and runs one full suite only when canonical gate is
+    active. During I10 `maintenance-suspended`, it audits focused evidence and
+    records canonical suite `NOT RUN`. Only `APPROVED` moves slice to `Applied`;
+    `BLOCKED` stops for owner decision.
 7. **Owner validate.** Present `Applied` delivery before archive or commit.
 8. **Archive.** After owner authorization, delegate to
    `openspec-archive-change`, update roadmap to `Archived`, verify spec health,
@@ -223,7 +225,7 @@ useful as a quick pointer. **Edit them only in the PRD.**
 5. **Import preview response ↔ Alpine template sync** — PRD §4.5
 6. **Test marker — explicit allow-list** — PRD §4.6
 7. **BDD workflows — extraction by growth trend** — PRD §4.7
-8. **Taskipy — `task <name>` not raw commands** — PRD §4.8
+8. **Taskipy default — `task <name>`; canonical supervisor exception** — PRD §4.8
 9. **Delivery finalization — `refresh-for-test` skill** — PRD §4.9
 10. **Brand register — domestic, no ornament** — PRD §4.10
 11. **DB mutation contract — destructive routes formalized** (R06 platform safety) — PRD §4.11
@@ -265,8 +267,10 @@ decomposed first via this layer.
 - Keep technical discoveries, task evidence, and review rounds in active change
   `design.md` / `tasks.md`, never roadmap or prompt history.
 - `proposal.md` and delta specs change only after owner-approved scope change.
-- `apply` runs focused tests; `review` owns one full suite and may request at
-  most two remediation passes before work becomes `Blocked`.
+- `apply` runs applicable focused tests; `review` owns one full suite only
+  when canonical gate active. During I10 `maintenance-suspended`, review audits
+  focused evidence and records canonical suite `NOT RUN`; at most two
+  remediation passes before work becomes `Blocked`.
 - Owner validates an approved change before archive and commit.
 - **After every `apply` that touches runtime code (routes, templates,
   models, seed, migrations, static assets), the agent MUST invoke the

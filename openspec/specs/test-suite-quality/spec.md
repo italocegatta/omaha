@@ -3,6 +3,18 @@
 ## Purpose
 TBD - created by archiving change test-architecture-marker-and-dedup. Update Purpose after archive.
 ## Requirements
+### Requirement: Delivery gate preserves focused protection during maintenance suspension
+Runtime changes SHALL retain applicable product behavior tests and focused regression evidence. Owner-authorized I10 `maintenance-suspended` MAY suspend only parallel canonical `uv run task test` as mandatory apply/review/pre-push gate; it SHALL NOT delete, disable, skip, xfail, retry, mask, serialize, remove, or weaken tests, lanes, markers, coverage, commands, DB safety, receipts, cleanup, or fail-fast rules.
+
+#### Scenario: Product change proceeds on focused evidence
+- **WHEN** applicable focused product behavior tests pass while canonical gate is `maintenance-suspended`
+- **THEN** review audits scope, coverage, command/result evidence, and suspension visibility
+- **AND** canonical suite is recorded `NOT RUN — maintenance-suspended`, not falsely green
+
+#### Scenario: Reactivation requires exact diagnosis and one green suite
+- **WHEN** isolated diagnosis resolves concurrent dynamic SQLite readonly-DB and BDD browser-timeout failures
+- **THEN** one isolated six-lane `uv run task test` run SHALL be green with complete evidence and cleanup in `<=300s`
+- **AND** any red lane, missing evidence, untrusted cleanup, or duration breach keeps gate suspended
 ### Requirement: Delivery gate requires full suite green
 Runtime changes SHALL not be considered delivered while `uv run task test` is red.
 Archive/merge must wait for a green full suite, not just a green subset.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import socket
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -12,6 +13,7 @@ from scripts import build_test_inventory as inventory
 from scripts import run_full_suite as runner
 from scripts import test_governance as governance
 from scripts import test_profile_plugin as profile_plugin
+from tests.support import browser as browser_support
 from tests.support import db as db_support
 from tests.support import server as server_support
 
@@ -60,6 +62,70 @@ def test_t33_server_does_not_accept_stale_listener_for_dead_child(monkeypatch, t
         listener.close()
 
 
+def test_server_ready_receipt_binds_spawned_child_and_teardown(monkeypatch, tmp_path) -> None:
+    class LiveProcess:
+        pid = 41010
+
+        def poll(self):
+            return None
+
+    log_path = tmp_path / "visual-8768.log"
+    log_handle = log_path.open("w+", encoding="utf-8")
+    process = LiveProcess()
+    waits: list[dict[str, object]] = []
+    shutdowns: list[dict[str, object]] = []
+    launches: list[dict[str, object]] = []
+    monkeypatch.setenv("T29_RUN_ID", "controlled-run")
+    monkeypatch.setenv("T29_DB_RECEIPT_LANE", "visual")
+    monkeypatch.setattr(
+        server_support.subprocess,
+        "Popen",
+        lambda *args, **kwargs: (launches.append(kwargs) or process),
+    )
+    monkeypatch.setattr(server_support, "uvicorn_log_file", lambda *args, **kwargs: log_handle)
+    monkeypatch.setattr(server_support.os, "getpgid", lambda pid: 41011)
+    monkeypatch.setattr(
+        server_support,
+        "wait_for_port",
+        lambda *args, **kwargs: waits.append({"args": args, **kwargs}),
+    )
+    monkeypatch.setattr(
+        server_support,
+        "shutdown_uvicorn",
+        lambda proc, **kwargs: shutdowns.append({"proc": proc, **kwargs}),
+    )
+
+    with server_support.run_test_server(tmp_path / "test.db", 8768, label="visual-8768") as url:
+        assert url == "http://127.0.0.1:8768"
+
+    assert waits[0]["process"] is process
+    assert waits[0]["log_path"] == log_path
+    assert waits[0]["run_id"] == "controlled-run"
+    assert waits[0]["lane"] == "visual"
+    assert shutdowns[0]["pgid"] == 41011
+    assert launches[0]["start_new_session"] is False
+    events = log_path.read_text(encoding="utf-8")
+    log_handle.close()
+    assert '"phase": "launch"' in events
+    assert '"phase": "ready"' in events
+    assert '"phase": "teardown-start"' in events
+
+
+def test_server_event_writes_binary_log_handle(tmp_path) -> None:
+    log_path = tmp_path / "binary-server.log"
+
+    with log_path.open("w+b") as log_handle:
+        server_support._server_event(
+            log_handle,
+            run_id="controlled-run",
+            lane="visual",
+            phase="launch",
+            port=8768,
+        )
+
+    assert b'T29_SERVER_EVENT {"run_id": "controlled-run"' in log_path.read_bytes()
+
+
 @pytest.mark.parametrize(
     ("requested", "owner", "expected"),
     [("e2e", "e2e", True), ("unit", "e2e", False), ("visual", "visual", True)],
@@ -101,6 +167,43 @@ def test_runner_spawned_child_env_single_lane(monkeypatch) -> None:
     monkeypatch.setenv("T29_DB_RECEIPT_LANE", "foreign")
     env = runner._lane_environment("visual")
     assert env["T29_DB_RECEIPT_LANE"] == "visual"
+
+
+def test_runner_lane_env_registers_dynamic_db_temp_boundary(tmp_path) -> None:
+    env = runner._lane_environment("unit", run_id="controlled-run", temp_root=tmp_path)
+    assert env["T29_TEMP_ROOT_BOUNDARY"] == str(tmp_path)
+    assert env["TMPDIR"] == str(tmp_path)
+    assert f"--basetemp={tmp_path}" in env["PYTEST_ADDOPTS"]
+
+
+def test_runner_temp_boundary_is_chromium_socket_safe_and_reconciles_exactly() -> None:
+    temp_root = runner._create_lane_temp_root()
+    try:
+        socket_path = f"{temp_root}{runner.CHROMIUM_SINGLETON_SOCKET_SUFFIX}"
+        assert str(temp_root).startswith("/tmp/o-")
+        assert len(socket_path.encode()) < runner.UNIX_SOCKET_PATH_MAX
+
+        entry = runner._lane_metadata(
+            "visual",
+            "test-visual",
+            "controlled-run",
+            temp_root / "visual.log",
+            temp_root / "visual.timings",
+            temp_root=temp_root,
+        )
+        output = (
+            f"T29_TEMP_ROOT={temp_root}\n"
+            "T29_TEMP_ROOT_RUN_ID=controlled-run\n"
+            "T29_TEMP_ROOT_LANE=visual\n"
+        )
+
+        assert runner._reconcile_temp_root(entry, output) is True
+        assert not temp_root.exists()
+        assert entry["owned_resource_mapping"]["pytest_temp"]["classification"] == ("owned-cleaned")
+        assert entry["temp_root_reconciliation"]["cleanup_result"] == "exact-root-removed"
+    finally:
+        if temp_root.exists():
+            runner.shutil.rmtree(temp_root)
 
 
 def test_runner_rejects_explicit_production_db() -> None:
@@ -174,6 +277,17 @@ def test_runner_returns_first_lane_failure_after_sibling_term() -> None:
     assert runner._runtime_child_command(
         "test-visual", ("tests/visual/test_snapshots.py::test_login_snapshot[mobile]",)
     )[-2:] == ["--deselect", "tests/visual/test_snapshots.py::test_login_snapshot[mobile]"]
+
+
+@pytest.mark.parametrize(("task", "expected"), tuple(runner.DIRECT_LANE_COMMANDS.items()))
+def test_runtime_child_command_maps_exact_task_definition(task, expected) -> None:
+    command = runner._runtime_child_command(task)
+
+    assert command == [*expected, "-s", "-p", "test_profile_plugin"]
+    assert command[:3] == ["uv", "run", "pytest"]
+    assert not any(
+        command[index : index + 3] == ["uv", "run", "task"] for index in range(len(command) - 2)
+    )
 
 
 def test_pre_run_selection_uses_current_blocking_candidates_only() -> None:
@@ -352,7 +466,8 @@ class _ControlledChild:
     def poll(self):
         return self.returncode
 
-    def wait(self):
+    def wait(self, timeout=None):
+        del timeout
         self.wait_calls += 1
         return self.returncode
 
@@ -369,23 +484,260 @@ class _VanishedChild(_ControlledChild):
             raise ProcessLookupError("child vanished")
         return None
 
-    def wait(self):
+    def wait(self, timeout=None):
+        del timeout
         raise BrokenPipeError("child pipe vanished")
 
 
 def _lane_entry(name: str = "unit") -> dict[str, object]:
-    return runner._lane_metadata(
+    entry = runner._lane_metadata(
         name,
         f"test-{name}",
         "controlled-run",
         runner.REPO_ROOT / f"{name}.log",
         runner.REPO_ROOT / f"{name}.timings",
     )
+    entry["pgid"] = 41000
+    entry["owned_resource_mapping"]["process_group"].update(
+        {"resource_id": 41000, "classification": "owned-current-run"}
+    )
+    return entry
+
+
+def _bind_child(entry: dict[str, object], child: _ControlledChild) -> None:
+    entry["pgid"] = child.pid
+    entry["owned_resource_mapping"]["process_group"].update(
+        {"resource_id": child.pid, "classification": "owned-current-run"}
+    )
+
+
+def test_runner_lineage_records_actual_pgid_and_run_lane_lifecycle_identity() -> None:
+    entry = runner._lane_metadata(
+        "integration",
+        "test-integration",
+        "controlled-run",
+        Path("integration.log"),
+        Path("integration.timings"),
+        temp_root=Path("controlled-temp"),
+    )
+
+    assert entry["pid"] is None
+    assert entry["pgid"] is None
+    assert entry["temp_root_boundary"] == "controlled-temp"
+    assert entry["lifecycle"] == []
+    runner._record_lifecycle(entry, "registered", parent_pid=123)
+    event = entry["lifecycle"][0]
+    assert event["run_id"] == "controlled-run"
+    assert event["lane"] == "integration"
+    assert event["phase"] == "registered"
+    assert event["parent_pid"] == 123
+
+
+def test_runner_receipt_keeps_structured_visual_server_events() -> None:
+    output = (
+        'T29_SERVER_EVENT {"run_id": "controlled-run", "lane": "visual", '
+        '"phase": "ready", "port": 8768}\n'
+    )
+    assert runner._server_events(output) == [
+        {"run_id": "controlled-run", "lane": "visual", "phase": "ready", "port": 8768}
+    ]
+
+
+def test_runner_receipt_keeps_per_test_failure_tracebacks() -> None:
+    output = (
+        'T29_TEST_FAILURE {"run_id": "controlled-run", "lane": "bdd", '
+        '"nodeid": "tests/bdd/test_scenarios.py::test_login_ok", '
+        '"traceback": "AssertionError: controlled"}\n'
+    )
+    assert runner._test_failures(output) == [
+        {
+            "run_id": "controlled-run",
+            "lane": "bdd",
+            "nodeid": "tests/bdd/test_scenarios.py::test_login_ok",
+            "traceback": "AssertionError: controlled",
+        }
+    ]
+
+
+def test_runner_signals_recorded_pgid_not_child_pid(monkeypatch) -> None:
+    child = _ControlledChild(41001)
+    entry = _lane_entry()
+    entry["pgid"] = 41099
+    entry["owned_resource_mapping"]["process_group"]["resource_id"] = 41099
+    kill_calls: list[tuple[int, int]] = []
+    monkeypatch.setattr(runner.os, "killpg", lambda pgid, sig: kill_calls.append((pgid, sig)))
+
+    assert runner._stop({"unit": child}, runner.signal.SIGTERM, {"unit": entry}, "fail-fast")
+    assert kill_calls == [(41099, runner.signal.SIGTERM)]
+
+
+def test_visual_readiness_dead_child_includes_flushed_log_tail(tmp_path: Path) -> None:
+    log_path = tmp_path / "visual-8768.log"
+    log_path.write_text("uvicorn startup failure\n", encoding="utf-8")
+
+    class DeadChild:
+        returncode = 3
+
+        def poll(self):
+            return self.returncode
+
+    with pytest.raises(RuntimeError, match="returncode=3") as exc_info:
+        browser_support.wait_for_port(
+            "127.0.0.1",
+            8768,
+            timeout=1.0,
+            process=DeadChild(),
+            log_path=log_path,
+            run_id="controlled-run",
+            lane="visual",
+        )
+    assert "uvicorn startup failure" in str(exc_info.value)
+    assert "controlled-run" in str(exc_info.value)
+
+
+def test_temp_receipt_is_bound_to_current_run_and_lane(monkeypatch, capsys, tmp_path: Path) -> None:
+    monkeypatch.setenv("T29_DB_RECEIPT_LANE", "integration")
+    monkeypatch.setenv("T29_RUN_ID", "controlled-run")
+    db_support.emit_temp_root_receipt(tmp_path)
+    receipt = capsys.readouterr().out
+    assert "T29_TEMP_ROOT=" in receipt
+    assert "T29_TEMP_ROOT_RUN_ID=controlled-run" in receipt
+    assert "T29_TEMP_ROOT_LANE=integration" in receipt
+
+
+def test_runner_reconciles_owned_temp_root_exactly(tmp_path: Path) -> None:
+    temp_root = tmp_path / "owned-temp"
+    temp_root.mkdir()
+    entry = runner._lane_metadata(
+        "integration",
+        "test-integration",
+        "controlled-run",
+        tmp_path / "integration.log",
+        tmp_path / "integration.timings",
+        temp_root=temp_root,
+    )
+    output = (
+        f"T29_TEMP_ROOT={temp_root}\n"
+        "T29_TEMP_ROOT_RUN_ID=controlled-run\n"
+        "T29_TEMP_ROOT_LANE=integration\n"
+    )
+
+    assert runner._reconcile_temp_root(entry, output) is True
+    assert not temp_root.exists()
+    assert entry["temp_root_reconciliation"]["classification"] == "owned-cleaned"
+
+
+def test_runner_preserves_dynamic_db_ownership_when_collection_is_incomplete(tmp_path) -> None:
+    boundary = tmp_path / "lane-temp"
+    db_dir = boundary / "omaha-conftest-safe-controlled"
+    db_dir.mkdir(parents=True)
+    db_path = db_dir / "portfolio.db"
+    db_path.write_bytes(b"test-only")
+    entry = runner._lane_metadata(
+        "integration",
+        "test-integration",
+        "controlled-run",
+        tmp_path / "integration.log",
+        tmp_path / "integration.timings",
+        temp_root=boundary,
+    )
+    entry["collection"] = {"nodes": []}
+    targets = [str(db_path.resolve())]
+
+    runner._validate_db_targets("integration", targets)
+    assert runner._reconcile_dynamic_db_targets(entry, targets) is True
+    assert not db_path.exists()
+    assert entry["owned_resource_mapping"]["database"]["classification"] == "owned-cleaned"
+
+
+def test_runner_timing_receipt_records_run_and_lane_phases(tmp_path) -> None:
+    entry = runner._lane_metadata(
+        "unit",
+        "test-unit",
+        "controlled-run",
+        tmp_path / "unit.log",
+        tmp_path / "unit.timings",
+        temp_root=tmp_path / "unit-temp",
+    )
+    lane_started = runner.time.monotonic()
+    runner._record_lane_timing(entry, "launch", lane_started, runner.time.time())
+    payload = {
+        "timing": {"run_started_at": runner.time.time(), "phases": []},
+    }
+    run_started = runner.time.monotonic()
+    runner._record_run_timing(payload, "cleanup", run_started, runner.time.time())
+
+    assert entry["timing"]["phases"][0]["phase"] == "launch"
+    assert entry["timing"]["phases"][0]["elapsed_seconds"] >= 0
+    assert payload["timing"]["phases"][0]["phase"] == "cleanup"
+    assert payload["timing"]["phases"][0]["status"] == "complete"
+
+
+def test_runner_preserves_mismatched_temp_root(tmp_path: Path) -> None:
+    expected = tmp_path / "expected-temp"
+    reported = tmp_path / "reported-temp"
+    reported.mkdir()
+    entry = runner._lane_metadata(
+        "integration",
+        "test-integration",
+        "controlled-run",
+        tmp_path / "integration.log",
+        tmp_path / "integration.timings",
+        temp_root=expected,
+    )
+    output = (
+        f"T29_TEMP_ROOT={reported}\n"
+        "T29_TEMP_ROOT_RUN_ID=controlled-run\n"
+        "T29_TEMP_ROOT_LANE=integration\n"
+    )
+
+    assert runner._reconcile_temp_root(entry, output) is False
+    assert reported.exists()
+    assert entry["temp_root_reconciliation"]["classification"] == "foreign"
+
+
+def test_runner_reconciles_only_current_run_fixed_db(tmp_path, monkeypatch) -> None:
+    target = tmp_path / "test_bdd.db"
+    target.write_bytes(b"test-only")
+    monkeypatch.setitem(runner.LANE_DATABASES, "bdd", (target,))
+    entry = runner._lane_metadata(
+        "bdd",
+        "test-bdd",
+        "controlled-run",
+        tmp_path / "bdd.log",
+        tmp_path / "bdd.timings",
+    )
+    resource = entry["owned_resource_mapping"]["database"]
+    resource["preflight_classification"] = "absent"
+
+    assert runner._reconcile_fixed_db_targets(entry, [str(target.resolve())]) is True
+    assert not target.exists()
+    assert resource["classification"] == "owned-cleaned"
+
+
+def test_runner_preserves_preexisting_fixed_db(tmp_path, monkeypatch) -> None:
+    target = tmp_path / "test_bdd.db"
+    target.write_bytes(b"pre-existing")
+    monkeypatch.setitem(runner.LANE_DATABASES, "bdd", (target,))
+    entry = runner._lane_metadata(
+        "bdd",
+        "test-bdd",
+        "controlled-run",
+        tmp_path / "bdd.log",
+        tmp_path / "bdd.timings",
+    )
+    resource = entry["owned_resource_mapping"]["database"]
+    resource["preflight_classification"] = "pre-existing"
+
+    assert runner._reconcile_fixed_db_targets(entry, [str(target.resolve())]) is False
+    assert target.read_bytes() == b"pre-existing"
+    assert resource["classification"] == "pre-existing"
 
 
 def test_runner_vanished_child_during_signal_preserves_failure(monkeypatch) -> None:
     child = _ControlledChild(41001)
     entry = _lane_entry()
+    _bind_child(entry, child)
     kill_calls: list[tuple[int, int]] = []
 
     def killpg(pgid: int, sig: int) -> None:
@@ -409,6 +761,7 @@ def test_runner_no_such_process_is_lifecycle_race() -> None:
 def test_runner_reaps_owned_survivor(monkeypatch) -> None:
     child = _ControlledChild(41002)
     entry = _lane_entry()
+    _bind_child(entry, child)
     kill_calls: list[tuple[int, int]] = []
 
     def killpg(pgid: int, sig: int) -> None:
@@ -426,6 +779,7 @@ def test_runner_reaps_owned_survivor(monkeypatch) -> None:
 def test_runner_vanished_child_during_wait(monkeypatch) -> None:
     child = _VanishedChild(41003, "wait")
     entry = _lane_entry()
+    _bind_child(entry, child)
     monkeypatch.setattr(runner, "GRACE_SECONDS", 0.0)
     monkeypatch.setattr(runner.os, "killpg", lambda pgid, sig: None)
     assert runner._reap({"unit": child}, {"unit": entry}) is False
@@ -438,9 +792,7 @@ def test_runner_preserves_foreign_resource(monkeypatch) -> None:
     calls: list[int] = []
     monkeypatch.setattr(runner.os, "killpg", lambda pgid, sig: calls.append(pgid))
     entry = _lane_entry("e2e")
-    entry["owned_resource_mapping"]["process_group"].update(
-        {"resource_id": foreign.pid, "classification": "owned-current-run"}
-    )
+    _bind_child(entry, foreign)
     inventory = runner._canonical_resource_inventory(
         (
             {
@@ -460,7 +812,10 @@ def test_runner_preserves_foreign_resource(monkeypatch) -> None:
     assert runner._resource_cleanup_verdict({"unit": entry})[0] is False
 
 
-def test_runner_preflight_inventory_ignores_harmless_host_observations() -> None:
+def test_runner_preflight_inventory_ignores_harmless_host_observations(monkeypatch) -> None:
+    # Keep this host-observation contract independent of fixed test DB residue;
+    # fixed DB ownership has its own exact preflight tests below.
+    monkeypatch.setattr(runner, "CANONICAL_DATABASE_PATHS", frozenset())
     inventory = runner._canonical_resource_inventory(
         (
             {
@@ -539,9 +894,7 @@ def test_runner_preflight_inventory_records_preexisting_pytest_root_as_irrelevan
 def test_runner_owned_resource_cleanup_is_trusted(monkeypatch) -> None:
     child = _ControlledChild(41008)
     entry = _lane_entry()
-    entry["owned_resource_mapping"]["process_group"].update(
-        {"resource_id": child.pid, "classification": "owned-current-run"}
-    )
+    _bind_child(entry, child)
     calls: list[tuple[int, int]] = []
 
     def killpg(pgid: int, sig: int) -> None:
@@ -559,6 +912,8 @@ def test_runner_fail_fast_receipt_attributes_sibling_stop(monkeypatch) -> None:
     failed = _ControlledChild(41006, returncode=7)
     sibling = _ControlledChild(41007)
     entries = {"unit": _lane_entry("unit"), "integration": _lane_entry("integration")}
+    _bind_child(entries["unit"], failed)
+    _bind_child(entries["integration"], sibling)
     calls: list[tuple[int, int]] = []
 
     def killpg(pgid: int, sig: int) -> None:
@@ -611,20 +966,32 @@ def _patch_main_preflight(monkeypatch, tmp_path, *, launch_failure: str | None =
     children: list[Child] = []
 
     def popen(command, **kwargs):
-        del kwargs
-        lane = command[3]
-        if lane == launch_failure:
+        lane, task = next(
+            (lane, task)
+            for lane, task in runner.LANES
+            if command == runner._runtime_child_command(task)
+        )
+        if task == launch_failure:
             raise OSError("controlled launch failure")
         child = Child(42000 + len(children))
         children.append(child)
+        stdout = kwargs["stdout"]
+        env = kwargs["env"]
+        stdout.write(
+            f"T29_TEMP_ROOT={env['T29_TEMP_ROOT_BOUNDARY']}\n"
+            f"T29_TEMP_ROOT_RUN_ID={env['T29_RUN_ID']}\n"
+            f"T29_TEMP_ROOT_LANE={lane}\n"
+        )
+        stdout.flush()
         return child
 
     monkeypatch.setattr(runner.subprocess, "Popen", popen)
+    monkeypatch.setattr(runner.os, "getpgid", lambda pid: pid + 1000)
     monkeypatch.setattr(
         runner.os,
         "killpg",
         lambda pgid, sig: setattr(
-            next(child for child in children if child.pid == pgid), "returncode", -sig
+            next(child for child in children if child.pid + 1000 == pgid), "returncode", -sig
         ),
     )
     return children
@@ -697,7 +1064,7 @@ def test_runner_retains_partial_artifacts_after_lane_finalization_exception(
     original_collection = runner._collection
 
     def collection(output: str, timing_output: str = ""):
-        if not output and not timing_output:
+        if not timing_output:
             raise RuntimeError("controlled finalization failure")
         return original_collection(output, timing_output)
 
@@ -721,7 +1088,7 @@ def test_runner_receipt_retains_first_integration_failure_and_sibling_reason(
 
     def popen(command, **kwargs):
         child = original_popen(command, **kwargs)
-        if command[3] == "test-integration":
+        if command == runner._runtime_child_command("test-integration"):
             child.returncode = 1
         return child
 
@@ -792,6 +1159,14 @@ def test_runner_timeout_receipt_includes_cleanup(monkeypatch, tmp_path) -> None:
     assert len(receipt["lanes"]) == 6
     assert all("cleanup_result" in entry for entry in receipt["lanes"])
     assert "verdict" in receipt["cleanup"]
+    assert all(entry["pgid"] == entry["pid"] + 1000 for entry in receipt["lanes"])
+    assert all(
+        all(
+            event["run_id"] == receipt["run_id"] and event["lane"] == entry["lane"]
+            for event in entry["lifecycle"]
+        )
+        for entry in receipt["lanes"]
+    )
 
 
 def test_interrupted_stdout_uses_lossless_timing_outcome(tmp_path, monkeypatch) -> None:

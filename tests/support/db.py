@@ -31,6 +31,20 @@ def emit_db_receipt(owner_lanes: str | Iterable[str], *targets: Path) -> None:
         print(f"T29_DB_TARGET={target}", flush=True)
 
 
+def emit_temp_root_receipt(temp_root: Path) -> None:
+    """Publish exact pytest base-temp ownership for current runner lane."""
+    lane = os.environ.get("T29_DB_RECEIPT_LANE")
+    run_id = os.environ.get("T29_RUN_ID")
+    if not lane or not run_id:
+        return
+    # Pytest's verbose progress line can still be open when this receipt is
+    # emitted. Start marker on its own line so runner's exact-line parser does
+    # not lose ownership evidence behind a node id.
+    print(f"\nT29_TEMP_ROOT={temp_root}", flush=True)
+    print(f"T29_TEMP_ROOT_RUN_ID={run_id}", flush=True)
+    print(f"T29_TEMP_ROOT_LANE={lane}", flush=True)
+
+
 def prepare_safe_test_database(repo_root: Path) -> SafeTestDatabase:
     """Bind Omaha to a session-scoped temporary database before test collection."""
     safe_dir = Path(tempfile.mkdtemp(prefix="omaha-conftest-safe-"))
@@ -45,6 +59,11 @@ def prepare_safe_test_database(repo_root: Path) -> SafeTestDatabase:
     os.environ["ADMIN_PASSWORD"] = TEST_ADMIN_PASSWORD
     os.environ["OMAHA_SKIP_STARTUP"] = "1"
     os.environ["OMAHA_ENV"] = "development"
+
+    # Publish identity before migrations/import bootstrap. A deadline or
+    # collection failure must not erase ownership evidence for this test-only
+    # database.
+    emit_db_receipt(("unit", "integration", "audit"), db_path)
 
     import omaha.config  # noqa: F401
     import omaha.db  # noqa: F401
@@ -82,6 +101,8 @@ def prepare_worker_database(worker_id: str, repo_root: Path) -> SafeTestDatabase
     os.environ["ADMIN_PASSWORD"] = TEST_ADMIN_PASSWORD
     os.environ["OMAHA_SKIP_STARTUP"] = "1"
     os.environ["OMAHA_ENV"] = "development"
+
+    emit_db_receipt(("unit", "integration", "audit"), db_path)
 
     import omaha.config  # noqa: F401
     import omaha.db  # noqa: F401

@@ -212,7 +212,10 @@ Tabela operacional completa em `pyproject.toml`. Atalhos mais usados:
 | `task format`                 | `ruff format .`                                                            |
 | `task secret-key`             | gera `SECRET_KEY` aleatório                                                |
 
-**Regra:** sempre `task <name>`. Nunca digitar o comando cru.
+**Regra:** preferir sempre `task <name>`. Única exceção: o supervisor Python
+existente, chamado por `uv run task test`, pode lançar diretamente os seis
+comandos pytest mapeados para lanes canônicas. Fora dessa fronteira, nunca
+digitar o comando cru.
 A razão vive na §4.8.
 
 ### 3.4 Backup & restore
@@ -435,8 +438,9 @@ ativada) sobre digitar o comando cru. Razões:
 - Novas tarefas são adicionadas em `pyproject.toml` e ficam disponíveis
   imediatamente. Comandos raw queimam ciclos re-derivando flags.
 
-Quando aplicar: start/stop do dev server, qualquer teste, lint, format,
-coverage, qualquer operação de DB, Docker/prod, first-time setup
+Quando aplicar: start/stop do dev server, testes fora dos seis filhos do
+supervisor canônico, lint, format, coverage, qualquer operação de DB,
+Docker/prod, first-time setup
 (`install`, `install-e2e`, `prek-install`).
 
 Gotchas:
@@ -781,15 +785,45 @@ explícita com o agente.
 
 ### 4.13 Testes — entrega só vale com suíte verde e sem máscara
 
-Uma change só pode ser considerada entregue se `uv run task test`
+Regra normal: uma change só pode ser considerada entregue se `uv run task test`
 passar sem falhas. Para change browser-visível, §4.9 continua valendo.
 
-`apply` roda apenas validação focada e retorna `READY_FOR_REVIEW`. `review`
-roda exatamente uma suite completa, registra receipt e decide `APPROVED`,
-`CHANGES_REQUESTED` ou `BLOCKED`. `Applied` só ocorre após `APPROVED`; owner
-valida antes de archive e commit. Apply/review têm no máximo duas remediações
-automáticas. Falha desconhecida, pré-existente, ambiental ou terceira rodada
-vira `Blocked`, nunca tentativa especulativa de apply.
+**Suspensão owner-authorized I10 (temporária):** somente o resultado da suíte
+canônica paralela `uv run task test` fica `maintenance-suspended` como gate
+obrigatório de apply/review/pre-push. O comando continua existente, executável e
+canônico; nenhuma lane, teste, skip, xfail, retry, cobertura, comando
+individual, isolamento de DB, receipt, cleanup ou fail-fast é removido,
+desabilitado ou enfraquecido. Tarefas unit, integration, audit integration, E2E,
+BDD e visual continuam disponíveis e preservam seus comandos individuais.
+Os seis atalhos individuais permanecem explícitos e executáveis:
+`uv run task test-unit`, `uv run task test-integration`,
+`uv run task test-audit-integration`, `uv run task test-e2e`,
+`uv run task test-bdd` e `uv run task test-visual`.
+
+Durante a suspensão, cada change roda seus comandos focados aplicáveis e testes
+de comportamento de produto continuam obrigatórios. `apply` registra evidência
+focada e não roda a suíte completa de rotina. `review` audita escopo, testes de
+produto, comandos/resultados focados e visibilidade da suspensão; registra a
+suíte canônica como `NOT RUN — maintenance-suspended` e não a lança. Hooks
+pre-push focados continuam bloqueantes; somente eventual check paralelo da
+suíte completa fica não-bloqueante.
+
+Reativação exige, em ordem: (1) diagnóstico isolado resolve a falha concorrente
+de SQLite dinâmico readonly **e** o timeout de browser BDD; (2) uma execução
+canônica isolada de `uv run task test` fica verde nas seis lanes, com receipts
+completos de cobertura/skips/manifest/DB/temp/cleanup e wall-clock até cleanup
+`<=300s`. Nenhum resultado focado, diagnóstico parcial ou receipt histórico
+reativa o gate. Até lá, trabalho de produto pode prosseguir se sua evidência
+focada aplicável estiver verde e não houver outro blocker; T34 pode continuar
+diagnóstico/correção bounded; F58 permanece `Blocked` atrás da aceitação
+canônica reativada de T34.
+
+`apply` retorna `READY_FOR_REVIEW`. `review` decide `APPROVED`,
+`CHANGES_REQUESTED` ou `BLOCKED` conforme política ativa. `Applied` só ocorre
+após `APPROVED`; owner valida antes de archive e commit. Apply/review têm no
+máximo duas remediações automáticas. Falha desconhecida, pré-existente,
+ambiental ou terceira rodada vira `Blocked`, nunca tentativa especulativa de
+apply.
 
 Regras:
 
@@ -799,13 +833,15 @@ Regras:
 - Exceção só vale se o trecho estiver explicitamente allowlisted em
   `openspec/specs/test-suite-quality/spec.md` e a razão estiver
   documentada no change/roadmap.
-- Arquivar change com suite vermelha é proibido. Suite vermelha vira
-  trabalho pendente, não delivery.
+- Arquivar change com suíte vermelha é proibido quando gate canônico está
+  ativo. Durante `maintenance-suspended`, ausência da suíte é explicitamente
+  não-bloqueante, mas testes focados vermelhos continuam bloqueando delivery.
 - Qualquer novo mascaramento detectado em review bloqueia merge.
 
 ### Gate de duração — teto absoluto
 
-`uv run task test` SHALL terminar em até **300 segundos**, medidos por
+Quando gate canônico está ativo, `uv run task test` SHALL terminar em até **300
+segundos**, medidos por
 wall-clock desde o início do runner até o cleanup de todos os processos filhos.
 Suite verde acima desse teto é falha de delivery. Review SHALL retornar
 `CHANGES_REQUESTED` e finalize SHALL bloquear archive.

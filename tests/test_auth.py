@@ -80,7 +80,8 @@ def test_environment_mode_documentation() -> None:
     assert "uv run task serve" in readme
     assert "--host 0.0.0.0" in readme
     assert "real SECRET_KEY" in readme
-    assert "MYPROFIT_ITALO_PASSWORD / MYPROFIT_ITALO_DESTINATION" in readme
+    assert "MYPROFIT_ITALO_EMAIL / MYPROFIT_ITALO_PASSWORD" in readme
+    assert "MYPROFIT_ANA_EMAIL   / MYPROFIT_ANA_PASSWORD" in readme
     assert "https://myprofit.invalid/" not in readme
 
 

@@ -557,13 +557,9 @@ Notes: Follow-up owns removal only; do not mutate F57 archive. Remove `MYPROFIT_
 Progress log: deprecated — owner classified as small connector prerequisite; absorbed by F58 before Playwright implementation
 
 ### F58 - Integrar automação Playwright MyProfit
-Status: `Applying`
-Goal: remover configuração `destination` sem modulador e encapsular login headless/download CSV MyProfit, reaproveitando fluxo POC e retornando erros operacionais sem mutar DB.
-Candidate OpenSpec change id: `f58-integrar-automacao-playwright-myprofit`
-Spec link: `openspec/changes/f58-integrar-automacao-playwright-myprofit/`
-Files to inspect: `~/myprofit/cloak_download.py`, `~/myprofit/requirements.txt`, `src/omaha/config.py`, `.env.example`, `README.md`, `tests/test_f57_myprofit_profile_config.py`, `src/omaha/`, `pyproject.toml`
-Notes: Primeiro remover `MYPROFIT_<PROFILE>_DESTINATION`, campo/validação/docs/testes/spec derivados de F57; preservar email/senha isolados e guarda Família. Connector usa direto `StockDetail.aspx`, sem selector. POC: `launch_persistent_context`, login email/senha, dismiss 2FA “Mais tarde/Later”, Export → CSV, `expect_download`; definir timeout/limpeza de arquivo/perfil temporário e mensagens sanitizadas. Não copiar `.env` POC.
-Progress log: review R2 changes requested 2026-08-20 — clean full suite green 252.01s; remediate R1-F02 explicit interaction timeouts (1/2)
+Status: `Archived` — 2026-08-22
+Goal: integrar conector Playwright MyProfit com credenciais isoladas e download CSV seguro.
+Archive: `openspec/changes/archive/2026-08-22-f58-integrar-automacao-playwright-myprofit/`
 
 ### F59 - Executar sincronização em background e entregar preview
 Status: `Ready`
@@ -613,14 +609,48 @@ Notes: Track A, protocol/docs only; no runner, taskipy, test, or application edi
 Progress log: review R2 blocked 2026-08-20 — bootstrap suite red with unknown PID/visual baseline failures; D05 documentation audit passed but cannot become Applied with red suite
 
 ### I08 - Corrigir runner taskipy para cleanup e telemetria por lane
-Status: `Archived` — 2026-08-20
+Status: `Blocked` — 2026-08-20
 Goal: endurecer runner taskipy com cleanup ownership e telemetria completa por lane.
-Archive: `openspec/changes/archive/2026-08-20-i08-corrigir-runner-taskipy-cleanup-e-telemetria-por-lane/`
+Archive prepared: `openspec/changes/archive/2026-08-20-i08-corrigir-runner-taskipy-cleanup-e-telemetria-por-lane/`
+Progress log: archive/sync prepared and specs 70/70 green; commit/push blocked by 6 unrelated F58 MyProfit test failures in pre-commit suite; staged I08 files isolated
+
+### T34 - Diagnosticar e corrigir bloqueadores do runner/harness para F58
+Status: `Applied` — 2026-08-22
+Goal: obter uma única execução canônica confiável e verde de `uv run task test`, diagnosticando com evidência limitada e corrigindo somente boundaries confirmadas nos três sintomas F58 R6: lineage PID da integration, ciclo de vida/readiness visual em `127.0.0.1:8768` e receipt de ownership dos temporários pytest da execução atual.
+Candidate OpenSpec change id: `t34-diagnosticar-e-corrigir-bloqueadores-do-runner-harness-para-f58`
+Spec link: `openspec/changes/t34-diagnosticar-e-corrigir-bloqueadores-do-runner-harness-para-f58/`
+Files to inspect: `scripts/run_full_suite.py`, `tests/support/server.py`, `tests/support/browser.py`, `tests/conftest.py`, `tests/scripts/test_t29_harness.py`
+Notes: Escopo único absorve T35 e I09; nenhuma alteração em F58, produto, DB, seed, host ou `/tmp` amplo. Plano faseado: (1) capturar evidência bounded de owner/run, PID/PGID/parent-child/exit/wait, readiness/port/log e temporários current-run; (2) reparar somente fault confirmado, usando `tests/support/server.py`/`tests/support/browser.py` para visual ou boundary equivalente do runner, sem reabrir T33; (3) adicionar/ajustar testes focados em `tests/scripts/test_t29_harness.py`; (4) executar uma única suíte canônica autorizada. Instrumentação não é deliverable separado: existe apenas para diagnosis/correction dentro desta fatia. Preservar seis lanes, ordem e entrypoints taskipy, fail-fast, coverage, todos testes/skips, isolamento DB, receipt/reconciliation e teto de 300s. Proibir retry, skip/xfail, remoção/serialização de lane, broad process discovery/kill, cleanup host-wide ou limpeza ampla de `/tmp`; correções fora de boundary runner/harness viram decisão de escopo, não nova fatia. T33 archived e I08 archived/preparado permanecem somente referências/constraints; não reabrir nem alterar. Owner deve confirmar este escopo antes de `propose`.
+Notes: Escopo único absorve T35 e I09; nenhuma alteração em F58, produto, DB, seed, host ou `/tmp` amplo. Plano faseado: (1) capturar evidência bounded de owner/run, PID/PGID/parent-child/exit/wait, readiness/port/log e temporários current-run; (2) reparar somente fault confirmado, usando `tests/support/server.py`/`tests/support/browser.py` para visual ou boundary equivalente do runner, sem reabrir T33; (3) adicionar/ajustar testes focados em `tests/scripts/test_t29_harness.py`; (4) executar uma única suíte canônica autorizada. Instrumentação não é deliverable separado: existe apenas para diagnosis/correction dentro desta fatia. Preservar seis lanes, ordem e entrypoints taskipy, fail-fast, coverage, todos testes/skips, isolamento DB, receipt/reconciliation e teto de 300s. Proibir retry, skip/xfail, remoção/serialização de lane, broad process discovery/kill, cleanup host-wide ou limpeza ampla de `/tmp`; correções fora de boundary runner/harness viram decisão de escopo, não nova fatia. Acceptance: cada sintoma tem timeline/owner evidence; focused runner tests pass; uma única execução posterior de `uv run task test` sai 0 com seis lanes verdes, fail-fast preservado, coverage/skips/reconciliation e cleanup trusted, sem resíduo current-run, em <=300s. F58 só deixa `Blocked` após esse receipt. T33 archived e I08 archived/preparado permanecem somente referências/constraints; não reabrir nem alterar. Owner deve confirmar este escopo antes de `propose`.
+Progress log: review R5 approved 2026-08-22 — exact temp ownership policy verified; 71 harness, 70 final focused, and 8 receipt tests green; lint/spec/diff checks pass. Canonical suite `NOT RUN — maintenance-suspended`; no open findings. Awaiting owner validation before archive/commit.
+
+### T35 - Provar readiness e ciclo de vida do servidor visual
+Status: `Deprecated` — 2026-08-21 (absorvido por T34)
+Goal: capturar child PID, exit code, readiness de `127.0.0.1:8768` e log de startup/teardown, corrigindo somente boundary visual confirmada sem alterar F58 connector.
+Candidate OpenSpec change id: `t35-provar-readiness-do-servidor-visual`
+Spec link: `openspec/changes/t35-provar-readiness-do-servidor-visual/`
+Files to inspect: `tests/support/server.py`, `tests/support/browser.py`, `tests/visual/conftest.py`, `tests/scripts/test_t29_harness.py`
+Notes: Evidence anchor: F58 R6 visual exit 1; eight nodes errored because `127.0.0.1:8768` never became ready after child exit, with empty server output (`reports/test-profile/20260820T214446-visual.log:39-135`). Record launch/readiness/poll/exit/port/log timeline and add controlled evidence before correction. T33 remains historical: do not reopen archive, alter BDD/8766 behavior, add browser retries, serialize lanes, weaken visual assertions, or edit F58.
+Progress log: deprecated — visual `127.0.0.1:8768` diagnosis/correction now owned by consolidated T34; preserve T33 archive and do not create separate change.
+
+### I09 - Reconciliar ownership de temporarios pytest por execução
+Status: `Deprecated` — 2026-08-21 (absorvido por T34)
+Goal: formalizar receipt e pós-execução para reconciliar temporários pytest criados na execução atual, distinguindo `absent`/`owned-cleaned` de resíduo estrangeiro sem limpeza ampla de `/tmp`.
+Candidate OpenSpec change id: `i09-reconciliar-ownership-de-temporarios-pytest`
+Spec link: `openspec/changes/i09-reconciliar-ownership-de-temporarios-pytest/`
+Files to inspect: `scripts/run_full_suite.py`, `tests/conftest.py`, `tests/support/db.py`, `tests/scripts/test_t29_harness.py`
+Notes: Evidence anchor: F58 R6 preflight had no `/tmp/pytest-of-juca`, runner receipt said cleanup complete, postflight found root created at 21:45 (`tasks.md:849-862`). Register current-run pytest temp roots with owner/run/timestamps, reconcile receipt with postflight, and report unknown/pre-existing roots without adopting, deleting, or traversing broad `/tmp`. Preserve prod-DB guard, dynamic temp DB isolation, all tests/coverage/skips, six lanes, fail-fast, taskipy entrypoints, and 300s ceiling. Do not reopen I08 or mutate F58/T33.
+Progress log: deprecated — current-run pytest-temp receipt/reconciliation now owned by consolidated T34; no independent change or broad `/tmp` cleanup.
+
+### I10 - Substituir Taskipy no boundary da suíte canônica
+Status: `Archived` — 2026-08-22
+Goal: substituir Taskipy apenas no boundary das seis lanes canônicas.
+Archive: `openspec/changes/archive/2026-08-22-i10-substituir-taskipy-no-boundary-da-suite-canonica/`
 
 ## Recommended Execution Order
 
 **Active queue:**
-  F58 (independent) ∥ D05 → I08 → F59 → F60 → T31
+  T34 (owner validation/archive) ∥ F59 → F60 → T31; D05 → I08 remains separate existing runner-hygiene track
 
 **Archived since prior queue:** F56, F55, F54, F53, F52, T27, T28, T29, I07, D03. Não são trabalho ativo.
 
@@ -643,6 +673,25 @@ Order note: F57/F61 archived; F62 deprecated because owner folded small destinat
   remains `Blocked` because documentation-only review full-suite noise is
   unrelated. I08 cannot claim D05 approved/archived and must preserve existing
   T33 lifecycle behavior and six-lane canonical ordering.
+- T34 is the single bounded follow-up for all three F58 R6 runner/harness
+  blockers: integration PID lineage, visual `8768` child/readiness/log lifecycle,
+  and current-run pytest-temp ownership receipt reconciliation. T35 and I09 are
+  deprecated as absorbed; no parallel changes or independent artifacts.
+- T34 must first capture bounded ownership evidence, then correct only confirmed
+  runner/harness faults, run focused harness tests, and finally obtain one trusted
+  green canonical `uv run task test` with six lanes, fail-fast, coverage,
+  tests/skips reconciliation, cleanup receipt, and <=300s. F58 remains `Blocked`
+  until this acceptance is met; no F58 code changes belong in T34.
+- I10 is prerequisite infrastructure exception for T34: its narrow direct-lane
+  boundary must replace the unsupported Taskipy full-suite child invocation while
+  preserving T34's six-lane/receipt/cleanup contract. During owner-authorized
+  `maintenance-suspended`, T34 may continue bounded diagnosis/correction after
+  I10 focused evidence; F58 remains blocked until reactivation yields T34's
+  trusted canonical receipt. I10 must not alter Taskipy usage for serve, DB,
+  lint, focused tasks, or unrelated commands.
+- T33 remains `Archived` historical and I08 remains `Blocked` with archive
+  prepared. Neither lifecycle is reopened or altered; T34 consumes existing
+  vocabulary/constraints only.
 
 **Deferred/Deprecated** (owner decides):
 - F03 (Rentabilidade) — closed.

@@ -57,12 +57,17 @@ The system SHALL provide taskipy shortcuts for the production Docker Compose sta
 ### Requirement: Test coverage report
 The system SHALL provide taskipy shortcuts for coverage reporting. Canonical
 `uv run task test` SHALL execute unit, integration, audit integration, E2E, BDD,
-and retained visual coverage concurrently through taskipy-owned runner, without
-changing individual task entrypoints or selection.
+and retained visual coverage concurrently through the existing Python
+supervisor, without changing individual task definitions, lane selection, or
+the public Taskipy entrypoint. Within that supervisor only, each canonical lane
+MAY execute its exact pytest command directly instead of invoking
+`uv run task <lane>`; this exception SHALL NOT apply to serve, database, lint,
+coverage, focused-test, or other Taskipy shortcuts.
 
-Runner SHALL isolate each child in its own process group and use only taskipy
-task entrypoints. It SHALL preflight test-only lane DB targets and SHALL NOT
-invoke production DB tasks, migrations, seeds, resets, or raw pytest commands.
+Runner SHALL isolate each child in its own process group and use only the
+task-defined direct pytest commands for canonical lane children. It SHALL
+preflight test-only lane DB targets and SHALL NOT invoke production DB tasks,
+migrations, seeds, resets, or arbitrary raw commands.
 Before launch, runner SHALL create a ledger entry for every canonical lane and
 record run-owned PID/PGID, exact log/timing/resource mapping, owner evidence,
 and start timestamp when available. On first child failure it SHALL terminate
@@ -95,20 +100,50 @@ be recorded as `receipt_error` without replacing already captured return,
 signal, sibling-stop, cleanup, or timing telemetry; a JSON-safe fallback MAY be
 used for serialization failures, and receipt failure SHALL remain non-zero.
 
-For T29, runner SHALL compare every canonical execution against committed
-immutable post-removal 1,043-node manifest/checksum. Comparison SHALL include
-exact node-ID set, lane membership, checksum, and two exact skip identities.
-Eighteen focused T29 harness nodes remain deliberate coverage. Runner SHALL NOT
-obtain match through deletion, skip, xfail, disable, or lane reduction, except
-historical mobile removal and exact owner-authorized desktop removal documented
-in `visual-regression-baseline`.
+For T29, runner SHALL use the current `tests/AUDIT.md` as normative population
+source. The canonical expected node set SHALL be the 1,032 blocking node IDs
+declared by that audit, with node checksum
+`31d93ee09ba067c1370cd36392d5af4abeaeba18f2c41402b28b83d3d3022ea1` and these
+lane checksums: unit
+`146f063ff2bf86b234703cbc65fa0942351350e65d079ee733d88698fd955640`,
+integration
+`bc8ecf8c2c4c867b591465081559790bb10c76c5161db8e7016c5ed8c1bbc894`, audit
+`0d0832484bd349cb35aa77573321597780721c1a9f6df2ca95be22fc22d2eab6`, e2e
+`41e5b405720b4765dc64e8ed7f414f9a7c397f36f315568011212316b86cc54c`, bdd
+`a8543643bbf371fcd508c4822a79aa609b0abdd6b1e2a74a184f629e807e57db`, and
+visual
+`d7481c04e1d95966d4965284d324c67dbcda21923c080932a1801f011a03c031`.
+The 12 owner-approved, versioned T32 cases explicitly outside canonical lanes
+SHALL remain excluded from canonical lane membership and SHALL NOT be added to
+the canonical expected population. Comparison SHALL include the exact node-ID
+set, lane membership, checksums, and these exact skip identities, in order:
+
+1. `tests/test_dockerfile.py::test_docker_build_pro_image_succeeds`
+2. `tests/test_dockerfile.py::test_docker_run_pro_image_runs_as_omaha_user`
+
+The two identities are expected skip outcomes, not population exclusions. Any
+other skip identity, missing skip evidence, or count/checksum conflict with
+current `tests/AUDIT.md` SHALL fail acceptance and SHALL be recorded exactly;
+implementation SHALL NOT invent a count. Eighteen focused T29 harness nodes
+remain deliberate coverage. Runner SHALL NOT obtain match through deletion,
+new skip, xfail, disable, or lane reduction, except historical mobile removal
+and exact owner-authorized desktop removal documented in
+`visual-regression-baseline`.
 
 #### Scenario: Full task concurrently preserves complete coverage
 - **WHEN** operator runs `uv run task test`
 - **THEN** unit, integration, audit integration, E2E, BDD, and visual lanes run
-- **AND** each lane uses existing canonical taskipy entrypoint
+- **AND** each lane executes exact direct pytest command mapped from its existing
+  task definition inside Python supervisor
+- **AND** `uv run task test` remains canonical public entrypoint
 - **AND** all lane failures make full task fail
-- **AND** resulting population matches 1,043-node manifest/checksum
+- **AND** resulting population matches the current `tests/AUDIT.md` 1,032-node
+  blocking manifest/checksum and lane checksums
+- **AND** the 12 explicitly outside-lane T32 cases are excluded from canonical
+  lane membership
+- **AND** receipt reports exactly these two expected skip identities:
+  `tests/test_dockerfile.py::test_docker_build_pro_image_succeeds` and
+  `tests/test_dockerfile.py::test_docker_run_pro_image_runs_as_omaha_user`
 - **AND** receipt contains six lane entries, coverage/skips, and cleanup evidence
 
 #### Scenario: Vanished child preserves causal failure
@@ -174,6 +209,14 @@ in `visual-regression-baseline`.
 #### Scenario: Browser tasks do not produce coverage
 - **WHEN** user runs `uv run task test-e2e`, `uv run task test-bdd`, or `uv run task test-visual`
 - **THEN** pytest runs with `--no-cov` flag and no `reports/coverage.xml` is written
+
+#### Scenario: Canonical full-suite gate is maintenance-suspended
+- **WHEN** owner-authorized I10 policy state is `maintenance-suspended`
+- **THEN** `uv run task test` remains present, callable, canonical, and mapped to all six existing lanes
+- **AND** each individual Taskipy lane command remains available with existing selection, skips, coverage, DB-safety, receipt, and cleanup behavior
+- **AND** suspension makes only parallel canonical full-suite result non-blocking for apply, review, and pre-push enforcement
+- **AND** no test, lane, marker, skip, xfail, retry, coverage, or command is deleted, disabled, weakened, or reclassified
+- **AND** reactivation requires resolution of concurrent dynamic SQLite readonly-DB and BDD browser-timeout diagnosis followed by one isolated green six-lane run through cleanup in `<=300s`
 
 ### Requirement: Lockfile update
 The system SHALL provide a taskipy shortcut for upgrading all dependencies within existing version constraints.

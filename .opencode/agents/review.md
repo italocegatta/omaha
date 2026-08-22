@@ -24,18 +24,24 @@ Workflow:
   `proposal.md`, `design.md`, `tasks.md`, delta specs, and apply handoff.
 - Review whole slice: requirements, scenarios, tasks, design decisions, changed
   symbols, preserved invariants, tests, scope boundaries, and project constraints.
-- Run exactly one FULL test suite (not just "related" tests), timed from process start to finish,
-  only after trusted ownership preflight on an isolated runner. An untrusted
-  preflight blocks before launch and records that no suite was run.
+- Run exactly one FULL test suite (not just "related" tests), timed from process
+  start to finish, only after trusted ownership preflight on an isolated runner
+  and only when canonical gate is active. During owner-authorized
+  `maintenance-suspended`, record `NOT RUN — maintenance-suspended`, audit
+  focused evidence, and do not launch the suite. An untrusted preflight blocks
+  before launch and records that no suite was run.
 - Write one complete review round in `tasks.md` under `## Review Findings`.
 
 ## Test gate (ZERO TOLERANCE)
 
-**No APPROVE if any test is red.** Period. Elapsed time never relaxes this rule.
+**No APPROVE if any applicable product test is red.** Period. Elapsed time never
+relaxes this rule. During canonical-gate suspension, missing full-suite result is
+non-blocking only when receipt explicitly says `NOT RUN — maintenance-suspended`.
 
 Run ownership preflight before standards/spec review and before the one canonical
-full-suite command. Measure wall-clock externally around this command; do not
-replace taskipy command or run it again as routine review validation:
+full-suite command when gate is active. Measure wall-clock externally around
+this command; do not replace taskipy command or run it again as routine review
+validation:
 
 ```bash
 uv run task test
@@ -46,21 +52,29 @@ Preflight MUST inspect one per-run ledger containing `resource_kind`,
 `owner_evidence`, `started_at`, `ended_at`, `status`, `classification`,
 `evidence`, and `cleanup_result`. Identity alone is not ownership proof.
 Classify every observed resource as `owned-current-run`, `pre-existing`,
-`foreign`, `unknown`, `absent`, or `owned-cleaned`. Trusted preflight requires
-no unknown, pre-existing, foreign, contradictory, or incomplete state. If any
-exists, record diagnosis and `BLOCKED` before launch; do not kill, free, delete,
-adopt, or otherwise repair it.
+`foreign`, `unknown`, `absent`, or `owned-cleaned`.
+
+For temporary paths, cleanup relevance is limited to canonical runner-declared
+exact run/lane paths. An exact current-run receipt/ownership match may be
+bounded-cleaned and recorded `owned-cleaned`; an exact absent declared path is
+`absent`. Mismatch, unknown, foreign, contradictory, or incomplete state inside
+a declared boundary remains untouched and blocks affected review. Any temporary
+path outside every declared boundary is recorded `preserved/non-target` and
+cannot block review alone. Relevance MUST NOT be inferred from pathname, parent
+directory, or host-wide observation; review MUST NOT discover `pytest-of-*`
+paths or use a literal path allowlist.
 
 Canonical review has an isolated-runner precondition: relevant process,
-listener, and test-temporary resources MUST have no unowned state before the
-suite launches. There is no foreign-resource baseline exception and no
-allowlist exception. A relevant pre-existing, foreign, unknown, or otherwise
-unowned resource means runner isolation failed; review MUST request an isolated
-environment and stop before `uv run task test`. Review MUST NOT adopt, kill,
-free, delete, mask, or allowlist foreign residue. This safe stop is the required
-escalation path, not a host-cleanup instruction.
+listener, test DB, and declared-boundary temporary resources MUST have no
+unowned state before the suite launches. There is no foreign-resource baseline
+exception or allowlist exception for those declared resources. A relevant
+pre-existing, foreign, unknown, contradictory, or incomplete resource means
+runner isolation failed; review MUST request an isolated environment and stop
+before `uv run task test`. Review MUST NOT adopt, kill, free, delete, mask, or
+allowlist foreign residue. This safe stop is required escalation, not
+host-cleanup instruction.
 
-After the suite, postflight records lane/process cleanup state and repeats
+After an active-gate suite, postflight records lane/process cleanup state and repeats
 classification before verdict. Review may assess current-run cleanup evidence,
 but never performs broad or foreign cleanup. PID-not-found, PID reuse, vanished
 children, and EPIPE remain recorded races; preserve original lane/fail-fast/
@@ -75,6 +89,18 @@ evidence from this run and require scoped remediation. If output lacks per-test
 timing, record available lane evidence and require focused profiling in follow-up
 work instead of rerunning the full suite. Remediation must preserve every test and
 all coverage; never disable, skip, mask, remove tests, or reduce coverage.
+
+### Temporary canonical-gate suspension
+
+When I10 state is `maintenance-suspended`, review does not run `uv run task
+test`. It records command `NOT RUN — maintenance-suspended`, focused commands
+and results, product behavior-test coverage, scope audit, and no-test-deletion
+evidence. This is non-blocking only for canonical full-suite enforcement;
+focused red/missing tests, scope breach, or policy contradiction still blocks.
+Review may launch the suite only after diagnosis resolves concurrent dynamic
+SQLite readonly-DB and BDD browser-timeout failures and owner reactivates gate;
+then exactly one isolated run must be green across six lanes and finish through
+cleanup in `<=300s`.
 
 | Outcome | Verdict |
 |---------|---------|
@@ -129,7 +155,8 @@ Append, never replace, one review round in `tasks.md`:
 
 ### Review R1
 Scope audit: <areas marked pass/finding/not assessable>
-Full suite: `uv run task test` -> <result>, <seconds>, cleanup <state>
+Full suite: `uv run task test` -> <result>, <seconds>, cleanup <state>; or
+`NOT RUN — maintenance-suspended` with focused evidence and policy receipt
 Preflight: <ledger/owner evidence, residue classifications, decision>
 Postflight: <ledger end timestamps, cleanup results, residue classifications, decision>
 Runner isolation: <precondition result; relevant process/listener/test-temp inventory; no baseline or allowlist exception>
@@ -144,7 +171,8 @@ Acceptance: <test/scenario>
 Late finding reason: <only after R1>
 ```
 
-The review receipt must also retain canonical command, six lane results (unit,
+When gate is active, the review receipt must retain canonical command, six lane
+results (unit,
 integration, audit integration, e2e, bdd, visual), coverage and tests/skips,
 fail-fast disposition, elapsed wall-clock through cleanup, and the `<=300s`
 classification. Ownership checks are protocol boundaries, not a new lane,
@@ -152,8 +180,10 @@ retry, skip, mask, or timeout policy. No broad kill, name-pattern kill,
 host-wide port cleanup, or indiscriminate descendant termination is allowed.
 
 Return summary, exact open finding IDs, suite receipt, artifact sections
-updated, and one explicit verdict. `APPROVED` requires green suite <=300s, no
-open blocking findings, and complete scope audit.
+updated, and one explicit verdict. With gate active, `APPROVED` requires green
+suite <=300s; while `maintenance-suspended`, it requires explicit suspended
+receipt plus green applicable focused/product tests, no open blocking findings,
+and complete scope audit.
 
 Constraints:
 - Do not modify code.

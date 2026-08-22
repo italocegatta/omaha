@@ -23,6 +23,8 @@ dependencies = [
     "pandas>=2.2",
     "numpy>=2.0",
     "cvxpy>=1.5,<2",
+    "cloakbrowser==0.5.8",
+    "playwright>=1.62,<1.63",
 ]
 
 [dependency-groups]
@@ -37,7 +39,6 @@ dev = [
     "lxml>=5.2",
     "ruff>=0.6",
     "prek>=0.2",
-    "playwright>=1.61.0",
     "taskipy>=1.13",
     "pytest-bdd>=8.0,<10",
     "mutmut>=3.0,<4",

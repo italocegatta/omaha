@@ -9,31 +9,41 @@ Define profile-isolated, secret-safe MyProfit configuration before connector wor
 ### Requirement: MyProfit configuration SHALL be isolated by real profile
 
 The system SHALL expose profile-scoped MyProfit configuration for the two real
-profiles only. It SHALL load separate email, password, and destination values
-from `MYPROFIT_ITALO_EMAIL`, `MYPROFIT_ITALO_PASSWORD`,
-`MYPROFIT_ITALO_DESTINATION` and the corresponding `MYPROFIT_ANA_*` variables.
-The resolver SHALL select configuration from the active real profile and SHALL
-not use one profile's values as fallback for the other.
+profiles only. It SHALL load separate email and password values from
+`MYPROFIT_ITALO_EMAIL`, `MYPROFIT_ITALO_PASSWORD` and the corresponding
+`MYPROFIT_ANA_*` variables. No destination, selector, modulator, or
+profile-dependent URL variable SHALL be part of this configuration. The
+resolver SHALL select configuration from the active real profile and SHALL not
+use one profile's values as fallback for the other.
 
-#### Scenario: Italo resolves Italo configuration
+#### Scenario: Italo resolves Italo credentials
 
 - **WHEN** active profile is real Italo
-- **AND** synthetic Italo environment values are configured
-- **THEN** resolver returns Italo email, password, and destination
+- **AND** synthetic Italo email and password environment values are configured
+- **THEN** resolver returns Italo email and password
 - **AND** no Ana environment value is read as fallback
+- **AND** resolved configuration has no destination property
 
-#### Scenario: Ana resolves Ana configuration
+#### Scenario: Ana resolves Ana credentials
 
 - **WHEN** active profile is real Ana
-- **AND** synthetic Ana environment values are configured
-- **THEN** resolver returns Ana email, password, and destination
+- **AND** synthetic Ana email and password environment values are configured
+- **THEN** resolver returns Ana email and password
 - **AND** no Italo environment value is read as fallback
+- **AND** resolved configuration has no destination property
 
-#### Scenario: Non-real profile has no MyProfit destination
+#### Scenario: Legacy destination variables are ignored
+
+- **WHEN** environment contains legacy `MYPROFIT_ITALO_DESTINATION` or
+  `MYPROFIT_ANA_DESTINATION` values
+- **THEN** settings and resolver do not read, validate, or return those values
+- **AND** complete email/password configuration resolves without destination
+
+#### Scenario: Non-real profile has no MyProfit credentials
 
 - **WHEN** resolver receives Família or any profile not mapped to Italo or Ana
 - **THEN** it rejects the request with a stable, non-secret domain error
-- **AND** it does not return credentials or destination
+- **AND** it does not return credentials or routing value
 
 ### Requirement: Família SHALL be blocked before synchronization
 
@@ -62,7 +72,7 @@ values or placeholders only, never real credentials.
 - **WHEN** configuration is loaded with synthetic credential values
 - **THEN** rendered configuration diagnostics and resolver errors contain no
   password value
-- **AND** the safe error contains no complete email, destination, or raw env
+- **AND** the safe error contains no complete email or raw env
   payload
 
 ### Requirement: Configuration tests SHALL remain offline

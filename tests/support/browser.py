@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import signal
 import socket
 import subprocess
 import sys
@@ -34,14 +35,20 @@ def wait_for_port(
     timeout: float = 20.0,
     *,
     process: subprocess.Popen | None = None,
+    log_path: Path | None = None,
+    run_id: str | None = None,
+    lane: str | None = None,
 ) -> None:
     """Block until child-owned ``host:port`` accepts a TCP connection or raise."""
+    scope = f" run_id={run_id} lane={lane}" if run_id or lane else ""
     deadline = time.monotonic() + timeout
     last_err: Exception | None = None
     while time.monotonic() < deadline:
         if process is not None and (returncode := process.poll()) is not None:
+            log_tail = read_log_tail(log_path) if log_path is not None else "<no log path>"
             raise RuntimeError(
-                f"server child exited before {host}:{port} became ready; returncode={returncode}"
+                f"server child exited before {host}:{port} became ready;"
+                f"{scope} returncode={returncode}; log tail:\n{log_tail}"
             )
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.settimeout(0.5)
@@ -52,7 +59,9 @@ def wait_for_port(
                 last_err = exc
                 time.sleep(0.1)
     raise RuntimeError(
-        f"server on {host}:{port} did not become ready in {timeout}s (last error: {last_err})"
+        f"server on {host}:{port} did not become ready in {timeout}s;{scope} "
+        f"last error: {last_err}; log tail:\n"
+        f"{read_log_tail(log_path) if log_path is not None else '<no log path>'}"
     )
 
 
@@ -77,17 +86,38 @@ def shutdown_uvicorn(
     port: int,
     log_handle: Any | None = None,
     log_path: Path | None = None,
+    pgid: int | None = None,
+    parent_pgid: int | None = None,
 ) -> None:
+    owned_group = pgid is not None and pgid != parent_pgid
+
+    def signal_process(sig: int) -> None:
+        try:
+            if owned_group:
+                os.killpg(pgid, sig)
+            elif sig == signal.SIGTERM:
+                proc.terminate()
+            else:
+                proc.kill()
+        except (BrokenPipeError, ProcessLookupError) as exc:
+            log_harness(
+                f"{label}: lifecycle race while signaling {host}:{port}; "
+                f"signal={signal.Signals(sig).name}; {exc.__class__.__name__}: {exc}"
+            )
+        except OSError as exc:
+            log_harness(
+                f"{label}: signal error on {host}:{port}; "
+                f"signal={signal.Signals(sig).name}; {exc.__class__.__name__}: {exc}"
+            )
+
     try:
         if proc.poll() is None:
-            with suppress(ProcessLookupError):
-                proc.terminate()
+            signal_process(signal.SIGTERM)
             with suppress(subprocess.TimeoutExpired, ChildProcessError):
                 proc.wait(timeout=3)
         if proc.poll() is None:
             log_harness(f"{label}: terminate timeout on {host}:{port}; sending kill()")
-            with suppress(ProcessLookupError):
-                proc.kill()
+            signal_process(signal.SIGKILL)
             with suppress(subprocess.TimeoutExpired, ChildProcessError):
                 proc.wait(timeout=2)
         if proc.poll() is None:

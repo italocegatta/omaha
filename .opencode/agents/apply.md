@@ -82,14 +82,23 @@ documentation only; it performs no runtime process operation. Future runner
 mechanics belong to I08.
 
 Canonical review isolation policy: the single review suite SHALL run only on an
-isolated runner. Trusted review preflight requires no relevant unowned process,
-listener, or test-temporary resource; only absent state or resources registered
-with current-run ownership evidence may remain. There is no foreign-resource
-baseline exception and no allowlist exception. If preflight finds a relevant
-pre-existing, foreign, unknown, or otherwise unowned resource, review MUST stop
-before launching the suite, record inventory/evidence in its receipt, and request
-an isolated environment. Review MUST NOT adopt, kill, free, delete, mask, or
-allowlist that resource. This is a safe stop/escalation, not a cleanup request.
+isolated runner. For temporary paths, only canonical runner-declared exact
+run/lane paths are relevant. An exact current-run receipt/ownership match may
+be bounded-cleaned and recorded `owned-cleaned`; an exact absent declared path
+is `absent`. Mismatch, unknown, foreign, contradictory, or incomplete state
+inside a declared boundary stays untouched and blocks the affected handoff or
+review. Out-of-bound temporary observations are recorded
+`preserved/non-target` and cannot block alone. Do not infer relevance from a
+pathname or parent, discover `pytest-of-*`, or allowlist literal paths.
+
+Trusted review preflight requires no relevant unowned process, listener, test
+DB, or declared-boundary temporary resource. There is no foreign-resource
+baseline exception or allowlist exception for those declared resources. If
+preflight finds relevant pre-existing, foreign, unknown, contradictory, or
+incomplete state, review MUST stop before launching the suite, record
+inventory/evidence in its receipt, and request an isolated environment. Review
+MUST NOT adopt, kill, free, delete, mask, or allowlist foreign residue. This is
+a safe stop/escalation, not a cleanup request.
 
 Do not rewrite `proposal.md` or delta specs to make implementation appear
 correct. If discovery changes user behavior, scope, acceptance criteria, or a
@@ -105,6 +114,15 @@ unless documented blocker prevents rest.
 `apply` validates only tests directly related to current change, including after
 all tasks complete. Full-suite timing/verification belongs exclusively to `review`
 and must not be run after an apply pass or duplicated here.
+
+### Temporary canonical-gate suspension
+
+When I10 policy state is `maintenance-suspended`, this boundary is explicit:
+apply runs every applicable focused Taskipy command and mandatory product
+behavior test, records exact command/result evidence, and does not launch
+`uv run task test` as routine validation. Suspension does not permit red,
+missing, weakened, skipped, xfailed, retried, or deleted focused tests; it only
+makes parallel canonical full-suite enforcement non-blocking until reactivation.
 
 After every implementation pass:
 

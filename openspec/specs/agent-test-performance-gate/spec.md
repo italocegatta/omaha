@@ -5,6 +5,17 @@
 Time-budget enforcement for apply and review agents running focused or full test validation.
 
 ## Requirements
+### Requirement: Apply validates focused relevant tests during canonical-gate suspension
+While owner-authorized I10 state is `maintenance-suspended`, apply SHALL run every applicable focused command through `uv run task …`, report exact results, and SHALL record canonical full suite as `NOT RUN — maintenance-suspended` without treating absence as test deletion, skip, xfail, retry, or coverage reduction.
+#### Scenario: Suspended apply records focused evidence
+- **WHEN** applicable focused tests run under `maintenance-suspended`
+- **THEN** apply reports exact commands/results and records canonical suite not run
+
+### Requirement: Review audits focused evidence while canonical gate is suspended
+While `maintenance-suspended` is active, review SHALL audit scope, focused evidence, no-test-deletion invariants, and suspension visibility; record `NOT RUN — maintenance-suspended`; and SHALL not launch canonical suite until reactivation conditions are satisfied.
+#### Scenario: Suspended review may approve
+- **WHEN** focused evidence is green and no scope breach exists
+- **THEN** review records suspension and may approve without canonical result
 
 ### Requirement: Apply validates only focused relevant tests
 The `apply` agent and `openspec-apply-change` skill SHALL identify affected behavior from change tasks and diff, run smallest relevant test set through `uv run task …`, and report exact command and result. They SHALL NOT run full `uv run task test` as routine validation after an apply pass or after all tasks complete. Related red tests SHALL block apply handoff.

@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import signal
 import socket
 import subprocess
@@ -29,6 +30,10 @@ REPORT_DIR = REPO_ROOT / "reports" / "test-profile"
 GRACE_SECONDS = 10.0
 MAX_FULL_SUITE_SECONDS = 300.0
 TIMEOUT_EXIT_CODE = 124
+UNIX_SOCKET_PATH_MAX = 108
+CHROMIUM_SINGLETON_SOCKET_SUFFIX = "/org.chromium.Chromium.XXXXXX/SingletonSocket"
+SHORT_TEMP_ROOT_DIR = Path("/tmp")
+SHORT_TEMP_ROOT_PREFIX = "o-"
 LANES = (
     ("unit", "test-unit"),
     ("integration", "test-integration"),
@@ -37,6 +42,43 @@ LANES = (
     ("bdd", "test-bdd"),
     ("visual", "test-visual"),
 )
+DIRECT_LANE_COMMANDS = {
+    "test-unit": (
+        "uv",
+        "run",
+        "pytest",
+        "-m",
+        "unit",
+        "--ignore=tests/bdd",
+        "--cov=src/omaha",
+        "--cov-report=xml:reports/coverage.xml",
+        "-vv",
+    ),
+    "test-integration": (
+        "uv",
+        "run",
+        "pytest",
+        "-m",
+        "integration",
+        "--ignore=tests/audit_integration",
+        "--cov=src/omaha",
+        "--cov-report=xml:reports/coverage.xml",
+        "-vv",
+    ),
+    "test-audit-integration": ("uv", "run", "pytest", "tests/audit_integration", "-vv"),
+    "test-e2e": ("uv", "run", "pytest", "tests/e2e", "-vv", "--no-cov"),
+    "test-bdd": ("uv", "run", "pytest", "tests/bdd", "-vv", "--no-cov"),
+    "test-visual": (
+        "uv",
+        "run",
+        "pytest",
+        "tests/visual",
+        "-vv",
+        "--no-cov",
+        "-m",
+        "not t32_pruned",
+    ),
+}
 PORTS = (8765, 8766, 8767, 8768)
 LANE_PORTS = {
     "unit": (),
@@ -74,6 +116,11 @@ TIMING_RE = re.compile(
     r"(?P<node>tests/.*?::.*)$"
 )
 DB_RE = re.compile(r"^T29_DB_TARGET=(.+)$", re.MULTILINE)
+TEMP_ROOT_RE = re.compile(r"^T29_TEMP_ROOT=(.+)$", re.MULTILINE)
+TEMP_ROOT_RUN_RE = re.compile(r"^T29_TEMP_ROOT_RUN_ID=(.+)$", re.MULTILINE)
+TEMP_ROOT_LANE_RE = re.compile(r"^T29_TEMP_ROOT_LANE=(.+)$", re.MULTILINE)
+SERVER_EVENT_RE = re.compile(r"^T29_SERVER_EVENT (?P<event>\{.*\})$", re.MULTILINE)
+TEST_FAILURE_RE = re.compile(r"^T29_TEST_FAILURE (?P<failure>\{.*\})$", re.MULTILINE)
 SUMMARY_RE = re.compile(
     r"(?P<passed>\d+) passed|(?P<failed>\d+) failed|"
     r"(?P<skipped>\d+) skipped|(?P<errors>\d+) errors?"
@@ -144,14 +191,44 @@ def load_manifest(path: Path = MANIFEST_PATH) -> Manifest:
     return Manifest(nodes, checksum, population, lane_checksums, EXPECTED_SKIPS, False)
 
 
-def _lane_environment(name: str) -> dict[str, str]:
+def _lane_environment(
+    name: str,
+    *,
+    run_id: str | None = None,
+    temp_root: Path | None = None,
+) -> dict[str, str]:
     """Return process environment carrying one lane's receipt scope."""
-    return {**os.environ, "T29_DB_RECEIPT_LANE": name}
+    environment = {**os.environ, "T29_DB_RECEIPT_LANE": name}
+    if run_id is not None:
+        environment["T29_RUN_ID"] = run_id
+    if temp_root is not None:
+        environment["T29_TEMP_ROOT_BOUNDARY"] = str(temp_root)
+        # Keep tempfile-backed safe DBs inside the runner-registered lane
+        # boundary. The emitted DB receipt remains the only dynamic path
+        # eligible for reconciliation.
+        environment["TMPDIR"] = str(temp_root)
+        existing_pytest_opts = environment.get("PYTEST_ADDOPTS", "").strip()
+        environment["PYTEST_ADDOPTS"] = f"{existing_pytest_opts} --basetemp={temp_root}".strip()
+    return environment
+
+
+def _create_lane_temp_root() -> Path:
+    """Create a short, runner-owned pytest boundary for Chromium sockets."""
+    temp_root = Path(tempfile.mkdtemp(prefix=SHORT_TEMP_ROOT_PREFIX, dir=SHORT_TEMP_ROOT_DIR))
+    socket_path = f"{temp_root}{CHROMIUM_SINGLETON_SOCKET_SUFFIX}"
+    if len(os.fsencode(socket_path)) >= UNIX_SOCKET_PATH_MAX:
+        raise RuntimeError(
+            f"runner temp boundary exceeds Unix Chromium socket path limit: {socket_path!r}"
+        )
+    return temp_root
 
 
 def _runtime_child_command(task: str, selected: tuple[str, ...] = ()) -> list[str]:
     """Build runtime lane command with pre-run governance deselection."""
-    command = ["uv", "run", "task", task, "--", "-s", "-p", "test_profile_plugin"]
+    try:
+        command = [*DIRECT_LANE_COMMANDS[task], "-s", "-p", "test_profile_plugin"]
+    except KeyError as exc:
+        raise ValueError(f"unknown canonical lane task: {task}") from exc
     for nodeid in selected:
         command.extend(("--deselect", nodeid))
     return command
@@ -203,14 +280,20 @@ def _canonical_resource_inventory(
             }
         )
     for path in sorted(CANONICAL_DATABASE_PATHS):
+        path_obj = Path(path)
+        present = path_obj.exists()
         canonical.append(
             {
                 "resource_kind": "test DB",
                 "resource_id": path,
                 "relevant": True,
-                "classification": "absent",
+                "classification": "pre-existing" if present else "absent",
                 "owner": run_id,
-                "evidence": "canonical fixed test DB declared; no host-wide scan",
+                "evidence": (
+                    "exact canonical fixed test DB exists before run; no adoption"
+                    if present
+                    else "canonical fixed test DB declared absent by exact preflight stat"
+                ),
                 "cleanup_target": False,
             }
         )
@@ -353,7 +436,13 @@ def _race_evidence(exc: BaseException) -> dict[str, str]:
 
 
 def _lane_metadata(
-    name: str, task: str, run_id: str, log_path: Path, timing_path: Path
+    name: str,
+    task: str,
+    run_id: str,
+    log_path: Path,
+    timing_path: Path,
+    *,
+    temp_root: Path | None = None,
 ) -> dict[str, object]:
     """Register complete lane evidence before any child is launched."""
     owner_evidence = {
@@ -384,6 +473,17 @@ def _lane_metadata(
             "classification": "owned-current-run",
             "evidence": "path registered by current runner before child use",
         },
+        "pytest_temp": {
+            "resource_kind": "temporary path",
+            "resource_id": str(temp_root) if temp_root is not None else None,
+            "owner": run_id,
+            "classification": "owned-current-run" if temp_root is not None else "absent",
+            "evidence": (
+                "unique --basetemp boundary created by current runner"
+                if temp_root is not None
+                else "pytest temp boundary unavailable before launch"
+            ),
+        },
         "database": {
             "resource_kind": "test DB",
             "resource_id": [str(target) for target in LANE_DATABASES[name]],
@@ -405,11 +505,34 @@ def _lane_metadata(
     }
     return {
         "lane": name,
-        "task": f"uv run task {task}",
+        "run_id": run_id,
+        "task": task,
+        "command": _runtime_child_command(task),
+        "parent_pid": owner_evidence["runner_pid"],
         "pid": None,
         "pgid": None,
         "log": str(log_path),
         "timings": str(timing_path),
+        "temp_root_boundary": str(temp_root) if temp_root is not None else None,
+        "temp_root_receipt": None,
+        "temp_root_reconciliation": {
+            "classification": "not-attempted",
+            "cleanup_result": "not-attempted",
+        },
+        "server_lifecycle": [],
+        "timing": {
+            "registered_at": owner_evidence["recorded_at"],
+            "phases": [],
+            "launch_started_at": None,
+            "launch_ended_at": None,
+            "monitor_started_at": None,
+            "monitor_ended_at": None,
+            "cleanup_started_at": None,
+            "cleanup_ended_at": None,
+            "finalization_started_at": None,
+            "finalization_ended_at": None,
+        },
+        "test_failures": [],
         "ports": list(LANE_PORTS[name]),
         "owned_resource_mapping": resources,
         "owner_evidence": owner_evidence,
@@ -429,6 +552,7 @@ def _lane_metadata(
         "cleanup_status": "not-attempted",
         "cleanup_result": "not-attempted",
         "lifecycle_races": [],
+        "lifecycle": [],
         "timeout": {
             "deadline_triggered": False,
             "deadline": None,
@@ -436,6 +560,74 @@ def _lane_metadata(
         },
         "receipt_error": None,
     }
+
+
+def _record_lifecycle(entry: dict[str, object] | None, phase: str, **details: object) -> None:
+    """Append one run/lane-bound lifecycle observation to a lane receipt."""
+    if entry is None:
+        return
+    events = entry.setdefault("lifecycle", [])
+    assert isinstance(events, list)
+    event = {
+        **details,
+        "run_id": entry.get("run_id"),
+        "lane": entry.get("lane"),
+        "phase": phase,
+        "recorded_at": time.time(),
+    }
+    events.append(event)
+
+
+def _record_lane_timing(
+    entry: dict[str, object] | None,
+    phase: str,
+    started_monotonic: float,
+    started_at: float,
+    *,
+    status: str = "complete",
+) -> None:
+    """Record bounded wall and monotonic timing for one lane phase."""
+    if entry is None:
+        return
+    timing = entry.setdefault("timing", {"phases": []})
+    assert isinstance(timing, dict)
+    ended_at = time.time()
+    timing.setdefault("phases", []).append(
+        {
+            "phase": phase,
+            "started_at": started_at,
+            "ended_at": ended_at,
+            "elapsed_seconds": max(0.0, time.monotonic() - started_monotonic),
+            "status": status,
+        }
+    )
+    timing[f"{phase}_started_at"] = started_at
+    timing[f"{phase}_ended_at"] = ended_at
+
+
+def _record_run_timing(
+    payload: dict[str, object],
+    phase: str,
+    started_monotonic: float,
+    started_at: float,
+    *,
+    status: str = "complete",
+) -> None:
+    """Record one bounded run phase without changing its deadline policy."""
+    timing = payload.setdefault("timing", {"phases": []})
+    assert isinstance(timing, dict)
+    ended_at = time.time()
+    timing.setdefault("phases", []).append(
+        {
+            "phase": phase,
+            "started_at": started_at,
+            "ended_at": ended_at,
+            "elapsed_seconds": max(0.0, time.monotonic() - started_monotonic),
+            "status": status,
+        }
+    )
+    timing["last_phase"] = phase
+    timing["last_phase_ended_at"] = ended_at
 
 
 def _record_receipt_error(
@@ -592,6 +784,7 @@ def _record_race(entry: dict[str, object] | None, phase: str, exc: BaseException
     races.append({"phase": phase, **_race_evidence(exc)})
     entry["residue_classification"] = "absent"
     entry["residue"] = [{"phase": phase, **_race_evidence(exc)}]
+    _record_lifecycle(entry, phase, race=_race_evidence(exc))
 
 
 def _resource_is_untrusted(resource: object) -> bool:
@@ -696,18 +889,25 @@ def _propagate_resource_inventory(
 def _owned_process_group(entry: dict[str, object] | None, process: object) -> bool:
     """Require current-run process-group evidence before signaling or reaping."""
     if entry is None:
-        return True
-    resource = entry.get("owned_resource_mapping", {}).get("process_group", {})
+        return False
+    resources = entry.get("owned_resource_mapping", {})
+    resource = resources.get("process_group", {}) if isinstance(resources, dict) else {}
     if not isinstance(resource, dict):
         return False
-    if resource.get("classification") in {"foreign", "unknown", "pre-existing"}:
+    if resource.get("classification") != "owned-current-run":
         return False
+    recorded_pgid = entry.get("pgid")
     resource_id = resource.get("resource_id")
-    if resource_id is not None and resource_id != getattr(process, "pid", None):
+    if not isinstance(recorded_pgid, int) or not isinstance(resource_id, int):
         return False
-    # Direct helper callers represent a launched child in the process map. The
-    # main runner always upgrades this entry to owned-current-run at launch.
-    return resource.get("classification") in {None, "absent", "owned-current-run"}
+    return recorded_pgid == resource_id
+
+
+def _recorded_pgid(entry: dict[str, object] | None) -> int | None:
+    if entry is None:
+        return None
+    pgid = entry.get("pgid")
+    return pgid if isinstance(pgid, int) else None
 
 
 def _stop(
@@ -737,6 +937,13 @@ def _stop(
             continue
         try:
             running = process.poll() is None
+            _record_lifecycle(
+                entry,
+                "poll-before-signal",
+                child_pid=getattr(process, "pid", None),
+                pgid=_recorded_pgid(entry),
+                return_code=getattr(process, "returncode", None),
+            )
         except Exception as exc:
             if _is_lifecycle_race(exc):
                 _record_race(entry, "poll-before-signal", exc)
@@ -749,6 +956,13 @@ def _stop(
             clean = False
             continue
         if not running:
+            _record_lifecycle(
+                entry,
+                "exit-before-signal",
+                child_pid=getattr(process, "pid", None),
+                pgid=_recorded_pgid(entry),
+                return_code=getattr(process, "returncode", None),
+            )
             continue
         if entry is not None:
             entry["signal"] = signal.Signals(sig).name
@@ -757,7 +971,18 @@ def _stop(
             signals.append({"signal": signal.Signals(sig).name, "reason": reason})
             entry["sibling_stop_reason"] = reason
         try:
-            os.killpg(process.pid, sig)
+            pgid = _recorded_pgid(entry)
+            if pgid is None:
+                raise RuntimeError("current-run PGID was not recorded")
+            os.killpg(pgid, sig)
+            _record_lifecycle(
+                entry,
+                "signal",
+                child_pid=getattr(process, "pid", None),
+                pgid=pgid,
+                signal=signal.Signals(sig).name,
+                reason=reason,
+            )
         except Exception as exc:
             if _is_lifecycle_race(exc):
                 _record_race(entry, "signal", exc)
@@ -785,7 +1010,15 @@ def _reap(
             if _entry_has_untrusted_resource(entry) or not _owned_process_group(entry, process):
                 continue
             try:
-                if process.poll() is None:
+                return_code = process.poll()
+                _record_lifecycle(
+                    entry,
+                    "poll-before-reap",
+                    child_pid=getattr(process, "pid", None),
+                    pgid=_recorded_pgid(entry),
+                    return_code=return_code,
+                )
+                if return_code is None:
                     running = True
             except Exception as exc:
                 entry = _entry_for(metadata, name)
@@ -811,7 +1044,15 @@ def _reap(
             clean = False
             continue
         try:
-            if process.poll() is None:
+            return_code = process.poll()
+            _record_lifecycle(
+                entry,
+                "poll-after-grace",
+                child_pid=getattr(process, "pid", None),
+                pgid=_recorded_pgid(entry),
+                return_code=return_code,
+            )
+            if return_code is None:
                 survivors.append((name, process))
         except Exception as exc:
             entry = _entry_for(metadata, name)
@@ -833,7 +1074,18 @@ def _reap(
                 {"signal": signal.Signals(signal.SIGKILL).name, "reason": reason},
             ]
         try:
-            os.killpg(process.pid, signal.SIGKILL)
+            pgid = _recorded_pgid(entry)
+            if pgid is None:
+                raise RuntimeError("current-run PGID was not recorded")
+            os.killpg(pgid, signal.SIGKILL)
+            _record_lifecycle(
+                entry,
+                "signal",
+                child_pid=getattr(process, "pid", None),
+                pgid=pgid,
+                signal=signal.Signals(signal.SIGKILL).name,
+                reason=reason,
+            )
         except Exception as exc:
             if _is_lifecycle_race(exc):
                 _record_race(entry, "kill", exc)
@@ -848,7 +1100,14 @@ def _reap(
         if _entry_has_untrusted_resource(entry) or not _owned_process_group(entry, process):
             continue
         try:
-            waited = process.wait()
+            waited = process.wait(timeout=GRACE_SECONDS)
+            _record_lifecycle(
+                entry,
+                "wait",
+                child_pid=getattr(process, "pid", None),
+                pgid=_recorded_pgid(entry),
+                return_code=waited,
+            )
             if entry is not None and process.returncode is None:
                 entry["return_code"] = waited
                 entry["exit_code"] = waited
@@ -864,6 +1123,13 @@ def _reap(
         if entry is not None:
             entry["return_code"] = process.returncode
             entry["exit_code"] = process.returncode
+            _record_lifecycle(
+                entry,
+                "exit",
+                child_pid=getattr(process, "pid", None),
+                pgid=_recorded_pgid(entry),
+                return_code=process.returncode,
+            )
             if entry["cleanup_result"] == "not-attempted":
                 entry["cleanup_result"] = "owned-cleaned"
             if entry["cleanup_status"] == "not-attempted":
@@ -923,6 +1189,32 @@ def _collection(output: str, timing_output: str = "") -> dict[str, object]:
     return result
 
 
+def _server_events(output: str) -> list[dict[str, object]]:
+    """Parse only run/lane-bound server events emitted by shared harness."""
+    events: list[dict[str, object]] = []
+    for match in SERVER_EVENT_RE.finditer(output):
+        try:
+            event = json.loads(match["event"])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(event, dict):
+            events.append(event)
+    return events
+
+
+def _test_failures(output: str) -> list[dict[str, object]]:
+    """Parse run/lane-bound per-test traceback evidence from shared conftest."""
+    failures: list[dict[str, object]] = []
+    for match in TEST_FAILURE_RE.finditer(output):
+        try:
+            failure = json.loads(match["failure"])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(failure, dict):
+            failures.append(failure)
+    return failures
+
+
 def _final_exit_code(
     interrupted: int | None,
     clean: bool,
@@ -953,7 +1245,7 @@ def _duration_exceeded(elapsed_seconds: float) -> bool:
 
 def _stop_deadline(started: float) -> float:
     """Reserve cleanup margin so hard ceiling includes child teardown."""
-    return started + MAX_FULL_SUITE_SECONDS - GRACE_SECONDS - 1.0
+    return started + MAX_FULL_SUITE_SECONDS - (2 * GRACE_SECONDS) - 1.0
 
 
 def reconcile_population(
@@ -1048,6 +1340,226 @@ def _select_pre_run_cases(
     return selected, selected_by_lane
 
 
+def _reconcile_temp_root(entry: dict[str, object], output: str) -> bool:
+    """Reconcile only the exact pytest base temp path declared by one lane."""
+    expected_value = entry.get("temp_root_boundary")
+    if not isinstance(expected_value, str) or not expected_value:
+        entry["temp_root_reconciliation"] = {
+            "classification": "unknown",
+            "cleanup_result": "missing-boundary",
+        }
+        entry["owned_resource_mapping"]["pytest_temp"]["classification"] = "unknown"
+        entry["cleanup_result"] = "untrusted-receipt"
+        return False
+
+    paths = TEMP_ROOT_RE.findall(output)
+    run_ids = TEMP_ROOT_RUN_RE.findall(output)
+    lanes = TEMP_ROOT_LANE_RE.findall(output)
+    expected = Path(expected_value).resolve()
+    evidence = {
+        "expected": str(expected),
+        "reported_paths": paths,
+        "reported_run_ids": run_ids,
+        "reported_lanes": lanes,
+    }
+    if len(paths) != 1 or run_ids != [str(entry["run_id"])] or lanes != [str(entry["lane"])]:
+        entry["temp_root_reconciliation"] = {
+            "classification": "unknown",
+            "cleanup_result": "incomplete-or-contradictory-evidence",
+            **evidence,
+        }
+        entry["owned_resource_mapping"]["pytest_temp"].update(
+            {"classification": "unknown", "evidence": evidence}
+        )
+        entry["cleanup_result"] = "untrusted-receipt"
+        return False
+
+    reported = Path(paths[0]).resolve()
+    if reported != expected:
+        entry["temp_root_reconciliation"] = {
+            "classification": "foreign",
+            "cleanup_result": "path-mismatch",
+            "reported": str(reported),
+            **evidence,
+        }
+        entry["owned_resource_mapping"]["pytest_temp"].update(
+            {"classification": "foreign", "evidence": evidence, "resource_id": str(reported)}
+        )
+        entry["residue_classification"] = "foreign"
+        entry["residue"].append({"resource": "pytest_temp", **evidence})
+        entry["cleanup_result"] = "untrusted-resource"
+        return False
+
+    resource = entry["owned_resource_mapping"]["pytest_temp"]
+    if expected.is_symlink() or (expected.exists() and not expected.is_dir()):
+        entry["temp_root_reconciliation"] = {
+            "classification": "unknown",
+            "cleanup_result": "contradictory-path-state",
+            **evidence,
+        }
+        resource.update({"classification": "unknown", "evidence": evidence})
+        entry["cleanup_result"] = "untrusted-receipt"
+        return False
+    try:
+        if expected.exists():
+            shutil.rmtree(expected)
+            classification = "owned-cleaned"
+            cleanup_result = "exact-root-removed"
+        else:
+            classification = "absent"
+            cleanup_result = "idempotent-no-op; exact-root-absent"
+    except OSError as exc:
+        entry["temp_root_reconciliation"] = {
+            "classification": "unknown",
+            "cleanup_result": f"cleanup-failed: {exc.__class__.__name__}: {exc}",
+            **evidence,
+        }
+        resource.update({"classification": "unknown", "evidence": evidence})
+        entry["cleanup_result"] = "untrusted-receipt"
+        return False
+    entry["temp_root_receipt"] = {
+        "run_id": entry["run_id"],
+        "lane": entry["lane"],
+        "path": str(reported),
+        "owner": entry["run_id"],
+        "owner_evidence": evidence,
+    }
+    entry["temp_root_reconciliation"] = {
+        "classification": classification,
+        "cleanup_result": cleanup_result,
+        **evidence,
+    }
+    resource.update({"classification": classification, "evidence": evidence})
+    return True
+
+
+def _reconcile_fixed_db_targets(entry: dict[str, object], db_targets: list[str]) -> bool:
+    """Reconcile exact fixed test DBs only when preflight proved absence."""
+    resource = entry["owned_resource_mapping"]["database"]
+    assert isinstance(resource, dict)
+    expected = {
+        str(path.resolve()) for path in LANE_DATABASES[str(entry["lane"])] if isinstance(path, Path)
+    }
+    fixed_targets = [target for target in db_targets if target in expected]
+    if not fixed_targets:
+        return True
+    if resource.get("preflight_classification") != "absent":
+        resource.update(
+            {
+                "classification": resource.get("preflight_classification", "unknown"),
+                "cleanup_result": "preserved; preflight ownership not absent",
+            }
+        )
+        return False
+
+    for target in fixed_targets:
+        path = Path(target)
+        try:
+            if path.is_symlink() or (path.exists() and not path.is_file()):
+                raise OSError("fixed test DB path has contradictory type")
+            if path.exists():
+                path.unlink()
+                cleanup_result = "exact-test-db-removed"
+                classification = "owned-cleaned"
+            else:
+                cleanup_result = "idempotent-no-op; exact-test-db-absent"
+                classification = "absent"
+        except OSError as exc:
+            resource.update(
+                {
+                    "classification": "unknown",
+                    "cleanup_result": f"cleanup-failed: {exc.__class__.__name__}: {exc}",
+                }
+            )
+            return False
+        resource.update(
+            {
+                "classification": classification,
+                "cleanup_result": cleanup_result,
+                "resource_id": fixed_targets,
+                "evidence": "exact fixed DB path was absent at current-run preflight",
+            }
+        )
+    return True
+
+
+def _reconcile_dynamic_db_targets(entry: dict[str, object], db_targets: list[str]) -> bool:
+    """Reconcile only emitted dynamic DB files inside one lane boundary."""
+    resource = entry["owned_resource_mapping"]["database"]
+    assert isinstance(resource, dict)
+    boundary_value = entry.get("temp_root_boundary")
+    if not isinstance(boundary_value, str) or not boundary_value:
+        resource.update({"classification": "unknown", "cleanup_result": "missing-boundary"})
+        return False
+    boundary = Path(boundary_value).resolve()
+    dynamic_targets = [
+        Path(target).resolve() for target in db_targets if "/omaha-conftest-safe-" in target
+    ]
+    if not dynamic_targets or any(
+        target == boundary or boundary not in target.parents for target in dynamic_targets
+    ):
+        resource.update(
+            {
+                "classification": "unknown",
+                "cleanup_result": "dynamic-path-outside-registered-boundary",
+                "resource_id": [str(target) for target in dynamic_targets],
+            }
+        )
+        return False
+
+    classifications: list[str] = []
+    for target in dynamic_targets:
+        try:
+            if target.is_symlink() or (target.exists() and not target.is_file()):
+                raise OSError("dynamic test DB path has contradictory type")
+            if target.exists():
+                target.unlink()
+                classifications.append("owned-cleaned")
+            else:
+                classifications.append("absent")
+        except OSError as exc:
+            resource.update(
+                {
+                    "classification": "unknown",
+                    "cleanup_result": f"cleanup-failed: {exc.__class__.__name__}: {exc}",
+                    "resource_id": [str(target) for target in dynamic_targets],
+                }
+            )
+            return False
+    classification = "owned-cleaned" if "owned-cleaned" in classifications else "absent"
+    resource.update(
+        {
+            "resource_id": [str(target) for target in dynamic_targets],
+            "classification": classification,
+            "cleanup_result": "exact-dynamic-db-reconciled",
+            "evidence": (
+                "exact T29_DB_TARGET paths were emitted before collection and remained "
+                "inside the registered lane temp boundary"
+            ),
+        }
+    )
+    return True
+
+
+def _fixed_db_preflight_classification(preflight: dict[str, object], lane: str) -> str | None:
+    """Return exact preflight state for one lane's fixed DB resources."""
+    fixed_paths = {str(path.resolve()) for path in LANE_DATABASES[lane] if isinstance(path, Path)}
+    if not fixed_paths:
+        return None
+    resources = preflight.get("resources", [])
+    states = {
+        str(item.get("resource_id")): str(item.get("classification"))
+        for item in resources
+        if isinstance(item, dict)
+        and item.get("resource_kind") == "test DB"
+        and str(item.get("resource_id")) in fixed_paths
+    }
+    if len(states) != len(fixed_paths):
+        return "unknown"
+    classifications = set(states.values())
+    return next(iter(classifications)) if len(classifications) == 1 else "unknown"
+
+
 def main() -> int:
     started = time.monotonic()
     run_started_at = time.time()
@@ -1089,7 +1601,21 @@ def main() -> int:
     for name, task in LANES:
         log_path = REPORT_DIR / f"{stamp}-{name}.log"
         timing_path = REPORT_DIR / f"{stamp}-{name}.timings"
-        entry = _lane_metadata(name, task, run_id, log_path, timing_path)
+        temp_root = _create_lane_temp_root()
+        entry = _lane_metadata(
+            name,
+            task,
+            run_id,
+            log_path,
+            timing_path,
+            temp_root=temp_root,
+        )
+        database_resource = entry["owned_resource_mapping"]["database"]
+        assert isinstance(database_resource, dict)
+        preflight_db_state = _fixed_db_preflight_classification(preflight_receipt, name)
+        if preflight_db_state is not None:
+            database_resource["preflight_classification"] = preflight_db_state
+        _record_lifecycle(entry, "registered", parent_pid=os.getpid(), temp_root=str(temp_root))
         entry["owned_resources"] = entry["owned_resource_mapping"]
         metadata.append(entry)
         metadata_by_lane[name] = entry
@@ -1148,13 +1674,47 @@ def main() -> int:
         "final_exit_code": None,
         "receipt_errors": [],
         "receipt_error": None,
+        "timing": {
+            "run_started_at": run_started_at,
+            "hard_ceiling_seconds": MAX_FULL_SUITE_SECONDS,
+            "phases": [],
+            "receipt_persistence": [],
+        },
     }
-    receipt_write_failed = not _persist_receipt(payload, receipt_path, "pre-launch")
+    _record_run_timing(payload, "preflight", started, run_started_at)
+    receipt_write_failed = False
 
     def persist(stage: str, lane: str | None = None) -> None:
         nonlocal receipt_write_failed
-        if not _persist_receipt(payload, receipt_path, stage, lane):
+        timing = payload.get("timing")
+        attempt_started = time.monotonic()
+        attempt_started_at = time.time()
+        if isinstance(timing, dict):
+            persistence = timing.setdefault("receipt_persistence", [])
+            assert isinstance(persistence, list)
+            persistence.append(
+                {
+                    "stage": stage,
+                    "lane": lane,
+                    "started_at": attempt_started_at,
+                    "status": "started",
+                }
+            )
+        persisted = _persist_receipt(payload, receipt_path, stage, lane)
+        if isinstance(timing, dict):
+            persistence = timing.setdefault("receipt_persistence", [])
+            assert isinstance(persistence, list)
+            persistence[-1].update(
+                {
+                    "ended_at": time.time(),
+                    "elapsed_seconds": max(0.0, time.monotonic() - attempt_started),
+                    "status": "written" if persisted else "failed",
+                }
+            )
+        if not persisted:
             receipt_write_failed = True
+
+    persist("pre-launch")
 
     def record_error(stage: str, exc: BaseException, lane: str | None = None) -> None:
         _record_receipt_error(payload, stage, exc, lane)
@@ -1185,20 +1745,36 @@ def main() -> int:
 
     def launch(name: str, task: str) -> bool:
         entry = metadata_by_lane[name]
+        launch_started = time.monotonic()
+        launch_started_at = time.time()
+        entry_timing = entry["timing"]
+        assert isinstance(entry_timing, dict)
+        entry_timing["launch_started_at"] = launch_started_at
         log_path = Path(str(entry["log"]))
         timing_path = Path(str(entry["timings"]))
         log = None
-        child_env = _lane_environment(name)
+        temp_root = Path(str(entry["temp_root_boundary"]))
+        child_env = _lane_environment(name, run_id=run_id, temp_root=temp_root)
         child_env["PYTHONPATH"] = os.pathsep.join(
             filter(None, [str(REPO_ROOT / "scripts"), child_env.get("PYTHONPATH", "")])
         )
         child_env["T29_PROFILE_PATH"] = str(timing_path)
         child_env["T29_DB_RECEIPT_LANE"] = name
+        command = _runtime_child_command(task, selected_by_lane.get(name, ()))
+        entry["command"] = command
         entry["launch_status"] = "starting"
+        _record_lifecycle(
+            entry,
+            "launch-start",
+            parent_pid=os.getpid(),
+            child_pid=None,
+            pgid=None,
+            temp_root=str(temp_root),
+        )
         try:
             log = log_path.open("w", encoding="utf-8")
             process = subprocess.Popen(
-                _runtime_child_command(task, selected_by_lane.get(name, ())),
+                command,
                 cwd=REPO_ROOT,
                 env=child_env,
                 stdout=log,
@@ -1215,6 +1791,7 @@ def main() -> int:
             entry["cleanup_result"] = "not-launched"
             if log is not None:
                 log.close()
+            _record_lane_timing(entry, "launch", launch_started, launch_started_at, status="failed")
             persist(f"launch:{name}", name)
             return False
         finally:
@@ -1222,17 +1799,52 @@ def main() -> int:
                 log.close()
         processes[name] = process
         entry["pid"] = process.pid
-        entry["pgid"] = process.pid
+        try:
+            actual_pgid = os.getpgid(process.pid)
+        except Exception as exc:
+            entry["launch_status"] = "untrusted"
+            entry["status"] = "launch-untrusted"
+            entry["receipt_error"] = f"actual PGID unavailable: {exc}"
+            entry["owned_resource_mapping"]["process_group"].update(
+                {
+                    "classification": "unknown",
+                    "evidence": f"os.getpgid failed: {exc.__class__.__name__}: {exc}",
+                }
+            )
+            _record_lifecycle(
+                entry,
+                "launch-pgid-error",
+                parent_pid=os.getpid(),
+                child_pid=process.pid,
+                pgid=None,
+                error=f"{exc.__class__.__name__}: {exc}",
+            )
+            _record_lane_timing(entry, "launch", launch_started, launch_started_at, status="failed")
+            persist(f"launch-pgid:{name}", name)
+            return False
+        entry["pgid"] = actual_pgid
         entry["started_at"] = time.time()
         entry["status"] = "launched"
         entry["launch_status"] = "launched"
         process_group = entry["owned_resource_mapping"]["process_group"]
         process_group.update(
             {
-                "resource_id": process.pid,
+                "resource_id": actual_pgid,
+                "child_pid": process.pid,
+                "pgid": actual_pgid,
                 "classification": "owned-current-run",
-                "evidence": "Popen(start_new_session=True) returned current-run child",
+                "evidence": (
+                    "Popen(start_new_session=True) plus os.getpgid returned current-run group"
+                ),
             }
+        )
+        _record_lifecycle(
+            entry,
+            "launch-complete",
+            parent_pid=os.getpid(),
+            child_pid=process.pid,
+            pgid=actual_pgid,
+            return_code=process.poll(),
         )
         ports_resource = entry["owned_resource_mapping"]["ports"]
         ports_resource.update(
@@ -1245,6 +1857,7 @@ def main() -> int:
                 ),
             }
         )
+        _record_lane_timing(entry, "launch", launch_started, launch_started_at)
         persist(f"launch:{name}", name)
         return True
 
@@ -1261,7 +1874,16 @@ def main() -> int:
                 process = processes[name]
                 entry = metadata_by_lane[name]
                 try:
-                    if process.poll() is None:
+                    return_code = process.poll()
+                    _record_lifecycle(
+                        entry,
+                        "monitor-poll",
+                        parent_pid=os.getpid(),
+                        child_pid=process.pid,
+                        pgid=entry.get("pgid"),
+                        return_code=return_code,
+                    )
+                    if return_code is None:
                         running = True
                 except Exception as exc:
                     if _is_lifecycle_race(exc):
@@ -1306,6 +1928,14 @@ def main() -> int:
                 process = processes[name]
                 try:
                     returncode = process.poll()
+                    _record_lifecycle(
+                        metadata_by_lane[name],
+                        "monitor-failure-poll",
+                        parent_pid=os.getpid(),
+                        child_pid=process.pid,
+                        pgid=metadata_by_lane[name].get("pgid"),
+                        return_code=returncode,
+                    )
                 except Exception as exc:
                     if _is_lifecycle_race(exc):
                         _record_race(metadata_by_lane[name], "monitor-failure-poll", exc)
@@ -1339,6 +1969,8 @@ def main() -> int:
             time.sleep(0.2)
 
     clean = True
+    launch_phase_started = time.monotonic()
+    launch_phase_started_at = time.time()
     try:
         launch_failed = False
         failed_lane = None
@@ -1370,7 +2002,33 @@ def main() -> int:
                 record_error("partial-launch-stop", exc, failed_lane)
             persist("partial-launch", failed_lane)
         elif processes:
-            monitor(tuple(name for name, _ in LANES))
+            monitor_phase_started = time.monotonic()
+            monitor_phase_started_at = time.time()
+            for entry in metadata:
+                if entry["lane"] in processes:
+                    entry_timing = entry["timing"]
+                    assert isinstance(entry_timing, dict)
+                    entry_timing["monitor_started_at"] = monitor_phase_started_at
+            try:
+                monitor(tuple(name for name, _ in LANES))
+            finally:
+                for entry in metadata:
+                    if entry["lane"] in processes:
+                        _record_lane_timing(
+                            entry,
+                            "monitor",
+                            monitor_phase_started,
+                            monitor_phase_started_at,
+                        )
+                _record_run_timing(
+                    payload,
+                    "monitor",
+                    monitor_phase_started,
+                    monitor_phase_started_at,
+                )
+                persist("phase-monitor")
+        _record_run_timing(payload, "launch", launch_phase_started, launch_phase_started_at)
+        persist("phase-launch")
     except Exception as exc:
         if first_failure is None:
             first_failure = 2
@@ -1378,6 +2036,12 @@ def main() -> int:
             first_failure_reason = first_failure_reason or "runner lifecycle exception"
         record_error("launch-monitor", exc)
     finally:
+        cleanup_phase_started = time.monotonic()
+        cleanup_phase_started_at = time.time()
+        for entry in metadata:
+            entry_timing = entry["timing"]
+            assert isinstance(entry_timing, dict)
+            entry_timing["cleanup_started_at"] = cleanup_phase_started_at
         try:
             clean = _reap(processes, metadata_by_lane, "final-cleanup")
         except Exception as exc:
@@ -1387,6 +2051,21 @@ def main() -> int:
                 first_failure_lane = first_failure_lane or "runner"
                 first_failure_reason = first_failure_reason or "cleanup exception"
             record_error("cleanup", exc)
+        for entry in metadata:
+            _record_lane_timing(
+                entry,
+                "cleanup",
+                cleanup_phase_started,
+                cleanup_phase_started_at,
+                status="complete" if clean else "untrusted",
+            )
+        _record_run_timing(
+            payload,
+            "cleanup",
+            cleanup_phase_started,
+            cleanup_phase_started_at,
+            status="complete" if clean else "untrusted",
+        )
         payload["clean_children"] = clean
         payload["cleanup"]["through_elapsed_seconds"] = time.monotonic() - started
         payload["cleanup"]["verdict"] = "clean" if clean else "untrusted"
@@ -1396,6 +2075,8 @@ def main() -> int:
                 signal.signal(sig, handler)
             except Exception as exc:
                 record_error("signal-restore", exc)
+    finalization_phase_started = time.monotonic()
+    finalization_phase_started_at = time.time()
     empty_collection = {
         "collected": 0,
         "nodes": [],
@@ -1406,6 +2087,11 @@ def main() -> int:
     }
     for entry in metadata:
         lane = str(entry["lane"])
+        lane_finalization_started = time.monotonic()
+        lane_finalization_started_at = time.time()
+        entry_timing = entry["timing"]
+        assert isinstance(entry_timing, dict)
+        entry_timing["finalization_started_at"] = lane_finalization_started_at
         process = processes.get(lane)
         output = ""
         timing_output = ""
@@ -1438,12 +2124,22 @@ def main() -> int:
                     first_failure_reason = "lane timing read failed"
                 record_error("timing-read", exc, lane)
             collection = _collection(output, timing_output)
+            entry["server_lifecycle"] = _server_events(output)
+            entry["test_failures"] = _test_failures(output)
             db_targets = [str(Path(value).resolve()) for value in DB_RE.findall(output)]
             if process is not None:
+                temp_trusted = _reconcile_temp_root(entry, output)
+                if not temp_trusted and first_failure is None:
+                    first_failure = 2
+                    first_failure_lane = lane
+                    first_failure_reason = "lane pytest temp receipt invalid"
+                    record_error(
+                        "temp-receipt",
+                        RuntimeError("pytest temp ownership untrusted"),
+                        lane,
+                    )
                 try:
                     _validate_db_targets(lane, db_targets)
-                    if lane in {"unit", "integration"} and not collection["nodes"]:
-                        raise RuntimeError(f"{lane} published empty collection receipt")
                     database_resource = entry["owned_resource_mapping"]["database"]
                     database_resource.update(
                         {
@@ -1452,6 +2148,11 @@ def main() -> int:
                             "evidence": "lane emitted matching T29_DB_TARGET receipt",
                         }
                     )
+                    if lane in {"unit", "integration", "audit"}:
+                        if not _reconcile_dynamic_db_targets(entry, db_targets):
+                            raise RuntimeError("dynamic test DB ownership or cleanup untrusted")
+                    elif not _reconcile_fixed_db_targets(entry, db_targets):
+                        raise RuntimeError("fixed test DB ownership or cleanup untrusted")
                 except RuntimeError as exc:
                     entry["residue_classification"] = "unknown"
                     entry["cleanup_result"] = "untrusted-receipt"
@@ -1505,13 +2206,28 @@ def main() -> int:
                     entry["timeout"]["duration_exceeded"] = True
             except Exception as exc:
                 record_error("lane-finalization-update", exc, lane)
+            _record_lane_timing(
+                entry,
+                "finalization",
+                lane_finalization_started,
+                lane_finalization_started_at,
+                status="complete" if entry.get("receipt_error") is None else "untrusted",
+            )
             persist("lane-finalization", lane)
             print(f"[{entry['lane']}] exit={entry['exit_code']} log={entry['log']}")
+    _record_run_timing(
+        payload,
+        "finalization",
+        finalization_phase_started,
+        finalization_phase_started_at,
+    )
     lane_nodes = {
         name: set(entry["collection"]["nodes"])
         for name, entry in ((str(entry["lane"]), entry) for entry in metadata)
     }
     skip_nodes = set().union(*(set(entry["collection"]["skipped"]) for entry in metadata))
+    reconciliation_phase_started = time.monotonic()
+    reconciliation_phase_started_at = time.time()
     try:
         reconciliation = reconcile_population(manifest, lane_nodes, skip_nodes)
     except Exception as exc:
@@ -1525,6 +2241,13 @@ def main() -> int:
             first_failure_lane = "runner"
             first_failure_reason = "population reconciliation failed"
         record_error("reconciliation", exc)
+    _record_run_timing(
+        payload,
+        "reconciliation",
+        reconciliation_phase_started,
+        reconciliation_phase_started_at,
+        status="complete" if reconciliation.get("ok") else "untrusted",
+    )
     persist("reconciliation")
     through_elapsed_seconds = time.monotonic() - started
     try:
@@ -1587,6 +2310,16 @@ def main() -> int:
             "final_exit_code": result,
         }
     )
+    timing = payload.get("timing")
+    if isinstance(timing, dict):
+        timing.update(
+            {
+                "run_ended_at": payload["ended_at"],
+                "through_cleanup_seconds": through_elapsed_seconds,
+                "elapsed_seconds": elapsed_seconds,
+                "duration_exceeded": duration_exceeded,
+            }
+        )
     cleanup = payload["cleanup"]
     cleanup.update(
         {

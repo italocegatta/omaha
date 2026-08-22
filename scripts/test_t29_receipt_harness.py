@@ -23,6 +23,12 @@ def test_runtime_child_command_and_environment_capture_receipts(
     assert env["T29_PROFILE_PATH"] == str(timing_path)
     assert "-s" in command
     assert command[-2:] == ["-p", "test_profile_plugin"]
+    assert command == [
+        *runner.DIRECT_LANE_COMMANDS[task],
+        "-s",
+        "-p",
+        "test_profile_plugin",
+    ]
 
 
 def test_runtime_logs_parse_dynamic_and_fixed_db_receipts() -> None:

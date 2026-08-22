@@ -238,9 +238,9 @@ class TestParseRealCsv:
         # Spot-check a normal position has positive qty
         smh = [r for r in result if r.name == "SMH"]
         assert len(smh) == 1
-        assert smh[0].qty == Decimal("14")
+        assert smh[0].qty == Decimal("11")
         assert smh[0].avg_price == Decimal("990.92")
-        assert smh[0].current_price == Decimal("990.92")
+        assert smh[0].current_price == Decimal("2974.98")
 
     def test_parse_real_csv_br_thousands_qty(self) -> None:
         """qty cells com '.' milhar (sem ',') parseiam como inteiro,

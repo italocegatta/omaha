@@ -35,14 +35,13 @@ class MyProfitConfigurationError(ValueError):
 class MyProfitProfileConfig:
     """Resolved connector input for one real profile.
 
-    Values remain usable by the future connector, while this representation
-    never renders credential or destination material in diagnostics.
+    Values remain usable by the connector, while this representation never
+    renders credential material in diagnostics.
     """
 
     profile: ProfileKey
     email: str
     password: SecretStr
-    destination: str
 
     @property
     def profile_key(self) -> ProfileKey:
@@ -52,8 +51,7 @@ class MyProfitProfileConfig:
     def __repr__(self) -> str:
         return (
             "MyProfitProfileConfig("
-            f"profile={self.profile!r}, email=<redacted>, "
-            "password=<redacted>, destination=<redacted>)"
+            f"profile={self.profile!r}, email=<redacted>, password=<redacted>)"
         )
 
 
@@ -70,8 +68,6 @@ _FALSE_MYPROFIT_VALUES = frozenset(
         "ana@example.invalid",
         "replace-with-italo-password",
         "replace-with-ana-password",
-        "https://myprofit.invalid/italo",
-        "https://myprofit.invalid/ana",
     }
 )
 
@@ -107,7 +103,6 @@ def _resolve_values(
     profile_key: ProfileKey,
     email: str | None,
     password: SecretStr | None,
-    destination: str | None,
 ) -> MyProfitProfileConfig:
     raw_password = (
         password.get_secret_value()
@@ -116,19 +111,17 @@ def _resolve_values(
         if isinstance(password, str)
         else None
     )
-    values = (email, raw_password, destination)
+    values = (email, raw_password)
     if any(value is None or not value.strip() for value in values):
         raise MyProfitConfigurationError("incomplete_configuration")
     assert email is not None
     assert raw_password is not None
-    assert destination is not None
-    if any(_is_false_myprofit_value(value) for value in (email, raw_password, destination)):
+    if any(_is_false_myprofit_value(value) for value in (email, raw_password)):
         raise MyProfitConfigurationError("placeholder_configuration")
     return MyProfitProfileConfig(
         profile=profile_key,
         email=email.strip(),
         password=SecretStr(raw_password),
-        destination=destination.strip(),
     )
 
 
@@ -163,10 +156,8 @@ class Settings(BaseSettings):
     # complete, non-placeholder profile mapping is supplied.
     MYPROFIT_ITALO_EMAIL: str | None = Field(default=None, repr=False)
     MYPROFIT_ITALO_PASSWORD: SecretStr | None = Field(default=None, repr=False)
-    MYPROFIT_ITALO_DESTINATION: str | None = Field(default=None, repr=False)
     MYPROFIT_ANA_EMAIL: str | None = Field(default=None, repr=False)
     MYPROFIT_ANA_PASSWORD: SecretStr | None = Field(default=None, repr=False)
-    MYPROFIT_ANA_DESTINATION: str | None = Field(default=None, repr=False)
     # S06: production-readiness knobs. All four are read at import
     # time (Settings is instantiated eagerly) and feed both the
     # logging config (LOG_LEVEL / LOG_FORMAT) and the secure-cookie
@@ -220,10 +211,8 @@ class Settings(BaseSettings):
             "Settings(SECRET_KEY=<redacted>, DATABASE_URL=<redacted>, "
             "MYPROFIT_ITALO_EMAIL=<redacted>, "
             "MYPROFIT_ITALO_PASSWORD=<redacted>, "
-            "MYPROFIT_ITALO_DESTINATION=<redacted>, "
             "MYPROFIT_ANA_EMAIL=<redacted>, "
-            "MYPROFIT_ANA_PASSWORD=<redacted>, "
-            "MYPROFIT_ANA_DESTINATION=<redacted>)"
+            "MYPROFIT_ANA_PASSWORD=<redacted>)"
         )
 
     __str__ = __repr__
@@ -241,13 +230,11 @@ def resolve_myprofit_profile_config(
             profile_key,
             source.MYPROFIT_ITALO_EMAIL,
             source.MYPROFIT_ITALO_PASSWORD,
-            source.MYPROFIT_ITALO_DESTINATION,
         )
     return _resolve_values(
         profile_key,
         source.MYPROFIT_ANA_EMAIL,
         source.MYPROFIT_ANA_PASSWORD,
-        source.MYPROFIT_ANA_DESTINATION,
     )
 
 
