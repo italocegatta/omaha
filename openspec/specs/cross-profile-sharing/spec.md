@@ -271,5 +271,28 @@ page, or download detail.
 - **WHEN** active profile is Família
 - **AND** a caller requests a MyProfit position CSV
 - **THEN** the request fails with the stable family-read-only reason
-- **AND** credential lookup, browser launch, HTTP navigation, and download
+  - **AND** credential lookup, browser launch, HTTP navigation, and download
   spies observe zero calls
+
+### Requirement: Família keeps synchronization visible but read-only
+
+When the active view is Família, the `Atualizar posição` action SHALL remain
+visible with a disabled/read-only affordance and SHALL not issue a start or
+poll request. Existing Família read-only behavior for all other mutation actions and
+endpoints SHALL remain unchanged.
+
+#### Scenario: Family mode is visibly read-only for synchronization
+
+- **WHEN** the active profile is the Família sentinel
+- **THEN** `Atualizar posição` is rendered with a disabled/read-only state
+- **AND** activating the control does not issue a synchronization request
+- **AND** the import review modal does not open
+
+#### Scenario: Family mode blocks synchronization at server boundary
+
+- **WHEN** a caller requests `POST /api/myprofit/sync` or polls
+  `GET /api/myprofit/sync/{job_id}` while Família is active
+- **THEN** the response is `409 Conflict` with
+  `{"reason": "household_read_only"}`
+- **AND** no credential lookup, browser launch, network navigation, file
+  download, job lookup, or preview mutation occurs

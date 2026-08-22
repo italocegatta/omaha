@@ -1,5 +1,24 @@
-{% if view == 'profile' %}
-  <section class="patrimonio-actions" data-testid="patrimonio-actions" x-data>
+<section class="patrimonio-actions"
+         data-testid="patrimonio-actions"
+         {% if view == 'profile' %}
+         x-data
+         x-init="$store.patrimonioSync.init({{ (myprofit_sync|default(None))|tojson }})"
+         :class="'patrimonio-actions--sync-' + $store.patrimonioSync.state"
+         :data-sync-state="$store.patrimonioSync.state"
+         {% else %}
+         data-sync-state="disabled"
+         {% endif %}>
+  {% if view == 'profile' %}
+    <button type="button"
+            class="btn patrimonio-action-btn patrimonio-sync-btn"
+            data-testid="dashboard-sync-btn"
+            :aria-busy="$store.patrimonioSync.state === 'loading' ? 'true' : null"
+            :disabled="$store.patrimonioSync.state === 'loading'"
+            @click="$store.patrimonioSync.start()">
+      <span class="icon icon--md" aria-hidden="true">sync</span>
+      <span x-show="$store.patrimonioSync.state !== 'loading'">Atualizar posição</span>
+      <span x-show="$store.patrimonioSync.state === 'loading'">Atualizando...</span>
+    </button>
     <button type="button"
             class="btn patrimonio-action-btn"
             data-testid="dashboard-import-btn"
@@ -15,8 +34,44 @@
     <button type="button"
             class="btn patrimonio-action-btn"
             data-testid="empty-state-create-class"
-@click="$store.newClassModal.openModal()">
+            @click="$store.newClassModal.openModal()">
       <span class="icon icon--md" aria-hidden="true">add_circle</span> Nova classe
     </button>
-  </section>
+    <div class="patrimonio-notifications"
+         data-testid="patrimonio-notifications"
+         aria-label="Notificações de atualização de posição">
+      <template x-for="notification in $store.patrimonioSync.notifications" :key="notification.id">
+        <article class="patrimonio-notification"
+                 :class="'patrimonio-notification--' + notification.type"
+                 data-testid="patrimonio-notification"
+                 :data-notification-id="notification.id"
+                 :role="notification.role"
+                 :aria-live="notification.live"
+                 aria-atomic="true"
+                 @mouseenter="$store.patrimonioSync.setNotificationInteraction(notification.id, 'hovered', true)"
+                 @mouseleave="$store.patrimonioSync.setNotificationInteraction(notification.id, 'hovered', false)"
+                 @focusin="$store.patrimonioSync.setNotificationInteraction(notification.id, 'focused', true)"
+                 @focusout="$store.patrimonioSync.setNotificationInteraction(notification.id, 'focused', false)">
+          <p x-text="notification.message"></p>
+          <button type="button"
+                  class="patrimonio-notification__close"
+                  data-testid="patrimonio-notification-close"
+                  aria-label="Fechar notificação"
+                  @click="$store.patrimonioSync.dismissNotification(notification.id, true)">
+            <span class="icon icon--md" aria-hidden="true">close</span>
+          </button>
+        </article>
+      </template>
+    </div>
+  {% else %}
+    <button type="button"
+            class="btn patrimonio-action-btn patrimonio-sync-btn patrimonio-sync-btn--readonly"
+            data-testid="dashboard-sync-btn"
+            data-sync-state="disabled"
+            disabled
+            aria-disabled="true"
+            aria-label="Atualizar posição — disponível somente em perfil real">
+      <span class="icon icon--md" aria-hidden="true">sync</span> Atualizar posição
+    </button>
   {% endif %}
+</section>

@@ -356,11 +356,9 @@ header.app-header form.profile-switcher option[data-testid="profile-option-famil
   color: var(--ink);
 }
 
-/* F01 household read-only banner + action area dimming. The
-   note sits at the top of the body in PT-BR register domestic
-   (PRD §4.10). The .is-read-only wrapper class on the action
-   section is a forward-compat hook for future actions that
-   escape the per-template {% if view == 'profile' %} gate. */
+/* F01 household read-only banner. Família keeps only the synchronization
+   affordance visible; its native disabled control is styled below with the
+   other sync states. */
 .patrimonio-read-only-note {
   font-size: 0.85rem;
   color: var(--ink-muted);
@@ -368,7 +366,7 @@ header.app-header form.profile-switcher option[data-testid="profile-option-famil
   font-style: italic;
 }
 .patrimonio-page[data-read-only="true"] .patrimonio-actions {
-  display: none;
+  justify-content: flex-start;
 }
 header.app-header form.profile-switcher select {
   appearance: none;
@@ -828,11 +826,87 @@ p.error, .error {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 1rem;
 }
 .patrimonio-action-btn {
   font-size: 0.85rem;
+}
+.patrimonio-actions--sync-loading .patrimonio-sync-btn {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.patrimonio-actions--sync-success .patrimonio-sync-btn {
+  border-color: var(--positive);
+  color: var(--positive);
+}
+.patrimonio-actions--sync-error .patrimonio-sync-btn {
+  color: var(--negative);
+  border-color: var(--negative);
+  background: color-mix(in srgb, var(--negative) 10%, var(--surface));
+}
+.patrimonio-sync-btn--readonly {
+  color: var(--ink-muted);
+}
+.patrimonio-sync-btn--readonly {
+  border-style: dashed;
+}
+
+.patrimonio-notifications {
+  position: fixed;
+  inset-inline-end: 1rem;
+  inset-block-end: 1rem;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(24rem, calc(100vw - 2rem));
+  pointer-events: none;
+}
+.patrimonio-notification {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 0.75rem 0.75rem 1rem;
+  color: var(--ink);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  pointer-events: auto;
+}
+.patrimonio-notification p {
+  flex: 1;
+  margin: 0;
+  font-size: 0.85rem;
+}
+.patrimonio-notification--success {
+  color: var(--positive);
+  border-color: var(--positive);
+}
+.patrimonio-notification--error {
+  color: var(--negative);
+  background: color-mix(in srgb, var(--negative) 10%, var(--surface));
+  border-color: var(--negative);
+}
+.patrimonio-notification__close {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: currentColor;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.patrimonio-notification__close:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
 /* Stub pages — rentabilidade / proventos (F02 D6). Centre the
@@ -2080,6 +2154,12 @@ td.editing {
   .patrimonio-actions {
     justify-content: flex-end;
     flex-wrap: wrap;
+  }
+
+  .patrimonio-notifications {
+    inset-inline-end: 0.75rem;
+    inset-block-end: 0.75rem;
+    width: calc(100vw - 1.5rem);
   }
 
   /* Rebalance form row — stack input above the button on mobile so

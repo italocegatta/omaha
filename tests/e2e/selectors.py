@@ -30,6 +30,10 @@ SELECTORS: dict[str, str] = {
     # ── Patrimonio portfolio header ────────────────────────────────
     "patrimonio_portfolio_header": '[data-testid="patrimonio-portfolio-header"]',
     "patrimonio_actions": '[data-testid="patrimonio-actions"]',
+    "dashboard_sync_btn": '[data-testid="dashboard-sync-btn"]',
+    "patrimonio_notifications": '[data-testid="patrimonio-notifications"]',
+    "patrimonio_notification": '[data-testid="patrimonio-notification"]',
+    "patrimonio_notification_close": '[data-testid="patrimonio-notification-close"]',
     # Legacy portfolio header (kept for back-compat with the S05 suite
     # until that slice retires the alias).
     "portfolio_header": '[data-testid="portfolio-header"]',
@@ -126,6 +130,7 @@ SELECTORS: dict[str, str] = {
     # ── Import modal ───────────────────────────────────────────────
     "dashboard_import_btn": '[data-testid="dashboard-import-btn"]',
     "import_modal_overlay": '[data-testid="import-modal-overlay"]',
+    "import_cancel_btn": '[data-testid="import-cancel-btn"]',
     "import_file_input": '[data-testid="import-file-input"]',
     "import_modal_error": '[data-testid="import-upload-error"]',
     "import_upload_error": '[data-testid="import-upload-error"]',
@@ -203,6 +208,7 @@ DASHBOARD_SELECTORS: dict[str, str] = {
         # Import modal — only visible after ``$store.importModal.open``
         # is true. The smoke does not open it.
         "import_modal_overlay",
+        "import_cancel_btn",
         "import_file_input",
         "import_modal_error",
         "import_upload_error",

@@ -25,7 +25,7 @@ BASE_HTML_PATH = REPO_ROOT / "src" / "omaha" / "templates" / "base.html"
 APP_CSS_PATH = REPO_ROOT / "src" / "omaha" / "static" / "app.css"
 DESIGN_MD_PATH = REPO_ROOT / "DESIGN.md"
 
-# Catalog of 10 icon names (D02 §Iconography + F12 D-F12.2). Any use of
+# Catalog of 12 icon names (D02 §Iconography + F12 D-F12.2 + F60). Any use of
 # an icon name outside this set requires a new OpenSpec change (see
 # ``Extension path`` in DESIGN.md §Iconography).
 ICON_CATALOG = frozenset(
@@ -41,6 +41,7 @@ ICON_CATALOG = frozenset(
         "check_circle",
         "help",
         "filter_alt",
+        "sync",
     }
 )
 
@@ -217,7 +218,7 @@ def test_template_icons_are_within_catalog(template_relpath: str) -> None:
 
     For each template + partial that F12 touches, every Material
     Symbols ligature rendered via ``<span class="icon ...">`` MUST
-    be one of the 10 catalog names. Out-of-catalog names require a
+    be one of the 12 catalog names. Out-of-catalog names require a
     new OpenSpec change.
     """
     text = _read(REPO_ROOT / template_relpath)
@@ -233,7 +234,7 @@ def test_template_icons_are_within_catalog(template_relpath: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 7.7 — DESIGN.md §Iconography lists all 10 catalog names verbatim
+# 7.7 — DESIGN.md §Iconography lists all 12 catalog names verbatim
 # ---------------------------------------------------------------------------
 
 
@@ -241,7 +242,7 @@ def test_template_icons_are_within_catalog(template_relpath: str) -> None:
 def test_design_md_iconography_lists_catalog_name(icon_name: str) -> None:
     """F12 D-F12.7 — DESIGN.md §Iconography is the source of truth.
 
-    All 10 catalog names MUST appear in ``DESIGN.md §Iconography``
+    All 12 catalog names MUST appear in ``DESIGN.md §Iconography``
     so the section stays the canonical reference. A future edit
     that drops a name from the catalog must update both the spec
     and this test.
@@ -262,7 +263,7 @@ def test_design_md_iconography_lists_catalog_name(icon_name: str) -> None:
     section_body = section_match.group(1)
     assert icon_name in section_body, (
         f"DESIGN.md §Iconography does not mention catalog icon {icon_name!r}. "
-        f"F12 D-F12.7 requires all 10 catalog names listed."
+        f"F12/F60 requires all 12 catalog names listed."
     )
 
 

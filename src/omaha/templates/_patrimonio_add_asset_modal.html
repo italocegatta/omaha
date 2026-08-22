@@ -413,6 +413,7 @@
           <div class="import-modal-actions">
             <button type="button"
                     class="import-btn"
+                    data-testid="import-cancel-btn"
                     @click="$store.importModal.closeModal()">Cancelar</button>
             <button type="button"
                     class="import-btn import-btn-primary"
@@ -1706,6 +1707,7 @@
       previewError: false,
       assignments: {},
       previewRequest: 0,
+      previewOrigin: null,
 
       getAssetName: function (ticker) {
         var a = this.assignments[ticker];
@@ -1762,8 +1764,16 @@
       },
 
       closeModal: function () {
+        var origin = this.previewOrigin;
         this.open = false;
         this.resetState();
+        if (origin === 'patrimonio-sync') {
+          Alpine.store('patrimonioSync').resetAfterReview();
+          window.setTimeout(function () {
+            var syncButton = document.querySelector('[data-testid="dashboard-sync-btn"]');
+            if (syncButton && !syncButton.disabled) syncButton.focus();
+          }, 0);
+        }
       },
 
       resetState: function () {
@@ -1774,6 +1784,7 @@
         this.committing = false;
         this.error = '';
         this.step1Error = '';
+        this.previewOrigin = null;
       },
 
       clearPreview: function () {
@@ -1786,6 +1797,58 @@
         this.assetClasses = [];
         this.assignments = {};
         this.previewError = false;
+      },
+
+      buildAssignments: function (data) {
+        var assigns = {};
+        var autoMatched = data.auto_matched || [];
+        for (var i = 0; i < autoMatched.length; i++) {
+          var autoRow = autoMatched[i];
+          assigns[autoRow.broker_ticker] = {
+            class_id: autoRow.asset_class_id,
+            asset_name: autoRow.name,
+            buy_enabled: autoRow.buy_enabled !== false,
+            sell_enabled: autoRow.sell_enabled !== false,
+            currency_code: autoRow.currency_code || 'BRL',
+          };
+        }
+
+        var unmatched = data.unmatched || [];
+        for (var j = 0; j < unmatched.length; j++) {
+          var unmatchedRow = unmatched[j];
+          var suggested = unmatchedRow.suggested_class_id;
+          assigns[unmatchedRow.broker_ticker] = {
+            class_id: suggested != null ? suggested : '',
+            asset_name: unmatchedRow.name,
+            buy_enabled: unmatchedRow.buy_enabled !== false,
+            sell_enabled: unmatchedRow.sell_enabled !== false,
+            currency_code: unmatchedRow.currency_code || 'BRL',
+          };
+        }
+        return assigns;
+      },
+
+      hydratePreview: function (data) {
+        this.previewId = data.preview_id;
+        this.autoMatched = data.auto_matched || [];
+        this.unmatched = data.unmatched || [];
+        this.assetClasses = data.asset_classes || [];
+        this.assignments = this.buildAssignments(data);
+        this.previewError = false;
+        this.step = 2;
+      },
+
+      openPreview: function (data, origin) {
+        this.resetState();
+        this.previewOrigin = origin || null;
+        this.hydratePreview(data);
+        this.open = true;
+        if (this.previewOrigin === 'patrimonio-sync') {
+          window.setTimeout(function () {
+            var cancelButton = document.querySelector('[data-testid="import-cancel-btn"]');
+            if (cancelButton) cancelButton.focus();
+          }, 0);
+        }
       },
 
       selectFile: function (file, input) {
@@ -1829,50 +1892,7 @@
           })
           .then(function (data) {
             if (activeRequest !== self.previewRequest) return;
-            self.previewId = data.preview_id;
-            self.autoMatched = data.auto_matched || [];
-            self.unmatched = data.unmatched || [];
-            self.assetClasses = data.asset_classes || [];
-
-            // Build default assignments for ALL rows.
-            var assigns = {};
-
-            // Auto-matched: pre-fill with current class and asset name.
-            // User can change the class via the dropdown.
-            // asset-trade-flags: also pre-fill the three trade-control
-            // fields from the server's per-row values so re-imports
-            // preserve the operator's prior toggle choices. The
-            // preview endpoint emits the asset's current values for
-            // auto_matched and project defaults for unmatched.
-            var autoMatched = data.auto_matched || [];
-            for (var i = 0; i < autoMatched.length; i++) {
-              var row = autoMatched[i];
-              assigns[row.broker_ticker] = {
-                class_id: row.asset_class_id,
-                asset_name: row.name,
-                buy_enabled: row.buy_enabled !== false,
-                sell_enabled: row.sell_enabled !== false,
-                currency_code: row.currency_code || 'BRL',
-              };
-            }
-
-            // Unmatched: use server-suggested class when available,
-            // otherwise leave empty for the user to pick. The trade-
-            // control fields fall back to the project defaults.
-            var unmatched = data.unmatched || [];
-            for (var i = 0; i < unmatched.length; i++) {
-              var row = unmatched[i];
-              var suggested = row.suggested_class_id;
-              assigns[row.broker_ticker] = {
-                class_id: suggested != null ? suggested : '',
-                asset_name: row.name,
-                buy_enabled: row.buy_enabled !== false,
-                sell_enabled: row.sell_enabled !== false,
-                currency_code: row.currency_code || 'BRL',
-              };
-            }
-            self.assignments = assigns;
-            self.step = 2;
+            self.hydratePreview(data);
           })
           .catch(function (err) {
             if (activeRequest !== self.previewRequest) return;
@@ -1943,6 +1963,285 @@
         this.previewError = false;
         this.error = '';
         this.step1Error = '';
+      },
+    });
+
+    Alpine.store('patrimonioSync', {
+      state: 'idle',
+      jobId: null,
+      pollTimer: null,
+      pollCount: 0,
+      requestToken: 0,
+      pollDelay: 500,
+      maxPolls: 120,
+      notifications: [],
+      notificationSequence: 0,
+      visibilityHandler: null,
+
+      init: function (initial) {
+        this.cancelPoll();
+        this.requestToken += 1;
+        this.jobId = null;
+        this.pollCount = 0;
+        this.state = 'idle';
+        this.removeAllNotifications();
+        this.installVisibilityHandler();
+        if (initial && (initial.status === 'failed' || initial.status === 'expired')) {
+          this.state = 'error';
+          this.showNotification(this.safeError(initial.error && initial.error.message), 'error');
+        } else {
+          this.showNotification('Pronto para atualizar posição.', 'status');
+        }
+      },
+
+      installVisibilityHandler: function () {
+        if (this.visibilityHandler) document.removeEventListener('visibilitychange', this.visibilityHandler);
+        var self = this;
+        this.visibilityHandler = function () {
+          if (document.hidden) {
+            self.notifications.forEach(function (notification) {
+              self.pauseNotification(notification.id);
+            });
+          } else {
+            self.notifications.forEach(function (notification) {
+              self.resumeNotification(notification.id);
+            });
+          }
+        };
+        document.addEventListener('visibilitychange', this.visibilityHandler);
+      },
+
+      findNotification: function (id) {
+        return this.notifications.find(function (notification) {
+          return notification.id === id;
+        });
+      },
+
+      showNotification: function (message, type) {
+        // Lifecycle updates replace prior cards even when the old card is
+        // hovered/focused. The focused-card protection belongs to ordinary
+        // timeout/manual dismissal, not to replacement by newer feedback.
+        this.removeAllNotifications();
+        var notification = {
+          id: ++this.notificationSequence,
+          message: message,
+          type: type === 'error' ? 'error' : (type === 'success' ? 'success' : 'status'),
+          role: type === 'error' ? 'alert' : 'status',
+          live: type === 'error' ? 'assertive' : 'polite',
+          timer: null,
+          insertedAt: Date.now(),
+          remaining: 8000,
+          hovered: false,
+          focused: false,
+          visibilityPaused: false,
+        };
+        this.notifications.unshift(notification);
+        this.startNotificationTimer(notification);
+        return notification.id;
+      },
+
+      startNotificationTimer: function (notification) {
+        if (!notification || notification.focused || notification.hovered || notification.visibilityPaused || document.hidden) return;
+        var self = this;
+        if (notification.timer !== null) window.clearTimeout(notification.timer);
+        notification.insertedAt = Date.now();
+        notification.timer = window.setTimeout(function () {
+          notification.timer = null;
+          if (!notification.focused && !notification.hovered && !notification.visibilityPaused && !document.hidden) {
+            self.dismissNotification(notification.id);
+          }
+        }, notification.remaining);
+      },
+
+      dismissNotification: function (id, force) {
+        var notification = this.findNotification(id);
+        if (!notification || (notification.focused && !force)) return;
+        if (notification.timer !== null) window.clearTimeout(notification.timer);
+        this.notifications = this.notifications.filter(function (item) {
+          return item.id !== id;
+        });
+      },
+
+      removeAllNotifications: function () {
+        this.notifications.forEach(function (notification) {
+          if (notification.timer !== null) window.clearTimeout(notification.timer);
+        });
+        this.notifications = [];
+      },
+
+      pauseNotification: function (id) {
+        var notification = this.findNotification(id);
+        if (!notification || notification.focused || notification.hovered) {
+          if (notification) notification.visibilityPaused = true;
+          return;
+        }
+        if (notification.timer !== null) {
+          window.clearTimeout(notification.timer);
+          notification.timer = null;
+          notification.remaining = Math.max(0, notification.remaining - (Date.now() - notification.insertedAt));
+        }
+        notification.visibilityPaused = true;
+      },
+
+      resumeNotification: function (id) {
+        var notification = this.findNotification(id);
+        if (!notification) return;
+        notification.visibilityPaused = false;
+        if (!notification.hovered && !notification.focused && !document.hidden) this.startNotificationTimer(notification);
+      },
+
+      setNotificationInteraction: function (id, kind, active) {
+        var notification = this.findNotification(id);
+        if (!notification) return;
+        notification[kind] = active;
+        if (active) {
+          if (notification.timer !== null) {
+            window.clearTimeout(notification.timer);
+            notification.timer = null;
+            notification.remaining = Math.max(0, notification.remaining - (Date.now() - notification.insertedAt));
+          }
+        } else if (!notification.hovered && !notification.focused && !document.hidden) {
+          this.startNotificationTimer(notification);
+        }
+      },
+
+      cancelPoll: function () {
+        if (this.pollTimer !== null) {
+          window.clearTimeout(this.pollTimer);
+          this.pollTimer = null;
+        }
+      },
+
+      safeError: function (message) {
+        var allowed = [
+          'Não foi possível acessar as credenciais do MyProfit.',
+          'Não foi possível entrar no MyProfit.',
+          'A autenticação do MyProfit não foi concluída.',
+          'Não foi possível baixar o CSV do MyProfit.',
+          'Não foi possível preparar o CSV para revisão.',
+          'Não foi possível sincronizar com o MyProfit.',
+        ];
+        return allowed.indexOf(message) >= 0
+          ? message
+          : 'Não foi possível concluir a atualização da posição.';
+      },
+
+      setError: function (message) {
+        this.cancelPoll();
+        this.state = 'error';
+        this.showNotification(message || 'Não foi possível concluir a atualização da posição.', 'error');
+      },
+
+      resetAfterReview: function () {
+        this.cancelPoll();
+        this.requestToken += 1;
+        this.jobId = null;
+        this.pollCount = 0;
+        this.state = 'idle';
+        this.removeAllNotifications();
+      },
+
+      start: function () {
+        if (this.state === 'loading') return;
+        var self = this;
+        var token = ++self.requestToken;
+        self.cancelPoll();
+        self.state = 'loading';
+        self.showNotification('Atualizando posição...', 'status');
+        self.jobId = null;
+        self.pollCount = 0;
+
+        fetch('/api/myprofit/sync', { method: 'POST' })
+          .then(function (response) {
+            if (response.ok) return response.json();
+            return response.json().catch(function () { return {}; }).then(function (body) {
+              var error = new Error('sync_start_failed');
+              error.safeMessage = response.status === 409 && body && body.reason === 'sync_in_progress'
+                ? 'Já existe uma atualização em andamento.'
+                : 'Não foi possível iniciar a atualização da posição.';
+              throw error;
+            });
+          })
+          .then(function (payload) {
+            if (token !== self.requestToken) return;
+            if (!payload || payload.status !== 'queued' || !payload.job_id) {
+              var error = new Error('sync_start_malformed');
+              error.safeMessage = 'Não foi possível iniciar a atualização da posição.';
+              throw error;
+            }
+            self.jobId = payload.job_id;
+            self.schedulePoll(token);
+          })
+          .catch(function (error) {
+            if (token !== self.requestToken) return;
+            self.setError(error && error.safeMessage
+              ? error.safeMessage
+              : 'Não foi possível iniciar a atualização da posição.');
+          });
+      },
+
+      schedulePoll: function (token) {
+        var self = this;
+        if (token !== self.requestToken || self.state !== 'loading') return;
+        if (self.pollCount >= self.maxPolls) {
+          self.setError('A atualização demorou mais que o esperado. Tente novamente.');
+          return;
+        }
+        self.pollTimer = window.setTimeout(function () {
+          self.pollTimer = null;
+          self.poll(token);
+        }, self.pollDelay);
+      },
+
+      poll: function (token) {
+        var self = this;
+        if (token !== self.requestToken || self.state !== 'loading' || !self.jobId) return;
+        self.pollCount += 1;
+        fetch('/api/myprofit/sync/' + encodeURIComponent(self.jobId))
+          .then(function (response) {
+            if (response.ok) return response.json();
+            var error = new Error('sync_poll_failed');
+            error.safeMessage = 'Não foi possível consultar a atualização da posição.';
+            throw error;
+          })
+          .then(function (payload) {
+            if (token !== self.requestToken) return;
+            if (payload.status === 'queued' || payload.status === 'running') {
+              self.schedulePoll(token);
+              return;
+            }
+            if (payload.status === 'failed' || payload.status === 'expired') {
+              self.setError(self.safeError(payload.error && payload.error.message));
+              return;
+            }
+            if (payload.status !== 'succeeded' || !self.validPreview(payload.preview)) {
+              self.setError('Não foi possível preparar a atualização para revisão.');
+              return;
+            }
+
+            self.cancelPoll();
+            self.state = 'success';
+            self.showNotification('Atualização concluída. Revise posições antes de confirmar', 'success');
+            var preview = payload.preview;
+            window.setTimeout(function () {
+              if (token === self.requestToken) Alpine.store('importModal').openPreview(preview, 'patrimonio-sync');
+            }, 0);
+          })
+          .catch(function (error) {
+            if (token !== self.requestToken) return;
+            self.setError(error && error.safeMessage
+              ? error.safeMessage
+              : 'Não foi possível consultar a atualização da posição.');
+          });
+      },
+
+      validPreview: function (preview) {
+        return !!preview
+          && preview.preview_id !== null
+          && preview.preview_id !== undefined
+          && Array.isArray(preview.auto_matched)
+          && Array.isArray(preview.unmatched)
+          && Array.isArray(preview.asset_classes);
       },
     });
 

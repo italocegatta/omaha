@@ -1,0 +1,64 @@
+{
+  "run_id": "f60-current-source-refresh-20260822-02",
+  "source": "/home/juca/github/omaha",
+  "url": "http://192.168.1.4:8000",
+  "server": {
+    "pid": 135793,
+    "command": "/home/juca/github/omaha/.venv/bin/python /home/juca/github/omaha/.venv/bin/uvicorn omaha.main:app --host 0.0.0.0 --port 8000",
+    "cwd": "/home/juca/github/omaha",
+    "listener": "0.0.0.0:8000",
+    "process_group_observed": "PGID/SID 135789; observed only, no process-group action"
+  },
+  "read_only_smoke": {
+    "health": {
+      "status": "ok",
+      "db": "ok",
+      "service": "omaha",
+      "version": "0.1.0"
+    },
+    "login_status": 303,
+    "profile_select_status": 303,
+    "profile_dashboard_status": 200,
+    "family_select_status": 303,
+    "family_dashboard_status": 200,
+    "restore_profile_status": 303,
+    "db_counts": {
+      "classes": 11,
+      "assets": 89,
+      "positions": 88
+    },
+    "seeded_dashboard_marker_count": 5
+  },
+  "current_source_markup_evidence": {
+    "sync_before_import": true,
+    "sync_import_source_distance": 570,
+    "sync_icon": true,
+    "notification_outlet": true,
+    "lifecycle_copy": true,
+    "notification_close_name": true,
+    "shared_action_class": true,
+    "sync_only_min_width_absent": true,
+    "notification_geometry_tokens": true,
+    "family_sync_disabled": true,
+    "family_read_only_label": true,
+    "family_no_sync_start_binding": true
+  },
+  "existing_visual_artifacts_sha256": {
+    "f60-atualizar-posicao-patrimonio.png": "5fc286fb1da05df200d26b469aa34558478f52ba76a3784d8b3948ff35da6756",
+    "f60-atualizar-posicao-loading.png": "f9de0ce85df430ba5db9144f762dacdc14a707d9199497b390d8c99bf206181a",
+    "f60-atualizar-posicao-error.png": "3036237a96ca0c8caf9af586058fbc0b4bd5681337b7f68ba07c6ef64f70ea5d",
+    "f60-atualizar-posicao-family.png": "6791f3c9444bb9bae80ca974105721e96e4bb08c2b47f17a8c87dfe87b8ce950"
+  },
+  "constraints": {
+    "myprofit_sync_triggered": false,
+    "browser_or_playwright_test": false,
+    "db_mutation_or_reset": false,
+    "auto_commit": false
+  },
+  "cleanup": {
+    "launcher": "absent after exact rm --; owned-cleaned",
+    "cookie": "absent after exact rm --; owned-cleaned",
+    "dashboard_html": "preserved/non-target; unknown because no pre-use registration; not deleted",
+    "server": "PID 135793 and port 0.0.0.0:8000 intentionally active for owner visual validation"
+  }
+}
