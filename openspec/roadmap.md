@@ -562,22 +562,24 @@ Goal: integrar conector Playwright MyProfit com credenciais isoladas e download 
 Archive: `openspec/changes/archive/2026-08-22-f58-integrar-automacao-playwright-myprofit/`
 
 ### F59 - Executar sincronização em background e entregar preview
-Status: `Ready`
-Goal: disparar job assíncrono por perfil, expor estado/polling e transformar CSV baixado em preview da importação existente, abrindo revisão somente após sucesso.
-Candidate OpenSpec change id: `f59-executar-sincronizacao-background-e-entregar-preview`
-Spec link: `openspec/changes/f59-executar-sincronizacao-background-e-entregar-preview/`
-Files to inspect: `src/omaha/routes/imports.py`, `src/omaha/routes/pages.py`, `src/omaha/main.py`, `src/omaha/csv_import.py`, `src/omaha/models.py`
-Notes: Falha de login/download = estado de erro + mensagem na página, sem modal; sucesso deve reutilizar `/api/import/preview`/`$store.importModal` sem commit automático. Definir concorrência, expiração, isolamento de arquivo por job e cleanup. Qualquer commit continua sujeito a `db-mutation-safety`, confirmação explícita, snapshot/audit e DB prod intocável durante testes.
-Progress log: pending — job/route/spec/integration tests
+Status: `Archived` — 2026-08-22
+Goal: executar sincronização MyProfit em background e entregar preview seguro para revisão.
+Archive: `openspec/changes/archive/2026-08-22-f59-executar-sincronizacao-background-e-entregar-preview/`
 
 ### F60 - Adicionar ação Atualizar posição no patrimônio
-Status: `Ready`
+Status: `Archived` — 2026-08-22
 Goal: exibir `Atualizar posição` ao lado de `Importar CSV`, iniciar job para perfil real e preservar revisão manual seguida do clique existente em `Importar`.
-Candidate OpenSpec change id: `f60-adicionar-acao-atualizar-posicao-no-patrimonio`
-Spec link: `openspec/changes/f60-adicionar-acao-atualizar-posicao-no-patrimonio/`
-Files to inspect: `src/omaha/templates/_patrimonio_actions.html`, `src/omaha/templates/patrimonio.html`, `src/omaha/static/app.css`, `src/omaha/routes/pages.py`, `src/omaha/routes/imports.py`
-Notes: Família: botão visível porém disabled/read-only, como demais mutações. Fidelity ledger: “botão ao lado” → mesma faixa e hierarquia de ações → clique inicia job sem navegação; sucesso abre janela existente de classificação/revisão; falha permanece na página e não abre modal → fontes: `view`, estado do job e preview. Gramática: ação nova pareada com upload existente; estados idle/loading/success/error/disabled; sem modal alternativo, auto-commit ou polling invisível. Mapeamentos numéricos: N/A (sem escala/dados visuais). Owner deve aprovar mock estático/protótipo ou browser rendering antes de Apply; approval é gate de handoff.
-Progress log: pending — template/state/e2e/visual tests; aguardando aprovação visual antes de Apply
+Archive: `openspec/changes/archive/2026-08-22-f60-adicionar-acao-atualizar-posicao-no-patrimonio/`
+Notes: Archive/spec sync complete; formatter recovery is F60-only and lint/diff green; commit/push retry pending.
+
+### R42 - Restaurar contrato get_logger
+Status: `Applied` — 2026-08-22
+Goal: restaurar compatibilidade de `omaha.logging_config.get_logger` exigida por `src/omaha/main.py:107`, permitindo startup normal e retomada da validação browser de F60.
+Candidate OpenSpec change id: `r42-restaurar-contrato-get-logger`
+Spec link: `openspec/changes/r42-restaurar-contrato-get-logger/`
+Files to inspect: `src/omaha/logging_config.py`, `src/omaha/main.py`, `tests/test_logging.py`, `tests/test_db_snapshot.py`
+Notes: manutenção mínima e cirúrgica: recuperar contrato compatível de `get_logger` e adicionar somente evidência focada de logging/startup/prune necessária para impedir regressão. Alterar `main.py` apenas se indispensável ao contrato. Excluir F60 UI, comportamento F59/job, connector/MyProfit, refatoração ampla de logging, harness/test runner e qualquer mudança de trabalho atual não relacionada. Após `Applied`, F60 continua bloqueada até owner autorizar parada exata do PID 115075, executar refresh autorizado e confirmar startup/browser retry; não parar processo nem refresh nesta fatia.
+Progress log: proposal/design/tasks + delta spec created; strict change validation 1/1 and stable specs 71/71 passed. Apply complete: thin compatibility export + focused regression tests; 15 focused tests, lint/change 1/1/stable specs 71/71/diff-check green. Review R1 approved with no findings; canonical suite NOT RUN under maintenance-suspended. Owner validation/archive authorization pending.
 
 ### T31 - Validar sincronização MyProfit ponta a ponta
 Status: `Ready`
@@ -647,10 +649,37 @@ Status: `Archived` — 2026-08-22
 Goal: substituir Taskipy apenas no boundary das seis lanes canônicas.
 Archive: `openspec/changes/archive/2026-08-22-i10-substituir-taskipy-no-boundary-da-suite-canonica/`
 
+### F63 - Hover e cabeçalho sticky na tabela de rebalanceamento
+Status: `Spec Proposed`
+Goal: portar exclusivamente para a única tabela de ativos de `/rebalanceamento` o destaque de linha no hover e o cabeçalho sticky já existentes em `/patrimonio`, preservando todo comportamento atual de ambas as páginas.
+Candidate OpenSpec change id: `f63-hover-e-cabecalho-sticky-na-tabela-de-rebalanceamento`
+Spec link: `openspec/changes/f63-hover-e-cabecalho-sticky-na-tabela-de-rebalanceamento/`
+Files to inspect: `src/omaha/templates/_rebalance_plan.html`, `src/omaha/templates/_patrimonio_class_section.html`, `src/omaha/static/app.css`, `tests/test_rebalance_page.py`, `tests/visual/test_snapshots.py`
+Notes: Fatia visual cirúrgica; nenhuma refatoração, melhoria adicional, alteração de colunas, filtros, ordenação, dados, ações ou comportamento de `/patrimonio`. Fidelity ledger: “destacar linha no hover” → feedback visual aplicado à linha inteira → células da linha mudam para estado hover coerente, sem alterar conteúdo/estado; fonte: seletor/classes da tabela e tokens CSS existentes; proibido tooltip, seleção persistente, mudança de ação/cor sem hover ou padrão genérico alternativo; evidência: comportamento equivalente `.asset-table` em `app.css`. “Cabeçalho sticky visível ao rolar” → `thead th` permanece preso no topo durante scroll → mesma tabela continua com cabeçalho legível e acima das linhas; fonte: regra sticky existente de `.asset-table`/`.table-sticky-header`; proibido sticky em outras tabelas, scroll interno novo, mudança de layout ou sobreposição que oculte filtros. Gramática visual: uma única tabela `rebalance-asset-table`, cabeçalho acima das linhas, hover temporário por linha; linhas continuam zebra/ações/filtros atuais; ausência de hover fora do cursor e ausência de dados não mudam semântica. Mapeamentos numéricos: N/A — nenhum valor, unidade, sinal ou escala é alterado; zero, limite e missing-data preservam renderização atual. Aceitação deve provar percepção visual no browser/renderização: hover distingue linha inteira; scroll mantém cabeçalho visível; `/patrimonio` e restante de `/rebalanceamento` permanecem sem alteração. Owner deve aprovar mock estático, protótipo ou browser rendering antes de Apply; aprovação registrada é dependência obrigatória de handoff e Apply fica bloqueado sem ela.
+Progress log: proposal/design/tasks + delta specs created; change validation passed, stable specs 71/71, `git diff --check` passed. Apply blocked until F60 reaches `Applied` and owner visual validation/approval is recorded.
+
+### F64 - Favicon de produção do Omaha
+Status: `Blocked`
+Goal: entregar favicon de produção no browser, com símbolo geométrico “O” formado por trilhos de ledger em teal sobre fundo escuro, próprio e legível em 16px, integrado ao head compartilhado.
+Candidate OpenSpec change id: `f64-favicon-de-producao-do-omaha`
+Spec link: `openspec/changes/f64-favicon-de-producao-do-omaha/`
+Files to inspect: `src/omaha/static/favicon.svg`, `src/omaha/templates/base.html`, `DESIGN.md`
+Notes: Direção aprovada pelo owner: “O” geométrico formado por trilhos de ledger, teal sobre fundo escuro, marca própria, leitura inequívoca em 16px. Fidelity ledger: “favicon de produção” → identificação do Omaha na aba/browser → asset estático servido e referência única no `<head>` compartilhado → fonte `src/omaha/static/favicon.svg` + integração `src/omaha/templates/base.html` → proibidos favicon genérico, emoji, wordmark reduzido, alternativa candidata ou integração por página → evidência: renderização real do browser em 16px. Gramática visual: canvas escuro, trilhos lineares que fecham um “O” geométrico, teal como única cor de marca, sem texto, sem ornamento, sem movimento; ausência de conteúdo/estado de página não altera símbolo. Mapeamento numérico: 16px de viewport do favicon → legibilidade/contorno do “O”; fonte SVG escalável → rasterização do browser; sem dados, unidade financeira, sinal, escala, zero, limite ou missing-data aplicável. Cenários de aceitação: aba em 16px mostra “O” teal distinguível sobre fundo escuro; asset mantém forma ao rasterizar em tamanhos maiores; páginas que herdam `base.html` recebem mesma referência. Excluir redesign de logo/branding, UI da aplicação, alterações de paleta, alternativas de candidato, preview server e qualquer escopo fora de asset + head compartilhado. Owner aprovou direção; antes de Apply, owner deve aprovar mock estático, protótipo ou browser rendering do favicon, e aprovação registrada é gate obrigatório.
+Progress log: proposal/design/tasks + delta spec created and amended; strict validation passed. Apply produced favicon/template/tests; focused unit, scoped E2E, raster 16px/32px, and diff checks pass. Owner validated favicon visually in browser. Review R1/R2 APPROVED with no findings; canonical suite NOT RUN — maintenance-suspended. Finalize synced spec, archived change, and created commit `0267fc6 chore(F64): finalize production favicon`; push blocked by unrelated pre-push `MyProfitSyncJob` ImportError (390 passed, 24 errors). Archive/spec validation 78/78 passed. Owner decision required: resolve unrelated hook failure and push existing commit, or accept local commit pending push.
+
+### F65 - Triagem de ativos por estado no preview de posição
+Status: `Ready`
+Goal: separar preview de importação/Atualizar posição em `Novos`, `Alterados` e `Inalterados`, ordenar cada grupo alfabeticamente, exibir valor recebido e revelar valor anterior em hover para cada campo alterado, e ampliar moderadamente painel para leitura textual.
+Candidate OpenSpec change id: `f65-triagem-de-ativos-por-estado-no-preview-de-posicao`
+Spec link: `openspec/changes/f65-triagem-de-ativos-por-estado-no-preview-de-posicao/`
+Files to inspect: `src/omaha/routes/imports.py`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/static/app.css`, `tests/test_import_preview.py`, `tests/e2e/test_import_modal.py`
+Notes: Follow-up of F59/F60; preserve existing preview/commit, explicit confirmation, snapshot/audit, Família guard, and `auto_matched`/`unmatched` compatibility until replacement contract is proven. Classification candidate: no existing three-way classification found; current server returns only `auto_matched` (name-normalized match) and `unmatched`, preserving broker input order; current modal renders two sections and has no prior-value diff/hover. Fidelity ledger: “Novos/Alterados/Inalterados” → mutually exclusive triage groups → three visible sections with counts and rows; source = preview incoming row plus current `Asset`/`Position` state; forbidden = treating auto-match as unchanged, hiding changed rows, or generic unsorted bucket. “alfabetizar dentro de cada seção” → deterministic case/accent-insensitive asset-name order → each rendered group sorted by asset name, stable ticker tie-break; source = `row.name`; zero rows hide section, missing name sorts last. “incoming + previous on hover” → changed field shows incoming value by default and previous value through accessible hover/focus disclosure → source = field-level diff payload, including field label/unit/sign; forbidden = previous-only display, tooltip without keyboard focus, or fabricated previous value. “moderately wider” → text columns gain room without new page-wide layout → source = existing `.modal-panel--wide`/responsive rules; preserve mobile full-width. Visual grammar: section headers encode state, rows belong to exactly one state, changed fields carry persistent cue and reversible hover/focus reveal, unchanged rows carry no diff decoration, absence of a state has no empty placeholder. Numeric mappings: `qty`, `avg_price`, `current_price`, `invested`, `current_value` use broker incoming values and existing position values, with existing units/BRL formatting and signs; asset metadata fields use incoming preview versus existing asset; equal values → Unchanged/no previous reveal; zero remains zero; missing previous/incoming is explicit “não disponível”, never coerced to zero. Acceptance scenarios: fixture with existing rows having no changes, position-only changes, asset metadata changes, and unmatched rows yields correct exclusive groups; every group alphabetizes; changed cell hover and keyboard focus reveal exact old value while default shows new; sync-origin preview and upload-origin preview match; narrow viewport remains usable. Prohibitions: no auto-commit, no reclassification based only on match bucket, no loss of current assignment controls, no unrelated dashboard/rebalance redesign. Explore required before propose: owner must decide exact changed-field set (position values only, asset metadata, or both) and whether “previous” means pre-preview DB state for sync/import; owner must approve static mock/prototype/browser rendering before Apply, recorded as handoff gate. Dependency: F59 `Applied` supplies preview contract; F60 must reach `Applied` and owner-validated before this slice can Apply. F63 remains independent UI work but should not be applied concurrently to the same visual review surface without coordination.
+Progress log: owner confirmed 2026-08-22 — classify both position values and asset metadata against pre-preview DB state; F65 scope/order approved. Await F59/F60 dependency completion and owner visual-rendering approval before propose/apply.
+
 ## Recommended Execution Order
 
 **Active queue:**
-  T34 (owner validation/archive) ∥ F59 → F60 → T31; D05 → I08 remains separate existing runner-hygiene track
+  T34 (owner validation/archive) ∥ F59 ∥ R42 → F60 → F65 → F63 → F64 → T31; D05 → I08 remains separate existing runner-hygiene track
 
 **Archived since prior queue:** F56, F55, F54, F53, F52, T27, T28, T29, I07, D03. Não são trabalho ativo.
 
@@ -663,6 +692,7 @@ Order note: F57/F61 archived; F62 deprecated because owner folded small destinat
 - F61 bloqueava F58 e está archived; F58 inicia removendo configuration `destination` sem modulador antes da automação.
 - F58 bloqueia F59: job depende do connector e de seu contrato de falhas/arquivo.
 - F59 bloqueia F60: UI depende do endpoint/job status e da entrega do preview existente.
+- R42 é manutenção independente, mas bloqueia retomada de F60: startup exige contrato `get_logger`; após R42 `Applied`, owner deve autorizar parada exata de PID 115075 e novo refresh antes da validação browser.
 - F60 e T31 dependem de F59; T31 valida integração dos contratos concluídos e pode ser preparada em paralelo após F58.
 - F60 tem gate adicional: aprovação owner de mock/protótipo/browser rendering antes de Apply; propose deve carregar gate e Apply fica bloqueado sem registro.
 - T32 closed/superseded by T33; concurrent-BDD refusal is historical, and harness correction transferred to T33. Future pruning remains blocked without equivalent record.
@@ -689,6 +719,13 @@ Order note: F57/F61 archived; F62 deprecated because owner folded small destinat
   I10 focused evidence; F58 remains blocked until reactivation yields T34's
   trusted canonical receipt. I10 must not alter Taskipy usage for serve, DB,
   lint, focused tasks, or unrelated commands.
+- F63 depends on F60 reaching `Applied` and owner validation before Apply because
+  both inspect the shared patrimônio visual surface and `app.css`; no semantic
+  dependency on F59/T31. F63 also requires owner approval of static mock,
+  prototype, or browser rendering before Apply.
+- F65 depends on F59's preview contract and F60 reaching `Applied` plus owner
+  validation before Apply; it owns the shared import-review surface and must
+  coordinate with F63 to avoid concurrent `app.css`/visual-surface changes.
 - T33 remains `Archived` historical and I08 remains `Blocked` with archive
   prepared. Neither lifecycle is reopened or altered; T34 consumes existing
   vocabulary/constraints only.

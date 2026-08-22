@@ -20,6 +20,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -420,6 +421,137 @@ class ImportPreview(Base):
         )
 
 
+class MyProfitSyncJob(Base):
+    """Profile-owned lifecycle row for one MyProfit CSV synchronization.
+
+    Only sanitized lifecycle data is public. ``work_dir`` and ``work_file``
+    are private cleanup metadata and are never included by
+    :meth:`to_status_dict`.
+    """
+
+    __tablename__ = "myprofit_sync_jobs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('queued', 'running', 'succeeded', 'failed', 'expired')",
+            name="ck_myprofit_sync_job_status",
+        ),
+        Index(
+            "ix_myprofit_sync_jobs_profile_status",
+            "profile_id",
+            "status",
+            "created_at",
+        ),
+    )
+
+    ACTIVE_STATUSES = frozenset({"queued", "running"})
+    SAFE_ERROR_STAGES = frozenset(
+        {
+            "credentials",
+            "browser",
+            "login",
+            "two_factor",
+            "navigation",
+            "export",
+            "download",
+            "cleanup",
+            "preview",
+            "connector",
+        }
+    )
+    SAFE_ERROR_CODES = frozenset(
+        {
+            "household_read_only",
+            "ambiguous_profile",
+            "unknown_profile",
+            "controls_not_found",
+            "timeout",
+            "browser_failed",
+            "failed",
+            "authentication_unconfirmed",
+            "empty_file",
+            "file_failed",
+            "launch_failed",
+            "page_failed",
+            "preview_failed",
+            "browser_close_failed",
+            "temporary_files_failed",
+        }
+    )
+
+    job_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    profile_id: Mapped[int] = mapped_column(
+        ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="queued")
+    preview_id: Mapped[int | None] = mapped_column(
+        ForeignKey("import_previews.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    filename: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    error_stage: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    work_dir: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    work_file: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False, index=True
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    retention_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    @classmethod
+    def safe_error_stage(cls, stage: str | None) -> str:
+        """Return one documented connector/parser stage, never raw input."""
+        return stage if stage in cls.SAFE_ERROR_STAGES else "connector"
+
+    @classmethod
+    def safe_error_code(cls, code: str | None) -> str:
+        """Return one documented connector/parser code, never raw input."""
+        return code if code in cls.SAFE_ERROR_CODES else "failed"
+
+    @classmethod
+    def normalize_error(cls, stage: str | None, code: str | None) -> tuple[str, str]:
+        """Normalize persisted connector/parser error fields at the boundary."""
+        return cls.safe_error_stage(stage), cls.safe_error_code(code)
+
+    def to_status_dict(
+        self,
+        *,
+        preview: dict | None = None,
+        error_message: str | None = None,
+    ) -> dict:
+        """Return stable API fields without credentials, paths, or raw data."""
+
+        def _iso(value: datetime | None) -> str | None:
+            return value.isoformat() if value is not None else None
+
+        error = None
+        if self.error_stage or self.error_code:
+            safe_stage, safe_code = self.normalize_error(self.error_stage, self.error_code)
+            error = {
+                "stage": safe_stage,
+                "code": safe_code,
+                "message": error_message or "Não foi possível concluir a sincronização.",
+            }
+        return {
+            "job_id": self.job_id,
+            "status": self.status,
+            "filename": self.filename,
+            "created_at": _iso(self.created_at),
+            "started_at": _iso(self.started_at),
+            "finished_at": _iso(self.finished_at),
+            "expires_at": _iso(self.expires_at),
+            "preview": preview,
+            "error": error,
+        }
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return (
+            f"MyProfitSyncJob(job_id={self.job_id!r}, profile_id={self.profile_id!r}, "
+            f"status={self.status!r})"
+        )
+
+
 class Quote(Base):
     """A cached market quote for one symbol (ticker / FX / crypto).
 
@@ -573,6 +705,7 @@ __all__ = [
     "Asset",
     "Position",
     "ImportPreview",
+    "MyProfitSyncJob",
     "Quote",
     "DbSnapshot",
     "DbMutation",

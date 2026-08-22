@@ -141,6 +141,13 @@ def _stop_quote_service(app: FastAPI) -> None:
         task.cancel()
 
 
+def _stop_myprofit_sync_service(app: FastAPI) -> None:
+    """Stop and clean only paths registered by the app-owned sync service."""
+    service = getattr(app.state, "myprofit_sync_service", None)
+    if service is not None:
+        service.shutdown()
+
+
 def _brl(value: object) -> str:
     """Format a numeric value as Brazilian Real (R$ X.XXX,XX).
 
@@ -220,6 +227,7 @@ def create_app() -> FastAPI:
     # but a future reports slice will reuse the same formatter.
     templates.env.filters["brl"] = _brl
     app.state.templates = templates
+    app.state.myprofit_sync_service = imports_routes.MyProfitSyncService()
 
     # F01: register the HouseholdReadOnlyError handler so
     # ``require_profile_writable`` can short-circuit a mutation
@@ -259,6 +267,7 @@ def create_app() -> FastAPI:
         app.on_event("startup")(_prune_snapshots_on_startup)
         app.on_event("startup")(lambda: _start_quote_service(app))
         app.on_event("shutdown")(lambda: _stop_quote_service(app))
+        app.on_event("shutdown")(lambda: _stop_myprofit_sync_service(app))
 
     return app
 

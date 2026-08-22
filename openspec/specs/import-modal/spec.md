@@ -6,6 +6,20 @@ unmatched), e commit. Substitui as páginas standalone /import e
 
 ## Requirements
 
+### Requirement: Revisão aceita preview de sincronização concluída
+
+O Step 2 SHALL aceitar payload de preview manual ou de job MyProfit concluído.
+Somente status `succeeded` com preview válido SHALL abrir revisão; jobs `failed`,
+`expired`, `queued` ou `running` SHALL manter estado de página/job sem abrir modal.
+
+#### Scenario: Preview de sincronização bem-sucedida abre revisão
+- **WHEN** polling retorna `succeeded` com preview válido
+- **THEN** `$store.importModal` abre revisão manual existente sem commit automático
+
+#### Scenario: Falha de sincronização não abre modal
+- **WHEN** polling retorna `failed` ou `expired`
+- **THEN** modal permanece fechado e nenhum POST de commit é feito
+
 ### Requirement: Existing import review accepts a successful F59 preview handoff
 
 The global `$store.importModal` SHALL expose an internal preview-hydration path

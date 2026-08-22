@@ -79,7 +79,7 @@ from omaha.auth import (
     require_profile_writable,
     require_user,
 )
-from omaha.models import Asset, AssetClass, Profile, User
+from omaha.models import Asset, AssetClass, MyProfitSyncJob, Profile, User
 from omaha.rebalance.glue import run_rebalance
 from omaha.rebalance.models import RebalanceValidationError
 from omaha.rebalance.schemas import (
@@ -91,6 +91,14 @@ from omaha.rebalance.schemas import (
 router = APIRouter(tags=["pages"])
 
 _REBALANCE_SESSION_KEY = "rebalance_contributions"
+_MYPROFIT_ERROR_MESSAGES = {
+    "credentials": "Não foi possível acessar as credenciais do MyProfit.",
+    "login": "Não foi possível entrar no MyProfit.",
+    "two_factor": "A autenticação do MyProfit não foi concluída.",
+    "download": "Não foi possível baixar o CSV do MyProfit.",
+    "preview": "Não foi possível preparar o CSV para revisão.",
+    "connector": "Não foi possível sincronizar com o MyProfit.",
+}
 
 
 def _templates(request: Request):
@@ -180,6 +188,24 @@ def _common_context(
             familia_sentinel = profile
             break
     is_household_view = request.query_params.get("view") == "household"
+    sync_error = None
+    if owner is not None and not owner.is_family_sentinel:
+        latest_sync = (
+            db.query(MyProfitSyncJob)
+            .filter(
+                MyProfitSyncJob.profile_id == owner.id,
+                MyProfitSyncJob.status.in_({"failed", "expired"}),
+            )
+            .order_by(MyProfitSyncJob.created_at.desc())
+            .first()
+        )
+        if latest_sync is not None:
+            sync_error = latest_sync.to_status_dict(
+                error_message=_MYPROFIT_ERROR_MESSAGES.get(
+                    MyProfitSyncJob.safe_error_stage(latest_sync.error_stage),
+                    "Não foi possível concluir a sincronização.",
+                )
+            )
     return {
         "user": user,
         "viewer": user,
@@ -200,6 +226,8 @@ def _common_context(
         # itself; the querystring continues to drive the family
         # view as a deep-link entry point.
         "is_household_view": is_household_view,
+        "myprofit_sync_error": sync_error,
+        "myprofit_sync": sync_error,
     }
 
 
