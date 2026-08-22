@@ -22,7 +22,7 @@ from sqlalchemy import inspect
 
 CSV = (
     "Ticker,Nome,Quantidade,Preço médio,Preço atual,Total investido,Total atual\n"
-    "PETR4,PETR4,1,10,12,10,12\n"
+    "F59UNMATCHED,F59UNMATCHED,1,10,12,10,12\n"
 ).encode()
 
 

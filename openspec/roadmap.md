@@ -565,6 +565,7 @@ Archive: `openspec/changes/archive/2026-08-22-f58-integrar-automacao-playwright-
 Status: `Archived` — 2026-08-22
 Goal: executar sincronização MyProfit em background e entregar preview seguro para revisão.
 Archive: `openspec/changes/archive/2026-08-22-f59-executar-sincronizacao-background-e-entregar-preview/`
+Notes: Archive/spec sync and local commit `67b0518` complete; pre-push fixture drift fixed (`F59UNMATCHED`), 19 job + 24 import focused tests/lint/diff green. Stable `myprofit-sync-job` Requirement 0 scenario structure repaired without behavior change; specs 74/74 green. Supplemental review/commit/push pending.
 
 ### F60 - Adicionar ação Atualizar posição no patrimônio
 Status: `Archived` — 2026-08-22

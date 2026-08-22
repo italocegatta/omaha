@@ -9,6 +9,12 @@ Profile-scoped background synchronization with safe preview handoff.
 ### Requirement: MyProfit synchronization SHALL start as a profile-scoped background job
 The system SHALL expose authenticated `POST /api/myprofit/sync`, return HTTP 202 with a queued unique job, and reject Família with HTTP 409 before credential or file access.
 
+#### Scenario: Real profile starts synchronization
+- **WHEN** an authenticated operator has active real profile Italo or Ana
+- **AND** sends `POST /api/myprofit/sync`
+- **THEN** response is HTTP 202 with unique job id and status `queued`
+- **AND** no asset, position, class, or import commit row is mutated
+
 ### Requirement: Synchronization jobs SHALL enforce bounded concurrency and profile isolation
 The system SHALL allow one queued or running job per real profile, permit both real profiles independently, cap workers at two, and hide unknown or foreign jobs with HTTP 404.
 

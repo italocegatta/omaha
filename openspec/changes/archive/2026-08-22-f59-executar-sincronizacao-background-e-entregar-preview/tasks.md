@@ -628,3 +628,340 @@ Verdict: **APPROVED**
 New findings: **none**. No stable R2 finding ID issued. All four prior findings
 are resolved; owner validation may proceed. Canonical suite remains
 policy-suspended and is not represented as green.
+
+## Finalization-blocker apply evidence
+
+- Gate: finalization-blocker only for local F59 commit `67b0518`; no F59
+  lifecycle or scope reopening.
+- Pre-edit capture at `2026-08-22T13:18:xx-03:00`: `git status --short`,
+  `git diff HEAD~1 --stat`, and full `git diff HEAD~1 --` were captured before
+  any fix edit. `HEAD` was `67b0518` and `HEAD~1` was the owner-approved F60
+  commit `24c32cb`; the parent-to-HEAD diff contained F59's 16 committed
+  paths, including `src/omaha/routes/imports.py` and
+  `tests/test_myprofit_sync_jobs.py`.
+- Pre-existing worktree boundary before this gate: modified
+  `openspec/changes/archive/2026-08-22-f64-favicon-de-producao-do-omaha/tasks.md`,
+  `openspec/roadmap.md`, `src/omaha/logging_config.py`,
+  `tests/test_db_snapshot.py`, and `tests/test_logging.py`; untracked
+  `openspec/changes/f63-hover-e-cabecalho-sticky-na-tabela-de-rebalanceamento/`.
+  These files are outside this gate and remain untouched.
+- Diagnosis: `match_positions` intentionally exact-matches normalized incoming
+  asset name against current profile assets. F59's contract says unmatched rows
+  remain for manual assignment. Test fixture ticker/name `PETR4` is not a
+  stable unmatched oracle: any profile state containing an asset named `PETR4`
+  correctly produces an empty `unmatched`. This is assertion-fixture drift,
+  not an `_build_preview_response` or handoff implementation defect.
+- Pre-fix focused observations: `uv run task test-one
+  tests/test_myprofit_sync_jobs.py::test_internal_csv_handoff_reuses_preview_shape_and_does_not_mutate`
+  -> 1 passed in the current isolated test state; complete
+  `uv run task test-file tests/test_myprofit_sync_jobs.py` -> 19 passed. The
+  failing pre-push report is explained by its different seeded/profile state;
+  deterministic fixture correction remains required.
+
+### Finalization-blocker fix receipt
+
+- Changed file/symbol: `tests/test_myprofit_sync_jobs.py::CSV`; replaced
+  environment-dependent `PETR4` fixture row with unique synthetic
+  `F59UNMATCHED` row. `src/omaha/routes/imports.py` was inspected and not
+  changed.
+- Semantic proof: matcher remains exact normalized-name matching; fixture now
+  cannot accidentally match any seeded/current asset, so `unmatched` remains
+  non-empty while preview shape, no-mutation counts, filename sanitization, and
+  owned-path assertions remain unchanged. No production behavior changed.
+- Focused validation:
+  - `uv run task test-one
+    tests/test_myprofit_sync_jobs.py::test_internal_csv_handoff_reuses_preview_shape_and_does_not_mutate`
+    -> **1 passed**.
+  - `uv run task test-file tests/test_myprofit_sync_jobs.py` -> **19 passed**.
+  - `uv run task test-file tests/test_import_preview.py
+    tests/test_imports_routes.py` -> **24 passed**.
+  - `uv run task lint` -> **passed**.
+  - `git diff --check` -> **passed**.
+- Post-fix diff boundary: `git diff HEAD --` contains only this fixture change
+  plus this archived evidence section; no `imports.py` hunk and no unrelated
+  functional change.
+
+### Finalization-blocker ownership ledger
+
+| resource_kind | resource_id | owner | owner_evidence | started_at / ended_at | status | classification | evidence | cleanup_result |
+|---|---|---|---|---|---|---|---|---|
+| child process + process group | PID/PGID 173306 | F59-finalization-blocker-apply / apply | wrapper registered identity before precheck launch | 2026-08-22T13:18:56-03:00 / 2026-08-22T13:18:59-03:00 | exited | owned-cleaned | exact single-test precheck process exited rc=0 | idempotent no-op after exit |
+| test DB + temporary paths | pytest-managed test-only resources for run `f59-finalization-blocker-precheck-20220822-01` | F59-finalization-blocker-apply / apply | fixture scope registered with wrapper before launch | 2026-08-22T13:18:56-03:00 / 2026-08-22T13:18:59-03:00 | absent | owned-cleaned | no production DB, server, or listener used; fixture-managed resources not retained | bounded fixture cleanup; no broad discovery/deletion |
+| child process + process group | PID/PGID 173355 | F59-finalization-blocker-apply / apply | wrapper registered identity before precheck launch | 2026-08-22T13:19:14-03:00 / 2026-08-22T13:19:20-03:00 | exited | owned-cleaned | complete F59 precheck process exited rc=0 | idempotent no-op after exit |
+| test DB + temporary paths | pytest-managed test-only resources for run `f59-finalization-blocker-precheck-20220822-02` | F59-finalization-blocker-apply / apply | fixture scope registered with wrapper before launch | 2026-08-22T13:19:14-03:00 / 2026-08-22T13:19:20-03:00 | absent | owned-cleaned | no production DB, server, or listener used; fixture-managed resources not retained | bounded fixture cleanup; no broad discovery/deletion |
+| child process + process group | PID/PGID 173584 | F59-finalization-blocker-apply / apply | wrapper registered identity before focused launch | 2026-08-22T13:20:23-03:00 / 2026-08-22T13:20:29-03:00 | exited | owned-cleaned | 19 F59 tests passed | idempotent no-op after exit |
+| test DB + temporary paths | pytest-managed test-only resources for run `f59-finalization-blocker-focused-20220822-03` | F59-finalization-blocker-apply / apply | fixture scope registered with wrapper before launch | 2026-08-22T13:20:23-03:00 / 2026-08-22T13:20:29-03:00 | absent | owned-cleaned | no production DB, server, or listener used; fixture-managed resources not retained | bounded fixture cleanup; no broad discovery/deletion |
+| child process + process group | PID/PGID 173645 | F59-finalization-blocker-apply / apply | wrapper registered identity before related launch | 2026-08-22T13:20:39-03:00 / 2026-08-22T13:20:48-03:00 | exited | owned-cleaned | 24 related import tests passed | idempotent no-op after exit |
+| test DB + temporary paths | pytest-managed test-only resources for run `f59-finalization-blocker-related-20220822-04` | F59-finalization-blocker-apply / apply | fixture scope registered with wrapper before launch | 2026-08-22T13:20:39-03:00 / 2026-08-22T13:20:48-03:00 | absent | owned-cleaned | no production DB, server, or listener used; fixture-managed resources not retained | bounded fixture cleanup; no broad discovery/deletion |
+| child process + process group | PID/PGID 173744 | F59-finalization-blocker-apply / apply | wrapper registered identity before lint launch | 2026-08-22T13:20:56-03:00 / 2026-08-22T13:21:17-03:00 | exited | owned-cleaned | all lint hooks passed | idempotent no-op after exit |
+| child process + process group | PID/PGID 174725 | F59-finalization-blocker-apply / apply | wrapper registered identity before diff launch | 2026-08-22T13:21:29-03:00 / 2026-08-22T13:21:29-03:00 | exited | owned-cleaned | diff check passed and scoped post-fix diff inspected | idempotent no-op after exit |
+| child process + process group | PID/PGID 174966 | F59-finalization-blocker-apply / apply | wrapper registered identity before regression launch | 2026-08-22T13:22:01-03:00 / 2026-08-22T13:22:06-03:00 | exited | owned-cleaned | exact failing test passed after fixture correction | idempotent no-op after exit |
+| test DB + temporary paths | pytest-managed test-only resources for run `f59-finalization-blocker-regression-20220822-07` | F59-finalization-blocker-apply / apply | fixture scope registered with wrapper before launch | 2026-08-22T13:22:01-03:00 / 2026-08-22T13:22:06-03:00 | absent | owned-cleaned | no production DB, server, or listener used; fixture-managed resources not retained | bounded fixture cleanup; no broad discovery/deletion |
+
+- Canonical review isolation: canonical/full suite and any server/browser/network
+  resource were not launched by this gate. Focused runs used only pytest-owned
+  test resources; no baseline or allowlist exception was used. Pre-existing
+  worktree files/resources listed above remained untouched.
+
+## Finalization-blocker resume evidence
+
+- Gate resumed after interruption for archived/local commit `67b0518` only.
+  No F59 lifecycle reopening, staging, commit, push, server, browser, network,
+  credential, or production-DB operation occurred.
+- Interrupted-state preflight before this resume's evidence edit:
+  - `HEAD` was `67b0518`; `HEAD~1` was `24c32cb`.
+  - No staged changes (`git diff --cached --quiet` passed).
+  - Valid owned partial work was present: `tests/test_myprofit_sync_jobs.py::CSV`
+    already contained the deterministic `F59UNMATCHED` fixture correction, and
+    this file already contained the prior finalization-blocker evidence.
+  - `src/omaha/routes/imports.py` had no uncommitted hunk; no unknown partial
+    implementation was present in either direct code file.
+  - Pre-existing, non-owned work remained untouched: modified
+    `openspec/changes/archive/2026-08-22-f64-favicon-de-producao-do-omaha/tasks.md`,
+    `openspec/roadmap.md`, `src/omaha/logging_config.py`,
+    `tests/test_db_snapshot.py`, `tests/test_logging.py`; untracked F63 and R42
+    change dossiers.
+  - No active pytest/uvicorn process was present. Existing listeners
+    `5443/tcp` (pre-existing/unknown) and `4096/tcp` (foreign, PID 176551,
+    `opencode`) were preserved; no relevant F59 listener existed.
+- Pre-edit capture: `git diff HEAD~1 --name-status`, `git diff HEAD~1 --stat`,
+  and `git diff HEAD~1 -- src/omaha/routes/imports.py
+  tests/test_myprofit_sync_jobs.py` were captured before this evidence edit.
+  Parent-to-HEAD F59 diff was 20 paths, `2880 insertions(+), 65 deletions(-)`;
+  direct F59 runtime/test paths were the committed `imports.py` and new
+  `test_myprofit_sync_jobs.py` paths. Current uncommitted direct-scope diff
+  before this evidence edit was one fixture line plus prior evidence only.
+- Root cause confirmed from `csv_import.py::match_positions`,
+  `imports.py::_build_preview_response`, and F59 preview requirements:
+  matching is exact on normalized incoming asset name; unmatched rows SHALL
+  remain for manual assignment. `PETR4` was an environment-dependent test
+  oracle because a seeded/current profile may contain an asset with that name,
+  correctly yielding empty `unmatched`. Assertion fixture drift, not handoff
+  implementation defect.
+- Minimal repair preserved from interrupted attempt:
+  `tests/test_myprofit_sync_jobs.py::CSV` uses unique synthetic
+  `F59UNMATCHED` instead of `PETR4`. `src/omaha/routes/imports.py` was
+  inspected only and not changed. No production behavior changed.
+
+### Resume focused validation
+
+- `uv run task test-one tests/test_myprofit_sync_jobs.py::test_internal_csv_handoff_reuses_preview_shape_and_does_not_mutate`
+  -> **1 passed**.
+- `uv run task test-file tests/test_myprofit_sync_jobs.py` -> **19 passed**.
+- `uv run task test-file tests/test_import_preview.py tests/test_imports_routes.py`
+  -> **24 passed**.
+- `uv run task lint` -> **passed** (all hooks, Ruff, unit, secret/hygiene
+  checks).
+- `git diff --check` -> **passed**.
+- No full suite, connector/Playwright/browser/network/credential/login/download
+  test, refresh, server operation, DB reset/seed, staging, commit, or push.
+
+### Resume ownership ledger
+
+| resource_kind | resource_id | owner | owner_evidence | started_at / ended_at | status | classification | evidence | cleanup_result |
+|---|---|---|---|---|---|---|---|---|
+| child process + process group | PID/PGID 177589 | F59-finalization-blocker-resume/apply | wrapper printed PID/PGID before exact test launch | 2026-08-22T13:40:00-03:00 / 2026-08-22T13:40:02-03:00 | exited | owned-cleaned | exact failing test rc=0; PID absent in postflight | idempotent no-op after exit |
+| test DB + temporary paths | pytest session DB/temp resources for `f59-resume-20260822-01` | F59-finalization-blocker-resume/apply | F59 run/lane registered before launch; `tests/conftest.py` binds SessionLocal to tempfile DB | 2026-08-22T13:40:00-03:00 / 2026-08-22T13:40:02-03:00 | absent | owned-cleaned | fixture-owned test-only resources; no production DB/listener | bounded fixture cleanup; no broad discovery/deletion |
+| child process + process group | PID/PGID 177651 | F59-finalization-blocker-resume/apply | wrapper printed PID/PGID before internal F59 launch | 2026-08-22T13:40:15-03:00 / 2026-08-22T13:40:19-03:00 | exited | owned-cleaned | 19 F59 tests passed; PID absent in postflight | idempotent no-op after exit |
+| test DB + temporary paths | pytest session DB/temp resources for `f59-resume-20260822-02` | F59-finalization-blocker-resume/apply | F59 run/lane registered before launch; fixture safety guard active | 2026-08-22T13:40:15-03:00 / 2026-08-22T13:40:19-03:00 | absent | owned-cleaned | test-only tempfile DB/path lifecycle; production DB untouched | bounded fixture cleanup; no broad discovery/deletion |
+| child process + process group | PID/PGID 177761 | F59-finalization-blocker-resume/apply | wrapper printed PID/PGID before related import launch | 2026-08-22T13:40:28-03:00 / 2026-08-22T13:40:36-03:00 | exited | owned-cleaned | 24 related tests passed; PID absent in postflight | idempotent no-op after exit |
+| test DB + temporary paths | pytest session DB/temp resources for `f59-resume-20260822-03` | F59-finalization-blocker-resume/apply | F59 run/lane registered before launch; fixture safety guard active | 2026-08-22T13:40:28-03:00 / 2026-08-22T13:40:36-03:00 | absent | owned-cleaned | test-only tempfile DB/path lifecycle; production DB untouched | bounded fixture cleanup; no broad discovery/deletion |
+| child process + process group | PID/PGID 177904 | F59-finalization-blocker-resume/apply | wrapper printed PID/PGID before lint launch | 2026-08-22T13:40:45-03:00 / 2026-08-22T13:41:10-03:00 | exited | owned-cleaned | all lint hooks passed; PID absent in postflight | idempotent no-op after exit |
+| child process + process group | PID/PGID 179239 | F59-finalization-blocker-resume/apply | wrapper printed PID/PGID before diff-check launch | 2026-08-22T13:42:00-03:00 / 2026-08-22T13:42:00-03:00 | exited | owned-cleaned | exact diff check rc=0; PID absent in postflight | idempotent no-op after exit |
+
+- Canonical review isolation: no canonical/full suite or server/browser/network
+  resource launched. Focused runs used only pytest-owned test resources.
+  Pre-existing/foreign listeners were preserved; no baseline or allowlist
+  exception was used.
+- Scope proof after resume: direct-scope diff contains only the existing
+  `tests/test_myprofit_sync_jobs.py::CSV` one-line fixture correction and this
+  archived `tasks.md` evidence section. No `imports.py` hunk and no unrelated
+  functional change.
+
+### Review R3 — supplementary fixture repair gate
+
+Scope audit: archived F59 proposal/design/tasks/apply handoff and three delta
+specs re-read **pass**; assertion-fixture drift diagnosis and unmatched-preview
+contract **pass**; changed-symbol/scope audit **pass**; `imports.py` and F59
+runtime behavior preservation **pass**; no-mutation/manual-review boundary
+**pass**; focused product evidence **pass**; lint/diff hygiene **pass**;
+canonical full-suite enforcement **not assessable by policy**
+(`maintenance-suspended`); current stable relevant-spec health **finding**
+(pre-existing validation error, not caused by this repair).
+
+Assertion/contract evidence: `tests/test_myprofit_sync_jobs.py:25` now uses
+unique `F59UNMATCHED` for the CSV fixture. Existing exact normalized-name
+matching in `csv_import.py::match_positions` and preview serialization in
+`src/omaha/routes/imports.py::_build_preview_response` remain unchanged. The
+fixture therefore deterministically remains in `unmatched`, preserving manual
+assignment, preview shape, no-commit, and no-mutation assertions. Direct diff
+contains one fixture-line replacement only; `src/omaha/routes/imports.py` has
+no hunk.
+
+Full suite: `uv run task test` -> **NOT RUN — maintenance-suspended**. No
+canonical lane, server, browser, network, credential, login, download, or
+external MyProfit test ran. Focused commands: `uv run task test-file
+tests/test_myprofit_sync_jobs.py` -> **19 passed**; `uv run task test-file
+tests/test_import_preview.py tests/test_imports_routes.py` -> **24 passed**;
+`uv run task lint` -> **passed**; `git diff --check` -> **passed**. No test
+was deleted, skipped, xfailed, retried, or masked.
+
+Preflight: archived per-run ledger `/tmp/opencode/f59-review-20260822-ledger.jsonl`
+was inspected. Current-run focused pytest processes and fixture DB/temp
+resources were `owned-current-run` then `owned-cleaned`; canonical test DB/log
+paths were `absent`. Listener `5443/tcp` was `pre-existing` and preserved;
+`4096/tcp` was `foreign` (`opencode`, PID 176551) and preserved. No relevant
+F59 process/listener/test DB residue existed. No baseline or allowlist exception
+was used.
+
+Postflight: focused processes exited; fixture-managed test DB/temp resources
+were absent after cleanup; no child residue observed. Pre-existing/foreign
+listeners remained untouched. Canonical postflight does not exist because
+maintenance policy forbade suite launch.
+
+Runner isolation: canonical isolated-runner precondition **not exercised** by
+owner-authorized suspension; no canonical resource was launched. Focused runs
+used pytest-owned temporary resources only.
+
+Relevant spec health: `uv run openspec validate --specs --strict --json` ->
+**73 passed, 1 failed**. Pre-existing `openspec/specs/myprofit-sync-job/spec.md`
+fails because Requirement 0 has no scenario (`requirements.0.scenarios`); the
+file is unchanged from `67b0518` and this fixture repair cannot resolve it.
+
+Audited changed files: `tests/test_myprofit_sync_jobs.py` one fixture line and
+this archived `tasks.md` evidence section. `src/omaha/routes/imports.py` not
+changed. No roadmap, application code, server/process, archive, commit, or
+push action performed.
+
+Verdict: **BLOCKED**.
+
+#### R3-F01 — Relevant stable F59 spec validation is red
+Status: blocked
+Severity: medium
+Requirement/task: F59 `myprofit-sync-job` stable-spec health; task 5.3.
+Evidence: `uv run openspec validate --specs --strict --json` reports
+`myprofit-sync-job` invalid at `requirements.0.scenarios`: “Requirement must
+have at least one scenario.” `openspec/specs/myprofit-sync-job/spec.md:9-10`
+has no scenario, while archived F59 delta scenarios and prior R2 validation
+remain intact. `git diff 67b0518 -- openspec/specs/myprofit-sync-job/spec.md`
+is empty.
+Required change: owner decision and bounded repair of stable-spec scenario
+structure, or validated waiver/receipt for this pre-existing artifact before
+gate clearance. Excluded scope: no application code, test fixture, F59 runtime
+behavior, roadmap, archive, commit, or push changes.
+Acceptance: exact relevant stable-spec validation returns 74/74 valid with no
+ERROR, while focused 19 + 24 product tests remain green.
+
+## R3-F01 remediation evidence
+
+- Gate: owner-authorized stable-spec structure repair only. Change:
+  `f59-executar-sincronizacao-background-e-entregar-preview`.
+- Changed file/symbol: `openspec/specs/myprofit-sync-job/spec.md`, first
+  requirement (`requirements[0]`). Added one `#### Scenario: Real profile
+  starts synchronization` block with the existing F59 delta scenario's
+  `POST /api/myprofit/sync` queued response and no-mutation assertions.
+- Structural-only proof: first requirement text, every pre-existing stable
+  requirement, and every pre-existing scenario remain unchanged. No runtime
+  code, tests, delta spec, other stable spec, roadmap, server, process, DB,
+  archive, commit, or push work was performed.
+- Behavior-preservation proof: inserted scenario is the already-approved
+  archived F59 delta scenario (`specs/myprofit-sync-job/spec.md`), so it adds
+  validator-required structure without changing SHALL text, scenario meaning,
+  or F59 implementation behavior.
+- Validation:
+  - `uv run openspec validate --specs --strict --json` -> **74 items; 74
+    passed; 0 failed**.
+  - `git diff --check` -> **passed**.
+- Diagnostic command failures were wrapper-only: run 02's validator returned
+  `0`, but its optional `python` summary command returned `127` because only
+  `uv run python` exists; run 03's optional JSON summary returned `1` from a
+  quoting `SyntaxError`. Final run 04 used `uv run python` and passed; neither
+  exposed a spec validation error.
+
+### R3-F01 remediation ownership ledger
+
+| resource_kind | resource_id | owner | owner_evidence | started_at / ended_at | status | classification | evidence | cleanup_result |
+|---|---|---|---|---|---|---|---|---|
+| child process + process group | PID/PGID 181817/181817 | F59 R3-F01 apply | wrapper identity printed before validation | 2026-08-22T16:53:16Z / 2026-08-22T16:53:18Z | exited | owned-cleaned | stable validation 74/74 and diff check passed before final scenario assertion line | idempotent no-op after exit |
+| child process + process group | PID/PGID 181973/181973 | F59 R3-F01 apply | wrapper identity printed before final validation | 2026-08-22T16:53:51Z / 2026-08-22T16:53:52Z | exited | owned-cleaned | validator rc=0; optional summary helper rc=127 (`python` unavailable) | idempotent no-op after exit |
+| temporary path | `/tmp/f59-r3-f01-spec-validation.json` | F59 R3-F01 apply diagnostic | path used by exact command redirection; wrapper identity printed before command | 2026-08-22T16:53:51Z / not cleaned | present | preserved/non-target | diagnostic validator JSON only; not canonical runner-declared path; no product/test DB data | preserved; no deletion because path registration was incomplete before use |
+| child process + process group | PID/PGID 182027/182027 | F59 R3-F01 apply | wrapper identity printed before final validation | 2026-08-22T16:54:15Z / 2026-08-22T16:54:16Z | exited | owned-cleaned | optional JSON summary helper hit quoting `SyntaxError`; no spec result established by this wrapper | idempotent no-op after exit |
+| child process + process group | PID/PGID 182081/182081 | F59 R3-F01 apply | wrapper identity printed before final validation | 2026-08-22T16:54:27Z / 2026-08-22T16:54:28Z | exited | owned-cleaned | final stable validation 74/74 and diff check passed | idempotent no-op after exit |
+
+### Review R4 — F59 R3-F01 stable-spec structure remediation
+
+Scope audit: archived F59 proposal **pass**; design decisions and exclusions
+**pass**; all tasks/apply handoff and R3 evidence **pass**; `myprofit-sync-job`
+requirements/scenarios and Requirement 0 structure **pass**; stable-spec
+strict validation **pass**; archived-delta alignment and behavior preservation
+**pass**; changed-symbol and exact diff scope **pass**; no application/test-code
+change in owner-authorized remediation **pass**; no-test-deletion and scope
+boundary **pass**; canonical full-suite enforcement **not assessable by policy**
+(`maintenance-suspended`, non-blocking for this gate).
+
+Full suite: `uv run task test` -> **NOT RUN — maintenance-suspended**. No
+full/external/browser/MyProfit test ran. Focused product tests also not run by
+owner-bounded structural gate; prior R3 evidence retains 19 job + 24 import
+focused tests green. No test was deleted, skipped, xfailed, retried, or masked.
+
+Preflight: inspected per-run ledger
+`/tmp/opencode/f59-review-20260822-ledger.jsonl` and current relevant process /
+listener inventory before standards/spec review. Ledger contains required
+resource identity, owner evidence, timestamps, status, classification, and
+cleanup fields. Relevant declared canonical test DB/log paths were **absent**;
+no pytest/uvicorn/task process was present. Listener `5443/tcp` was
+pre-existing/unknown and preserved; `4096/tcp` was foreign (`opencode`, PID
+176551) and preserved; no runner resource was adopted, killed, or allowlisted.
+No suite launch was permitted by owner policy.
+
+Postflight: validation/diff command processes exited; no server, listener, test
+DB, or temporary product resource was created. Current-run command resources
+classified **owned-cleaned** by process completion; foreign/pre-existing
+listeners remained untouched. Canonical postflight is not applicable because
+suite launch was suspended.
+
+Runner isolation: canonical isolated-runner precondition **not exercised** by
+owner-authorized `maintenance-suspended`; no canonical lane launched and no
+baseline or allowlist exception used.
+
+Spec/diff evidence: `uv run openspec validate --specs --strict --json` ->
+**74 items; 74 passed; 0 failed** (INFO-only length advisories). `git diff
+--check -- openspec/specs/myprofit-sync-job/spec.md` -> **passed**. Exact
+stable-spec diff is **6 additions / 0 deletions**, one scenario block under
+the first requirement; no other stable-spec line changed. Independent
+comparison against archived F59 delta first scenario reports semantic match
+(same five nonblank lines; only `unique job id` vs `unique `job_id`` wording).
+Current worktree app/test diffs are pre-existing unrelated work, not part of
+this remediation; owner remediation evidence identifies no application or
+test-code edit.
+
+Verdict: **APPROVED**.
+
+New findings: **none**. `R3-F01` is resolved by the owner-authorized
+structural-only stable-spec scenario insertion. No new finding ID issued.
+
+#### R3-F01 — Relevant stable F59 spec validation is red
+Status: resolved
+Severity: medium
+Requirement/task: F59 `myprofit-sync-job` stable-spec health; task 5.3.
+Evidence: prior R3 failure at `openspec/specs/myprofit-sync-job/spec.md:9-10`
+had no scenario. Current `:12-16` adds `Real profile starts synchronization`;
+strict stable validation returns 74/74, and exact diff is six added scenario
+lines only. Archived delta scenario semantics match; no runtime/test file was
+changed by remediation.
+Required change: none; preserve stable-spec scenario and do not broaden scope.
+Excluded scope: application code, test code, delta specs, other stable specs,
+server/process, DB, browser/MyProfit tests, archive, commit, push, and roadmap.
+Acceptance: met — structural validation 74/74, diff check green, six-line
+stable-spec diff, no owner-remediation application/test-code change.
+Late finding reason: not applicable.
+| child process + process group | PID/PGID 183249/183249 | F59 R3-F01 apply | wrapper identity printed before final artifact validation | 2026-08-22T17:32:58Z / 2026-08-22T17:33:00Z | exited | owned-cleaned | post-evidence stable validation 74/74 and diff check passed | idempotent no-op after exit |
+| child process + process group | PID/PGID 183410/183410 | F59 R3-F01 apply | wrapper identity printed before final diff check | 2026-08-22T17:33:18Z / 2026-08-22T17:33:18Z | exited | owned-cleaned | post-evidence `git diff --check` passed | idempotent no-op after exit |
+| child process + process group | PID/PGID 183521/183521 | F59 R3-F01 apply | wrapper identity printed before terminal diff check | 2026-08-22T17:33:38Z / 2026-08-22T17:33:38Z | exited | owned-cleaned | terminal `git diff --check` passed | idempotent no-op after exit |
+
+- Canonical review isolation: no canonical suite, server, listener, browser,
+  network, test DB, or canonical-runner temporary resource was launched or
+  touched. Only exact artifact-validation processes above ran. No baseline or
+  allowlist exception used; no foreign resource action taken.
+- R3-F01 status: resolved by structural repair. No blocker or decision remains
+  for this bounded gate.
