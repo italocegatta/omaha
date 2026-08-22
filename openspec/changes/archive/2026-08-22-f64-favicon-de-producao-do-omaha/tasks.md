@@ -165,3 +165,67 @@ Finding IDs: none. No blocking findings.
 **Remediation stop:** focused E2E evidence remains pending. Safe continuation
 requires isolated runner with declared test DB boundary absent or current-run
 owned; foreign/pre-existing DB must remain untouched.
+
+## Review Findings
+
+### Review R2 — Remediation 1/2
+Scope audit: F64-finalization-E501 closure pass; test semantics pass; formatter
+staged/unstaged boundary pass; production SVG/template unchanged pass; prior
+focused E2E attribution pass; requirements/scenarios/tasks/design/invariants
+pass; no-test-deletion/no-coverage-reduction pass; scope boundary pass;
+canonical full-suite enforcement not assessable by policy (`maintenance-suspended`).
+
+Full suite: `uv run task test` -> **NOT RUN — maintenance-suspended**; no suite
+launch, six-lane result, coverage, skips, fail-fast disposition, or elapsed
+duration claimed. Focused evidence: `uv run task test-unit --
+tests/test_production_favicon.py -q` -> **3 passed**. Prior scoped E2E remains
+attributable: `uv run pytest tests/e2e/test_production_favicon.py -q -s
+--no-cov` -> **1 passed**, including 16px/32px raster evidence. Remediation
+changed formatting only; no assertion, flow, fixture, or production behavior
+change identified.
+
+Preflight: remediation ledger `f64-remediation-unit-20260822-151400` records
+child PID/PGID `148930/148930` as owned-cleaned, with 3 unit tests passed and
+normal exit. `data/test_e2e.db` was pre-existing with unknown ownership and no
+current-run receipt; preserved untouched, so focused E2E was safely not
+launched. `data/test_e2e_short_ttl.db` and ports `8765`/`8767` were absent;
+existing port `8000` listener was out-of-bound and preserved. Canonical runner
+isolation was not exercised because maintenance suspension prohibits suite
+launch; no adoption, kill, deletion, masking, or allowlist exception.
+
+Postflight: unit child ended `2026-08-22T15:13:56Z`; no process residue.
+No E2E process, listener, test-DB, or temporary-path cleanup was performed
+because E2E did not launch. Pre-existing `data/test_e2e.db` and port `8000`
+remain preserved. Ledger decision trusted for bounded remediation evidence;
+unowned DB remains blocker to any new E2E launch, not to this formatting-only
+closure.
+
+Runner isolation: focused unit runner ownership and cleanup pass. E2E isolated
+runner precondition failed safely on pre-existing/unknown declared test DB;
+canonical isolated-runner precondition not exercised under maintenance
+suspension. No foreign-resource baseline or allowlist exception used.
+
+Formatter/boundary evidence: `uv run ruff check
+tests/e2e/test_production_favicon.py tests/test_production_favicon.py`, `uv run
+ruff format --check tests/e2e/test_production_favicon.py
+tests/test_production_favicon.py`, `git diff --check`, and `git diff --cached
+--check` all passed. Both remediation test files are fully staged; no unstaged
+split remains. `tests/e2e/test_production_favicon.py:52` no longer violates
+E501. Production SVG/template are unchanged by remediation.
+
+Verdict: **APPROVED**
+
+#### R2-F01 — Finalization E501 and formatter staging split
+Status: resolved
+Requirement/task: Finalization gate finding `F64-finalization-E501`; task 5.1
+change-boundary verification.
+Evidence: `tests/e2e/test_production_favicon.py:52` formatted condition;
+Ruff check/format, both index/worktree whitespace checks, and staged-boundary
+audit pass. Prior scoped E2E and unit evidence remain green and attributable
+because remediation was formatting-only.
+Required change: none. Excluded scope: production SVG/template, test
+semantics, fixture behavior, unrelated worktree changes, and canonical suite
+remain untouched.
+Acceptance: E501 absent; both test files fully staged with no unstaged split;
+focused unit green; prior focused E2E green retained; no unsafe E2E rerun
+against unowned `data/test_e2e.db`.

@@ -660,13 +660,9 @@ Notes: Fatia visual cirúrgica; nenhuma refatoração, melhoria adicional, alter
 Progress log: proposal/design/tasks + delta specs created; change validation passed, stable specs 71/71, `git diff --check` passed. Apply blocked until F60 reaches `Applied` and owner visual validation/approval is recorded.
 
 ### F64 - Favicon de produção do Omaha
-Status: `Blocked`
-Goal: entregar favicon de produção no browser, com símbolo geométrico “O” formado por trilhos de ledger em teal sobre fundo escuro, próprio e legível em 16px, integrado ao head compartilhado.
-Candidate OpenSpec change id: `f64-favicon-de-producao-do-omaha`
-Spec link: `openspec/changes/f64-favicon-de-producao-do-omaha/`
-Files to inspect: `src/omaha/static/favicon.svg`, `src/omaha/templates/base.html`, `DESIGN.md`
-Notes: Direção aprovada pelo owner: “O” geométrico formado por trilhos de ledger, teal sobre fundo escuro, marca própria, leitura inequívoca em 16px. Fidelity ledger: “favicon de produção” → identificação do Omaha na aba/browser → asset estático servido e referência única no `<head>` compartilhado → fonte `src/omaha/static/favicon.svg` + integração `src/omaha/templates/base.html` → proibidos favicon genérico, emoji, wordmark reduzido, alternativa candidata ou integração por página → evidência: renderização real do browser em 16px. Gramática visual: canvas escuro, trilhos lineares que fecham um “O” geométrico, teal como única cor de marca, sem texto, sem ornamento, sem movimento; ausência de conteúdo/estado de página não altera símbolo. Mapeamento numérico: 16px de viewport do favicon → legibilidade/contorno do “O”; fonte SVG escalável → rasterização do browser; sem dados, unidade financeira, sinal, escala, zero, limite ou missing-data aplicável. Cenários de aceitação: aba em 16px mostra “O” teal distinguível sobre fundo escuro; asset mantém forma ao rasterizar em tamanhos maiores; páginas que herdam `base.html` recebem mesma referência. Excluir redesign de logo/branding, UI da aplicação, alterações de paleta, alternativas de candidato, preview server e qualquer escopo fora de asset + head compartilhado. Owner aprovou direção; antes de Apply, owner deve aprovar mock estático, protótipo ou browser rendering do favicon, e aprovação registrada é gate obrigatório.
-Progress log: proposal/design/tasks + delta spec created and amended; strict validation passed. Apply produced favicon/template/tests; focused unit, scoped E2E, raster 16px/32px, and diff checks pass. Owner validated favicon visually in browser. Review R1/R2 APPROVED with no findings; canonical suite NOT RUN — maintenance-suspended. Finalize synced spec, archived change, and created commit `0267fc6 chore(F64): finalize production favicon`; push blocked by unrelated pre-push `MyProfitSyncJob` ImportError (390 passed, 24 errors). Archive/spec validation 78/78 passed. Owner decision required: resolve unrelated hook failure and push existing commit, or accept local commit pending push.
+Status: `Archived` — 2026-08-22
+Goal: entregar favicon de produção no browser com “O” geométrico teal sobre fundo escuro.
+Archive: `openspec/changes/archive/2026-08-22-f64-favicon-de-producao-do-omaha/`
 
 ### F65 - Triagem de ativos por estado no preview de posição
 Status: `Ready`
