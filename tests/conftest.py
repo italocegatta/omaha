@@ -231,6 +231,8 @@ _INTEGRATION_PREFIXES = (
     "tests/test_import_get_preview.py",
     "tests/test_import_preview.py",
     "tests/test_imports_routes.py",
+    "tests/test_myprofit_sync_jobs.py",
+    "tests/test_patrimonio_sync_action.py",
     "tests/test_pages_routes.py",
     "tests/test_positions_model.py",
     "tests/test_quote_cache.py",
@@ -284,6 +286,7 @@ _UNIT_FILES = frozenset(
         "tests/test_iconography_tokens.py",
         "tests/test_policy_mutations.py",
         "tests/test_myprofit_connector.py",
+        "tests/test_production_favicon.py",
     }
 )
 
