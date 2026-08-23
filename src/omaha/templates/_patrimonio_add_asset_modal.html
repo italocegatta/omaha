@@ -175,7 +175,7 @@
      data-testid="import-modal-overlay">
   <div class="modal-panel modal-panel--wide" @click.stop>
     <div class="modal-header">
-      <h2 class="modal-title">Importar posições</h2>
+       <h2 class="modal-title">Revisar posições</h2>
       <button type="button"
               class="modal-close"
               data-testid="import-modal-close"
@@ -225,182 +225,124 @@
 
       <template x-if="!$store.importModal.previewError">
         <div>
-          <!-- Existing assets (auto-matched) -->
-          <div class="import-review-section import-review-section--existing" x-show="$store.importModal.autoMatched.length > 0">
-            <h3>Ativos existentes na carteira</h3>
-            <table class="import-review-table" data-testid="import-existing-table">
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Qtde</th>
-                  <th>Preço médio</th>
-                  <th>Total atual</th>
-                  <th>Classe</th>
-                  {# asset-trade-flags: per-asset trade-control columns.
-                     Auto-matched rows show the current ``Asset`` values
-                     (preserved across re-imports); unmatched rows show
-                     the project defaults (``True / True / BRL``). The
-                     operator can flip each toggle before commit. #}
-                  <th>Compra</th>
-                  <th>Venda</th>
-                  <th>Moeda</th>
-                </tr>
-              </thead>
-              <tbody>
-                <template x-for="(row, i) in $store.importModal.autoMatched" :key="row.broker_ticker">
-                  <tr data-testid="import-existing-row"
-                      x-data="{
-                        cellColor: 'transparent',
-                        getClassIndex(color) {
-                          if (!color || color === 'transparent') return -1;
-                          var list = Alpine.store('importModal').assetClasses;
-                          for (var i = 0; i < list.length; i++) {
-                            if (list[i].color === color) return i;
-                          }
-                          return -1;
-                        }
-                      }">
-                    <td x-text="row.name"></td>
-                    <td x-text="row.qty"></td>
-                    <td><span x-text="$store.importModal.formatBRL(row.avg_price, 0)"></span></td>
-                    <td><span x-text="$store.importModal.formatBRL(row.current_value, 0)"></span></td>
-                    <td class="import-class-cell"
-                        :class="cellColor === 'transparent' ? 'import-class-cell--pending' : 'import-class-cell--cls-' + getClassIndex(cellColor)"
-                        data-testid="import-class-cell-existing">
-                      <span class="class-color-swatch import-class-swatch"
-                            :style="`background: ${cellColor}`"
-                            x-init="cellColor = $store.importModal.getClassColor(($store.importModal.assignments[row.broker_ticker] || {}).class_id)"
-                            x-effect="cellColor = $store.importModal.getClassColor(($store.importModal.assignments[row.broker_ticker] || {}).class_id)"></span>
-                      <select :style="cellColor === 'transparent' ? '' : `background: color-mix(in srgb, ${cellColor} 30%, white); border-color: ${cellColor}; color: #111827`"
-                              x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })"
-                              x-effect="(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })()"
-                              @change="$store.importModal.assignments[row.broker_ticker].class_id = $event.target.value"
-                              data-testid="import-existing-class">
-                        <option value="">Selecione...</option>
-                        <template x-for="ac in $store.importModal.assetClasses" :key="ac.id">
-                          <option :value="ac.id" x-text="ac.name"></option>
-                        </template>
-                      </select>
-                    </td>
-                    <td data-testid="import-existing-buy">
-                      <label class="import-trade-toggle">
-                        <input type="checkbox"
-                               data-testid="import-existing-buy-toggle"
-                               :checked="$store.importModal.assignments[row.broker_ticker] ? $store.importModal.assignments[row.broker_ticker].buy_enabled : true"
-                               @change="$store.importModal.setBuy(row.broker_ticker, $event.target.checked)">
-                        <span>Compra</span>
-                      </label>
-                    </td>
-                    <td data-testid="import-existing-sell">
-                      <label class="import-trade-toggle">
-                        <input type="checkbox"
-                               data-testid="import-existing-sell-toggle"
-                               :checked="$store.importModal.assignments[row.broker_ticker] ? $store.importModal.assignments[row.broker_ticker].sell_enabled : true"
-                               @change="$store.importModal.setSell(row.broker_ticker, $event.target.checked)">
-                        <span>Venda</span>
-                      </label>
-                    </td>
-                    <td data-testid="import-existing-currency">
-                      <select class="import-currency-select"
-                              x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.currency_code ?? 'BRL'; })"
-                              x-effect="(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.currency_code ?? 'BRL'; })()"
-                              @change="$store.importModal.setCurrency(row.broker_ticker, $event.target.value)"
-                              data-testid="import-existing-currency-select">
-                        <option value="BRL">BRL</option>
-                        <option value="USD">USD</option>
-                      </select>
-                    </td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- New assets (unmatched) -->
-          <div class="import-review-section import-review-section--new" x-show="$store.importModal.unmatched.length > 0">
-            <h3>Novos ativos</h3>
-            <table class="import-review-table" data-testid="import-unmatched-table">
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Qtde</th>
-                  <th>Preço médio</th>
-                  <th>Total atual</th>
-                  <th>Classe</th>
-                  <th>Compra</th>
-                  <th>Venda</th>
-                  <th>Moeda</th>
-                </tr>
-              </thead>
-              <tbody>
-                <template x-for="(row, i) in $store.importModal.unmatched" :key="row.broker_ticker">
-                  <tr data-testid="import-unmatched-row"
-                      x-data="{
-                        cellColor: 'transparent',
-                        getClassIndex(color) {
-                          if (!color || color === 'transparent') return -1;
-                          var list = Alpine.store('importModal').assetClasses;
-                          for (var i = 0; i < list.length; i++) {
-                            if (list[i].color === color) return i;
-                          }
-                          return -1;
-                        }
-                      }">
-                    <td x-text="row.name"></td>
-                    <td x-text="row.qty"></td>
-                    <td><span x-text="$store.importModal.formatBRL(row.avg_price, 0)"></span></td>
-                    <td><span x-text="$store.importModal.formatBRL(row.current_value, 0)"></span></td>
-                    <td class="import-class-cell"
-                        :class="cellColor === 'transparent' ? 'import-class-cell--pending' : 'import-class-cell--cls-' + getClassIndex(cellColor)"
-                        data-testid="import-class-cell-assignment">
-                      <span class="class-color-swatch import-class-swatch"
-                            :style="`background: ${cellColor}`"
-                            x-init="cellColor = $store.importModal.getClassColor(($store.importModal.assignments[row.broker_ticker] || {}).class_id)"
-                            x-effect="cellColor = $store.importModal.getClassColor(($store.importModal.assignments[row.broker_ticker] || {}).class_id)"></span>
-                      <select :style="cellColor === 'transparent' ? '' : `background: color-mix(in srgb, ${cellColor} 30%, white); border-color: ${cellColor}; color: #111827`"
-                              x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })"
-                              x-effect="(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })()"
-                              @change="$store.importModal.assignments[row.broker_ticker].class_id = $event.target.value"
-                              data-testid="import-assignment-class">
-                        <option value="">Selecione...</option>
-                        <template x-for="ac in $store.importModal.assetClasses" :key="ac.id">
-                          <option :value="ac.id" x-text="ac.name"></option>
-                        </template>
-                      </select>
-                    </td>
-                    <td data-testid="import-unmatched-buy">
-                      <label class="import-trade-toggle">
-                        <input type="checkbox"
-                               data-testid="import-unmatched-buy-toggle"
-                               :checked="$store.importModal.assignments[row.broker_ticker] ? $store.importModal.assignments[row.broker_ticker].buy_enabled : true"
-                               @change="$store.importModal.setBuy(row.broker_ticker, $event.target.checked)">
-                        <span>Compra</span>
-                      </label>
-                    </td>
-                    <td data-testid="import-unmatched-sell">
-                      <label class="import-trade-toggle">
-                        <input type="checkbox"
-                               data-testid="import-unmatched-sell-toggle"
-                               :checked="$store.importModal.assignments[row.broker_ticker] ? $store.importModal.assignments[row.broker_ticker].sell_enabled : true"
-                               @change="$store.importModal.setSell(row.broker_ticker, $event.target.checked)">
-                        <span>Venda</span>
-                      </label>
-                    </td>
-                    <td data-testid="import-unmatched-currency">
-                      <select class="import-currency-select"
-                              x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.currency_code ?? 'BRL'; })"
-                              x-effect="(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.currency_code ?? 'BRL'; })()"
-                              @change="$store.importModal.setCurrency(row.broker_ticker, $event.target.value)"
-                              data-testid="import-unmatched-currency-select">
-                        <option value="BRL">BRL</option>
-                        <option value="USD">USD</option>
-                      </select>
-                    </td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-          </div>
+          <template x-for="section in $store.importModal.triageSections" :key="section.key">
+            <template x-if="$store.importModal.triage[section.key].length > 0">
+              <div class="import-review-section" :class="'import-review-section--' + section.key">
+                <h3>
+                  <span x-text="section.label"></span>
+                  <span class="import-review-count" :aria-label="section.label + ' ' + $store.importModal.triage[section.key].length" x-text="$store.importModal.triage[section.key].length"></span>
+                </h3>
+                <div class="import-review-table-wrap">
+                     <table class="import-review-table" :data-testid="section.key === 'new' ? 'import-unmatched-table' : section.key === 'changed' ? 'import-existing-table' : section.key === 'unchanged' ? 'import-unchanged-table' : 'import-absent-table'">
+                    <thead>
+                      <tr>
+                        <th>Nome</th>
+                        <th>Qtde</th>
+                        <th>Preço médio</th>
+                        <th>Total atual</th>
+                        <th>Classe</th>
+                        <th>Compra</th>
+                        <th>Venda</th>
+                        <th>Moeda</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                       <template x-for="(row, i) in $store.importModal.triage[section.key]" :key="section.key + '-' + (row.broker_ticker || row.asset_id || i)">
+                        <tr :data-testid="section.key === 'new' ? 'import-unmatched-row' : section.key === 'changed' ? 'import-existing-row' : section.key === 'unchanged' ? 'import-unchanged-row' : 'import-absent-row'"
+                            x-data="{
+                              cellColor: 'transparent',
+                              getClassIndex(color) {
+                                if (!color || color === 'transparent') return -1;
+                                var list = Alpine.store('importModal').assetClasses;
+                                for (var i = 0; i < list.length; i++) {
+                                  if (list[i].color === color) return i;
+                                }
+                                return -1;
+                              }
+                            }">
+                          <td>
+                            <span class="import-diff-field" :class="$store.importModal.diffFor(row, 'asset.name') ? 'import-diff-field--changed' : ''">
+                              <template x-if="$store.importModal.diffFor(row, 'asset.name')">
+                                <button type="button" class="import-diff-trigger"
+                                        :aria-describedby="'import-diff-' + section.key + '-' + i + '-name'"
+                                        :aria-label="$store.importModal.diffAriaLabel(row, 'asset.name')"
+                                        x-text="row.name"></button>
+                              </template>
+                              <template x-if="!$store.importModal.diffFor(row, 'asset.name')"><span x-text="row.name"></span></template>
+                              <template x-if="$store.importModal.diffFor(row, 'asset.name')">
+                                <span class="import-diff-disclosure" role="status" :id="'import-diff-' + section.key + '-' + i + '-name'" x-text="$store.importModal.diffDisclosure(row, 'asset.name')"></span>
+                              </template>
+                            </span>
+                            <template x-if="section.key !== 'absent'"><input type="hidden" name="broker_ticker[]" :value="row.broker_ticker"></template>
+                          </td>
+                          <td>
+                            <span class="import-diff-field" :class="$store.importModal.diffFor(row, 'qty') ? 'import-diff-field--changed' : ''">
+                              <template x-if="$store.importModal.diffFor(row, 'qty')"><button type="button" class="import-diff-trigger" :aria-describedby="'import-diff-' + section.key + '-' + i + '-qty'" :aria-label="$store.importModal.diffAriaLabel(row, 'qty')" x-text="$store.importModal.formatTriageValue(row, 'qty')"></button></template>
+                              <template x-if="!$store.importModal.diffFor(row, 'qty')"><span x-text="$store.importModal.formatTriageValue(row, 'qty')"></span></template>
+                              <template x-if="$store.importModal.diffFor(row, 'qty')"><span class="import-diff-disclosure" role="status" :id="'import-diff-' + section.key + '-' + i + '-qty'" x-text="$store.importModal.diffDisclosure(row, 'qty')"></span></template>
+                            </span>
+                          </td>
+                          <td>
+                            <span class="import-diff-field" :class="$store.importModal.diffFor(row, 'avg_price') ? 'import-diff-field--changed' : ''">
+                              <template x-if="$store.importModal.diffFor(row, 'avg_price')"><button type="button" class="import-diff-trigger" :aria-describedby="'import-diff-' + section.key + '-' + i + '-avg'" :aria-label="$store.importModal.diffAriaLabel(row, 'avg_price')" x-text="$store.importModal.formatTriageValue(row, 'avg_price')"></button></template>
+                              <template x-if="!$store.importModal.diffFor(row, 'avg_price')"><span x-text="$store.importModal.formatTriageValue(row, 'avg_price')"></span></template>
+                              <template x-if="$store.importModal.diffFor(row, 'avg_price')"><span class="import-diff-disclosure" role="status" :id="'import-diff-' + section.key + '-' + i + '-avg'" x-text="$store.importModal.diffDisclosure(row, 'avg_price')"></span></template>
+                            </span>
+                          </td>
+                          <td>
+                            <span class="import-diff-field" :class="$store.importModal.diffFor(row, 'total_current') ? 'import-diff-field--changed' : ''">
+                              <template x-if="$store.importModal.diffFor(row, 'total_current')"><button type="button" class="import-diff-trigger" :aria-describedby="'import-diff-' + section.key + '-' + i + '-total'" :aria-label="$store.importModal.diffAriaLabel(row, 'total_current')" x-text="$store.importModal.formatTriageValue(row, 'total_current')"></button></template>
+                              <template x-if="!$store.importModal.diffFor(row, 'total_current')"><span x-text="$store.importModal.formatTriageValue(row, 'total_current')"></span></template>
+                              <template x-if="$store.importModal.diffFor(row, 'total_current')"><span class="import-diff-disclosure" role="status" :id="'import-diff-' + section.key + '-' + i + '-total'" x-text="$store.importModal.diffDisclosure(row, 'total_current')"></span></template>
+                            </span>
+                          </td>
+                          <td class="import-class-cell"
+                              :class="section.key === 'absent' ? 'import-review-readonly-cell' : (cellColor === 'transparent' ? 'import-class-cell--pending' : 'import-class-cell--cls-' + getClassIndex(cellColor))"
+                              :data-testid="section.key === 'new' ? 'import-class-cell-assignment' : 'import-class-cell-existing'">
+                             <template x-if="section.key !== 'absent'">
+                               <span
+                                 x-init="cellColor = $store.importModal.getClassColor(($store.importModal.assignments[row.broker_ticker] || {}).class_id)"
+                                 x-effect="cellColor = $store.importModal.getClassColor(($store.importModal.assignments[row.broker_ticker] || {}).class_id)">
+                                 <select :style="cellColor === 'transparent' ? '' : `background: color-mix(in srgb, ${cellColor} 30%, white); border-color: ${cellColor}; color: #111827`"
+                                        x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })"
+                                        x-effect="(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.class_id ?? ''; })()"
+                                        @change="$store.importModal.assignments[row.broker_ticker].class_id = $event.target.value"
+                                        data-testid="import-assignment-class">
+                                  <option value="">Selecione...</option>
+                                  <template x-for="ac in $store.importModal.assetClasses" :key="ac.id"><option :value="ac.id" x-text="ac.name"></option></template>
+                                </select>
+                              </span>
+                            </template>
+                            <span x-show="section.key === 'absent'" x-text="row.asset_class_name || '—'"></span>
+                          </td>
+                          <td data-testid="import-triage-buy">
+                            <template x-if="section.key !== 'absent'"><label class="import-trade-toggle"><input type="checkbox" :checked="$store.importModal.assignments[row.broker_ticker] ? $store.importModal.assignments[row.broker_ticker].buy_enabled : true" @change="$store.importModal.setBuy(row.broker_ticker, $event.target.checked)"><span>Compra</span></label></template>
+                            <span class="import-review-readonly-value" x-show="section.key === 'absent'" x-text="row.buy_enabled ? 'Ativo' : 'Bloqueado'"></span>
+                          </td>
+                          <td data-testid="import-triage-sell">
+                            <template x-if="section.key !== 'absent'"><label class="import-trade-toggle"><input type="checkbox" :checked="$store.importModal.assignments[row.broker_ticker] ? $store.importModal.assignments[row.broker_ticker].sell_enabled : true" @change="$store.importModal.setSell(row.broker_ticker, $event.target.checked)"><span>Venda</span></label></template>
+                            <span class="import-review-readonly-value" x-show="section.key === 'absent'" x-text="row.sell_enabled ? 'Ativo' : 'Bloqueado'"></span>
+                          </td>
+                          <td data-testid="import-triage-currency">
+                            <template x-if="section.key !== 'absent'">
+                              <select class="import-currency-select"
+                                      x-init="$nextTick(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.currency_code ?? 'BRL'; })"
+                                      x-effect="(() => { const a = $store.importModal.assignments[row.broker_ticker]; if (a) $el.value = a.currency_code ?? 'BRL'; })()"
+                                      @change="$store.importModal.setCurrency(row.broker_ticker, $event.target.value)">
+                                <option value="BRL">BRL</option>
+                                <option value="USD">USD</option>
+                              </select>
+                            </template>
+                            <span class="import-review-readonly-value" x-show="section.key === 'absent'" x-text="row.currency_code"></span>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </template>
+          </template>
 
           <!-- Commit error -->
           <p class="import-modal-error"
@@ -1699,6 +1641,13 @@
       previewId: null,
       autoMatched: [],
       unmatched: [],
+       triage: { new: [], changed: [], unchanged: [], absent: [] },
+       triageSections: [
+         { key: 'new', label: 'Novos' },
+         { key: 'changed', label: 'Alterados' },
+         { key: 'unchanged', label: 'Inalterados' },
+         { key: 'absent', label: 'Ausentes' },
+      ],
       assetClasses: [],
       uploading: false,
       committing: false,
@@ -1752,6 +1701,52 @@
         var d = (decimals === undefined || decimals === null) ? 0 : decimals;
         return n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
       },
+      formatTriageValue: function (row, field) {
+        if (field === 'qty') {
+          var qtyFormatter = window.__tableFormatters;
+          return qtyFormatter ? qtyFormatter.formatQty(row.qty, row.name) : String(row.qty ?? '—');
+        }
+        var value = field === 'total_current' ? row.current_value : row[field];
+        return this.formatBRL(value, 0);
+      },
+      diffFor: function (row, field) {
+        var fields = row && row.changed_fields ? row.changed_fields : [];
+        for (var i = 0; i < fields.length; i++) {
+          if (fields[i].id === field || fields[i].field === field) return fields[i];
+        }
+        return null;
+      },
+      diffSignLabel: function (sign) {
+        if (sign === 'positive') return 'sinal positivo';
+        if (sign === 'negative') return 'sinal negativo';
+        if (sign === 'zero') return 'sem variação';
+        return 'sinal não aplicável';
+      },
+      diffIncomingDisplay: function (row, field, diff) {
+        if (field === 'asset.name') return diff.incoming_display;
+        return this.formatTriageValue(row, field === 'total_current' ? 'total_current' : field);
+      },
+      diffPreviousDisplay: function (row, field, diff) {
+        if (diff.previous_value === null || diff.previous_value === undefined) {
+          return diff.previous_display;
+        }
+        if (field === 'asset.name') return diff.previous_display;
+        if (field === 'qty') {
+          var qtyFormatter = window.__tableFormatters;
+          return qtyFormatter ? qtyFormatter.formatQty(diff.previous_value, row.name) : diff.previous_display;
+        }
+        return this.formatBRL(diff.previous_value, 0);
+      },
+      diffDisclosure: function (row, field) {
+        var diff = this.diffFor(row, field);
+        if (!diff) return '';
+        return this.diffPreviousDisplay(row, field, diff);
+      },
+      diffAriaLabel: function (row, field) {
+        var diff = this.diffFor(row, field);
+        return diff ? diff.label + ' · ' + this.diffSignLabel(diff.sign) + ' · ' + diff.unit +
+          '. Anterior: ' + this.diffDisclosure(row, field) : '';
+      },
       getClassColor: function (classId) {
         if (!classId) return 'transparent';
         var c = this.assetClasses.find(function (a) { return String(a.id) === String(classId); });
@@ -1794,6 +1789,7 @@
         this.previewId = null;
         this.autoMatched = [];
         this.unmatched = [];
+         this.triage = { new: [], changed: [], unchanged: [], absent: [] };
         this.assetClasses = [];
         this.assignments = {};
         this.previewError = false;
@@ -1832,6 +1828,22 @@
         this.previewId = data.preview_id;
         this.autoMatched = data.auto_matched || [];
         this.unmatched = data.unmatched || [];
+         if (data.triage && Array.isArray(data.triage.new) && Array.isArray(data.triage.changed) && Array.isArray(data.triage.unchanged)) {
+           this.triage = {
+             new: data.triage.new,
+             changed: data.triage.changed,
+             unchanged: data.triage.unchanged,
+             absent: Array.isArray(data.triage.absent) ? data.triage.absent : [],
+           };
+        } else {
+          // Legacy payloads remain reviewable until every producer emits F65 triage.
+          this.triage = {
+            new: this.unmatched.slice(),
+            changed: this.autoMatched.slice(),
+            unchanged: [],
+            absent: [],
+          };
+        }
         this.assetClasses = data.asset_classes || [];
         this.assignments = this.buildAssignments(data);
         this.previewError = false;

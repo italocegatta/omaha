@@ -100,6 +100,14 @@ retorna JSON com `preview_id`, `auto_matched`, `unmatched`, e `asset_classes`.
 
 ### Requirement: Revisão e commit de import (Step 2)
 
+The modal SHALL render Step 2 as up to three mutually exclusive review
+sections labelled `Novos`, `Alterados`, and `Inalterados`, each with a row
+count. Rows SHALL retain incoming values as primary display and preserve
+editable class/trade/currency controls and hidden `broker_ticker` assignment
+keys. Empty sections SHALL NOT render; changed rows SHALL carry field-diff
+cues while unchanged rows SHALL carry none. Existing explicit confirmation
+remains sole commit boundary, with no standalone manual-import UI added.
+
 O modal SHALL exibir:
 - Resumo de linhas auto-matched (data-testid="import-matched-summary")
 - Tabela de linhas unmatched (data-testid="import-unmatched-table") com dropdowns de classe
@@ -200,7 +208,9 @@ As duas seções do Step 2 do modal (`data-testid="import-existing-table"` e `da
 
 ### Requirement: Largura do modal 1100px no desktop
 
-O modal de import MUST ter largura máxima de pelo menos 1100px no breakpoint desktop (acima de 768px) para acomodar nomes de classe longos (ex: "Renda Fixa Pós-Fixada") E as novas colunas de preço/total. No mobile (≤768px), o painel DEVE ocupar 100% da largura.
+O painel de revisão SHALL usar largura máxima de 1200px acima de 768px para
+acomodar triagem, rótulos e divulgações; em viewport ≤768px, SHALL ocupar toda
+a largura disponível com conteúdo legível e sem clipping.
 
 #### Scenario: Modal no desktop exibe 1100px
 

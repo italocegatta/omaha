@@ -25,6 +25,7 @@ import re
 import shutil
 import tempfile
 import threading
+import unicodedata
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -58,11 +59,12 @@ from omaha.config import settings
 from omaha.csv_import import (
     RawPosition,
     match_positions,
+    normalize_name,
     parse_positions,
     suggest_class_id,
 )
 from omaha.db import SessionLocal
-from omaha.models import Asset, AssetClass, ImportPreview, MyProfitSyncJob, Profile, User
+from omaha.models import Asset, AssetClass, ImportPreview, MyProfitSyncJob, Position, Profile, User
 from omaha.mutation_guards import (
     record_mutation_audit,
     snapshot_before_destructive,
@@ -177,6 +179,17 @@ def _dict_to_raw(d: dict) -> RawPosition:
     )
 
 
+def _preview_rows_and_baseline(raw_json: str) -> tuple[list[dict], list[dict] | None]:
+    """Read both legacy raw-list previews and F65 baseline envelopes."""
+    payload = json.loads(raw_json)
+    if isinstance(payload, list):
+        return payload, None
+    if isinstance(payload, dict) and isinstance(payload.get("rows"), list):
+        baseline = payload.get("baseline")
+        return payload["rows"], baseline if isinstance(baseline, list) else None
+    raise ValueError("Formato de preview inválido.")
+
+
 def _existing_assets_for_profile(db, profile_id: int) -> list[Asset]:
     return (
         db.query(Asset)
@@ -184,6 +197,68 @@ def _existing_assets_for_profile(db, profile_id: int) -> list[Asset]:
         .filter(AssetClass.profile_id == profile_id)
         .all()
     )
+
+
+def _capture_preview_baseline(db: Session, profile_id: int, raw: list[RawPosition]) -> list[dict]:
+    """Capture profile-scoped Asset/Position state before preview review."""
+    existing_assets = _existing_assets_for_profile(db, profile_id)
+    match = match_positions(raw, existing_assets)
+    asset_by_id = {asset.id: asset for asset in existing_assets}
+    matched_asset_by_row = {
+        id(raw_position): asset_by_id[asset_id] for raw_position, asset_id in match.auto_matched
+    }
+    asset_ids = list(asset_by_id)
+    positions = (
+        db.query(Position).filter(Position.asset_id.in_(asset_ids)).all() if asset_ids else []
+    )
+    position_by_key = {
+        (position.asset_id, position.broker_ticker): position for position in positions
+    }
+
+    baseline: list[dict] = []
+    for raw_position in raw:
+        asset = matched_asset_by_row.get(id(raw_position))
+        position = (
+            position_by_key.get((asset.id, raw_position.broker_ticker))
+            if asset is not None
+            else None
+        )
+        baseline.append(
+            {
+                "asset_id": asset.id if asset is not None else None,
+                "asset_class_id": asset.asset_class_id if asset is not None else None,
+                "asset": (
+                    {
+                        "name": asset.name,
+                        "buy_enabled": asset.buy_enabled,
+                        "sell_enabled": asset.sell_enabled,
+                        "currency_code": asset.currency_code,
+                    }
+                    if asset is not None
+                    else None
+                ),
+                "position": (
+                    {
+                        "qty": str(position.qty),
+                        "avg_price": str(position.avg_price),
+                        "current_price": str(position.current_price),
+                        "total_invested": (
+                            str(position.total_invested)
+                            if position.total_invested is not None
+                            else None
+                        ),
+                        "total_current": (
+                            str(position.total_current)
+                            if position.total_current is not None
+                            else None
+                        ),
+                    }
+                    if position is not None
+                    else None
+                ),
+            }
+        )
+    return baseline
 
 
 def _load_preview(db, profile_id: int, preview_id: int | None) -> ImportPreview | None:
@@ -221,9 +296,13 @@ def preview_from_blob(db: Session, profile: Profile, blob: bytes) -> ImportPrevi
     if not raw:
         raise PreviewBlobError("no_positions", "Nenhuma posicao reconhecida no CSV.")
 
+    baseline = _capture_preview_baseline(db, profile.id, raw)
     preview = ImportPreview(
         profile_id=profile.id,
-        raw_json=json.dumps([_raw_to_dict(rp) for rp in raw], ensure_ascii=False),
+        raw_json=json.dumps(
+            {"rows": [_raw_to_dict(rp) for rp in raw], "baseline": baseline},
+            ensure_ascii=False,
+        ),
     )
     db.add(preview)
     db.commit()
@@ -695,7 +774,8 @@ async def post_confirm(
     class_ids = form.getlist("class_id[]")
     asset_names = form.getlist("asset_name[]")
 
-    raw = [_dict_to_raw(d) for d in json.loads(preview.raw_json)]
+    raw_rows, _ = _preview_rows_and_baseline(preview.raw_json)
+    raw = [_dict_to_raw(d) for d in raw_rows]
     existing_assets = _existing_assets_for_profile(db, profile.id)
     result = match_positions(raw, existing_assets)
 
@@ -898,6 +978,187 @@ class CommitRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+_TRIAGE_POSITION_FIELDS = (
+    ("qty", "Qtde", "unidades"),
+    ("avg_price", "Preço médio", "R$"),
+    ("current_price", "Preço atual", "R$"),
+    ("total_invested", "Total investido", "R$"),
+    ("total_current", "Total atual", "R$"),
+)
+
+
+def _sort_text(value: str | None) -> str:
+    text_value = (value or "").strip()
+    return unicodedata.normalize("NFKD", text_value).encode("ascii", "ignore").decode().casefold()
+
+
+def _triage_sort_key(row: dict) -> tuple:
+    name = row.get("name")
+    ticker = row.get("broker_ticker")
+    return (
+        1 if not (name or "").strip() else 0,
+        _sort_text(name),
+        _sort_text(ticker),
+        name or "",
+        ticker or "",
+    )
+
+
+def _position_value(value: object) -> Decimal | None:
+    return Decimal(str(value)) if value is not None else None
+
+
+def _diff_display(
+    field_id: str,
+    value: object,
+    *,
+    missing_position: bool = False,
+    asset_name: str | None = None,
+) -> str:
+    if value is None:
+        return "Não havia posição" if missing_position else "Não disponível"
+    if field_id == "asset.name":
+        return str(value).strip()
+    if field_id == "qty":
+        decimals = 3 if (asset_name or "").strip().upper() == "BTC" else 1
+        amount = Decimal(str(value)).quantize(Decimal(1).scaleb(-decimals))
+        return f"{amount:,.{decimals}f}".replace(",", "_").replace(".", ",").replace("_", ".")
+    if field_id in {"avg_price", "current_price", "total_invested", "total_current"}:
+        amount = Decimal(str(value)).quantize(Decimal("1"))
+        sign = "-" if amount < 0 else ""
+        return f"{sign}R$ {abs(amount):,.0f}".replace(",", ".")
+    return str(value)
+
+
+def _changed_field(
+    field_id: str,
+    label: str,
+    unit: str,
+    incoming: object,
+    previous: object,
+    *,
+    missing_position: bool = False,
+    asset_name: str | None = None,
+) -> dict:
+    if field_id.startswith("asset.") or incoming is None or previous is None:
+        sign = "not-applicable"
+    else:
+        incoming_decimal = _position_value(incoming)
+        previous_decimal = _position_value(previous)
+        if incoming_decimal is None or previous_decimal is None:
+            sign = "not-applicable"
+        elif incoming_decimal > previous_decimal:
+            sign = "positive"
+        elif incoming_decimal < previous_decimal:
+            sign = "negative"
+        else:
+            sign = "zero"
+    incoming_value = str(incoming) if incoming is not None else None
+    previous_value = str(previous) if previous is not None else None
+    return {
+        "id": field_id,
+        "field": field_id,
+        "label": label,
+        "unit": unit,
+        "sign": sign,
+        "incoming": incoming_value,
+        "incoming_value": incoming_value,
+        "incoming_display": _diff_display(field_id, incoming, asset_name=asset_name),
+        "previous": previous_value,
+        "previous_value": previous_value,
+        "previous_display": _diff_display(
+            field_id,
+            previous,
+            missing_position=missing_position,
+            asset_name=asset_name,
+        ),
+    }
+
+
+def _build_changed_fields(rp: RawPosition, baseline: dict) -> list[dict]:
+    fields: list[dict] = []
+    baseline_asset = baseline.get("asset")
+    if baseline_asset is not None:
+        incoming_name = rp.name.strip()
+        previous_name = str(baseline_asset.get("name", "")).strip()
+        if incoming_name != previous_name:
+            fields.append(
+                _changed_field("asset.name", "Nome", "texto", incoming_name, previous_name)
+            )
+
+    baseline_position = baseline.get("position")
+    for field_id, label, unit in _TRIAGE_POSITION_FIELDS:
+        incoming = getattr(rp, field_id)
+        previous = baseline_position.get(field_id) if baseline_position is not None else None
+        if baseline_position is None or _position_value(incoming) != _position_value(previous):
+            fields.append(
+                _changed_field(
+                    field_id,
+                    label,
+                    unit,
+                    incoming,
+                    _position_value(previous),
+                    missing_position=baseline_position is None,
+                    asset_name=rp.name,
+                )
+            )
+    return fields
+
+
+def _build_absent_rows(
+    db: Session,
+    existing_assets: list[Asset],
+    incoming_asset_names: set[str],
+    class_name_by_id: dict[int, str],
+) -> list[dict]:
+    """Serialize profile assets whose normalized names are absent from preview."""
+    asset_by_id = {asset.id: asset for asset in existing_assets}
+    positions = (
+        db.query(Position).filter(Position.asset_id.in_(asset_by_id)).all() if asset_by_id else []
+    )
+    positions_by_asset: dict[int, list[Position]] = {}
+    for position in positions:
+        positions_by_asset.setdefault(position.asset_id, []).append(position)
+
+    rows: list[dict] = []
+    for asset in existing_assets:
+        if normalize_name(asset.name) in incoming_asset_names:
+            continue
+        asset_positions = positions_by_asset.get(asset.id) or [None]
+        for position in asset_positions:
+            rows.append(
+                {
+                    "broker_ticker": position.broker_ticker if position is not None else "",
+                    "name": asset.name,
+                    "qty": str(position.qty) if position is not None else "0",
+                    "avg_price": str(position.avg_price) if position is not None else "0",
+                    "current_price": str(position.current_price) if position is not None else "0",
+                    "invested": (
+                        str(position.total_invested)
+                        if position is not None and position.total_invested is not None
+                        else "0"
+                    ),
+                    "current_value": (
+                        str(position.total_current)
+                        if position is not None and position.total_current is not None
+                        else "0"
+                    ),
+                    "asset_id": asset.id,
+                    "asset_class_id": asset.asset_class_id,
+                    "asset_class_name": class_name_by_id.get(asset.asset_class_id, ""),
+                    "buy_enabled": asset.buy_enabled,
+                    "sell_enabled": asset.sell_enabled,
+                    "currency_code": asset.currency_code,
+                    "state": "absent",
+                    "changed_fields": [],
+                    "read_only": True,
+                    "committable": False,
+                }
+            )
+    rows.sort(key=_triage_sort_key)
+    return rows
+
+
 def _build_preview_response(
     db: Session,
     profile: Profile,
@@ -915,7 +1176,8 @@ def _build_preview_response(
     unmatched rows the value is the project default
     (``True / True / "BRL"``).
     """
-    raw = [_dict_to_raw(d) for d in json.loads(preview.raw_json)]
+    raw_rows, persisted_baseline = _preview_rows_and_baseline(preview.raw_json)
+    raw = [_dict_to_raw(d) for d in raw_rows]
     existing_assets = _existing_assets_for_profile(db, profile.id)
     result = match_positions(raw, existing_assets)
 
@@ -989,11 +1251,43 @@ def _build_preview_response(
         for rp in result.unmatched
     ]
 
+    compatibility_by_row: dict[int, dict] = {}
+    for (rp, _), row in zip(result.auto_matched, auto_matched, strict=True):
+        compatibility_by_row[id(rp)] = row
+    for rp, row in zip(result.unmatched, unmatched, strict=True):
+        compatibility_by_row[id(rp)] = row
+
+    baseline = persisted_baseline
+    if not isinstance(baseline, list) or len(baseline) != len(raw):
+        baseline = _capture_preview_baseline(db, profile.id, raw)
+
+    triage = {"new": [], "changed": [], "unchanged": [], "absent": []}
+    for index, rp in enumerate(raw):
+        row = dict(compatibility_by_row[id(rp)])
+        baseline_row = baseline[index]
+        has_asset = baseline_row.get("asset_id") is not None
+        changed_fields = _build_changed_fields(rp, baseline_row) if has_asset else []
+        state = "new" if not has_asset else ("changed" if changed_fields else "unchanged")
+        row["state"] = state
+        row["changed_fields"] = changed_fields
+        triage[state].append(row)
+
+    for group in triage.values():
+        group.sort(key=_triage_sort_key)
+
+    triage["absent"] = _build_absent_rows(
+        db,
+        existing_assets,
+        {normalize_name(raw_position.name) for raw_position in raw},
+        {ac.id: ac.name for ac in class_rows},
+    )
+
     return {
         "preview_id": preview.id,
         "auto_matched": auto_matched,
         "unmatched": unmatched,
         "asset_classes": asset_classes,
+        "triage": triage,
     }
 
 
@@ -1051,7 +1345,8 @@ def commit_import(
     if preview is None or _is_expired(preview):
         raise HTTPException(status_code=400, detail="Preview expirado ou nao encontrado.")
 
-    raw = [_dict_to_raw(d) for d in json.loads(preview.raw_json)]
+    raw_rows, _ = _preview_rows_and_baseline(preview.raw_json)
+    raw = [_dict_to_raw(d) for d in raw_rows]
     existing_assets = _existing_assets_for_profile(db, profile.id)
     result = match_positions(raw, existing_assets)
 

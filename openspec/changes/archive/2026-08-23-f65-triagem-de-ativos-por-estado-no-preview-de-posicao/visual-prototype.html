@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>F65 — Protótipo visual do preview</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: oklch(0.329 0.032 274.8);
+      --surface: oklch(0.46 0.037 273);
+      --surface-sunk: oklch(0.286 0.028 274.4);
+      --surface-elevated: oklch(0.395 0.034 275.9);
+      --ink: oklch(0.92 0.04 273.3);
+      --ink-muted: oklch(0.80 0.04 274.5);
+      --border: oklch(0.521 0.039 274);
+      --accent: oklch(0.783 0.073 184.6);
+      --accent-ink: oklch(0.20 0.02 274);
+      --positive: oklch(0.812 0.107 133.4);
+      --negative: oklch(0.717 0.124 19.4);
+      --warning: oklch(0.844 0.08 83.5);
+      --focus: oklch(0.742 0.104 265.7);
+      --radius-card: 10px;
+      --radius-control: 6px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--bg);
+      color: var(--ink);
+      font: 16px/1.55 Inter, ui-sans-serif, system-ui, sans-serif;
+    }
+    button, input, select { font: inherit; }
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 3px;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .stage {
+      min-height: 100vh;
+      padding: 32px 16px;
+      background: color-mix(in oklch, var(--bg) 92%, black);
+    }
+    .modal {
+      width: min(1200px, calc(100vw - 32px));
+      margin: 0 auto;
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      box-shadow: 0 4px 8px rgb(0 0 0 / 0.08);
+    }
+    .modal-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 24px 28px 18px;
+      background: var(--surface-elevated);
+      border-bottom: 1px solid var(--border);
+    }
+    .eyebrow {
+      margin: 0 0 4px;
+      color: var(--accent);
+      font-size: .78rem;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    h1, h2, p { margin-top: 0; }
+    h1 {
+      margin-bottom: 6px;
+      font-size: clamp(1.4rem, 3vw, 2rem);
+      line-height: 1.15;
+      letter-spacing: -.02em;
+    }
+    .lede, .meta { margin-bottom: 0; color: var(--ink-muted); }
+    .lede { max-width: 65ch; }
+    .close {
+      flex: 0 0 auto;
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-control);
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .context {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: end;
+      gap: 16px 24px;
+      padding: 16px 28px;
+      background: var(--surface-sunk);
+      border-bottom: 1px solid var(--border);
+    }
+    .context-item { display: grid; gap: 3px; }
+    .context-label {
+      color: var(--ink-muted);
+      font-size: .78rem;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .context select {
+      min-width: 230px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-control);
+      background: var(--surface);
+      color: var(--ink-muted);
+      opacity: .72;
+    }
+    .readonly {
+      display: inline-flex;
+      align-items: center;
+      min-height: 38px;
+      padding: 7px 10px;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-control);
+      color: var(--ink-muted);
+      font-size: .9rem;
+    }
+    .review {
+      display: grid;
+      gap: 20px;
+      padding: 24px 28px;
+    }
+    .section {
+      overflow: visible;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      background: var(--surface-elevated);
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-header h2 { margin: 0; font-size: 1.1rem; }
+    .section-header--new { border-left: 4px solid var(--accent); }
+    .section-header--changed { border-left: 4px solid var(--warning); }
+    .section-header--same { border-left: 4px solid var(--positive); }
+    .count {
+      min-width: 2.1rem;
+      padding: 2px 8px;
+      border: 1px solid currentColor;
+      border-radius: 999px;
+      text-align: center;
+      font-size: .8rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .count--new { color: var(--accent); }
+    .count--changed { color: var(--warning); }
+    .count--same { color: var(--positive); }
+    .table-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      min-width: 1120px;
+      border-collapse: collapse;
+      font-variant-numeric: tabular-nums;
+    }
+    th, td {
+      padding: 12px 14px;
+      border-bottom: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
+      text-align: left;
+      vertical-align: middle;
+    }
+    th {
+      background: var(--surface-sunk);
+      color: var(--ink-muted);
+      font-size: .78rem;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    tr:last-child td { border-bottom: 0; }
+    .asset strong { font-weight: 600; }
+    .incoming { white-space: nowrap; }
+    .changed { position: relative; }
+    .diff-field { position: relative; display: inline-flex; }
+    .diff-trigger {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 5px;
+      margin: -3px -5px;
+      border: 0;
+      border-bottom: 2px solid var(--warning);
+      border-radius: 3px;
+      background: transparent;
+      color: var(--ink);
+      cursor: help;
+      font-variant-numeric: tabular-nums;
+    }
+    .diff-trigger::after {
+      content: "↕";
+      color: var(--warning);
+      font-size: .8em;
+      font-weight: 700;
+    }
+    .diff-popover {
+      position: absolute;
+      z-index: 2;
+      top: calc(100% + 8px);
+      left: 0;
+      width: max-content;
+      max-width: 260px;
+      padding: 10px 12px;
+      border: 1px solid var(--warning);
+      border-radius: var(--radius-control);
+      background: var(--surface-sunk);
+      box-shadow: 0 4px 8px rgb(0 0 0 / .22);
+      color: var(--ink);
+      font-size: .82rem;
+      line-height: 1.4;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-2px);
+    }
+    .diff-popover strong { display: block; color: var(--warning); }
+    .diff-trigger:hover + .diff-popover,
+    .diff-trigger:focus-visible + .diff-popover {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .class-cell { min-width: 220px; }
+    .class-control {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 205px;
+    }
+    .class-swatch {
+      width: 12px;
+      height: 12px;
+      flex: 0 0 auto;
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    .class-swatch--pending { background: transparent; border-style: dashed; }
+    .class-control select, .currency-control {
+      min-width: 132px;
+      padding: 7px 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-control);
+      background: color-mix(in oklch, var(--accent) 18%, var(--surface-sunk));
+      color: var(--ink);
+    }
+    .class-control--pending select { background: var(--surface-sunk); }
+    .class-state {
+      color: var(--ink-muted);
+      font-size: .75rem;
+      white-space: nowrap;
+    }
+    .trade-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 102px;
+      color: var(--ink);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .trade-toggle input { accent-color: var(--accent); }
+    .trade-state { color: var(--ink-muted); font-size: .75rem; }
+    .responsive-note {
+      margin: 0;
+      padding: 0 16px 14px;
+      color: var(--ink-muted);
+      font-size: .82rem;
+    }
+    .button {
+      flex: 0 0 auto;
+      padding: 9px 14px;
+      border: 1px solid var(--accent);
+      border-radius: var(--radius-control);
+      background: var(--accent);
+      color: var(--accent-ink);
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      padding: 18px 28px 24px;
+      border-top: 1px solid var(--border);
+    }
+    .button--secondary {
+      border-color: var(--border);
+      background: transparent;
+      color: var(--ink);
+    }
+    .prototype-note {
+      max-width: 1200px;
+      margin: 16px auto 0;
+      color: var(--ink-muted);
+      font-size: .85rem;
+    }
+    @media (max-width: 768px) {
+      .stage { padding: 0; }
+      .modal {
+        width: 100%;
+        min-height: 100vh;
+        border-right: 0;
+        border-left: 0;
+        border-radius: 0;
+      }
+      .modal-header, .context, .review, .actions { padding-left: 16px; padding-right: 16px; }
+      .context { align-items: stretch; flex-direction: column; }
+      .context select { width: 100%; }
+      .button { width: 100%; }
+      .actions { flex-direction: column-reverse; }
+      .actions .button { width: 100%; }
+      .prototype-note { padding: 0 16px 16px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <section class="modal" aria-labelledby="modal-title">
+      <header class="modal-header">
+        <div>
+          <p class="eyebrow">Preview de posição · revisão antes do commit</p>
+          <h1 id="modal-title">Conferir posições recebidas</h1>
+          <p class="lede">Valores abaixo vêm do arquivo recebido. Campos alterados mantêm valor recebido e revelam valor anterior ao passar mouse ou receber foco.</p>
+          <p class="meta">Prévia válida por 30 minutos · nenhuma alteração foi aplicada</p>
+        </div>
+        <button class="close" type="button" aria-label="Fechar revisão">×</button>
+      </header>
+
+      <div class="context" aria-label="Contexto do perfil">
+        <div class="context-item">
+          <span class="context-label">Perfil ativo</span>
+          <strong>Italo</strong>
+        </div>
+        <div class="context-item">
+          <label class="context-label" for="family-context">Família</label>
+          <select id="family-context" disabled aria-describedby="family-help">
+            <option>Família — somente leitura</option>
+          </select>
+        </div>
+        <span id="family-help" class="readonly">Contexto agregado desabilitado para edição e commit</span>
+      </div>
+
+      <div class="review">
+        <section class="section" aria-labelledby="new-title">
+          <header class="section-header section-header--new">
+            <h2 id="new-title">Novos</h2>
+            <span class="count count--new" aria-label="2 ativos novos">2</span>
+          </header>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nome</th><th>Qtde</th><th>Preço médio</th><th>Total atual</th><th>Classe</th><th>Compra</th><th>Venda</th><th>Moeda</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><strong>Alfa Logística</strong><input type="hidden" name="broker_ticker[]" value="ALFA3"></td>
+                  <td class="incoming">80</td><td class="incoming">R$ 24</td><td class="incoming">R$ 1.920</td>
+                  <td class="class-cell"><span class="class-control"><span class="class-swatch" aria-hidden="true"></span><select aria-label="Classe de Alfa Logística"><option>Renda variável</option></select><span class="class-state">sugestão</span></span></td>
+                  <td><label class="trade-toggle"><input type="checkbox" checked><span>Compra</span><span class="trade-state">ligada</span></label></td>
+                  <td><label class="trade-toggle"><input type="checkbox" checked><span>Venda</span><span class="trade-state">ligada</span></label></td>
+                  <td><select class="currency-control" aria-label="Moeda de Alfa Logística"><option>BRL</option><option>USD</option></select></td>
+                </tr>
+                <tr>
+                  <td><strong>Banco Horizonte</strong><input type="hidden" name="broker_ticker[]" value="BANC3"></td>
+                  <td class="incoming">40</td><td class="incoming">R$ 37</td><td class="incoming">R$ 1.480</td>
+                  <td class="class-cell"><span class="class-control class-control--pending"><span class="class-swatch class-swatch--pending" aria-hidden="true"></span><select aria-label="Classe de Banco Horizonte"><option>Selecione...</option><option>Renda variável</option></select><span class="class-state">pendente</span></span></td>
+                  <td><label class="trade-toggle"><input type="checkbox" checked><span>Compra</span><span class="trade-state">ligada</span></label></td>
+                  <td><label class="trade-toggle"><input type="checkbox"><span>Venda</span><span class="trade-state">bloqueada</span></label></td>
+                  <td><select class="currency-control" aria-label="Moeda de Banco Horizonte"><option>BRL</option><option>USD</option></select></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="changed-title">
+          <header class="section-header section-header--changed">
+            <h2 id="changed-title">Alterados</h2>
+            <span class="count count--changed" aria-label="2 ativos alterados">2</span>
+          </header>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nome</th><th>Qtde</th><th>Preço médio</th><th>Total atual</th><th>Classe</th><th>Compra</th><th>Venda</th><th>Moeda</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><strong>Árvore Energia</strong><input type="hidden" name="broker_ticker[]" value="ARVE3"></td>
+                  <td class="incoming changed"><span class="diff-field"><button class="diff-trigger" type="button" aria-describedby="arve-qty-prior">120</button><span class="diff-popover" id="arve-qty-prior" role="status"><strong>Qtde · sinal positivo</strong>Recebido: 120 unidades<br>Anterior: 100 unidades</span></span></td>
+                  <td class="incoming changed"><span class="diff-field"><button class="diff-trigger" type="button" aria-describedby="arve-avg-prior">R$ 27</button><span class="diff-popover" id="arve-avg-prior" role="status"><strong>Preço médio · sinal positivo</strong>Recebido: R$ 27<br>Anterior: R$ 25</span></span></td>
+                  <td class="incoming changed"><span class="diff-field"><button class="diff-trigger" type="button" aria-describedby="arve-total-prior">R$ 3.250</button><span class="diff-popover" id="arve-total-prior" role="status"><strong>Total atual · sinal positivo</strong>Recebido: R$ 3.250<br>Anterior: R$ 3.000</span></span></td>
+                  <td class="class-cell"><span class="class-control"><span class="class-swatch" aria-hidden="true"></span><select aria-label="Classe de Árvore Energia"><option>Renda variável</option></select><span class="class-state">vinculada</span></span></td>
+                  <td><label class="trade-toggle"><input type="checkbox" checked><span>Compra</span><span class="trade-state">ligada</span></label></td>
+                  <td><label class="trade-toggle"><input type="checkbox" checked><span>Venda</span><span class="trade-state">ligada</span></label></td>
+                  <td><select class="currency-control" aria-label="Moeda de Árvore Energia"><option>BRL</option><option>USD</option></select></td>
+                </tr>
+                <tr>
+                  <td><strong>AZUL Saúde</strong><input type="hidden" name="broker_ticker[]" value="AZUL3"></td>
+                  <td class="incoming changed"><span class="diff-field"><button class="diff-trigger" type="button" aria-describedby="azul-qty-prior">60</button><span class="diff-popover" id="azul-qty-prior" role="status"><strong>Qtde · sinal negativo</strong>Recebido: 60 unidades<br>Anterior: 75 unidades</span></span></td>
+                  <td class="incoming changed"><span class="diff-field"><button class="diff-trigger" type="button" aria-describedby="azul-avg-prior">R$ 18</button><span class="diff-popover" id="azul-avg-prior" role="status"><strong>Preço médio · sinal negativo</strong>Recebido: R$ 18<br>Anterior: R$ 20</span></span></td>
+                  <td class="incoming changed"><span class="diff-field"><button class="diff-trigger" type="button" aria-describedby="azul-total-prior">R$ 1.080</button><span class="diff-popover" id="azul-total-prior" role="status"><strong>Total atual · sinal negativo</strong>Recebido: R$ 1.080<br>Anterior: R$ 1.350</span></span></td>
+                  <td class="class-cell"><span class="class-control"><span class="class-swatch" aria-hidden="true"></span><select aria-label="Classe de AZUL Saúde"><option>Renda variável</option></select><span class="class-state">vinculada</span></span></td>
+                  <td><label class="trade-toggle"><input type="checkbox"><span>Compra</span><span class="trade-state">bloqueada</span></label></td>
+                  <td><label class="trade-toggle"><input type="checkbox" checked><span>Venda</span><span class="trade-state">ligada</span></label></td>
+                  <td><select class="currency-control" aria-label="Moeda de AZUL Saúde"><option>BRL</option><option>USD</option></select></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="same-title">
+          <header class="section-header section-header--same">
+            <h2 id="same-title">Inalterados</h2>
+            <span class="count count--same" aria-label="1 ativo inalterado">1</span>
+          </header>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nome</th><th>Qtde</th><th>Preço médio</th><th>Total atual</th><th>Classe</th><th>Compra</th><th>Venda</th><th>Moeda</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><strong>Vale Verde</strong><input type="hidden" name="broker_ticker[]" value="VALE3"></td>
+                  <td class="incoming">100</td><td class="incoming">R$ 27</td><td class="incoming">R$ 2.700</td>
+                  <td class="class-cell"><span class="class-control"><span class="class-swatch" aria-hidden="true"></span><select aria-label="Classe de Vale Verde"><option>Renda variável</option></select><span class="class-state">vinculada</span></span></td>
+                  <td><label class="trade-toggle"><input type="checkbox" checked><span>Compra</span><span class="trade-state">ligada</span></label></td>
+                  <td><label class="trade-toggle"><input type="checkbox" checked><span>Venda</span><span class="trade-state">ligada</span></label></td>
+                  <td><select class="currency-control" aria-label="Moeda de Vale Verde"><option>BRL</option><option>USD</option></select></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <p class="responsive-note">Todos os campos e controles permanecem presentes. Em viewport estreito, cada tabela mantém largura legível com rolagem horizontal; nenhuma coluna, controle ou valor é ocultado.</p>
+        <p class="meta">Regra visual: grupos sem linhas não renderizam seção ou placeholder. Ordem demonstrada: nome sem distinção de caixa/acento; chave de atribuição permanece oculta e não altera ordenação visual.</p>
+      </div>
+
+      <footer class="actions">
+        <button class="button button--secondary" type="button">Cancelar</button>
+        <button class="button" type="button">Confirmar importação</button>
+      </footer>
+    </section>
+    <p class="prototype-note">Artefato estático F65. Interações limitadas a hover/foco CSS; sem dados vivos, rede, banco, MyProfit ou endpoint.</p>
+  </main>
+</body>
+</html>

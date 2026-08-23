@@ -253,6 +253,15 @@ class TestPostImportPreview:
         assert isinstance(data["asset_classes"], list)
         assert len(data["asset_classes"]) == 3
 
+        assert set(data["triage"]) == {"new", "changed", "unchanged", "absent"}
+        assert len(data["triage"]["new"]) == 5
+        assert len(data["triage"]["changed"]) == 43
+        assert data["triage"]["unchanged"] == []
+        assert data["triage"]["absent"] == []
+        assert len(
+            data["triage"]["new"] + data["triage"]["changed"] + data["triage"]["unchanged"]
+        ) == len(data["auto_matched"]) + len(data["unmatched"])
+
         # Verify auto_matched item shape
         am = data["auto_matched"][0]
         assert "broker_ticker" in am
@@ -448,8 +457,354 @@ class TestPostImportPreview:
             assert preview is not None
             assert preview.profile_id == 1
             assert preview.raw_json is not None
+            import json
+
+            stored = json.loads(preview.raw_json)
+            assert isinstance(stored, dict)
+            assert len(stored["rows"]) == 48
+            assert len(stored["baseline"]) == 48
+            assert stored["baseline"][0]["asset_id"] is not None
         finally:
             db.close()
+
+    def test_preview_triage_is_baseline_sourced_and_deterministic(self, client: TestClient) -> None:
+        """Triage stays tied to state captured before later portfolio edits."""
+        from decimal import Decimal
+
+        from omaha.db import SessionLocal
+        from omaha.models import Asset, AssetClass, Position
+
+        _login_and_select(client)
+        db = SessionLocal()
+        try:
+            asset_class = AssetClass(profile_id=1, name="Ações", target_pct=100, display_order=0)
+            db.add(asset_class)
+            db.flush()
+            assets = {
+                name: Asset(asset_class_id=asset_class.id, name=name, display_order=index)
+                for index, name in enumerate(("Árvore", "AZUL", "arara"))
+            }
+            db.add_all(assets.values())
+            db.flush()
+            for name, ticker, qty in (
+                ("Árvore", "ARVE3", "100"),
+                ("AZUL", "AZUL3", "75"),
+                ("arara", "ARAR3", "10"),
+            ):
+                db.add(
+                    Position(
+                        asset_id=assets[name].id,
+                        broker_ticker=ticker,
+                        qty=Decimal(qty),
+                        avg_price=Decimal("20"),
+                        current_price=Decimal("25"),
+                        total_invested=Decimal(qty) * Decimal("20"),
+                        total_current=Decimal(qty) * Decimal("25"),
+                    )
+                )
+            db.commit()
+        finally:
+            db.close()
+
+        csv_bytes = (
+            b"Codigo,Ativo,Quantidade,Preco Medio,Preco Atual,Total investido,Total atual\n"
+            b"AZUL3,AZUL,60,20,25,1200,1500\n"
+            b"ARAR3,arara,10,20,25,200,250\n"
+            b"ARVE3,arvore,100,20,25,2000,2500\n"
+            b"NOVO3,Novo,4,10,12,40,48\n"
+        )
+        response = client.post(
+            "/api/import/preview",
+            files={"file": ("triage.csv", csv_bytes, "text/csv")},
+        )
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert [row["name"] for row in data["triage"]["changed"]] == ["arvore", "AZUL"]
+        assert [row["name"] for row in data["triage"]["unchanged"]] == ["arara"]
+        assert [row["name"] for row in data["triage"]["new"]] == ["Novo"]
+        arve_fields = {
+            field["id"]: field for field in data["triage"]["changed"][0]["changed_fields"]
+        }
+        assert arve_fields["asset.name"]["previous_display"] == "Árvore"
+        assert "qty" not in arve_fields
+
+        preview_id = data["preview_id"]
+        db = SessionLocal()
+        try:
+            db.query(Position).filter(Position.broker_ticker == "AZUL3").update(
+                {"qty": Decimal("999")}
+            )
+            db.commit()
+        finally:
+            db.close()
+
+        refreshed = client.get(f"/api/import/preview/{preview_id}")
+        assert refreshed.status_code == 200
+        refreshed_data = refreshed.json()
+        refreshed_arara = refreshed_data["triage"]["unchanged"]
+        assert [row["name"] for row in refreshed_arara] == ["arara"]
+        azul = next(
+            row for row in refreshed_data["triage"]["changed"] if row["broker_ticker"] == "AZUL3"
+        )
+        azul_qty = next(field for field in azul["changed_fields"] if field["id"] == "qty")
+        assert azul_qty["previous_value"] == "75.00000000"
+        assert azul_qty["previous_display"] == "75,0"
+
+    def test_preview_diff_display_formats_previous_money_without_fabricating_zero(
+        self, client: TestClient
+    ) -> None:
+        """Money disclosures use integer Brazilian formatting and preserve prior state."""
+        from decimal import Decimal
+
+        from omaha.db import SessionLocal
+        from omaha.models import Asset, AssetClass, Position
+
+        _login_and_select(client)
+        db = SessionLocal()
+        try:
+            asset_class = AssetClass(profile_id=1, name="Ações", target_pct=100, display_order=0)
+            db.add(asset_class)
+            db.flush()
+            asset = Asset(asset_class_id=asset_class.id, name="Fundo", display_order=0)
+            db.add(asset)
+            db.flush()
+            db.add(
+                Position(
+                    asset_id=asset.id,
+                    broker_ticker="FUND11",
+                    qty=Decimal("10"),
+                    avg_price=Decimal("100"),
+                    current_price=Decimal("120"),
+                    total_invested=Decimal("100000"),
+                    total_current=Decimal("116615.5300"),
+                )
+            )
+            db.commit()
+        finally:
+            db.close()
+
+        response = client.post(
+            "/api/import/preview",
+            files={
+                "file": (
+                    "money.csv",
+                    b"Codigo,Ativo,Quantidade,Preco Medio,Preco Atual,Total investido,Total atual\n"
+                    b"FUND11,Fundo,10,100,120,100000,120000\n",
+                    "text/csv",
+                )
+            },
+        )
+        assert response.status_code == 200, response.text
+        field = next(
+            field
+            for field in response.json()["triage"]["changed"][0]["changed_fields"]
+            if field["id"] == "total_current"
+        )
+        assert field["previous_value"] == "116615.5300"
+        assert field["previous_display"] == "R$ 116.616"
+
+    def test_absent_rows_are_profile_scoped_read_only_and_not_committed(
+        self, client: TestClient
+    ) -> None:
+        """Portfolio-only rows are visible but never enter commit assignments."""
+        from decimal import Decimal
+
+        from omaha.db import SessionLocal
+        from omaha.models import Asset, AssetClass, Position
+
+        _login_and_select(client)
+        db = SessionLocal()
+        try:
+            active_class = AssetClass(profile_id=1, name="Ativos", target_pct=100, display_order=0)
+            foreign_class = AssetClass(profile_id=2, name="Fora", target_pct=100, display_order=0)
+            db.add_all([active_class, foreign_class])
+            db.flush()
+            present = Asset(asset_class_id=active_class.id, name="Presente", display_order=0)
+            absent_z = Asset(asset_class_id=active_class.id, name="Zeta", display_order=1)
+            absent_a = Asset(asset_class_id=active_class.id, name="Alfa", display_order=2)
+            foreign = Asset(asset_class_id=foreign_class.id, name="Fora do perfil", display_order=0)
+            db.add_all([present, absent_z, absent_a, foreign])
+            db.flush()
+            db.add_all(
+                [
+                    Position(
+                        asset_id=absent_z.id,
+                        broker_ticker="ZET3",
+                        qty=Decimal("7"),
+                        avg_price=Decimal("11"),
+                        current_price=Decimal("12"),
+                        total_invested=Decimal("77"),
+                        total_current=Decimal("84"),
+                    ),
+                    Position(
+                        asset_id=absent_a.id,
+                        broker_ticker="ALF3",
+                        qty=Decimal("3"),
+                        avg_price=Decimal("20"),
+                        current_price=Decimal("22"),
+                        total_invested=Decimal("60"),
+                        total_current=Decimal("66"),
+                    ),
+                    Position(
+                        asset_id=foreign.id,
+                        broker_ticker="FOR3",
+                        qty=Decimal("99"),
+                        avg_price=Decimal("1"),
+                        current_price=Decimal("1"),
+                        total_invested=Decimal("99"),
+                        total_current=Decimal("99"),
+                    ),
+                ]
+            )
+            db.commit()
+            active_class_id = active_class.id
+            absent_ids = {absent_a.id, absent_z.id}
+        finally:
+            db.close()
+
+        response = client.post(
+            "/api/import/preview",
+            files={
+                "file": (
+                    "absent.csv",
+                    b"Codigo,Ativo,Quantidade,Preco Medio,Preco Atual,Total investido,Total atual\n"
+                    b"PRE3,Presente,4,10,12,40,48\n",
+                    "text/csv",
+                )
+            },
+        )
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert set(data["triage"]) == {"new", "changed", "unchanged", "absent"}
+        assert [row["name"] for row in data["triage"]["absent"]] == ["Alfa", "Zeta"]
+        assert {row["asset_id"] for row in data["triage"]["absent"]} == absent_ids
+        assert all(row["read_only"] is True for row in data["triage"]["absent"])
+        assert all(row["committable"] is False for row in data["triage"]["absent"])
+        assert all(row["name"] != "Fora do perfil" for row in data["triage"]["absent"])
+
+        preview_id = data["preview_id"]
+        commit = client.post(
+            "/api/import/commit",
+            json={
+                "preview_id": preview_id,
+                "assignments": [
+                    {
+                        "broker_ticker": "PRE3",
+                        "class_id": active_class_id,
+                        "asset_name": "Presente",
+                    }
+                ],
+            },
+        )
+        assert commit.status_code == 200, commit.text
+
+        db = SessionLocal()
+        try:
+            absent_positions = (
+                db.query(Position)
+                .filter(Position.asset_id.in_(absent_ids))
+                .order_by(Position.broker_ticker)
+                .all()
+            )
+            assert [
+                (position.broker_ticker, str(position.qty)) for position in absent_positions
+            ] == [
+                ("ALF3", "3.00000000"),
+                ("ZET3", "7.00000000"),
+            ]
+            assert db.query(Asset).filter(Asset.id.in_(absent_ids)).count() == 2
+        finally:
+            db.close()
+
+    def test_absent_uses_normalized_name_even_when_ticker_differs(self, client: TestClient) -> None:
+        """A batch name match prevents Ausentes regardless of broker ticker."""
+        from decimal import Decimal
+
+        from omaha.db import SessionLocal
+        from omaha.models import Asset, AssetClass, Position
+
+        _login_and_select(client)
+        db = SessionLocal()
+        try:
+            asset_class = AssetClass(profile_id=1, name="Cripto", target_pct=100, display_order=0)
+            db.add(asset_class)
+            db.flush()
+            eth = Asset(asset_class_id=asset_class.id, name="ETH", display_order=0)
+            btc = Asset(asset_class_id=asset_class.id, name="BTC", display_order=1)
+            db.add_all([eth, btc])
+            db.flush()
+            db.add_all(
+                [
+                    Position(
+                        asset_id=eth.id,
+                        broker_ticker="ETH-OLD",
+                        qty=Decimal("1"),
+                        avg_price=Decimal("10"),
+                        current_price=Decimal("12"),
+                        total_invested=Decimal("10"),
+                        total_current=Decimal("12"),
+                    ),
+                    Position(
+                        asset_id=btc.id,
+                        broker_ticker="BTC-OLD",
+                        qty=Decimal("2"),
+                        avg_price=Decimal("20"),
+                        current_price=Decimal("22"),
+                        total_invested=Decimal("40"),
+                        total_current=Decimal("44"),
+                    ),
+                ]
+            )
+            db.commit()
+        finally:
+            db.close()
+
+        response = client.post(
+            "/api/import/preview",
+            files={
+                "file": (
+                    "eth.csv",
+                    b"Codigo,Ativo,Quantidade,Preco Medio,Preco Atual,Total investido,Total atual\n"
+                    b"ETH-NEW,ETH,3,10,12,30,36\n",
+                    "text/csv",
+                )
+            },
+        )
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert [row["name"] for row in data["triage"]["absent"]] == ["BTC"]
+        assert [row["name"] for row in data["triage"]["changed"]] == ["ETH"]
+
+    def test_legacy_raw_list_preview_remains_reviewable(self, client: TestClient) -> None:
+        """Pre-F65 raw-list previews use response-time compatibility fallback."""
+        import json
+
+        from omaha.db import SessionLocal
+        from omaha.models import ImportPreview
+
+        _login_and_select(client)
+        _create_asset_classes(1)
+        csv_bytes = b"Codigo,Ativo,Quantidade,Preco Medio,Preco Atual\nNOVO3,Novo,4,10,12\n"
+        response = client.post(
+            "/api/import/preview",
+            files={"file": ("legacy.csv", csv_bytes, "text/csv")},
+        )
+        assert response.status_code == 200
+        preview_id = response.json()["preview_id"]
+
+        db = SessionLocal()
+        try:
+            preview = db.get(ImportPreview, preview_id)
+            assert preview is not None
+            stored = json.loads(preview.raw_json)
+            preview.raw_json = json.dumps(stored["rows"])
+            db.commit()
+        finally:
+            db.close()
+
+        refreshed = client.get(f"/api/import/preview/{preview_id}")
+        assert refreshed.status_code == 200
+        assert [row["name"] for row in refreshed.json()["triage"]["new"]] == ["Novo"]
 
     def test_preview_profile_with_no_asset_classes(self, client: TestClient) -> None:
         """Profile with no asset classes returns preview with empty asset_classes list."""

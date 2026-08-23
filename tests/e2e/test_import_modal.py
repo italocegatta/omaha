@@ -172,6 +172,40 @@ class TestS04ImportModal:
         # ------------------------------------------------------------------
         page.wait_for_selector(SELECTORS["import_commit_btn"], state="visible", timeout=15000)
         page.wait_for_selector(SELECTORS["import_unmatched_table"], state="visible", timeout=5000)
+        assert (
+            page.locator('[data-testid="import-modal-overlay"] .modal-title').inner_text()
+            == "Revisar posições"
+        )
+
+        section_headers = page.locator(".import-review-section h3")
+        section_text = section_headers.all_inner_texts()
+        assert any(text.startswith("Novos") and "5" in text for text in section_text)
+        assert any(text.startswith("Alterados") and "43" in text for text in section_text)
+        assert not any(text.startswith("Inalterados") for text in section_text)
+        assert page.locator(SELECTORS["import_existing_row"]).count() == 43
+        changed_trigger = (
+            page.locator(SELECTORS["import_existing_row"])
+            .first.locator(".import-diff-trigger")
+            .first
+        )
+        assert changed_trigger.count() == 1
+        disclosure = changed_trigger.locator("xpath=following-sibling::span")
+        incoming_text = changed_trigger.inner_text()
+        changed_trigger.hover()
+        assert disclosure.is_visible()
+        assert disclosure.evaluate("el => getComputedStyle(el).position") == "absolute"
+        assert disclosure.inner_text() == "Não havia posição"
+        assert "?" not in disclosure.inner_text()
+        assert "Recebido" not in disclosure.inner_text()
+        assert "Anterior" not in disclosure.inner_text()
+        changed_trigger.focus()
+        assert disclosure.is_visible()
+        assert disclosure.inner_text() == "Não havia posição"
+        assert changed_trigger.inner_text() == incoming_text
+        assert (
+            page.locator(".modal-panel--wide").evaluate("el => getComputedStyle(el).maxWidth")
+            == "1200px"
+        )
 
         # Verify 5 unmatched rows.
         unmatched_rows = page.locator(SELECTORS["import_unmatched_row"])
@@ -233,7 +267,7 @@ class TestS04ImportModal:
         )
 
         # ------------------------------------------------------------------
-        # Selecting a class must change the swatch's background color.
+        # Selecting a class keeps class color formatting without a redundant swatch.
         # ------------------------------------------------------------------
         acoes_id: int = page.evaluate(
             """() => Alpine.store('importModal').assetClasses.find(c => c.name === 'Acoes').id"""
@@ -251,14 +285,12 @@ class TestS04ImportModal:
             }}"""
         )
         page.wait_for_timeout(50)
-        # Find the XPLG11 row by walking the tbody: each row's
-        # class-cell testid is import-class-cell-assignment; the row
-        # index that corresponds to XPLG11 is the one whose
-        # assignments key equals XPLG11.
-        xplg_idx: int = page.evaluate(
-            "() => Alpine.store('importModal')"
-            ".unmatched.findIndex(r => r.broker_ticker === 'XPLG11')"
+        # Find XPLG11 through its hidden assignment key, not input order:
+        # F65 sorts rendered triage groups on the server.
+        xplg_row = page.locator(SELECTORS["import_unmatched_row"]).filter(
+            has=page.locator('input[type="hidden"][value="XPLG11"]')
         )
+        xplg_cell = xplg_row.locator(SELECTORS["import_class_cell_assignment"])
         acoes_idx: int = page.evaluate(
             f"() => Alpine.store('importModal').assetClasses.findIndex(c => c.id === {acoes_id})"
         )
@@ -266,80 +298,41 @@ class TestS04ImportModal:
         # (e.g. import-class-cell--cls-1) — the visual color is now
         # applied via a fixed CSS rule keyed by class index, not via
         # inline :style (see investigate-import-class-color change).
-        cell_class = (
-            page.locator(SELECTORS["import_class_cell_assignment"])
-            .nth(xplg_idx)
-            .get_attribute("class")
-            or ""
-        )
+        cell_class = xplg_cell.get_attribute("class") or ""
         expected_modifier = f"import-class-cell--cls-{acoes_idx}"
         assert expected_modifier in cell_class, (
             f"expected {expected_modifier!r} in XPLG11 cell class, got {cell_class!r}"
         )
-        # The swatch itself must carry the class color.
-        swatch_style = (
-            page.locator(SELECTORS["import_class_cell_assignment"])
-            .nth(xplg_idx)
-            .locator(SELECTORS["import_class_swatch"])
-            .get_attribute("style")
-            or ""
-        )
-        assert acoes_color in swatch_style, (
-            f"expected background {acoes_color!r} in XPLG11 swatch style, got {swatch_style!r}"
-        )
-        # Computed background-color must match browser-normalized class color.
-        swatch_bg = page.evaluate(
-            """(idx) => {
-                const cell = document.querySelectorAll(
-                    '[data-testid=\"import-class-cell-assignment\"]')[idx];
-                const sw = cell.querySelector('.import-class-swatch');
-                return getComputedStyle(sw).backgroundColor;
-            }""",
-            xplg_idx,
-        )
-        expected_swatch_bg = page.evaluate(
-            """(color) => {
-                const el = document.createElement('div');
-                el.style.backgroundColor = color;
-                document.body.appendChild(el);
-                const bg = getComputedStyle(el).backgroundColor;
-                el.remove();
-                return bg;
-            }""",
-            acoes_color,
-        )
-        assert swatch_bg == expected_swatch_bg, (
-            f"expected swatch background {expected_swatch_bg!r}, got {swatch_bg!r}"
-        )
+        assert xplg_cell.locator(SELECTORS["import_class_swatch"]).count() == 0
 
         # The cell itself must carry a tinted background reflecting the class color.
-        cell_bg = page.evaluate(
-            """(idx) => {
-                const cell = document.querySelectorAll(
-                    '[data-testid=\"import-class-cell-assignment\"]')[idx];
-                return getComputedStyle(cell).backgroundColor;
-            }""",
-            xplg_idx,
-        )
-        assert cell_bg != "transparent" and cell_bg != expected_swatch_bg, (
-            f"expected tinted cell background, got {cell_bg!r}"
-        )
+        cell_bg = xplg_cell.evaluate("el => getComputedStyle(el).backgroundColor")
+        assert cell_bg != "transparent", f"expected tinted cell background, got {cell_bg!r}"
 
         # The <select> itself must also be tinted — the user-visible "field"
         # is the select, not just the surrounding <td>. Without this assertion
         # the select stays white (background: #fff from app.css) and the user
         # can't see the class color at all.
-        select_bg = page.evaluate(
-            """(idx) => {
-                const cell = document.querySelectorAll(
-                    '[data-testid=\"import-class-cell-assignment\"]')[idx];
-                return getComputedStyle(cell.querySelector('select')).backgroundColor;
-            }""",
-            xplg_idx,
+        select_bg = xplg_cell.locator("select").evaluate(
+            "el => getComputedStyle(el).backgroundColor"
         )
-        assert select_bg != "transparent" and select_bg != expected_swatch_bg, (
-            f"expected tinted select background, got {select_bg!r}"
+        select_style = xplg_cell.locator("select").get_attribute("style") or ""
+        assert acoes_color in select_style, (
+            f"expected class color {acoes_color!r} in select style, got {select_style!r}"
         )
+        assert select_bg != "transparent", f"expected tinted select background, got {select_bg!r}"
+        for trade_label in xplg_row.locator(".import-trade-toggle").all():
+            trade_style = trade_label.evaluate(
+                """el => {
+                    const cs = getComputedStyle(el);
+                    return {
+                        background: cs.backgroundColor, border: cs.borderStyle, color: cs.color
+                    };
+                }"""
+            )
+            assert trade_style["background"] in {"rgba(0, 0, 0, 0)", "transparent"}
+            assert trade_style["border"] == "none"
+            assert trade_style["color"] not in {"rgba(0, 0, 0, 0)", "transparent"}
 
         # ------------------------------------------------------------------
         # Step 3: Assign classes to the 5 unmatched rows
@@ -401,6 +394,154 @@ class TestS04ImportModal:
         dashboard_text = page.locator("main").inner_text()
         for name in UNMATCHED_NAMES:
             assert name in dashboard_text, f"new asset {name!r} not found on dashboard after import"
+
+    def test_changed_money_disclosure_is_formatted_overlay(self, page: Page, live_url: str) -> None:
+        """Prior money is only value text, formatted, and non-flow on hover/focus."""
+        _login_and_select_italo(page, live_url)
+        page.evaluate(
+            """() => Alpine.store('importModal').openPreview({
+                preview_id: 'money-review',
+                auto_matched: [{
+                    broker_ticker: 'FUND11', name: 'Fundo', qty: '10', avg_price: '100',
+                    current_price: '120', invested: '100000', current_value: '3250.00',
+                    asset_id: 1, asset_class_id: null, buy_enabled: true,
+                    sell_enabled: true, currency_code: 'BRL'
+                }],
+                unmatched: [], asset_classes: [],
+                triage: {
+                    new: [], unchanged: [], absent: [],
+                    changed: [{
+                        broker_ticker: 'FUND11', name: 'Fundo', qty: '10', avg_price: '100',
+                        current_price: '120', invested: '100000', current_value: '3250.00',
+                        asset_id: 1, asset_class_id: null, buy_enabled: true,
+                        sell_enabled: true, currency_code: 'BRL', state: 'changed',
+                        changed_fields: [{
+                            id: 'total_current', field: 'total_current', label: 'Total atual',
+                            unit: 'R$', sign: 'negative', incoming: '3250.00',
+                            incoming_value: '3250.00', incoming_display: 'R$ 3.250',
+                            previous: '116615.5300', previous_value: '116615.5300',
+                            previous_display: 'R$ 116.616'
+                        }]
+                    }]
+                }
+            })"""
+        )
+        page.wait_for_selector('[data-testid="import-existing-row"]', state="visible", timeout=5000)
+        trigger = (
+            page.locator('[data-testid="import-existing-row"] td')
+            .nth(3)
+            .locator(".import-diff-trigger")
+        )
+        assert trigger.inner_text().replace("\xa0", " ") == "R$ 3.250"
+        disclosure = trigger.locator("xpath=following-sibling::span")
+        trigger.hover()
+        assert disclosure.inner_text().replace("\xa0", " ") == "R$ 116.616"
+        assert "," not in disclosure.inner_text()
+        assert "Recebido" not in disclosure.inner_text()
+        assert "Anterior" not in disclosure.inner_text()
+        trigger.focus()
+        assert disclosure.is_visible()
+        assert disclosure.inner_text().replace("\xa0", " ") == "R$ 116.616"
+        assert disclosure.evaluate("el => getComputedStyle(el).position") == "absolute"
+        clearance = disclosure.evaluate(
+            """el => {
+                const disclosureRect = el.getBoundingClientRect();
+                const tableWrapRect = el.closest('.import-review-table-wrap')
+                    .getBoundingClientRect();
+                const panelRect = el.closest('.modal-panel').getBoundingClientRect();
+                return {
+                    disclosureTop: disclosureRect.top,
+                    disclosureBottom: disclosureRect.bottom,
+                    tableWrapTop: tableWrapRect.top,
+                    tableWrapBottom: tableWrapRect.bottom,
+                    panelTop: panelRect.top,
+                    panelBottom: panelRect.bottom,
+                };
+            }"""
+        )
+        assert clearance["disclosureTop"] >= clearance["tableWrapTop"]
+        assert clearance["disclosureBottom"] <= clearance["tableWrapBottom"]
+        assert clearance["disclosureTop"] >= clearance["panelTop"]
+        assert clearance["disclosureBottom"] <= clearance["panelBottom"]
+
+    def test_absent_section_is_read_only_and_excluded_from_confirmation(
+        self, page: Page, live_url: str
+    ) -> None:
+        """Ausentes is visible, profile review only, and absent from commit wire data."""
+        _login_and_select_italo(page, live_url)
+        result: dict[str, object] = page.evaluate(
+            """async () => {
+                const store = Alpine.store('importModal');
+                store.openPreview({
+                    preview_id: 'absent-review',
+                    auto_matched: [{
+                        broker_ticker: 'IN3', name: 'Entrada', qty: '1',
+                        avg_price: '2', current_price: '3', invested: '2',
+                        current_value: '3', asset_id: 1, asset_class_id: 1,
+                        buy_enabled: true, sell_enabled: true, currency_code: 'BRL'
+                    }],
+                    unmatched: [],
+                    asset_classes: [{id: 1, name: 'Ações', color: 'red'}],
+                    triage: {
+                        new: [],
+                        changed: [],
+                        unchanged: [],
+                        absent: [{
+                            broker_ticker: 'OUT3', name: 'Fora', qty: '4',
+                            avg_price: '5', current_price: '6', invested: '20',
+                            current_value: '24', asset_id: 2,
+                            asset_class_id: 1, asset_class_name: 'Ações',
+                            buy_enabled: true, sell_enabled: false,
+                            currency_code: 'BRL', state: 'absent',
+                            changed_fields: [], read_only: true, committable: false
+                        }]
+                    }
+                });
+                await new Promise(resolve => setTimeout(resolve, 0));
+                const originalFetch = window.fetch;
+                let payload = null;
+                window.fetch = (url, options) => {
+                    payload = JSON.parse(options.body);
+                    return Promise.resolve({
+                        ok: false,
+                        json: () => Promise.resolve({detail: 'blocked'})
+                    });
+                };
+                try {
+                    store.commit();
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                    return {
+                        assignments: Object.keys(store.assignments),
+                        payload,
+                    };
+                } finally {
+                    window.fetch = originalFetch;
+                }
+            }"""
+        )
+        page.wait_for_selector('[data-testid="import-absent-row"]', state="visible", timeout=5000)
+        assert page.locator('[data-testid="import-absent-row"]').count() == 1
+        absent_row = page.locator('[data-testid="import-absent-row"]')
+        assert absent_row.locator("select").count() == 0
+        assert absent_row.locator('input[type="checkbox"]').count() == 0
+        assert absent_row.locator('input[type="hidden"]').count() == 0
+        assert absent_row.locator(".import-class-swatch").count() == 0
+        assert result == {
+            "assignments": ["IN3"],
+            "payload": {
+                "preview_id": "absent-review",
+                "assignments": [
+                    {
+                        "broker_ticker": "IN3",
+                        "class_id": 1,
+                        "asset_name": "Entrada",
+                        "buy_enabled": True,
+                        "sell_enabled": True,
+                        "currency_code": "BRL",
+                    }
+                ],
+            },
+        }
 
     def test_import_route_redirects(self, page: Page, live_url: str) -> None:
         """GET /import redirects to the dashboard (retired route)."""
@@ -571,17 +712,4 @@ class TestS04ImportModal:
         assert bg != "transparent" and ("(" in bg and ")" in bg), (
             f"expected a color function for background, got {bg!r}"
         )
-        # Pending swatch background must be transparent (no class color
-        # to display).
-        swatch_style = page.evaluate(
-            """() => {
-                const cell = document.querySelector(
-                    '[data-testid=\"import-class-cell-assignment\"]');
-                const sw = cell.querySelector('.import-class-swatch');
-                return getComputedStyle(sw).backgroundColor;
-            }"""
-        )
-        # "transparent" or "rgba(0, 0, 0, 0)" — both indicate no color.
-        assert "transparent" in swatch_style or swatch_style.startswith("rgba(0, 0, 0, 0"), (
-            f"expected transparent swatch background, got {swatch_style!r}"
-        )
+        assert page.locator(".import-class-swatch").count() == 0

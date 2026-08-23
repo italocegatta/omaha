@@ -6,7 +6,11 @@ Exibição do **Total atual** de cada posição na tabela de revisão do modal d
 
 ### Requirement: Total atual exibido por linha, 0 casas decimais
 
-A tabela de revisão do modal de import (tanto a seção "Ativos existentes na carteira" quanto "Novos ativos") MUST exibir, em cada linha, o **Total atual** calculado como `qty * current_price`, formatado como moeda brasileira SEM casas decimais (`R$ 3.250`, não `R$ 3.250,00`). O cálculo DEVE usar o `current_price` retornado pelo endpoint `/api/import/preview` (já presente na resposta atual).
+The import review SHALL display incoming broker `qty`, `avg_price`, `current_value`
+(`total_current`), and `invested` (`total_invested`) values in existing columns,
+formatted as Brazilian currency with zero decimal places. Triage equality SHALL
+compare typed broker totals against pre-preview Position totals, without
+recomputing totals or fabricating missing broker totals. Compatibility keys remain.
 
 #### Scenario: Linha auto-matched mostra Total atual
 

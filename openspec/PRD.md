@@ -463,18 +463,31 @@ verify row counts → visual dashboard check → report LAN URL + DB state)
 e usa as tarefas taskipy (`db-migrate` / `db-reset` / `db-clear-assets` /
 `db-seed`) pela tabela abaixo.
 
+**Fronteira de entrega — porta 8000.** Para qualquer entrega
+browser-visível nova, o agente pode e deve validar, parar e reiniciar o
+processo conhecido do Omaha que escuta na porta **8000**, servindo o worktree
+mais novo. Antes de terminar processo, validar PID, comando e listener para
+confirmar que é o processo da aplicação Omaha nessa porta; processo
+desconhecido ou estrangeiro não pode ser terminado por inferência. O owner
+testa a funcionalidade nova somente na porta **8000** (via URL LAN), nunca em
+porta alternativa. Restart em worktree novo é esperado para impedir entrega de
+bytes antigos.
+
 **Regra não-negociável:** a receita roda inteira após cada mudança
 browser-visível. Um patch de follow-up que "só arruma CSS" ainda precisa
 de:
 
-1. `task db-reset` (DB pode ter sido wipado durante teste empty-state — e
-   geralmente foi).
-2. Restart uvicorn (Jinja pode servir bytes stale sem reload; CSS
+1. Antes de qualquer tarefa que altere DB, cumprir gate de autorização da
+   §4.12: declarar comando literal e impacto esperado; sem autorização
+   explícita, não executar tarefa de DB.
+2. `task db-reset`, somente quando solicitado/autorizado (DB pode ter sido
+   wipado durante teste empty-state — e geralmente foi).
+3. Restart uvicorn (Jinja pode servir bytes stale sem reload; CSS
    definitivamente precisa de request fresca).
-3. Smoke `curl $URL/healthz`.
-4. Verificar que a página renderizada contém nomes de classe seeded
+4. Smoke `curl $URL/healthz`.
+5. Verificar que a página renderizada contém nomes de classe seeded
    (`curl -b cookie "$URL/" | grep -c "RF Din"`).
-5. Reportar LAN URL + DB row counts na mensagem final.
+6. Reportar LAN URL + DB row counts na mensagem final.
 
 **Skip de qualquer passo = delivery failure.** O usuário abre a URL, vê
 dashboard vazio (porque o DB foi wipado durante o próprio teste do
@@ -482,7 +495,8 @@ agente), e conclui que a feature está quebrada. Se a receita parece
 redundante, rode-a mesmo assim.
 
 **Compromisso (regra do usuário, 2026-07-04):** *toda* delivery browser-
-visível roda `task db-reset` **sempre** — sem exceção. O DB entregue
+visível roda `task db-reset` **quando explicitamente autorizado nesta sessão**
+— sem exceção depois da autorização. O DB entregue
 deve mostrar Italo + Ana + Família sentinel, não um estado genérico /
 wipado. O agente que pular o reset está assinando uma delivery quebrada
 e o usuário vai abrir a URL e assumir que a feature está quebrada.
@@ -492,6 +506,10 @@ Italo: 6 classes + 47 ativos + 47 posições;
 Ana: 6 classes + 52 ativos + 52 posições;
 Família sentinel presente) a menos que o usuário tenha pedido
 explicitamente uma superfície sem ativos.
+
+O estado populado é objetivo de entrega, não autorização implícita para
+alterar DB. Se owner não autorizar operação de DB, registrar o bloqueio e
+entregar apenas após autorização; não substituir por comando equivalente.
 
 #### Recibo de verificação obrigatório
 
@@ -511,9 +529,10 @@ Server PID: 853621                    ← pgrep -af uvicorn omaha.main
 
 A receita roda mesmo quando a mudança parece não tocar runtime (ex: copy
 PT-BR, ajuste de CSS, renomeação de classe). O teste do agente pode ter
-deixado o DB em estado parcial — sem `db-reset` o usuário abre um
+deixado o DB em estado parcial — sem `db-reset` autorizado o usuário abre um
 dashboard vazio e assume que a feature quebrou. **Skip da receita =
-skip de confiança do usuário.**
+skip de confiança do usuário**, exceto quando operação de DB está bloqueada
+por ausência de autorização explícita; nesse caso, registrar bloqueio.
 
 #### Anti-skip — não existe delivery "trivial"
 
@@ -551,8 +570,9 @@ sqlite> select count(*) from positions;        -- esperado: ≥ 99
 ```
 
 Se qualquer coluna estiver abaixo do esperado, o reset não rodou
-(ou rodou só para um perfil). O agente deve re-rodar
-``task db-reset`` antes de declarar done.
+(ou rodou só para um perfil). O agente deve declarar o impacto e obter
+autorização explícita conforme §4.12 antes de re-rodar
+``task db-reset``; sem isso, não declarar DB populado como done.
 
 ### 4.10 Register de produto — Status Invest maximal, sidebar não reintroduzida (memorial)
 
@@ -603,9 +623,10 @@ Decisões owner (7 gates, fontes canônicas: D02 archived):
   - F13 light/dark toggle (conditional: **efetivamente Blocked**
     porque owner não pediu toggle; F05 D-F05.10 mantém-se).
 
-Invariantes PRD §4.1-§4.9 **inalteradas** (auth, network bind,
+Invariantes PRD §4.1-§4.8 **inalteradas** (auth, network bind,
 seed via CSV, Alpine binding gotcha, import preview sync, test
-markers, BDD workflow extraction, taskipy, refresh-for-test).
+markers, BDD workflow extraction, taskipy). §4.9 mantém a receita e agora
+explicita ownership da porta 8000 e autorização para tarefas de DB.
 Apenas §4.10 foi reescrita como memorial.
 
 Token values, hex/OKLCH specifics, e refinos de tipografia/tabelas/
@@ -641,8 +662,8 @@ Não se aplica a:
 - `POST /api/assets` (cria UM ativo; não destrói nada).
 - `PATCH /api/classes/{id}`, `PATCH /api/assets/{id}` (edita
   campos, não deleta).
-- Alterações de schema (Alembic migration) — coberto pelo
-  processo OpenSpec padrão.
+- Alterações de schema (Alembic migration) — cobertas pelo processo OpenSpec
+  padrão, mas continuam sujeitas ao gate de autorização da §4.12.
 
 **Contrato em 5 cláusulas.**
 
@@ -697,11 +718,10 @@ ser merged — a root cause de qualquer wipe acidental vira
 indetectável e a recovery vira `db-reset` do CSV (que apaga
 tudo, incluindo posições inseridas pelo import).
 
-**Exceção.** `task db-reset` (caminho CSV) é destrutivo por
-design e tem seu próprio gate: roda só quando explicitamente
-invocado (`db-reset`, `db-clear-assets`, `db-seed --mode=reset`).
-Não conta como mutação acidental — é o caminho canônico de
-re-seed. Coberto por PRD §4.3.
+`task db-reset` (caminho CSV) é destrutivo por design e tem seu próprio
+gate: roda só quando explicitamente invocado (`db-reset`, `db-clear-assets`,
+`db-seed --mode=reset`) **e autorizado conforme §4.12**. Não conta como
+mutação acidental — é o caminho canônico de re-seed. Coberto por PRD §4.3.
 
 **Por que essa regra existe.** O DB de prod é a única cópia
 dos dados da família. Sem audit + diff + type-to-confirm, um
@@ -713,19 +733,31 @@ regra torna o wipe **impossível sem intenção explícita** e
 
 ---
 
-### 4.12 Agente — DB de prod é intocável sem autorização explícita
+### 4.12 Agente — qualquer mutação de DB exige autorização; DB de prod é intocável
+sem autorização explícita
 
 **Regra do owner (2026-07-07, após incidente):** o agente
-NUNCA executa um comando destrutivo contra `data/portfolio.db`
-sem autorização explícita do owner na conversa atual. Cada
+NUNCA executa operação que altere estado de qualquer banco — incluindo
+migração, reset, seed, clear, restore ou qualquer write — sem autorização
+explícita do owner na conversa atual. Para `data/portfolio.db`, a proteção é
+ainda mais estrita: o agente NUNCA executa comando destrutivo sem essa mesma
+autorização. Cada
 sessão é zero-conf — não há "voce já tinha autorizado antes"
 nem "skill default".
+
+**Gate obrigatório antes de qualquer alteração de DB.** Antes de executar
+qualquer operação que possa modificar estado em DB de dev, teste ou produção,
+o agente deve parar e declarar na conversa atual: (1) comando/task literal e
+flags; (2) identidade e alvo do banco; (3) impacto esperado, incluindo
+tabelas/linhas alteradas ou schema afetado. Só depois de owner autorizar
+explicitamente essa operação, e não uma operação genérica, o agente pode
+executá-la. Ausência de resposta explícita = não autorizado.
 
 **Escopo da proibição.** Aplica-se a qualquer um destes
 disparadores, executado pelo agente (seja inline, via skill,
 via taskipy, ou via shell direto):
 
-- `task db-reset`, `task db-clear-assets`,
+- `task db-migrate`, `task db-reset`, `task db-clear-assets`,
   `task db-seed-from-csv --mode reset|upsert`,
   `task db-seed --mode reset`
 - `python -m scripts.seed_from_csv --mode reset|upsert`
@@ -739,34 +771,35 @@ via taskipy, ou via shell direto):
   `POST /classes/{id}/delete`, `DELETE /api/...` enviado
   via `curl` / `httpx` / TestClient contra o servidor vivo.
 
-**Comandos permitidos sem autorização** (read-only):
+**Operações que permanecem sem autorização** (somente leitura do DB):
 
-- `task test-unit`, `task test-integration`, `task test-bdd`,
-  `task test-e2e` — suites usam `tmp_path`, não tocam prod.
-- `task db-migrate` (alembic upgrade head é idempotente e
-  não destrói dados).
 - `curl GET ...` contra qualquer rota read-only.
 - `sqlite3 data/portfolio.db <SELECT>` ou queries de inspeção.
-- `task backup`, `python -m scripts.snapshot_db` — lê, escreve
-  em `data/snapshots/`, NÃO toca em `data/portfolio.db`.
+- `task backup`, `python -m scripts.snapshot_db` — lê DB e escreve
+  somente em `data/snapshots/`, NÃO toca no DB de origem.
 
-**Workflow obrigatório quando o owner pedir uma mudança que
-envolva prod DB.**
+Suites de teste continuam sem autorização **somente quando** seu alvo é um
+DB temporário e a execução não altera qualquer DB persistente. Se uma suite,
+fixture ou comando escrever em DB, o gate acima vale antes da execução.
 
-1. Confirmar a operação literal que vai rodar (qual task /
-   comando, com quais flags).
-2. Listar exatamente quais linhas / tabelas mudam.
-3. Se o owner confirmar → executar.
-4. Se o owner não responder explicitamente → NÃO executar,
+**Workflow obrigatório antes de qualquer mudança de DB.**
+
+1. Parar antes da operação.
+2. Confirmar a operação literal que vai rodar (qual task /
+   comando, com quais flags) e o DB alvo.
+3. Listar exatamente quais linhas / tabelas / schema mudam e o impacto
+   esperado.
+4. Se o owner confirmar explicitamente essa operação → executar.
+5. Se o owner não responder explicitamente → NÃO executar,
    mesmo que a mudança seja trivial.
 
 **Conflito com skill `refresh-for-test`.** A skill
 `refresh-for-test` definia `db-reset` como default para o
-step "Bring DB to the right state" (Recipe §3). ESTE DEFAULT
-ESTÁ REVOGADO. A skill agora recomenda `db-migrate` (se a
-mudança tocou modelo) ou zero (se a mudança foi só template/
-CSS/rota). `db-reset` só é invocado sob autorização explícita
-do owner nesta sessão.
+step "Bring DB to the right state" (Recipe §3). Esse default não concede
+autorização. `db-migrate` (se a mudança tocou modelo), `db-reset`,
+`db-clear-assets`, `db-seed` ou qualquer write só são invocados sob
+autorização explícita do owner nesta sessão, após declaração do comando e
+impacto esperado.
 
 **Anti-overengineering gate.** Se a mudança é bugfix < 30 min
 ou patch trivial, o agente NÃO entra no OpenSpec loop — mas
