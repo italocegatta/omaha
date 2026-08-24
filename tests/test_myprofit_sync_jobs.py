@@ -309,6 +309,7 @@ def test_internal_csv_handoff_reuses_preview_shape_and_does_not_mutate() -> None
             "auto_matched",
             "unmatched",
             "asset_classes",
+            "triage",
         }
         assert payload["preview"]["unmatched"]
         assert before == after

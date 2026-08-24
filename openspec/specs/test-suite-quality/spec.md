@@ -11,6 +11,25 @@ Runtime changes SHALL retain applicable product behavior tests and focused regre
 - **THEN** review audits scope, coverage, command/result evidence, and suspension visibility
 - **AND** canonical suite is recorded `NOT RUN — maintenance-suspended`, not falsely green
 
+### Requirement: Additive MyProfit preview contract remains accepted by integration gate
+
+The MyProfit sync-job integration contract SHALL preserve legacy preview keys
+while accepting additive F65 `triage` data. The canonical blocking pre-push
+integration gate SHALL continue to execute this contract through
+`uv run task test-integration-parallel`; stale exact-shape expectations MUST be
+corrected rather than hidden or bypassed.
+
+#### Scenario: F65 additive preview passes without mutation regression
+
+- **WHEN** `_process_downloaded_csv` publishes a preview containing
+  `preview_id`, `auto_matched`, `unmatched`, `asset_classes`, and additive
+  `triage`
+- **THEN** the integration assertion accepts all five keys
+- **AND** legacy keys, job status, no-Asset/Position/DbMutation-mutation
+  behavior, cleanup, and security assertions remain enforced
+- **AND** the pre-push hook continues to block on a real failure without
+  skip, xfail, retry, or bypass behavior
+
 #### Scenario: Reactivation requires exact diagnosis and one green suite
 - **WHEN** isolated diagnosis resolves concurrent dynamic SQLite readonly-DB and BDD browser-timeout failures
 - **THEN** one isolated six-lane `uv run task test` run SHALL be green with complete evidence and cleanup in `<=300s`
