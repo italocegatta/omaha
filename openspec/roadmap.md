@@ -665,15 +665,6 @@ Revision log: owner additive-preview triage requirement incorporated in F65 prop
 
 Remediation log: F65 remediation 1/2 fixed in-flow hover/focus prior disclosure, name-based `Ausentes` (ETH `ETH-OLD` versus batch `ETH-NEW`), scoped modal E2E selector, and owner-selected neutral-row/semantic-edge contrast. Focused API 16 passed, E2E 6 passed, lint and diff checks green; canonical suite `NOT RUN — maintenance-suspended`. Former port-8000 blocker resolved by owner authorizing current Omaha listener PID 1692; no foreign process was killed or adopted.
 
-### F66 - Corrigir revisão de posições e incluir Ausentes
-Status: `Deprecated` — 2026-08-22 (owner rejected separate slice; execute as surgical F65 follow-up)
-Goal: corrigir copy de revisão, restaurar divulgação acessível do valor anterior em campos alterados e adicionar seção `Ausentes` para ativos do portfólio atual ausentes no lote importado.
-Candidate OpenSpec change id: `f66-corrigir-revisao-de-posicoes-e-incluir-ausentes`
-Spec link: `openspec/changes/f66-corrigir-revisao-de-posicoes-e-incluir-ausentes/`
-Files to inspect: `src/omaha/routes/imports.py`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/static/app.css`, `tests/test_import_preview.py`, `tests/e2e/test_import_modal.py`
-Notes: Follow-up exclusivo de F65; não alterar F65 status, change folder, specs arquivadas, commit/snapshot/audit, preview ownership/TTL, matcher compatibility, Família guard, ou F63. Copy literal: `Importar posições` → `Revisar posições`. Disclosure: changed field keeps incoming value as primary and reveals prior value on mouse hover and keyboard focus; never render `?` as substitute, title-only tooltip, fabricated prior value, or disclosure for equal fields. Classification remains mutually exclusive: `Novos` = batch-only; `Inalterados`/`Alterados` = present in batch and active-profile portfolio; `Ausentes` = active-profile portfolio-only. Ausentes must be deterministic, profile-scoped, alphabetically ordered, and visibly distinct; proposal must pin whether rows are review-only/non-committable and exact displayed/current-value/control semantics before Apply rather than infer. Visual grammar: four state headers/counts; each asset appears once; empty state omitted; changed cue is persistent and reversible; absent rows cannot masquerade as incoming rows. Fidelity ledger: literal “Revisar posições” → review action copy → modal action/heading text → template string → forbidden old `Importar posições` on review surface → focused E2E copy assertion. Literal “valor anterior” → readable prior-value disclosure → hover/focus text, not `?` icon → `changed_fields` incoming/previous payload plus template/CSS selectors → forbidden pointer-only, icon-only, or missing keyboard path → browser hover/focus evidence. Literal “Ausentes” → portfolio-only triage group → server emits current-profile assets not represented in batch and UI renders one section with count/order → `Asset`/`Position` profile state minus matched batch identities → forbidden treating absent assets as `Novos`, mutating them during preview, or hiding them → API and browser mixed-batch scenario. Numeric mapping: existing `qty`, prices, invested/current totals and metadata retain F65 units/signs; changed rows map incoming vs baseline previous; `Ausentes` have no incoming value, so current portfolio value is explicitly marked as current/previous per approved mock, zero remains zero, and missing values retain existing null display. Owner must approve static mock/prototype or browser rendering of four states, corrected disclosure, exact copy, and Ausentes row semantics before Apply; approval is handoff dependency.
-Progress log: proposal/design/tasks + three delta specs created; strict exact-change validation valid, stable specs 75/75, and `rtk git diff --check` passed. Owner rejected separate-slice workflow on 2026-08-22. Superseded by a surgical F65 follow-up: copy, disclosure correction, and four-state `Ausentes` rule only; no additional OpenSpec lifecycle.
-
 ### I11 - Diagnosticar bloqueio de push e plano de regularização
 Status: `Archived` — 2026-08-23
 Goal: regularizar bloqueio confirmado do pre-push sem enfraquecer enforcement.
@@ -682,7 +673,7 @@ Archive: `openspec/changes/archive/2026-08-23-i11-diagnosticar-bloqueio-de-push-
 ## Recommended Execution Order
 
 **Active queue:**
-  F63 → T31; D05, F65, F60, and I11 archived. F66 deprecated. I08 remains archived runner-hygiene history.
+  F63 → T31; D05, F65, F60, and I11 archived. I08 remains archived runner-hygiene history.
 
 **Archived since prior queue:** F56, F55, F54, F53, F52, T27, T28, T29, I07, D03. Não são trabalho ativo.
 
@@ -728,10 +719,6 @@ Order note: F57/F61 archived; F62 deprecated because owner folded small destinat
 - F65 depends on F59's preview contract and F60 reaching `Applied` plus owner
   validation before Apply; it owns the shared import-review surface and must
   coordinate with F63 to avoid concurrent `app.css`/visual-surface changes.
-- F66 is a follow-up to F65 and must consume its applied triage/diff payload;
-  F66 requires owner approval of four-state/Ausentes rendering and corrected
-  disclosure before Apply, and must complete before F63 to avoid concurrent
-  edits to the shared import-review CSS/template surface.
 - T33 remains `Archived` historical and I08 remains `Blocked` with archive
   prepared. Neither lifecycle is reopened or altered; T34 consumes existing
   vocabulary/constraints only.

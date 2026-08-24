@@ -1,6 +1,6 @@
 ## Context
 
-F65 finalization created local commit `544e175d14e74a931ebba6b52bf0d858a2b5f52d` (`chore(F65): finalize triagem de ativos`), with `main` one commit ahead of `origin/main` and not behind. Current working tree also contains unrelated roadmap edits and untracked F63/F66 change artifacts; I11 MUST not adopt or alter those files.
+F65 finalization created local commit `544e175d14e74a931ebba6b52bf0d858a2b5f52d` (`chore(F65): finalize triagem de ativos`), with `main` one commit ahead of `origin/main` and not behind. Current working tree also contains unrelated roadmap edits and untracked F63/import-review change artifacts; I11 MUST not adopt or alter those files.
 
 Pre-push is installed at `.git/hooks/pre-push` and delegates to the resolved `prek` binary with `hook-type=pre-push`. `prek.toml` defines validation-only pre-push hooks in order: ruff, uv-lock, commitizen-branch, and local `pytest-integration` with `entry = "uv run task test-integration-parallel"`, `pass_filenames = false`, and priority 5. `pyproject.toml` defines that task as the integration marker bucket with xdist `-n auto --dist loadgroup`, excluding audit integration.
 

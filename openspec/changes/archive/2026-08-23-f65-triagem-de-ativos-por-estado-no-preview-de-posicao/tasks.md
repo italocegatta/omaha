@@ -390,7 +390,7 @@ No blocking findings.
   `tests/e2e/test_import_modal.py`. Pre-existing non-F65 boundaries were
   modified `openspec/PRD.md`, modified `openspec/roadmap.md`, deleted T34
   dossier files under `openspec/changes/t34-diagnosticar-e-corrigir-bloqueadores-do-runner-harness-para-f58/`,
-  untracked F63 dossier, untracked F65 dossier, and untracked deprecated F66
+  untracked F63 dossier, untracked F65 dossier, and untracked import-review
   dossier. No boundary was reverted or edited.
 - Surgical correction: only `.import-review-table-wrap` in
   `src/omaha/static/app.css` gained `padding-bottom: 2rem`. This provides
@@ -480,7 +480,7 @@ allowlist exception was used.
   `tests/e2e/test_import_modal.py`: baseline capture/triage response, the
   three-section modal, 1200px/diff CSS, and their focused tests. Existing
   unrelated worktree boundary was `openspec/roadmap.md`, untracked F63 dossier,
-  and untracked deprecated F66 dossier. These hunks and files are preserved;
+  and untracked import-review dossier. These hunks and files are preserved;
   follow-up edits are limited to the owner-authorized F65 correction below.
 
 ## Surgical owner-authorized follow-up — execution evidence
@@ -529,7 +529,7 @@ allowlist exception was used.
   `src/omaha/templates/_patrimonio_add_asset_modal.html`,
   `src/omaha/static/app.css`, `tests/test_import_preview.py`, and
   `tests/e2e/test_import_modal.py`. Existing non-F65 boundaries were
-  `openspec/roadmap.md`, untracked F63 dossier, and untracked deprecated F66
+  `openspec/roadmap.md`, untracked F63 dossier, and untracked import-review
   dossier; all remain untouched. This pass also owns only F65 `design.md` and
   `tasks.md` documentation updates.
 - Required corrections implemented: normalized-name `Ausentes` membership;
@@ -587,7 +587,7 @@ allowlist exception was used.
   `src/omaha/templates/_patrimonio_add_asset_modal.html`,
   `src/omaha/static/app.css`, `tests/test_import_preview.py`, and
   `tests/e2e/test_import_modal.py`; untracked F63 dossier; untracked F65
-  dossier; and untracked deprecated F66 dossier. No F63/F66 file was read for
+  dossier; and untracked import-review dossier. No F63 file was read for
   implementation or edited. This pass owns only the five named F65 runtime/test
   files plus F65 `design.md` and `tasks.md`.
 - Remediation changes: `_diff_display`/`_changed_field` now emit typed BRL

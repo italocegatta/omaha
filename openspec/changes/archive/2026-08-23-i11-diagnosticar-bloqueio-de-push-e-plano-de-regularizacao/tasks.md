@@ -48,7 +48,7 @@
 - `git status --short --untracked-files=all` baseline: modified
   `openspec/roadmap.md`; pre-existing untracked directories
   `openspec/changes/f63-hover-e-cabecalho-sticky-na-tabela-de-rebalanceamento/`,
-  `openspec/changes/f66-corrigir-revisao-de-posicoes-e-incluir-ausentes/`, and
+  an unrelated untracked import-review dossier, and
   this I11 dossier. These paths are not adopted except I11 dossier evidence;
   no staging, reset, commit, push, or source edit occurred during baseline.
 - `core.hooksPath` is unset; resolved hook is `.git/hooks/pre-push`.
@@ -282,7 +282,7 @@ Postflight: 2026-08-23T16:46:41-03:00; no pytest/prek/test-run process remained.
 Both pre-existing/unknown listeners remained unchanged. Focused child and
 test-DB/temp exact identities were unavailable from task receipt; no cleanup
 performed or foreign resource touched. Worktree status preserved: pre-existing
-roadmap modification, F63/F66 artifacts, I11 dossier, and one-line target-test
+roadmap modification, F63 artifacts, I11 dossier, and one-line target-test
 correction only.
 
 Verdict: BLOCKED
@@ -367,6 +367,6 @@ no new finding.
 - Sync check: archived delta `specs/test-suite-quality/spec.md` matches
   `openspec/specs/test-suite-quality/spec.md`; no unsynced I11 delta remains.
 - I11-only commit staged from archived dossier, stable spec, and confirmed
-  additive-preview test expectation. F65/F63/F66/D05 paths remain excluded.
+  additive-preview test expectation. F65/F63/D05 paths remain excluded.
 - Ordinary hook-enforced commit/push and remote convergence are recorded by
   finalizer after this receipt is written.
