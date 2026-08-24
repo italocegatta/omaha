@@ -349,3 +349,54 @@ consistent and bounded to run-owned resources.
 Late finding reason: R2 rechecked previously `not assessable` full-suite area;
 owner explicitly authorized this D05-only exception to run suite without
 prospective preflight.
+
+### Review R3
+Scope audit: dossier/proposal/design/tasks/delta-spec `pass`; tasks complete
+(6/6); ledger fields and ownership evidence `pass`; bounded current-run cleanup
+and idempotence `pass`; review preflight/postflight, residue classification, safe
+stop, and receipt contract `pass`; broad/name-pattern/host-wide/indiscriminate
+cleanup prohibitions `pass`; preserved six lanes, fail-fast, coverage,
+tests/skips, taskipy entrypoints, and 300-second ceiling `pass`; D05-only scope
+and F58/F58 R1-F02/F61/I08 exclusions `pass`; prior R2 finding acceptance
+aligned with owner-authorized I08 R5 receipt `pass`; stable-spec validation
+`pass`; diff-check `pass`; no blocking findings.
+
+Full suite: `uv run task test` -> **NOT RUN — maintenance-suspended**. I10
+maintenance-suspended policy receipt is recorded in
+`AGENTIC_DEVELOPMENT.md:105-112`; no canonical suite invocation, lane
+resources, cleanup, or host action occurred. Focused/product evidence is the
+owner-authorized I08 R5 receipt at
+`openspec/changes/archive/2026-08-20-i08-corrigir-runner-taskipy-cleanup-e-telemetria-por-lane/tasks.md:708-745`:
+all six lanes green (unit 515 passed/2 skipped, integration 390, audit 40,
+e2e 51, bdd 51, visual 8), reconciliation `ok=true`, owned cleanup
+`owned-cleaned`, and 240.60s <= 300s. D05 has no runtime product tests;
+focused protocol acceptance is covered by dossier/source audit and I08 R5.
+
+Preflight: maintenance-suspended review receipt; canonical launch preflight
+not applicable because gate was suspended by owner policy. Per-run ledger has
+no resources created: process/PGID `absent`, listener `absent`, test DB
+`absent`, declared temporary paths `absent`; no ownership adoption, kill,
+free, delete, mask, or allowlist action. Decision: suite withheld under
+suspension.
+
+Postflight: not applicable to this suspended receipt; no suite or cleanup
+started. No current-run residue exists to classify; no broad or foreign
+cleanup ran. I08 R5 independently supplies trusted postflight/cleanup evidence
+for owner-authorized acceptance.
+
+OpenSpec verification: `openspec validate
+d05-formalizar-contrato-operacional-de-limpeza-e-preflight --type change
+--strict --json` -> valid, 1/1 passed, 0 issues;
+`openspec validate --specs --strict --json` -> valid, 76/76 passed, 0
+failures (informational long-requirement notices only); `rtk git diff --check
+-- openspec/changes/d05-formalizar-contrato-operacional-de-limpeza-e-preflight`
+-> clean. Evidence paths: active D05 dossier files under
+`openspec/changes/d05-formalizar-contrato-operacional-de-limpeza-e-preflight/`;
+prior R2 at `tasks.md:286-350`; I08 R5 acceptance at archived tasks
+`tasks.md:708-745`.
+
+Verdict: APPROVED
+
+Findings: none. Owner authorized I08 R5 receipt as D05 acceptance and
+authorized closing D05 on 2026-08-23. No remediation, archive, roadmap,
+code, test, spec, commit, or push action performed.

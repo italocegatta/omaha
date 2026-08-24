@@ -599,13 +599,9 @@ Archive: `openspec/changes/archive/2026-08-20-t33-corrigir-concorrencia-e-ciclo-
 Notes: Archive/sync complete; stable specs 68/68. Commit/push blocked because `tests/scripts/test_t29_harness.py` mixes T33 and T32 hunks, preventing safe T33-only staging.
 
 ### D05 - Formalizar contrato operacional de limpeza e preflight
-Status: `Blocked` — 2026-08-20
-Goal: tornar explícito contrato apply/review para recursos de teste: apply limpa somente recursos que criou/possui; review executa preflight antes da suíte canônica, registra resíduo atribuído à execução e para com diagnóstico seguro quando estado não é confiável.
-Candidate OpenSpec change id: `d05-formalizar-contrato-operacional-de-limpeza-e-preflight`
-Spec link: `openspec/changes/d05-formalizar-contrato-operacional-de-limpeza-e-preflight/`
-Files to inspect: `.opencode/agents/apply.md`, `.opencode/agents/review.md`, `.opencode/skills/openspec-apply-change/SKILL.md`, `AGENTIC_DEVELOPMENT.md`
-Notes: Track A, protocol/docs only; no runner, taskipy, test, or application edits. Define ownership ledger for child/process-group/port/log/temp/DB resources; apply cleanup is bounded to resources recorded as run-owned and remains idempotent. Review preflight runs before `uv run task test`, captures PID/PGID/port/timestamps/owner evidence and residue classification, records receipt, and returns `BLOCKED` for unknown/pre-existing/foreign residue rather than attempting repair. Checklist SHALL never authorize broad kill, name-pattern kill, host-wide port cleanup, or indiscriminate descendant termination. Preserve six lanes, fail-fast, coverage, all tests/skips, and 300s gate. Acceptance: protocol text gives exact stop/ownership/escalation rules; apply/review handoffs require cleanup and residue evidence; one controlled foreign-resource scenario proves no termination; one owned-resource scenario proves bounded cleanup; no change to F58 or `R1-F02`.
-Progress log: review R2 blocked 2026-08-20 — bootstrap suite red with unknown PID/visual baseline failures; D05 documentation audit passed but cannot become Applied with red suite
+Status: `Archived` — 2026-08-24
+Goal: formalizar contrato de ownership, limpeza limitada e preflight seguro para execuções de teste.
+Archive: `openspec/changes/archive/2026-08-24-d05-formalizar-contrato-operacional-de-limpeza-e-preflight/`
 
 ### I08 - Corrigir runner taskipy para cleanup e telemetria por lane
 Status: `Archived` — 2026-08-22
