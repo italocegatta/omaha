@@ -76,11 +76,8 @@ def test_family_sync_action_is_disabled(client: TestClient) -> None:
     action_start = body.index('<section class="patrimonio-actions"')
     action_end = body.index("</section>", action_start)
     action = body[action_start:action_end]
-    assert 'data-testid="dashboard-sync-btn"' in action
-    assert 'data-sync-state="disabled"' in action
-    assert "disabled" in action
-    assert 'aria-disabled="true"' in action
-    assert '<span class="icon icon--md" aria-hidden="true">sync</span>' in action
+    assert 'data-testid="dashboard-sync-btn"' not in action
+    assert "Atualizar posição" not in action
     assert "@click" not in action
     assert "/api/myprofit/sync" not in action
     assert 'data-testid="dashboard-import-btn"' not in action
@@ -128,7 +125,8 @@ def test_family_page_has_no_sync_detail(client: TestClient) -> None:
     action_end = response.text.index("</section>", action_start)
     action = response.text[action_start:action_end]
     assert "Não foi possível entrar no MyProfit." not in action
-    assert 'data-testid="dashboard-sync-btn"' in response.text
+    assert 'data-testid="dashboard-sync-btn"' not in action
+    assert "Atualizar posição" not in action
     assert 'data-testid="patrimonio-notifications"' not in action
 
 

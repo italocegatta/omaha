@@ -674,6 +674,7 @@ Archive: `openspec/changes/archive/2026-08-23-i11-diagnosticar-bloqueio-de-push-
 Status: `Archived` — 2026-08-24
 Goal: remover superfícies D06 sem alterar revisão, erros ou confirmação.
 Archive: `openspec/changes/archive/2026-08-24-d06-inventariar-superficies-do-fluxo-de-atualizacao-e-importacao/`
+Notes: Review R2 approved; remediation 1/2 resolved PUSH-01.
 
 ### F67 - Ordenar grupos da revisão de posições
 Status: `Ready`

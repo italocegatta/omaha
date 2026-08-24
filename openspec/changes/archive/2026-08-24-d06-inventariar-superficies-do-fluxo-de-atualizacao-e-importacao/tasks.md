@@ -216,3 +216,126 @@ Required change: none. Excluded scope: no new scope proposed.
 Acceptance: D06-03/D06-04/D06-06/D06-12 absent while real-profile sync/import,
 safe errors, review, triage, cancel, confirmation, and no-pre-confirm commit
 remain proven.
+
+## Remediation Evidence
+
+### Remediation 1/2 — PUSH-01 — 2026-08-24
+
+- **Pre-edit boundary:** captured `git diff HEAD~1` before editing. HEAD was
+  `4a9b012` (`chore(D06): archive inventory surface change`). Baseline diff
+  contained only the committed D06 archive/dossier, roadmap/spec sync, the two
+  D06 templates, and `tests/e2e/test_patrimonio_sync_action.py`. Worktree had
+  one pre-existing unowned modification: `openspec/roadmap.md`, changing D06
+  lifecycle from `Archived` to `Applied` and recording PUSH-01. This
+  remediation did not overwrite or reformat that work.
+- **Finding:** `tests/test_patrimonio_sync_action.py::test_family_sync_action_is_disabled`
+  still asserted removed Família `dashboard-sync-btn` disabled markup. The
+  same file's `test_family_page_has_no_sync_detail` carried one stale positive
+  sync assertion.
+- **Resolution:** changed only those stale test oracles to assert absence of
+  `dashboard-sync-btn` and `Atualizar posição` in Família action markup.
+  Preserved no-binding/server-boundary assertions, real-profile sync/import
+  coverage, and all production code. No test was skipped, weakened, xfailed,
+  retried, deleted, or renamed.
+- **Changed files/symbols:** `tests/test_patrimonio_sync_action.py` —
+  `test_family_sync_action_is_disabled` and `test_family_page_has_no_sync_detail`;
+  this execution evidence section only in archived D06 `tasks.md`.
+- **Focused validation:**
+  `T29_RUN_ID=D06-REMEDIATION-1A-20260824T023703-0300 T29_DB_RECEIPT_LANE=integration uv run task test-one tests/test_patrimonio_sync_action.py::test_family_sync_action_is_disabled`
+  → **1 passed in 1.02s**;
+  `T29_RUN_ID=D06-REMEDIATION-1B-20260824T023945-0300 T29_DB_RECEIPT_LANE=integration uv run task test-file tests/test_patrimonio_sync_action.py`
+  → **5 passed in 2.08s**;
+  `T29_RUN_ID=D06-REMEDIATION-1C-20260824T024100-0300 T29_DB_RECEIPT_LANE=e2e uv run task test-file tests/e2e/test_patrimonio_sync_action.py`
+  → **9 passed in 37.83s**;
+  `uv run task lint` → **all hooks passed**;
+  `git diff --check` → **passed**.
+- **Acceptance:** Família action strip asserts zero sync button and zero
+  `Atualizar posição`; real-profile action/import and backend guard remain
+  untouched and covered by existing D06 tests/contracts.
+
+### PUSH-01 resolution receipt
+
+- **Status:** resolved.
+- **Result:** stale expectation aligned to owner-approved D06 absence behavior;
+  no runtime behavior changed.
+- **Evidence:** `tests/test_patrimonio_sync_action.py` focused file passed;
+  `tests/e2e/test_patrimonio_sync_action.py` passed; lint and `git diff --check`
+  passed.
+
+### Review R2 — remediation 1/2
+Scope audit: proposal pass; design pass; delta spec pass; tasks 7/7 pass;
+PUSH-01 remediation pass; changed symbols pass; real-profile sync/import pass;
+Família no-button/no-literal pass; D06-04/D06-06/D06-12 removal pass; loading,
+polling, safe errors, modal review, editable assignments, cancel, explicit
+confirmation, and no-pre-confirm-commit pass; MyProfit job/API boundaries pass;
+`previewError` bounded note pass; stable spec pass; exact remediation boundary
+pass; excluded F67, T36/F68, F63, T31, F65, F60, routes, DB, seed, connector,
+timeout, and product scope pass; no test deletion/skip/xfail/retry/masking pass;
+lint and diff hygiene pass. Review-generated visual artifacts and exact E2E DB
+residue are not remediation changes and are recorded in postflight for
+finalization handling.
+
+Full suite: `uv run task test` -> **NOT RUN — maintenance-suspended**.
+`openspec/config.yaml:87-100` explicitly suspends canonical launch; no lane,
+retry, substitute, skip, coverage, or duration claim. Focused product evidence:
+`uv run task test-one tests/test_patrimonio_sync_action.py::test_family_sync_action_is_disabled`
+-> 1 passed in 1.01s; `uv run task test-file tests/test_patrimonio_sync_action.py`
+-> 5 passed in 2.08s; `uv run task test-file
+tests/e2e/test_patrimonio_sync_action.py` -> 9 passed in 44.07s;
+`uv run task test-file tests/e2e/test_import_modal.py` -> 7 passed in 33.95s;
+`uv run task test-file tests/test_myprofit_sync_jobs.py` -> 19 passed in 3.27s;
+`uv run task lint` -> all hooks passed; `git diff --check` -> passed. Focused
+coverage retains real-profile action/import, backend guard, bounded polling,
+duplicate blocking, sanitized errors, review handoff, assignments, cancel,
+explicit commit, no pre-confirm commit, and Família absence. No focused red
+result.
+
+Exact-change/spec validation: archived D06 is not exposed by local
+`openspec validate --changes`; static dossier/delta/stable-spec audit passed.
+`openspec validate --specs --strict --json` -> 77/77 specs valid, including
+`patrimonio-position-sync-action`; active-change validation -> 1/1 valid.
+
+Preflight: review preflight at 2026-08-24; owner evidence was prior exact D06
+refresh ledger `/tmp/opencode/d06-refresh-ownership-ledger-20260824T-continuation.md`
+plus current-run before-state probes. PID/PGID 67038/67046 and listener
+`0.0.0.0:8000` classified `pre-existing` to R2 and `owned-current-run` in
+prior Apply receipt; preserved, not adopted or stopped. No pytest/Playwright/
+prek process and no 8765-8768 listener existed. Declared E2E DB paths were
+absent before focused launch. No foreign or unknown relevant resource observed;
+focused launch permitted. Ledger fields audited: resource_kind, resource_id,
+owner, owner_evidence, started_at, ended_at, status, classification, evidence,
+cleanup_result.
+
+Postflight: no canonical suite process or lane listener remained. Port 8000
+remained active as prior Apply-owned delivery resource and was untouched. Exact
+`data/test_e2e.db` was created by focused E2E and remained present after the
+run; classify `owned-current-run`, cleanup `incomplete` (no deletion performed
+by review). Four `tests/visual/artifacts/f60-*.png` files changed during
+focused E2E; classify `owned-current-run` review output, not D06 remediation
+scope. No foreign cleanup, broad kill, DB mutation, or adoption occurred.
+
+Runner isolation: canonical isolated-runner precondition not invoked because
+gate is owner-authorized `maintenance-suspended`; no baseline or allowlist
+exception used. Focused test resources were absent before launch and produced
+green applicable evidence. Canonical six-lane result, coverage, skips,
+fail-fast disposition, and 300-second classification are not applicable under
+suspension.
+
+Verdict: **APPROVED**
+
+#### R2-F01 — PUSH-01 stale Família oracle
+Status: resolved
+Requirement/task: D06-03; task 1.1; PUSH-01
+Evidence: `tests/test_patrimonio_sync_action.py:62-84,112-130` now asserts zero
+`dashboard-sync-btn` and zero `Atualizar posição` in Família while retaining
+no-binding, no-start endpoint, and real-profile assertions. Focused node 1/1,
+unit 5/5, and E2E 9/9 passed. Remediation diff contains no runtime code and no
+coverage deletion.
+Required change: none. Excluded scope: no product/runtime change, no new
+surface, no test removal or weakening.
+Acceptance: owner-approved D06 scope remains unchanged: Família sync button
+absent; D06-04/D06-06/D06-12 absent; real-profile sync/import, sanitized
+errors, modal review, editable assignments, cancel, explicit confirmation,
+and no pre-confirm commit remain proven.
+Late finding reason: remediation review rechecked prior PUSH-01; resolved,
+not new.
