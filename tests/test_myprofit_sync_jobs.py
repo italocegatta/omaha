@@ -7,9 +7,13 @@ boundaries. They do not construct or invoke any external service adapter.
 from __future__ import annotations
 
 import json
+import math
 import os
+import platform
+import statistics
 import subprocess
 import sys
+import time
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -24,6 +28,39 @@ CSV = (
     "Ticker,Nome,Quantidade,Preço médio,Preço atual,Total investido,Total atual\n"
     "F59UNMATCHED,F59UNMATCHED,1,10,12,10,12\n"
 ).encode()
+
+
+def _t36_percentile(values: list[float], percentile: float) -> float:
+    """Calculate an inclusive, linearly interpolated percentile in ms."""
+    ordered = sorted(values)
+    if not ordered:
+        raise ValueError("percentile requires at least one value")
+    rank = (len(ordered) - 1) * percentile / 100
+    lower = math.floor(rank)
+    upper = math.ceil(rank)
+    if lower == upper:
+        return ordered[lower]
+    fraction = rank - lower
+    return ordered[lower] + (ordered[upper] - ordered[lower]) * fraction
+
+
+def _t36_metrics(values: list[float]) -> dict[str, float]:
+    """Return T36 distribution metrics using the documented percentile method."""
+    p50 = _t36_percentile(values, 50)
+    deviations = [abs(value - p50) for value in values]
+    p25 = _t36_percentile(values, 25)
+    p75 = _t36_percentile(values, 75)
+    return {
+        "mean": statistics.mean(values),
+        "p50": p50,
+        "p95": _t36_percentile(values, 95),
+        "p99": _t36_percentile(values, 99),
+        "min": min(values),
+        "max": max(values),
+        "stdev": statistics.stdev(values),
+        "iqr": p75 - p25,
+        "mad": statistics.median(deviations),
+    }
 
 
 def _now() -> datetime:
@@ -530,3 +567,200 @@ def test_model_table_has_profile_status_index() -> None:
 
     indexes = {index["name"] for index in inspect(engine).get_indexes("myprofit_sync_jobs")}
     assert "ix_myprofit_sync_jobs_profile_status" in indexes
+
+
+def test_t36_sync_duration_measurement(tmp_path: Path) -> None:
+    """Measure exactly 15 offline jobs and emit the T36 evidence receipt."""
+    from omaha.config import settings
+    from omaha.db import SessionLocal
+    from omaha.models import Asset, DbMutation, Position, Profile
+    from omaha.myprofit.connector import (
+        MyProfitConnectorError,
+        MyProfitConnectorTimeouts,
+        MyProfitCsvDownload,
+    )
+    from omaha.routes.imports import PREVIEW_TTL, MyProfitSyncService
+
+    schedule = [
+        {"delay_s": 0.002},
+        {"delay_s": 0.003},
+        {"delay_s": 0.004},
+        {"delay_s": 0.005},
+        {"delay_s": 0.006, "failure": ("download", "timeout")},
+        {"delay_s": 0.008},
+        {"delay_s": 0.010},
+        {"delay_s": 0.012},
+        {"delay_s": 0.015},
+        {"delay_s": 0.020, "failure": ("login", "failed")},
+        {"delay_s": 0.030},
+        {"delay_s": 0.050},
+        {"delay_s": 0.002},
+        {"delay_s": 0.004},
+        {"delay_s": 0.006, "failure": ("browser", "browser_failed")},
+    ]
+
+    class FakeConnector:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def download_positions_csv(self, profile: Profile) -> MyProfitCsvDownload:
+            assert not profile.is_family_sentinel
+            item = schedule[self.calls]
+            self.calls += 1
+            time.sleep(item["delay_s"])
+            if item.get("failure") is not None:
+                stage, code = item["failure"]
+                raise MyProfitConnectorError(stage, code)
+            return MyProfitCsvDownload(filename="t36-fake.csv", content=CSV)
+
+    assert settings.PREVIEW_TTL_SECONDS == 3600
+    assert int(PREVIEW_TTL.total_seconds() * 1000) == 3_600_000
+    connector_timeouts = MyProfitConnectorTimeouts()
+    fake = FakeConnector()
+    temp_root = tmp_path / "t36-myprofit-sync"
+    temp_root.mkdir()
+    service = MyProfitSyncService(
+        connector=fake,
+        session_factory=SessionLocal,
+        temp_root=temp_root,
+        max_workers=1,
+    )
+    failure_schedule = {
+        "failed|download|timeout": 1,
+        "failed|login|failed": 1,
+        "failed|browser|browser_failed": 1,
+    }
+    attempts: list[dict[str, object]] = []
+    success_durations: list[float] = []
+
+    with SessionLocal() as db:
+        owner = db.query(Profile).filter(Profile.name == "Italo").one()
+        before_counts = {
+            "Asset": db.query(Asset).count(),
+            "Position": db.query(Position).count(),
+            "DbMutation": db.query(DbMutation).count(),
+        }
+
+    try:
+        for index, expected in enumerate(schedule, start=1):
+            started = time.perf_counter()
+            with SessionLocal() as db:
+                job = service.start(db, owner, BackgroundTasks())
+                job_id = job.job_id
+            service.run_myprofit_sync_job(job_id, owner.id)
+            duration_ms = (time.perf_counter() - started) * 1000
+
+            with SessionLocal() as db:
+                job = db.get(type(job), job_id)
+                assert job is not None
+                assert job.started_at is not None
+                assert job.finished_at is not None
+                persisted_ms = (job.finished_at - job.started_at).total_seconds() * 1000
+                assert math.isfinite(duration_ms) and duration_ms >= 0
+                assert math.isfinite(persisted_ms) and persisted_ms >= 0
+                assert job.work_dir is None and job.work_file is None
+                assert not list(temp_root.iterdir())
+                if expected.get("failure") is None:
+                    assert job.status == "succeeded"
+                    assert job.preview_id is not None
+                    success_durations.append(duration_ms)
+                    attempts.append(
+                        {
+                            "attempt": index,
+                            "outcome": "success",
+                            "duration_ms": round(duration_ms, 3),
+                            "persisted_duration_ms": round(persisted_ms, 3),
+                            "terminal_status": job.status,
+                        }
+                    )
+                else:
+                    stage, code = expected["failure"]
+                    assert job.status == "failed"
+                    assert (job.error_stage, job.error_code) == (stage, code)
+                    attempts.append(
+                        {
+                            "attempt": index,
+                            "outcome": "failure",
+                            "duration_ms": round(duration_ms, 3),
+                            "persisted_duration_ms": round(persisted_ms, 3),
+                            "terminal_status": job.status,
+                            "stage": job.error_stage,
+                            "code": job.error_code,
+                        }
+                    )
+
+        with SessionLocal() as db:
+            after_counts = {
+                "Asset": db.query(Asset).count(),
+                "Position": db.query(Position).count(),
+                "DbMutation": db.query(DbMutation).count(),
+            }
+    finally:
+        service.shutdown()
+
+    assert fake.calls == 15
+    assert len(attempts) == 15
+    assert len(success_durations) == 12
+    assert all(attempt["terminal_status"] in {"succeeded", "failed"} for attempt in attempts)
+    assert before_counts == after_counts
+    assert service.active_worker_count == 0
+    assert not service._reservations
+    assert not service._owned_dirs
+    assert not list(temp_root.iterdir())
+
+    metrics = _t36_metrics(success_durations)
+    candidate_ms = int(math.ceil((metrics["p99"] + max(2 * metrics["iqr"], 5_000)) / 5_000) * 5_000)
+    assert candidate_ms <= 60_000
+    assert candidate_ms < 3_600_000
+    evidence = {
+        "change_id": "t36-medir-duracao-e-definir-criterio-de-timeout-da-sincronizacao",
+        "run_id": datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ"),
+        "environment": {
+            "python": platform.python_version(),
+            "platform": platform.platform(),
+            "pytest": pytest.__version__,
+        },
+        "sample_size": len(attempts),
+        "successes": len(success_durations),
+        "failures": len(attempts) - len(success_durations),
+        "failure_rate": (len(attempts) - len(success_durations)) / len(attempts),
+        "percentile_method": "inclusive linear interpolation over successful samples",
+        "attempts": attempts,
+        "success_duration_ms": {key: round(value, 3) for key, value in metrics.items()},
+        "failure_statuses": failure_schedule,
+        "boundaries_ms": {
+            "poll_delay": 500,
+            "max_polls": 120,
+            "poll_delay_x_max_polls": 60_000,
+            "job_expiry": 3_600_000,
+            "preview_ttl": 3_600_000,
+            "terminal_retention": 3_600_000,
+        },
+        "playwright_stage_timeouts_ms": {
+            "navigation": connector_timeouts.navigation_ms,
+            "login_settle": connector_timeouts.login_settle_ms,
+            "two_factor_probe": connector_timeouts.two_factor_probe_ms,
+            "export_button": connector_timeouts.export_button_ms,
+            "csv_option": connector_timeouts.csv_option_ms,
+            "download": connector_timeouts.download_ms,
+        },
+        "playwright_harness_timeouts_ms": {
+            "local_success_state": 3_000,
+            "sync_terminal_state": 8_000,
+            "sync_review_modal": 2_000,
+            "import_review": 15_000,
+            "import_review_table": 5_000,
+        },
+        "portfolio_counts_before": before_counts,
+        "portfolio_counts_after": after_counts,
+        "candidate_timeout_ms": candidate_ms,
+        "decision": "covered",
+        "recommendation": (
+            "F68 change not justified; current nominal polling boundary covers candidate."
+        ),
+        "limitation": (
+            "15 deterministic fake samples describe application-boundary overhead only; "
+            "they do not establish MyProfit network performance or an external SLA."
+        ),
+    }
+    print("T36_EVIDENCE " + json.dumps(evidence, sort_keys=True), flush=True)

@@ -683,13 +683,10 @@ Archive: `openspec/changes/archive/2026-08-24-f67-ordenar-grupos-da-revisao-de-p
 Notes: Review R1 APPROVED; owner autorizou archive em 2026-08-24.
 
 ### T36 - Medir duração e definir critério de timeout da sincronização
-Status: `Spec Proposed`
-Goal: medir repetidamente duração do job MyProfit em ambiente seguro, registrar média e percentis e definir timeout baseado em evidência sem tocar serviço externo real ou DB de produção.
-Candidate OpenSpec change id: `t36-medir-duracao-e-definir-criterio-de-timeout-da-sincronizacao`
-Spec link: `openspec/changes/t36-medir-duracao-e-definir-criterio-de-timeout-da-sincronizacao/`
-Files to inspect: `src/omaha/routes/imports.py`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/models.py`, `tests/test_myprofit_sync_jobs.py`, `tests/e2e/test_import_modal.py`
-Notes: Diagnóstico/quality slice; usar connector fake/mock, dados temporários e **15 repetições** owner-approved; registrar p50/p95/p99, dispersão, falhas e margem escolhida. Medir timeout efetivo atual (`pollDelay × maxPolls`) e distinguir limite de polling de timeout Playwright/job expiry. Não executar testes nesta decomposição. Critério deve produzir valor configurável/alvo para F68; não inventar texto truncado (“aumente o ...”). Ambiente seguro = sem credenciais, rede externa, DB prod ou alteração destrutiva; observar PRD §4.12–§4.14.
-Progress log: proposal/design/tasks + applicable `sync-duration-measurement` delta spec created; exact change validation passed; stable specs 77/77 passed; owner changed measurement sample from 100 to 15 repetitions on 2026-08-24; T36 dossier requires update before Apply.
+Status: `Archived` — 2026-08-24
+Goal: medir duração offline e registrar critério de timeout sem justificar mudança em F68.
+Archive: `openspec/changes/archive/2026-08-24-t36-medir-duracao-e-definir-criterio-de-timeout-da-sincronizacao/`
+Notes: 15 tentativas fake são descritivas; 3 falhas foram rápidas e injetadas, não estouros de 60s. Polling atual permanece 60s; candidato 10s não justifica F68 nem implementação de timeout/monitoramento.
 
 ### F68 - Aumentar timeout efetivo da atualização com critério
 Status: `Ready`
@@ -700,10 +697,19 @@ Files to inspect: `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/o
 Notes: Depende de T36 e da decisão de superfícies em D06; mudar somente limite comprovado, manter polling, status/job expiry, cancelamento, mensagens sanitizadas e revisão manual. Fidelidade: timeout → espera suficiente antes do erro → cálculo configurado por evidência → proibido retry infinito, ocultar falha, alterar mensagem truncada ou ampliar escopo para connector sem medida. Aceitar com cenários abaixo do limite, no limite, acima do limite e status failed/expired; owner aprova browser rendering antes de Apply se mensagem/superfície mudar.
 Progress log: pending — waiting for T36 criterion
 
+### T37 - Governança prática do DB E2E e processos Omaha
+Status: `Ready` — deferred; fora da ordem ativa imediata
+Goal: tornar preflight, ownership, cleanup/recreate e restart do único ambiente Omaha mais práticos sem adotar recursos estrangeiros nem proteger incorretamente dados efêmeros.
+Candidate OpenSpec change id: `t37-governanca-pratica-do-db-e2e-e-processos-omaha`
+Spec link: `openspec/changes/t37-governanca-pratica-do-db-e2e-e-processos-omaha/`
+Files to inspect: `scripts/run_full_suite.py`, `tests/conftest.py`, `tests/support/db.py`, `tests/support/server.py`, `tests/scripts/test_t29_harness.py`
+Notes: Contexto owner: `data/test_e2e.db` é efêmero, reproduzível por migrations/seed e pode ser apagado/sobrescrito automaticamente pelos testes sem autorização; `data/portfolio.db` é banco de produto e permanece protegido. Processos PID/PGID pertencentes ao único ambiente Omaha em execução podem ser reiniciados automaticamente quando necessário para novas funcionalidades, somente após ownership/identificação segura; proibido broad kill de processos não relacionados. Avaliar contrato de ownership/preflight, classificação test DB versus product DB, cleanup/recreate automático, lock/lease ou identificação de processo, restart gracioso, prevenção de adoção de recursos estrangeiros, receipts e recuperação de processos stale. Não alterar T36, F67 ou D06; não iniciar proposta, apply ou testes; não mutar `data/portfolio.db`, não apagar recursos estrangeiros, não ampliar para multiambiente, host-wide cleanup ou supervisor genérico. Owner quer retomar após T36 finalizar.
+Progress log: pending — deferred until T36 archived
+
 ## Recommended Execution Order
 
 **Active queue:**
-  F63 → T31 → T36 → F68; D05, D06, F65, F60, F67, and I11 archived. I08 remains archived runner-hygiene history.
+  F63 → T31 → T36 → F68; T37 fica posteriormente a T36 archived, fora da ordem ativa imediata. D05, D06, F65, F60, F67, and I11 archived. I08 remains archived runner-hygiene history.
 
 **Archived since prior queue:** F56, F55, F54, F53, F52, T27, T28, T29, I07, D03. Não são trabalho ativo.
 
@@ -723,6 +729,7 @@ Order note: F57/F61 archived; F62 deprecated because owner folded small destinat
 - D06 precede F67 e F68: owner precisa decidir superfícies essenciais/desabilitáveis antes de alteração browser-visible; Apply bloqueado sem aprovação do inventário.
 - T36 é independente de F67, mas precede F68: mede `pollDelay × maxPolls`, percentis e margem segura antes de aumentar timeout.
 - F67 archived; T36 precedes F68 after D06.
+- T37 depende de T36 archived e só deve ser retomada depois dele; registro futuro não altera lifecycle ou escopo de T36, F67 ou D06.
 - D05 and I08 are test-runner hygiene follow-ups from F58/F61 review retries; they do not reopen, block, or alter F58, F61, T33, or F58 `R1-F02`.
 - I08 normally depends on D05's approved ownership/stop vocabulary; owner
   explicitly authorizes I08 to consume D05's audited vocabulary while D05
