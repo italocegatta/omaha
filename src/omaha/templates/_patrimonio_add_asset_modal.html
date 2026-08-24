@@ -2001,8 +2001,6 @@
         if (initial && (initial.status === 'failed' || initial.status === 'expired')) {
           this.state = 'error';
           this.showNotification(this.safeError(initial.error && initial.error.message), 'error');
-        } else {
-          this.showNotification('Pronto para atualizar posição.', 'status');
         }
       },
 
@@ -2159,7 +2157,7 @@
         var token = ++self.requestToken;
         self.cancelPoll();
         self.state = 'loading';
-        self.showNotification('Atualizando posição...', 'status');
+        self.removeAllNotifications();
         self.jobId = null;
         self.pollCount = 0;
 
@@ -2233,7 +2231,6 @@
 
             self.cancelPoll();
             self.state = 'success';
-            self.showNotification('Atualização concluída. Revise posições antes de confirmar', 'success');
             var preview = payload.preview;
             window.setTimeout(function () {
               if (token === self.requestToken) Alpine.store('importModal').openPreview(preview, 'patrimonio-sync');

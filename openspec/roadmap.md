@@ -579,7 +579,7 @@ Goal: restaurar compatibilidade de `get_logger` para permitir startup normal.
 Archive: `openspec/changes/archive/2026-08-22-r42-restaurar-contrato-get-logger/`
 
 ### T31 - Validar sincronização MyProfit ponta a ponta
-Status: `Ready`
+Status: `Applied`
 Goal: cobrir contratos de configuração, connector Playwright fake, estados do job, erros sem modal, Família disabled e revisão/import manual sem tocar serviços externos ou DB prod.
 Candidate OpenSpec change id: `t31-validar-sincronizacao-myprofit-ponta-a-ponta`
 Spec link: `openspec/changes/t31-validar-sincronizacao-myprofit-ponta-a-ponta/`
@@ -671,13 +671,9 @@ Goal: regularizar bloqueio confirmado do pre-push sem enfraquecer enforcement.
 Archive: `openspec/changes/archive/2026-08-23-i11-diagnosticar-bloqueio-de-push-e-plano-de-regularizacao/`
 
 ### D06 - Inventariar superfícies do fluxo de atualização e importação
-Status: `Ready`
-Goal: listar todas as janelas/cards/notificações exibidos por `Atualizar posição`, classificar essenciais versus desabilitáveis e fechar decisões antes de alterar UI.
-Candidate OpenSpec change id: `d06-inventariar-superficies-do-fluxo-de-atualizacao-e-importacao`
-Spec link: `openspec/changes/d06-inventariar-superficies-do-fluxo-de-atualizacao-e-importacao/`
-Files to inspect: `src/omaha/templates/_patrimonio_actions.html`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/routes/imports.py`, `tests/e2e/test_import_modal.py`, `tests/test_myprofit_sync_jobs.py`
-Notes: Auditoria/decisão, sem implementação. Registrar estados idle/loading/success/error, modal de revisão, notificações e qualquer card auxiliar; para cada superfície, owner decide essencial/desabilitável. Fidelity ledger: literal “listar todas as janelas/cards” → inventário observável por ação → origem/template/store/job → proibido remover ou reinterpretar antes da decisão → evidência em browser/testes existentes. Gramática: sequência ação → feedback → revisão → confirmação; ausência de superfície só após decisão explícita. Pergunta truncada do owner (“aumente o ...”) permanece aberta; ambiguidades técnicas vão para Explore. Apply requer aprovação owner do inventário/decisão.
-Progress log: pending — inventory and owner decision
+Status: `Archived` — 2026-08-24
+Goal: remover superfícies D06 sem alterar revisão, erros ou confirmação.
+Archive: `openspec/changes/archive/2026-08-24-d06-inventariar-superficies-do-fluxo-de-atualizacao-e-importacao/`
 
 ### F67 - Ordenar grupos da revisão de posições
 Status: `Ready`
@@ -709,7 +705,7 @@ Progress log: pending — waiting for T36 criterion
 ## Recommended Execution Order
 
 **Active queue:**
-  F63 → T31 → D06 → (F67 ∥ T36) → F68; D05, F65, F60, and I11 archived. I08 remains archived runner-hygiene history.
+  F63 → T31 → (F67 ∥ T36) → F68; D05, D06, F65, F60, and I11 archived. I08 remains archived runner-hygiene history.
 
 **Archived since prior queue:** F56, F55, F54, F53, F52, T27, T28, T29, I07, D03. Não são trabalho ativo.
 

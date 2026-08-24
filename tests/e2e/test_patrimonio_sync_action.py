@@ -190,8 +190,6 @@ class TestPatrimonioSyncAction:
             """
         )
 
-        page.locator(SELECTORS["patrimonio_notification_close"]).first.focus()
-        page.locator(SELECTORS["patrimonio_notification"]).dispatch_event("mouseenter")
         page.evaluate(
             """
             () => {
@@ -213,15 +211,11 @@ class TestPatrimonioSyncAction:
             """
         )
         loading = page.locator(SELECTORS["patrimonio_notification"])
-        assert loading.count() == 1
-        assert loading.inner_text().strip() == "Atualizando posição..."
+        assert loading.count() == 0
         assert (
             page.locator(SELECTORS["patrimonio_actions"]).get_attribute("data-sync-state")
             == "loading"
         )
-        assert loading.get_attribute("role") == "status"
-        assert loading.get_attribute("aria-live") == "polite"
-        loading.dispatch_event("mouseenter")
         page.evaluate("Alpine.store('patrimonioSync').start()")
         assert (
             page.evaluate("window.f60Requests.filter((item) => item.method === 'POST').length") == 1
@@ -245,13 +239,7 @@ class TestPatrimonioSyncAction:
         )
         page.evaluate("window.renderF60()")
         success = page.locator(SELECTORS["patrimonio_notification"])
-        assert success.count() == 1
-        assert (
-            success.inner_text().strip()
-            == "Atualização concluída. Revise posições antes de confirmar"
-        )
-        assert success.get_attribute("role") == "status"
-        assert success.get_attribute("aria-live") == "polite"
+        assert success.count() == 0
         assert page.locator(SELECTORS["import_modal_overlay"]).get_attribute("hidden") is None
         assert page.evaluate("Alpine.store('importModal').open") is True
         assert page.evaluate("Alpine.store('importModal').step") == 2
@@ -274,19 +262,10 @@ class TestPatrimonioSyncAction:
         assert page.locator(SELECTORS["patrimonio_notification"]).count() == 0
         assert page.evaluate("document.activeElement?.dataset.testid") == "dashboard-sync-btn"
 
-        page.evaluate("Alpine.store('patrimonioSync').init(null); window.renderF60()")
-        idle = page.locator(SELECTORS["patrimonio_notification"])
-        idle.hover()
-        page.wait_for_timeout(8_100)
-        page.evaluate("window.renderF60()")
-        assert page.locator(SELECTORS["patrimonio_notification"]).count() == 1
-        page.locator(SELECTORS["patrimonio_notification_close"]).click()
-        assert page.locator(SELECTORS["patrimonio_notification"]).count() == 0
-
-        # Ordinary focused-card dismissal remains protected when no newer
-        # lifecycle card replaces it; replacement above removed interacted idle
-        # and loading cards and emitted one fresh success card.
-        page.evaluate("Alpine.store('patrimonioSync').init(null); window.renderF60()")
+        page.evaluate(
+            "Alpine.store('patrimonioSync').setError("
+            "'Não foi possível baixar o CSV do MyProfit.'); window.renderF60()"
+        )
         page.locator(SELECTORS["patrimonio_notification_close"]).first.focus()
         focused_id = page.locator(SELECTORS["patrimonio_notification"]).get_attribute(
             "data-notification-id"
@@ -304,8 +283,7 @@ class TestPatrimonioSyncAction:
         page.evaluate("window.renderF60()")
         assert page.locator(SELECTORS["patrimonio_notification"]).count() == 0
 
-        # Error lifecycle replacement also removes an interacted loading card
-        # and emits exactly one assertive safe card.
+        # Error lifecycle emits exactly one assertive safe card.
         page.evaluate(
             """
             () => {
@@ -347,12 +325,7 @@ class TestPatrimonioSyncAction:
             action.locator("button").nth(1).get_attribute("data-testid") == "dashboard-import-btn"
         )
         assert action.locator("[data-testid=dashboard-sync-btn] .icon").inner_text() == "sync"
-        notification = page.locator(SELECTORS["patrimonio_notification"]).first
-        assert notification.inner_text().strip() == "Pronto para atualizar posição."
-        assert notification.get_attribute("role") == "status"
-        assert notification.get_attribute("aria-live") == "polite"
-        assert notification.get_attribute("aria-atomic") == "true"
-        assert notification.get_attribute("data-notification-id")
+        assert page.locator(SELECTORS["patrimonio_notification"]).count() == 0
 
     def test_start_and_poll_without_navigation(self, page: Page, live_url: str) -> None:
         _login(page, live_url)
@@ -407,8 +380,8 @@ class TestPatrimonioSyncAction:
         notification = page.locator(SELECTORS["patrimonio_notification"]).filter(
             has_text="Atualização concluída. Revise posições antes de confirmar"
         )
-        assert notification.is_visible()
-        assert notification.get_attribute("role") == "status"
+        assert notification.count() == 0
+        assert page.locator(SELECTORS["patrimonio_notification"]).count() == 0
         _capture(page, ARTIFACT_PATH)
 
         page.click(SELECTORS["import_cancel_btn"])
@@ -427,6 +400,9 @@ class TestPatrimonioSyncAction:
 
     def test_notification_manual_close_and_focus_pause(self, page: Page, live_url: str) -> None:
         _login(page, live_url)
+        page.evaluate(
+            "Alpine.store('patrimonioSync').setError('Não foi possível baixar o CSV do MyProfit.')"
+        )
         notification = page.locator(SELECTORS["patrimonio_notification"]).first
         notification.hover()
         page.wait_for_timeout(8_100)
@@ -485,6 +461,10 @@ class TestPatrimonioSyncAction:
             timeout=8_000,
         )
         assert not page.locator(SELECTORS["import_modal_overlay"]).is_visible()
+        notification = page.locator(SELECTORS["patrimonio_notification"])
+        assert notification.count() == 1
+        assert notification.get_attribute("role") == "alert"
+        assert notification.get_attribute("aria-live") == "assertive"
         notification = page.locator(SELECTORS["patrimonio_notification"]).filter(
             has_text="Não foi possível baixar o CSV do MyProfit."
         )
@@ -536,16 +516,20 @@ class TestPatrimonioSyncAction:
             timeout=8_000,
         )
         assert not page.locator(SELECTORS["import_modal_overlay"]).is_visible()
+        notification = page.locator(SELECTORS["patrimonio_notification"])
+        assert notification.count() == 1
+        assert notification.get_attribute("role") == "alert"
+        assert notification.get_attribute("aria-live") == "assertive"
 
-    def test_family_sync_action_is_disabled(self, page: Page, live_url: str) -> None:
+    def test_family_sync_action_is_absent(self, page: Page, live_url: str) -> None:
         _login(page, live_url)
         family_value = page.locator(SELECTORS["profile_option_family"]).get_attribute("value")
         assert family_value
         page.select_option(SELECTORS["profile_switcher"], family_value)
-        page.wait_for_selector(SELECTORS["dashboard_sync_btn"], state="visible", timeout=8_000)
-        button = page.locator(SELECTORS["dashboard_sync_btn"])
-        assert button.is_disabled()
-        assert button.get_attribute("data-sync-state") == "disabled"
+        page.wait_for_selector(SELECTORS["patrimonio_actions"], state="attached", timeout=8_000)
+        action = page.locator(SELECTORS["patrimonio_actions"])
+        assert action.locator(SELECTORS["dashboard_sync_btn"]).count() == 0
+        assert "Atualizar posição" not in action.inner_text()
         assert page.locator(SELECTORS["patrimonio_notifications"]).count() == 0
         assert page.locator(SELECTORS["import_modal_overlay"]).count() == 1
         _capture(page, ARTIFACT_DIR / "f60-atualizar-posicao-family.png")

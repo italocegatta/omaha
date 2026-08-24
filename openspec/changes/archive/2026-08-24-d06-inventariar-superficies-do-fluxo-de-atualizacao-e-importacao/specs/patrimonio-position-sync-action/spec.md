@@ -1,34 +1,13 @@
-# patrimonio-position-sync-action
-
-## Purpose
-
-Dashboard action that starts profile synchronization and hands successful
-previews to existing manual import review.
-
-## Requirements
-
-### Requirement: Patrimônio exposes Atualizar posição beside manual import
-
-The real-profile Patrimônio action strip SHALL render a visible button labeled
-`Atualizar posição` immediately left of the existing `Importar CSV` button,
-with a stable `data-testid="dashboard-sync-btn"`. Clicking it SHALL start the
-existing F59 job through `POST /api/myprofit/sync` without navigation.
-
-#### Scenario: Real profile sees paired actions
-
-- **WHEN** an authenticated operator views Patrimônio with a real active profile
-- **THEN** both controls are visible and `Atualizar posição` is immediately left
-  of `Importar CSV`
-- **AND** its leading icon is the `sync` Material Symbols Outlined ligature
+## MODIFIED Requirements
 
 ### Requirement: Sync action renders explicit lifecycle states
 
 The action SHALL expose observable `idle`, `loading`, `success`, `error`, and
-`disabled` states with accessible state semantics. Loading SHALL prevent duplicate
-activation while polling F59; polling SHALL stop at terminal or error states.
-Idle, loading, and successful handoff SHALL use existing action or review
-surfaces without creating the three D06 lifecycle notification cards. Error
-states SHALL retain their existing safe notification surface.
+`disabled` states with accessible state semantics. Loading SHALL prevent
+duplicate activation while polling F59; polling SHALL stop at terminal or error
+states. Idle, loading, and successful handoff SHALL use the existing action or
+review surfaces without creating the three D06 lifecycle notification cards.
+Error states SHALL retain their existing safe notification surface.
 
 #### Scenario: Loading prevents duplicate starts
 
@@ -36,20 +15,13 @@ states SHALL retain their existing safe notification surface.
 - **THEN** the action is visibly loading and disabled while status is polled
 - **AND** a second activation does not create another start request
 
-### Requirement: Successful sync opens existing manual review
-
-Only a successful F59 payload SHALL open existing `$store.importModal` review.
-Assignments remain editable, and explicit commit remains the only portfolio
-mutation.
-
-#### Scenario: Success hands off to existing review
+#### Scenario: Successful sync keeps review as success surface
 
 - **WHEN** F59 returns a compatible successful preview
-- **THEN** the existing import review opens without navigation or automatic
-  commit
+- **THEN** the action reaches `success` and opens the existing import review
 - **AND** no `patrimonio-notification` card with
   `Atualização concluída. Revise posições antes de confirmar` is rendered
-- **AND** no POST of commit occurs before explicit confirmation
+- **AND** no POST de commit occurs before explicit confirmation
 
 #### Scenario: Errors retain safe feedback
 
@@ -65,7 +37,7 @@ rendered. The existing profile selector and read-only/mutation guards SHALL
 remain available, and selecting Família SHALL issue no synchronization, poll,
 or modal request.
 
-#### Scenario: Família cannot synchronize
+#### Scenario: Família does not show synchronization action
 
 - **WHEN** Família is the active profile
 - **THEN** `dashboard-sync-btn` is absent from the Patrimônio action strip
@@ -75,12 +47,12 @@ or modal request.
 ### Requirement: Sync lifecycle uses transient notification cards
 
 Lifecycle feedback SHALL use dismissible bottom-corner notification cards with
-safe PT-BR copy, required live-region semantics, and bounded 8-second dismissal
-for error states. Idle, loading, and successful review handoff SHALL NOT render
-notification cards for `Pronto para atualizar posição.`, `Atualizando posição...`,
-or `Atualização concluída. Revise posições antes de confirmar`. Preserved error
-notifications SHALL continue to pause on hover or focus and support explicit
-dismissal.
+safe PT-BR copy, required live-region semantics, and bounded 8-second
+dismissal for error states. Idle, loading, and successful review handoff SHALL
+NOT render notification cards for `Pronto para atualizar posição.`,
+`Atualizando posição...`, or `Atualização concluída. Revise posições antes de
+confirmar`. Preserved error notifications SHALL continue to pause on hover or
+focus and support explicit dismissal.
 
 #### Scenario: Error feedback remains transient and accessible
 
