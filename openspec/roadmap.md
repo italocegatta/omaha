@@ -578,15 +578,6 @@ Status: `Archived` — 2026-08-22
 Goal: restaurar compatibilidade de `get_logger` para permitir startup normal.
 Archive: `openspec/changes/archive/2026-08-22-r42-restaurar-contrato-get-logger/`
 
-### T31 - Validar sincronização MyProfit ponta a ponta
-Status: `Applied`
-Goal: cobrir contratos de configuração, connector Playwright fake, estados do job, erros sem modal, Família disabled e revisão/import manual sem tocar serviços externos ou DB prod.
-Candidate OpenSpec change id: `t31-validar-sincronizacao-myprofit-ponta-a-ponta`
-Spec link: `openspec/changes/t31-validar-sincronizacao-myprofit-ponta-a-ponta/`
-Files to inspect: `tests/conftest.py`, `tests/test_imports_routes.py`, `tests/test_import_preview.py`, `tests/e2e/test_import_modal.py`, `tests/support/browser.py`
-Notes: Usar fixtures/tmp DB e Playwright mock; registrar novo prefixo em `_INTEGRATION_PREFIXES` quando aplicável; validação final via `task test-unit`, `task test-integration`, `task test-e2e`/BDD conforme cobertura. Delivery runtime exige `refresh-for-test`, sem `db-reset` sem autorização explícita.
-Progress log: pending — tests/spec alignment
-
 ### T32 - Revisar política de poda seletiva sob teto de testes
 Status: `Archived` — 2026-08-20 (owner-authorized historical closure; superseded by T33)
 Goal: registrar política de poda seletiva e preservar R3 como histórico.
@@ -642,13 +633,10 @@ Goal: substituir Taskipy apenas no boundary das seis lanes canônicas.
 Archive: `openspec/changes/archive/2026-08-22-i10-substituir-taskipy-no-boundary-da-suite-canonica/`
 
 ### F63 - Hover e cabeçalho sticky na tabela de rebalanceamento
-Status: `Spec Proposed`
-Goal: portar exclusivamente para a única tabela de ativos de `/rebalanceamento` o destaque de linha no hover e o cabeçalho sticky já existentes em `/patrimonio`, preservando todo comportamento atual de ambas as páginas.
-Candidate OpenSpec change id: `f63-hover-e-cabecalho-sticky-na-tabela-de-rebalanceamento`
-Spec link: `openspec/changes/f63-hover-e-cabecalho-sticky-na-tabela-de-rebalanceamento/`
-Files to inspect: `src/omaha/templates/_rebalance_plan.html`, `src/omaha/templates/_patrimonio_class_section.html`, `src/omaha/static/app.css`, `tests/test_rebalance_page.py`, `tests/visual/test_snapshots.py`
-Notes: Fatia visual cirúrgica; nenhuma refatoração, melhoria adicional, alteração de colunas, filtros, ordenação, dados, ações ou comportamento de `/patrimonio`. Fidelity ledger: “destacar linha no hover” → feedback visual aplicado à linha inteira → células da linha mudam para estado hover coerente, sem alterar conteúdo/estado; fonte: seletor/classes da tabela e tokens CSS existentes; proibido tooltip, seleção persistente, mudança de ação/cor sem hover ou padrão genérico alternativo; evidência: comportamento equivalente `.asset-table` em `app.css`. “Cabeçalho sticky visível ao rolar” → `thead th` permanece preso no topo durante scroll → mesma tabela continua com cabeçalho legível e acima das linhas; fonte: regra sticky existente de `.asset-table`/`.table-sticky-header`; proibido sticky em outras tabelas, scroll interno novo, mudança de layout ou sobreposição que oculte filtros. Gramática visual: uma única tabela `rebalance-asset-table`, cabeçalho acima das linhas, hover temporário por linha; linhas continuam zebra/ações/filtros atuais; ausência de hover fora do cursor e ausência de dados não mudam semântica. Mapeamentos numéricos: N/A — nenhum valor, unidade, sinal ou escala é alterado; zero, limite e missing-data preservam renderização atual. Aceitação deve provar percepção visual no browser/renderização: hover distingue linha inteira; scroll mantém cabeçalho visível; `/patrimonio` e restante de `/rebalanceamento` permanecem sem alteração. Owner deve aprovar mock estático, protótipo ou browser rendering antes de Apply; aprovação registrada é dependência obrigatória de handoff e Apply fica bloqueado sem ela.
-Progress log: proposal/design/tasks + delta specs created; change validation passed, stable specs 71/71, `git diff --check` passed. Apply blocked until F60 reaches `Applied` and owner visual validation/approval is recorded.
+Status: `Archived` — 2026-08-24
+Goal: portar hover e cabeçalho sticky para tabela de rebalanceamento.
+Archive: `openspec/changes/archive/2026-08-24-f63-hover-e-cabecalho-sticky-na-tabela-de-rebalanceamento/`
+Notes: Review R2 aprovado; suite canônica `NOT RUN — maintenance-suspended`; baseline desktop patrimônio atualizado conforme autorização.
 
 ### F64 - Favicon de produção do Omaha
 Status: `Archived` — 2026-08-22
@@ -706,10 +694,26 @@ Files to inspect: `scripts/run_full_suite.py`, `tests/conftest.py`, `tests/suppo
 Notes: Contexto owner: `data/test_e2e.db` é efêmero, reproduzível por migrations/seed e pode ser apagado/sobrescrito automaticamente pelos testes sem autorização; `data/portfolio.db` é banco de produto e permanece protegido. Processos PID/PGID pertencentes ao único ambiente Omaha em execução podem ser reiniciados automaticamente quando necessário para novas funcionalidades, somente após ownership/identificação segura; proibido broad kill de processos não relacionados. Avaliar contrato de ownership/preflight, classificação test DB versus product DB, cleanup/recreate automático, lock/lease ou identificação de processo, restart gracioso, prevenção de adoção de recursos estrangeiros, receipts e recuperação de processos stale. Não alterar T36, F67 ou D06; não iniciar proposta, apply ou testes; não mutar `data/portfolio.db`, não apagar recursos estrangeiros, não ampliar para multiambiente, host-wide cleanup ou supervisor genérico. Owner quer retomar após T36 finalizar.
 Progress log: pending — deferred until T36 archived
 
+### T38 - Telemetria mínima e runbook de análise MyProfit
+Status: `Ready` — deferred; owner asks later, after T36 archived
+Goal: implementar telemetria bounded por job/run e runbook para analisar sincronizações MyProfit em 4–8 semanas de execuções reais, antes de abrir diagnóstico de causa principal.
+Candidate OpenSpec change id: `t38-telemetria-minima-e-runbook-de-analise-myprofit`
+Spec link: `openspec/changes/t38-telemetria-minima-e-runbook-de-analise-myprofit/`
+Files to inspect: `src/omaha/routes/imports.py`; sync job/model/config boundaries (`src/omaha/models.py`, `src/omaha/config.py`); `src/omaha/myprofit/connector.py`; frontend polling template/store (`src/omaha/templates/_patrimonio_add_asset_modal.html`, `_patrimonio_actions.html`); `tests/test_myprofit_sync_jobs.py` plus chosen docs/runbook file.
+Notes: Escopo único de observabilidade + documentação, sem separar telemetry/runbook. Registrar por job/run somente `job_id`, resultado final, etapa da falha, código sanitizado, duração total e por etapa, transições de estado e sinal de UI atingindo limite local antes do job terminar. Nunca registrar senha, CSV, URL sensível ou exceção bruta; sanitização e cardinalidade devem ser bounded. Runbook deve explicar agrupamento por `stage/code`, distinção entre connector, polling/UI, processo/browser, preview/handoff e concorrência, thresholds/contagens a observar, janela de coleta de 4–8 semanas ou 4–8 execuções reais semanais e critério para abrir diagnóstico de causa principal. Sem mudança de serviço externo, sem mudança de timeout, sem retry, sem ampliar escopo de F68. T36 archived fornece medição, mas não justifica F68; F68 permanece decisão separada do owner. Progress log: pending — owner asks later.
+
+### D07 - Delimitar escopo mobile no contrato de produto
+Status: `Ready`
+Goal: registrar no PRD que Omaha não possui caso de uso mobile atualmente e que testes de browser mobile não são requisito da aceitação corrente, preservando aceitação desktop/browser e políticas de integridade da suíte.
+Candidate OpenSpec change id: `d07-delimitar-escopo-mobile-no-contrato-de-produto`
+Spec link: `openspec/changes/d07-delimitar-escopo-mobile-no-contrato-de-produto/`
+Files to inspect: `openspec/PRD.md` §4.13; `tests/PERFORMANCE.md`; `tests/AUDIT.md`; `openspec/specs/test-suite-quality/spec.md`; `openspec/specs/dev-tasks/spec.md`
+Notes: Somente documentação/contrato; eventual aplicação altera somente `openspec/PRD.md`, sem código, testes, specs ou artefatos de change nesta fatia. Wording MUST distinguish “mobile browser tests não são requisito de aceitação corrente” de apagar, desabilitar, mascarar ou tornar testes não executáveis. Preservar aceitação desktop/browser, lanes e comandos atuais, testes mobile versionados/runnable quando existentes, e proibição de `skip`/`xfail`/retry/remoção de testes ou cobertura. Mobile visual failure pode ficar fora do critério product-critical atual, mas não pode ser convertido em passe falso nem ocultar regressão desktop/browser. Verificar que o texto não contradiz §4.13, matriz de buckets, histórico T32, cobertura visual retida ou contratos de viewport existentes. Acceptance: PRD explicita ausência de caso de uso mobile atual, não-requisito de mobile browser tests para aceitação corrente, fronteira desktop/browser obrigatória e preservação integral da política sem máscara; nenhum arquivo fora do PRD é alterado. Progress log: pending.
+
 ## Recommended Execution Order
 
 **Active queue:**
-  F63 → T31 → T36 → F68; T37 fica posteriormente a T36 archived, fora da ordem ativa imediata. D05, D06, F65, F60, F67, and I11 archived. I08 remains archived runner-hygiene history.
+  D07 → F63 → T36 → (owner choice: T38 or F68); T37 fica posteriormente a T36 archived, fora da ordem ativa imediata. D07 precedes PRD wording update and does not alter F63/T36 scope. T38 é futura e independente de F68; F68 permanece não justificada por T36. D05, D06, F65, F60, F67, and I11 archived. I08 remains archived runner-hygiene history.
 
 **Archived since prior queue:** F56, F55, F54, F53, F52, T27, T28, T29, I07, D03. Não são trabalho ativo.
 
@@ -722,7 +726,7 @@ Order note: F57/F61 archived; F62 deprecated because owner folded small destinat
 - F61 bloqueava F58 e está archived; F58 inicia removendo configuration `destination` sem modulador antes da automação.
 - F58 bloqueia F59: job depende do connector e de seu contrato de falhas/arquivo.
 - F59 bloqueia F60: UI depende do endpoint/job status e da entrega do preview existente.
-- F60 e T31 dependem de F59; T31 valida integração dos contratos concluídos e pode ser preparada em paralelo após F58.
+- F60 depende de F59: UI depende do endpoint/job status e da entrega do preview existente.
 - F60 tem gate adicional: aprovação owner de mock/protótipo/browser rendering antes de Apply; propose deve carregar gate e Apply fica bloqueado sem registro.
 - T32 closed/superseded by T33; concurrent-BDD refusal is historical, and harness correction transferred to T33. Future pruning remains blocked without equivalent record.
 - T33 não depende de T32; resolve somente concorrência, ciclo de vida de servidor/porta 8766 e determinismo da lane BDD antes das fatias seguintes.
@@ -730,6 +734,8 @@ Order note: F57/F61 archived; F62 deprecated because owner folded small destinat
 - T36 é independente de F67, mas precede F68: mede `pollDelay × maxPolls`, percentis e margem segura antes de aumentar timeout.
 - F67 archived; T36 precedes F68 after D06.
 - T37 depende de T36 archived e só deve ser retomada depois dele; registro futuro não altera lifecycle ou escopo de T36, F67 ou D06.
+- T38 depende somente de T36 archived e de acionamento posterior do owner; pode preceder ou ser independente de F68 conforme escolha do owner. T38 não altera T36, T37, F67 ou D06, e T36 não justifica F68.
+- D07 é independente de código e testes; deve ser proposta/aprovada antes da edição correspondente em `openspec/PRD.md`. Não autoriza remover, desabilitar, skipar, xfailar ou mascarar testes mobile existentes; preserva desktop/browser acceptance e §4.13.
 - D05 and I08 are test-runner hygiene follow-ups from F58/F61 review retries; they do not reopen, block, or alter F58, F61, T33, or F58 `R1-F02`.
 - I08 normally depends on D05's approved ownership/stop vocabulary; owner
   explicitly authorizes I08 to consume D05's audited vocabulary while D05
@@ -754,7 +760,7 @@ Order note: F57/F61 archived; F62 deprecated because owner folded small destinat
   lint, focused tasks, or unrelated commands.
 - F63 depends on F60 reaching `Applied` and owner validation before Apply because
   both inspect the shared patrimônio visual surface and `app.css`; no semantic
-  dependency on F59/T31. F63 also requires owner approval of static mock,
+  dependency on F59. F63 also requires owner approval of static mock,
   prototype, or browser rendering before Apply.
 - F65 depends on F59's preview contract and F60 reaching `Applied` plus owner
   validation before Apply; it owns the shared import-review surface and must

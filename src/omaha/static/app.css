@@ -3415,7 +3415,7 @@ td.editing {
   background: var(--table-row-even);
 }
 .rebalance-asset-row:hover td {
-  background: var(--table-row-hover);
+  background: var(--bg-hover) !important;
 }
 .rebalance-asset-row--buy td {
   background: color-mix(in srgb, var(--positive) 7%, var(--surface)) !important;
@@ -3712,6 +3712,11 @@ select:-webkit-autofill {
 }
 
 .asset-table thead th {
+  background: var(--table-header-bg);
+  border-bottom: 1px solid var(--table-border-strong);
+}
+
+.table-sticky-header.rebalance-table thead th {
   background: var(--table-header-bg);
   border-bottom: 1px solid var(--table-border-strong);
 }

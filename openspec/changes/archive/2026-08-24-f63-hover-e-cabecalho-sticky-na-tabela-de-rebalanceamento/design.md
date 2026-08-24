@@ -81,3 +81,42 @@ No migration or deployment step. Apply is blocked until F60 is `Applied`, F60 ow
 ## Open Questions
 
 None for proposal. Apply must stop with `BLOCKED_FOR_IMPLEMENTATION_BRIEF` if current CSS/template differs from this inspected map or if the required F60/owner approvals are absent.
+
+## Implementation Decisions
+
+- Preflight 2026-08-24 confirmed the implementation map remains exact: the
+  rebalance table has no `table-sticky-header` class, its existing hover rule
+  uses `--table-row-hover`, and buy/sell/neutral idle backgrounds use
+  `!important`; canonical sticky/transition/`--bg-hover` rules remain scoped
+  to existing hooks. Decision: add only the canonical table class, make the
+  existing rebalance hover declaration win during `:hover`, and leave
+  patrimônio selectors/template untouched. Impact: no Alpine, layout, data, or
+  interaction changes. Evidence: current source inspection of
+  `_rebalance_plan.html`, `_patrimonio_class_section.html`, and `app.css`.
+- Browser preflight 2026-08-24 exposed a cascade interaction not visible in
+  static markup: canonical `.table-sticky-header thead th` specificity
+  overrode existing `.rebalance-table-th` header background/border when the
+  hook was added. Decision: add one rebalance-table-scoped preservation rule
+  using existing header tokens after canonical sticky rules. Impact: sticky
+  positioning activates without changing filter/header appearance or
+  screenshot baseline; no other table receives override. Evidence: first
+  focused browser run passed sticky/hover assertions and showed a 48-row
+  header-only snapshot diff before this bounded override.
+- Remediation preflight 2026-08-24 confirmed the supported visual fixture still
+  binds to the exact declared `data/test_visual.db` path and deletes that path
+  inside `live_url_visual` before seeding (`tests/visual/conftest.py:35,90-99`).
+  The exact path was already present before this remediation run, without
+  current-run ownership evidence. Decision: do not launch the fixture, adopt
+  the DB, or modify unrelated visual harness code; stop before resource use
+  and require a trusted isolated runner. Impact: F63 remains blocked on R1-F01
+  despite no implementation change. Evidence: preflight stat/hash receipt in
+  `tasks.md` remediation evidence.
+- Final remediation 2026-08-24 used explicit owner authorization to delete and
+  recreate only the exact visual DB path, then ran the supported patrimônio
+  snapshot command once. Both existing dimension contracts still failed before
+  any F63-specific behavior assertion: desktop `1605x4271` expected versus
+  `1605x4241` current, mobile `1669x4398` expected versus `1669x4346` current.
+  Decision: classify R1-F01 as unresolved pre-existing visual dimension drift;
+  do not change patrimônio code, harness, tests, or baselines. Impact: final
+  remediation remains blocked, with current-run DB cleanup proven. Evidence:
+  `tasks.md` remediation 2/2 ledger and focused command receipt.

@@ -119,6 +119,54 @@ def test_rebalance_plan_snapshot(visual_page, live_url_visual: str, visual_viewp
         "() => document.querySelectorAll('[data-testid^=\"rebalance-asset-row-\"]').length > 0",
         timeout=10_000,
     )
+    table = visual_page.locator('[data-testid="rebalance-asset-table"]')
+    assert table.count() == 1
+    header = table.locator("thead th").first
+    assert header.evaluate("el => getComputedStyle(el).position") == "sticky"
+    assert header.evaluate("el => getComputedStyle(el).top") == "0px"
+    assert header.evaluate("el => getComputedStyle(el).zIndex") == "1"
+
+    filter_trigger = table.locator('[data-testid="rebalance-header-filter-action-trigger"]')
+    assert filter_trigger.is_visible()
+
+    row = table.locator("tbody tr.rebalance-asset-row").first
+    idle_backgrounds = row.locator("td").evaluate_all(
+        "cells => cells.map(cell => getComputedStyle(cell).backgroundColor)"
+    )
+    hover_background = table.evaluate(
+        """el => {
+            const probe = document.createElement('span');
+            probe.style.backgroundColor = 'var(--bg-hover)';
+            document.body.append(probe);
+            const color = getComputedStyle(probe).backgroundColor;
+            probe.remove();
+            return color;
+        }"""
+    )
+    row.hover()
+    visual_page.wait_for_timeout(120)
+    hovered_backgrounds = row.locator("td").evaluate_all(
+        "cells => cells.map(cell => getComputedStyle(cell).backgroundColor)"
+    )
+    assert hovered_backgrounds
+    assert all(color == hover_background for color in hovered_backgrounds)
+
+    visual_page.locator(".rebalance-section-title").hover()
+    visual_page.wait_for_timeout(120)
+    restored_backgrounds = row.locator("td").evaluate_all(
+        "cells => cells.map(cell => getComputedStyle(cell).backgroundColor)"
+    )
+    assert restored_backgrounds == idle_backgrounds
+
+    visual_page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+    visual_page.wait_for_timeout(120)
+    header_box = header.bounding_box()
+    filter_box = filter_trigger.bounding_box()
+    assert header_box is not None
+    assert filter_box is not None
+    assert 0 <= header_box["y"] < visual_viewport.height
+    assert 0 <= filter_box["y"] < visual_viewport.height
+    visual_page.evaluate("window.scrollTo(0, 0)")
     # F52 — wait for ECharts SVG charts to render before snapshotting.
     visual_page.wait_for_function(
         """() => {

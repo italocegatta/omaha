@@ -84,6 +84,18 @@ Portfolio-specific exceptions (documented, not removed):
 3. Inline editing cells — keep click-to-edit UX, cell styling changes only.
 4. Delete confirmations — behavior-only, no visual change needed.
 
+#### Scenario: Rebalance table uses existing sticky and hover states
+- **WHEN** a populated `/rebalanceamento` page renders its asset table
+- **THEN** the single top-level table uses `table-sticky-header`
+- **AND** its header cells remain sticky at `top: 0` with existing header contrast
+- **AND** every data cell in a hovered asset row uses `var(--bg-hover)` for hover duration
+- **AND** idle zebra and action-state backgrounds remain unchanged outside hover
+
+#### Scenario: Patrimônio remains source-pattern stable
+- **WHEN** a patrimônio asset table renders or is hovered
+- **THEN** its existing sticky-header and row-hover behavior remains unchanged
+- **AND** no new class, handler, or content is added to `_patrimonio_class_section.html`
+
 #### Scenario: Sticky table header on scroll
 - **WHEN** the user scrolls a page containing `.table-sticky-header`
 - **THEN** the `<thead>` remains pinned to `top: 0` with

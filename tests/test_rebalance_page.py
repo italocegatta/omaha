@@ -321,6 +321,31 @@ def test_post_rebalanceamento_valid_contribution_renders_plan(
     assert 'data-testid="rebalance-filter-bar"' not in body
 
 
+def test_rebalance_table_visual_hooks(client: TestClient, _omaha_test_env: dict[str, str]) -> None:
+    """The populated asset plan exposes only its canonical visual table hooks."""
+    _seed_two_classes(_omaha_test_env)
+    _login_and_select(client, profile_id=1)
+
+    post_response = client.post(
+        "/rebalanceamento", data={"contribution": "5000.00"}, follow_redirects=False
+    )
+    assert post_response.status_code == 303
+    response = client.get(post_response.headers["location"])
+    assert response.status_code == 200
+    body = response.text
+
+    assert body.count('data-testid="rebalance-asset-table"') == 1
+    assert body.count('class="data-table rebalance-table table-sticky-header"') == 1
+    assert body.count("table-sticky-header") == 1
+    assert body.count('<template x-for="column in columns" :key="column.key">') == 2
+    assert ":data-testid=\"'rebalance-header-filter-' + column.key + '-trigger'\"" in body
+    assert '@click="sortBy(column.sortKey)"' in body
+    assert ':data-asset-key="row.asset_key"' in body
+    assert (
+        ":data-testid=\"column.key === 'action' ? 'rebalance-action-' + row.action : null\"" in body
+    )
+
+
 def test_post_rebalanceamento_success_redirect_renders_plan_with_default_thresholds(
     client: TestClient, _omaha_test_env: dict[str, str]
 ) -> None:
