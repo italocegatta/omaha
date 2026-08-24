@@ -821,6 +821,22 @@ explícita com o agente.
 Regra normal: uma change só pode ser considerada entregue se `uv run task test`
 passar sem falhas. Para change browser-visível, §4.9 continua valendo.
 
+**Fronteira atual de produto e viewport:** Omaha não possui caso de uso mobile
+atual. O acesso técnico por celulares à URL LAN é apenas alcançabilidade
+operacional da rede doméstica; não constitui caso de uso mobile do produto nem
+requisito de aceitação mobile corrente. Portanto, testes de browser mobile não
+são requisito da aceitação corrente; comportamento desktop/browser e a aceitação
+browser existente continuam sendo a fronteira obrigatória. A ausência desse
+requisito mobile não prova que CSS, layout ou interações mobile têm suporte.
+
+Esta delimitação de produto não remove, desabilita ou torna não-executável
+qualquer teste mobile versionado, lane, comando ou cobertura; não introduz
+`skip`, `skipif`, `xfail` ou retry, nem reduz cobertura. Quando existentes,
+esses casos continuam descobríveis e executáveis por seus comandos/lane atuais,
+e suas falhas permanecem visíveis como evidência. Falha mobile não vira passe
+falso, e nenhuma regressão desktop/browser pode ser mascarada, suprimida ou
+reclassificada: falha desktop/browser continua bloqueando a aceitação.
+
 **Suspensão owner-authorized I10 (temporária):** somente o resultado da suíte
 canônica paralela `uv run task test` fica `maintenance-suspended` como gate
 obrigatório de apply/review/pre-push. O comando continua existente, executável e
