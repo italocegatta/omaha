@@ -100,13 +100,21 @@ retorna JSON com `preview_id`, `auto_matched`, `unmatched`, e `asset_classes`.
 
 ### Requirement: Revisão e commit de import (Step 2)
 
-The modal SHALL render Step 2 as up to three mutually exclusive review
-sections labelled `Novos`, `Alterados`, and `Inalterados`, each with a row
+The modal SHALL render Step 2 as up to four mutually exclusive review
+sections labelled `Novos`, `Ausentes`, `Alterados`, and `Inalterados`, in
+exactly that order whenever the sections contain rows, each with a row
 count. Rows SHALL retain incoming values as primary display and preserve
 editable class/trade/currency controls and hidden `broker_ticker` assignment
 keys. Empty sections SHALL NOT render; changed rows SHALL carry field-diff
 cues while unchanged rows SHALL carry none. Existing explicit confirmation
 remains sole commit boundary, with no standalone manual-import UI added.
+
+The fixed section order SHALL apply after manual `Importar CSV`, successful
+`Atualizar posição` handoff, local/mock preview hydration, and legacy payload
+fallback. The order SHALL NOT depend on JSON key order, producer, or row
+arrival order. Existing deterministic within-group ordering, four-way F65
+classification, compatibility arrays, values, controls, and timeout behavior
+SHALL remain unchanged.
 
 O modal SHALL exibir:
 - Resumo de linhas auto-matched (data-testid="import-matched-summary")

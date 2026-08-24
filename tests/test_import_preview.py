@@ -484,12 +484,18 @@ class TestPostImportPreview:
                 name: Asset(asset_class_id=asset_class.id, name=name, display_order=index)
                 for index, name in enumerate(("Árvore", "AZUL", "arara"))
             }
+            assets["Ausente"] = Asset(
+                asset_class_id=asset_class.id,
+                name="Ausente",
+                display_order=3,
+            )
             db.add_all(assets.values())
             db.flush()
             for name, ticker, qty in (
                 ("Árvore", "ARVE3", "100"),
                 ("AZUL", "AZUL3", "75"),
                 ("arara", "ARAR3", "10"),
+                ("Ausente", "AUS3", "8"),
             ):
                 db.add(
                     Position(
@@ -522,6 +528,12 @@ class TestPostImportPreview:
         assert [row["name"] for row in data["triage"]["changed"]] == ["arvore", "AZUL"]
         assert [row["name"] for row in data["triage"]["unchanged"]] == ["arara"]
         assert [row["name"] for row in data["triage"]["new"]] == ["Novo"]
+        assert [row["name"] for row in data["triage"]["absent"]] == ["Ausente"]
+        assert {
+            key: len(data["triage"][key]) for key in ("new", "changed", "unchanged", "absent")
+        } == {"new": 1, "changed": 2, "unchanged": 1, "absent": 1}
+        assert [row["name"] for row in data["auto_matched"]] == ["AZUL", "arara", "arvore"]
+        assert [row["name"] for row in data["unmatched"]] == ["Novo"]
         arve_fields = {
             field["id"]: field for field in data["triage"]["changed"][0]["changed_fields"]
         }

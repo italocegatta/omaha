@@ -179,8 +179,14 @@ class TestS04ImportModal:
 
         section_headers = page.locator(".import-review-section h3")
         section_text = section_headers.all_inner_texts()
-        assert any(text.startswith("Novos") and "5" in text for text in section_text)
-        assert any(text.startswith("Alterados") and "43" in text for text in section_text)
+        assert [header.locator("span").first.inner_text() for header in section_headers.all()] == [
+            "Novos",
+            "Alterados",
+        ]
+        assert [header.locator("span").nth(1).inner_text() for header in section_headers.all()] == [
+            "5",
+            "43",
+        ]
         assert not any(text.startswith("Inalterados") for text in section_text)
         assert page.locator(SELECTORS["import_existing_row"]).count() == 43
         changed_trigger = (
@@ -542,6 +548,111 @@ class TestS04ImportModal:
                 ],
             },
         }
+
+    def test_review_sections_keep_fixed_order_for_sync_local_and_legacy_hydration(
+        self, page: Page, live_url: str
+    ) -> None:
+        """Every local preview shape uses fixed cross-group order."""
+        _login_and_select_italo(page, live_url)
+        page.evaluate(
+            """() => Alpine.store('importModal').openPreview({
+                preview_id: 'mixed-review',
+                auto_matched: [
+                    {broker_ticker: 'CHG3', name: 'Alterado', qty: '2', avg_price: '10',
+                     current_price: '12', invested: '20', current_value: '24', asset_id: 2,
+                     asset_class_id: 1, buy_enabled: true, sell_enabled: true,
+                     currency_code: 'BRL'},
+                    {broker_ticker: 'SAME3', name: 'Inalterado', qty: '3', avg_price: '10',
+                     current_price: '10', invested: '30', current_value: '30', asset_id: 3,
+                     asset_class_id: 1, buy_enabled: true, sell_enabled: true, currency_code: 'BRL'}
+                ],
+                unmatched: [
+                    {broker_ticker: 'NEW3', name: 'Novo', qty: '1', avg_price: '5',
+                     current_price: '6', invested: '5', current_value: '6', suggested_class_id: 1,
+                     buy_enabled: true, sell_enabled: true, currency_code: 'BRL'}
+                ],
+                asset_classes: [{id: 1, name: 'Ações', color: 'red'}],
+                triage: {
+                     unchanged: [{broker_ticker: 'SAME3', name: 'Inalterado', qty: '3',
+                                  avg_price: '10', current_price: '10', current_value: '30',
+                                  state: 'unchanged', changed_fields: []}],
+                    absent: [{broker_ticker: 'ABS3', name: 'Ausente', qty: '4', avg_price: '8',
+                              current_price: '9', current_value: '36', asset_id: 4,
+                              asset_class_id: 1, asset_class_name: 'Ações', buy_enabled: true,
+                              sell_enabled: false, currency_code: 'BRL', state: 'absent',
+                              changed_fields: [], read_only: true, committable: false}],
+                     new: [{broker_ticker: 'NEW3', name: 'Novo', qty: '1', avg_price: '5',
+                            current_price: '6', current_value: '6', state: 'new',
+                            changed_fields: []}],
+                    changed: [{broker_ticker: 'CHG3', name: 'Alterado', qty: '2', avg_price: '10',
+                               current_price: '12', current_value: '24', state: 'changed',
+                                changed_fields: [{id: 'qty', field: 'qty', label: 'Qtde',
+                                                  unit: 'unidades', sign: 'positive', incoming: '2',
+                                                  incoming_value: '2', incoming_display: '2',
+                                                  previous: '1', previous_value: '1',
+                                                  previous_display: '1'}]}]
+                }
+            }, 'patrimonio-sync')"""
+        )
+        page.wait_for_selector('[data-testid="import-commit-btn"]', state="visible", timeout=5000)
+        headers = page.locator(".import-review-section h3")
+        assert [header.locator("span").first.inner_text() for header in headers.all()] == [
+            "Novos",
+            "Ausentes",
+            "Alterados",
+            "Inalterados",
+        ]
+        assert [header.locator("span").nth(1).inner_text() for header in headers.all()] == [
+            "1",
+            "1",
+            "1",
+            "1",
+        ]
+        assert page.locator('[data-testid="import-unmatched-row"]').count() == 1
+        assert page.locator('[data-testid="import-absent-row"]').count() == 1
+        assert page.locator('[data-testid="import-existing-row"]').count() == 1
+        assert page.locator('[data-testid="import-unchanged-row"]').count() == 1
+        assert page.locator('input[type="hidden"][value="NEW3"]').count() == 1
+        assert page.locator('input[type="hidden"][value="CHG3"]').count() == 1
+        assert page.locator('input[type="hidden"][value="SAME3"]').count() == 1
+        assert page.locator('[data-testid="import-absent-row"] input[type="hidden"]').count() == 0
+
+        page.evaluate(
+            """() => Alpine.store('importModal').openPreview({
+                preview_id: 'empty-groups-review', auto_matched: [], unmatched: [],
+                asset_classes: [],
+                triage: {
+                    changed: [], new: [], unchanged: [{broker_ticker: 'SAME3', name: 'Inalterado',
+                                                        qty: '1', avg_price: '1',
+                                                        current_price: '1',
+                                                        current_value: '1', changed_fields: []}],
+                    absent: []
+                }
+            })"""
+        )
+        headers = page.locator(".import-review-section h3")
+        assert [header.locator("span").first.inner_text() for header in headers.all()] == [
+            "Inalterados"
+        ]
+
+        page.evaluate(
+            """() => Alpine.store('importModal').openPreview({
+                preview_id: 'legacy-review',
+                auto_matched: [{broker_ticker: 'OLD3', name: 'Alterado', qty: '1', avg_price: '1',
+                                current_price: '1', current_value: '1', asset_id: 5,
+                                asset_class_id: 1,
+                                buy_enabled: true, sell_enabled: true, currency_code: 'BRL'}],
+                unmatched: [{broker_ticker: 'LEG3', name: 'Novo', qty: '1', avg_price: '1',
+                              current_price: '1', current_value: '1', suggested_class_id: null,
+                              buy_enabled: true, sell_enabled: true, currency_code: 'BRL'}],
+                asset_classes: []
+            })"""
+        )
+        headers = page.locator(".import-review-section h3")
+        assert [header.locator("span").first.inner_text() for header in headers.all()] == [
+            "Novos",
+            "Alterados",
+        ]
 
     def test_import_route_redirects(self, page: Page, live_url: str) -> None:
         """GET /import redirects to the dashboard (retired route)."""

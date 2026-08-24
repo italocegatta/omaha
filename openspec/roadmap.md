@@ -677,22 +677,19 @@ Archive: `openspec/changes/archive/2026-08-24-d06-inventariar-superficies-do-flu
 Notes: Review R2 approved; remediation 1/2 resolved PUSH-01.
 
 ### F67 - Ordenar grupos da revisão de posições
-Status: `Ready`
-Goal: manter grupos da janela de revisão sempre na ordem `Novos`, `Ausentes`, `Alterados`, `Inalterados` após upload, atualização ou qualquer ação local.
-Candidate OpenSpec change id: `f67-ordenar-grupos-da-revisao-de-posicoes`
-Spec link: `openspec/changes/f67-ordenar-grupos-da-revisao-de-posicoes/`
-Files to inspect: `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/routes/imports.py`, `tests/test_import_preview.py`, `tests/e2e/test_import_modal.py`
-Notes: Mudança visual/interaction independente de timeout; preservar classificação F65, controles, ausência de seção vazia e compatibilidade legacy. Fidelity ledger: literal ordem `Novos, Ausentes, Alterados, Inalterados` → sequência fixa de seções → `triageSections`/payload hidratado após cada ação → proibido ordem do payload, ordem alfabética entre grupos ou reclassificação → API + browser mixed-batch evidence. Numeric mappings: N/A; valores, sinais, zero e missing-data permanecem atuais. Owner deve aprovar browser rendering/mock antes de Apply; Apply bloqueado sem registro.
-Progress log: pending — proposal/design/tasks
+Status: `Archived` — 2026-08-24
+Goal: ordenar grupos da revisão como `Novos`, `Ausentes`, `Alterados`, `Inalterados`.
+Archive: `openspec/changes/archive/2026-08-24-f67-ordenar-grupos-da-revisao-de-posicoes/`
+Notes: Review R1 APPROVED; owner autorizou archive em 2026-08-24.
 
 ### T36 - Medir duração e definir critério de timeout da sincronização
-Status: `Ready`
+Status: `Spec Proposed`
 Goal: medir repetidamente duração do job MyProfit em ambiente seguro, registrar média e percentis e definir timeout baseado em evidência sem tocar serviço externo real ou DB de produção.
 Candidate OpenSpec change id: `t36-medir-duracao-e-definir-criterio-de-timeout-da-sincronizacao`
 Spec link: `openspec/changes/t36-medir-duracao-e-definir-criterio-de-timeout-da-sincronizacao/`
 Files to inspect: `src/omaha/routes/imports.py`, `src/omaha/templates/_patrimonio_add_asset_modal.html`, `src/omaha/models.py`, `tests/test_myprofit_sync_jobs.py`, `tests/e2e/test_import_modal.py`
-Notes: Diagnóstico/quality slice; usar connector fake/mock, dados temporários e amostras repetidas; registrar p50/p95/p99, dispersão, falhas e margem escolhida. Medir timeout efetivo atual (`pollDelay × maxPolls`) e distinguir limite de polling de timeout Playwright/job expiry. Não executar testes nesta decomposição. Critério deve produzir valor configurável/alvo para F68; não inventar texto truncado (“aumente o ...”). Ambiente seguro = sem credenciais, rede externa, DB prod ou alteração destrutiva; observar PRD §4.12–§4.14.
-Progress log: pending — measurement plan and evidence
+Notes: Diagnóstico/quality slice; usar connector fake/mock, dados temporários e **15 repetições** owner-approved; registrar p50/p95/p99, dispersão, falhas e margem escolhida. Medir timeout efetivo atual (`pollDelay × maxPolls`) e distinguir limite de polling de timeout Playwright/job expiry. Não executar testes nesta decomposição. Critério deve produzir valor configurável/alvo para F68; não inventar texto truncado (“aumente o ...”). Ambiente seguro = sem credenciais, rede externa, DB prod ou alteração destrutiva; observar PRD §4.12–§4.14.
+Progress log: proposal/design/tasks + applicable `sync-duration-measurement` delta spec created; exact change validation passed; stable specs 77/77 passed; owner changed measurement sample from 100 to 15 repetitions on 2026-08-24; T36 dossier requires update before Apply.
 
 ### F68 - Aumentar timeout efetivo da atualização com critério
 Status: `Ready`
@@ -706,7 +703,7 @@ Progress log: pending — waiting for T36 criterion
 ## Recommended Execution Order
 
 **Active queue:**
-  F63 → T31 → (F67 ∥ T36) → F68; D05, D06, F65, F60, and I11 archived. I08 remains archived runner-hygiene history.
+  F63 → T31 → T36 → F68; D05, D06, F65, F60, F67, and I11 archived. I08 remains archived runner-hygiene history.
 
 **Archived since prior queue:** F56, F55, F54, F53, F52, T27, T28, T29, I07, D03. Não são trabalho ativo.
 
@@ -725,7 +722,7 @@ Order note: F57/F61 archived; F62 deprecated because owner folded small destinat
 - T33 não depende de T32; resolve somente concorrência, ciclo de vida de servidor/porta 8766 e determinismo da lane BDD antes das fatias seguintes.
 - D06 precede F67 e F68: owner precisa decidir superfícies essenciais/desabilitáveis antes de alteração browser-visible; Apply bloqueado sem aprovação do inventário.
 - T36 é independente de F67, mas precede F68: mede `pollDelay × maxPolls`, percentis e margem segura antes de aumentar timeout.
-- F67 e T36 podem ser propostos/aplicados em paralelo após D06, respeitando WIP; F68 depende de ambos D06 e T36.
+- F67 archived; T36 precedes F68 after D06.
 - D05 and I08 are test-runner hygiene follow-ups from F58/F61 review retries; they do not reopen, block, or alter F58, F61, T33, or F58 `R1-F02`.
 - I08 normally depends on D05's approved ownership/stop vocabulary; owner
   explicitly authorizes I08 to consume D05's audited vocabulary while D05
