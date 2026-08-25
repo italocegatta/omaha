@@ -7,6 +7,7 @@ boundaries. They do not construct or invoke any external service adapter.
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
 import platform
@@ -119,6 +120,7 @@ def clean_sync_rows() -> None:
     with service._lock:
         service._reservations.clear()
         service._owned_dirs.clear()
+        service._terminal_observed.clear()
     with SessionLocal() as db:
         db.query(MyProfitSyncJob).delete()
         db.query(ImportPreview).delete()
@@ -128,6 +130,7 @@ def clean_sync_rows() -> None:
     with service._lock:
         service._reservations.clear()
         service._owned_dirs.clear()
+        service._terminal_observed.clear()
 
 
 def _login(client: TestClient, username: str = "Italo") -> None:
@@ -527,6 +530,184 @@ def test_error_stage_and_code_are_allowlisted() -> None:
         "code": "failed",
         "message": "Não foi possível sincronizar com o MyProfit.",
     }
+
+
+def _telemetry_messages(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [record.getMessage() for record in caplog.records if record.name == "omaha"]
+
+
+def test_telemetry_event_shape_and_sanitization(caplog: pytest.LogCaptureFixture) -> None:
+    from omaha.myprofit.telemetry import CODES, DOMAINS, EVENTS, STAGES, STATUSES, telemetry_context
+
+    job_id = "12345678-1234-4234-8234-123456789012"
+    logger = logging.getLogger("omaha")
+    logger.setLevel(logging.INFO)
+    with telemetry_context(job_id) as recorder:
+        recorder.transition(
+            domain="https://secret.example/path",
+            status="running",
+            stage="/tmp/credentials.csv",
+            code="raw-exception-password",
+        )
+        recorder.stage(
+            domain="connector",
+            status="succeeded",
+            stage="download",
+            code="success",
+            duration_ms=float("nan"),
+        )
+        recorder.terminal(status="succeeded", code="success", total_duration_ms=-1)
+        recorder.ui_limit()
+
+    messages = _telemetry_messages(caplog)
+    assert len(messages) == 4
+    job_ids = set()
+    for message in messages:
+        fields = dict(token.split("=", 1) for token in message.split()[1:])
+        assert fields["event"] in EVENTS
+        assert fields["domain"] in DOMAINS
+        assert fields["status"] in STATUSES
+        assert fields["stage"] in STAGES
+        assert fields["code"] in CODES
+        assert fields["duration_ms"] == "na" or fields["duration_ms"].isdigit()
+        assert fields["total_duration_ms"] == "na" or fields["total_duration_ms"].isdigit()
+        job_ids.add(fields["job_id"])
+    assert job_ids == {job_id}
+    rendered = "\n".join(messages)
+    for forbidden in ("secret.example", "credentials.csv", "raw-exception-password", "/tmp/"):
+        assert forbidden not in rendered
+
+
+def test_terminal_telemetry_emits_new_jobs_after_bounded_dedup_window(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    from omaha.main import app
+    from omaha.models import MyProfitSyncJob
+    from omaha.routes.imports import TERMINAL_DEDUP_LIMIT
+
+    service = app.state.myprofit_sync_service
+    with service._lock:
+        service._terminal_observed.clear()
+
+    job_ids = [
+        str(uuid.uuid5(uuid.NAMESPACE_URL, f"t38-terminal-{index}"))
+        for index in range(TERMINAL_DEDUP_LIMIT + 1)
+    ]
+    with caplog.at_level(logging.INFO, logger="omaha"):
+        for job_id in job_ids:
+            service._emit_terminal_once(
+                MyProfitSyncJob(job_id=job_id, profile_id=1, status="succeeded"),
+                status="succeeded",
+                code="success",
+            )
+        service._emit_terminal_once(
+            MyProfitSyncJob(job_id=job_ids[-1], profile_id=1, status="succeeded"),
+            status="succeeded",
+            code="success",
+        )
+
+    messages = [
+        message
+        for message in _telemetry_messages(caplog)
+        if "event=terminal" in message and "code=success" in message
+    ]
+    assert len(messages) == TERMINAL_DEDUP_LIMIT + 1
+    assert {f"job_id={job_id}" for job_id in job_ids} <= set(
+        token for message in messages for token in message.split() if token.startswith("job_id=")
+    )
+    with service._lock:
+        assert len(service._terminal_observed) == TERMINAL_DEDUP_LIMIT
+
+
+def test_stage_telemetry_metadata_failure_preserves_original_exception(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    from omaha.myprofit.telemetry import stage_span, telemetry_context
+
+    class ExplodingMetadataError(RuntimeError):
+        @property
+        def stage(self):
+            raise RuntimeError("raw-stage-property")
+
+        @property
+        def code(self):
+            raise RuntimeError("raw-code-property")
+
+    job_id = "12345678-1234-4234-8234-123456789013"
+    failure = ExplodingMetadataError("original-sync-failure")
+    with (
+        caplog.at_level(logging.INFO, logger="omaha"),
+        telemetry_context(job_id),
+        pytest.raises(ExplodingMetadataError) as caught,
+        stage_span(job_id, domain="connector", stage="download"),
+    ):
+        raise failure
+
+    assert caught.value is failure
+    messages = [message for message in _telemetry_messages(caplog) if "event=stage" in message]
+    assert len(messages) == 1
+    assert "stage=download" in messages[0]
+    assert "code=unknown" in messages[0]
+    assert "raw-stage-property" not in messages[0]
+    assert "raw-code-property" not in messages[0]
+    assert "original-sync-failure" not in messages[0]
+
+
+def test_ui_limit_signal_is_owned_and_non_mutating(
+    client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    from omaha.db import SessionLocal
+    from omaha.models import MyProfitSyncJob
+
+    _login(client)
+    job_id = _new_job(1, status="running")
+    foreign_job_id = _new_job(2, status="running")
+    with SessionLocal() as db:
+        before = (db.query(MyProfitSyncJob).count(), db.get(MyProfitSyncJob, job_id).status)
+
+    logger = logging.getLogger("omaha")
+    logger.setLevel(logging.INFO)
+    response = client.post(f"/api/myprofit/sync/{job_id}/ui-limit")
+    repeated = client.post(f"/api/myprofit/sync/{job_id}/ui-limit")
+    foreign = client.post(f"/api/myprofit/sync/{foreign_job_id}/ui-limit")
+
+    assert response.status_code == 204
+    assert repeated.status_code == 204
+    assert foreign.status_code == 404
+    messages = [message for message in _telemetry_messages(caplog) if "event=ui_limit" in message]
+    assert len(messages) == 1
+    assert f"job_id={job_id}" in messages[0]
+    assert "domain=polling_ui" in messages[0]
+    assert "code=local_limit_reached" in messages[0]
+    with SessionLocal() as db:
+        after = (db.query(MyProfitSyncJob).count(), db.get(MyProfitSyncJob, job_id).status)
+    assert after == before
+
+
+def test_myprofit_telemetry_runbook() -> None:
+    runbook = Path("docs/runbooks/myprofit-sync-telemetry.md").read_text(encoding="utf-8")
+    required = (
+        "four weeks",
+        "eight weeks",
+        "4–8 real runs per week",
+        "domain/stage/code",
+        "p50",
+        "p95",
+        "p99",
+        "connector",
+        "Polling/UI",
+        "Browser",
+        "Process",
+        "Preview/handoff",
+        "Concurrency",
+        "insufficient-evidence",
+        "50% of failed runs",
+        "at least two runs",
+    )
+    for token in required:
+        assert token in runbook
+    for forbidden in ("password=", "https://", "positions.csv", "raw exception text"):
+        assert forbidden not in runbook
 
 
 def test_family_start_and_poll_are_blocked_before_lookup(client: TestClient) -> None:

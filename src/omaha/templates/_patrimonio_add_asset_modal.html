@@ -1981,6 +1981,7 @@
     Alpine.store('patrimonioSync', {
       state: 'idle',
       jobId: null,
+      uiLimitReported: false,
       pollTimer: null,
       pollCount: 0,
       requestToken: 0,
@@ -1994,6 +1995,7 @@
         this.cancelPoll();
         this.requestToken += 1;
         this.jobId = null;
+        this.uiLimitReported = false;
         this.pollCount = 0;
         this.state = 'idle';
         this.removeAllNotifications();
@@ -2142,10 +2144,21 @@
         this.showNotification(message || 'Não foi possível concluir a atualização da posição.', 'error');
       },
 
+      reportUiLimit: function () {
+        if (this.uiLimitReported || !this.jobId) return;
+        this.uiLimitReported = true;
+        var jobId = this.jobId;
+        fetch('/api/myprofit/sync/' + encodeURIComponent(jobId) + '/ui-limit', {
+          method: 'POST',
+          keepalive: true,
+        }).catch(function () {});
+      },
+
       resetAfterReview: function () {
         this.cancelPoll();
         this.requestToken += 1;
         this.jobId = null;
+        this.uiLimitReported = false;
         this.pollCount = 0;
         this.state = 'idle';
         this.removeAllNotifications();
@@ -2159,6 +2172,7 @@
         self.state = 'loading';
         self.removeAllNotifications();
         self.jobId = null;
+        self.uiLimitReported = false;
         self.pollCount = 0;
 
         fetch('/api/myprofit/sync', { method: 'POST' })
@@ -2194,6 +2208,7 @@
         var self = this;
         if (token !== self.requestToken || self.state !== 'loading') return;
         if (self.pollCount >= self.maxPolls) {
+          self.reportUiLimit();
           self.setError('A atualização demorou mais que o esperado. Tente novamente.');
           return;
         }

@@ -21,6 +21,7 @@ from omaha.config import (
     Settings,
     resolve_myprofit_profile_config,
 )
+from omaha.myprofit.telemetry import current_recorder, stage_span
 
 LOGIN_URL = "https://myprofitweb.com/Login.aspx"
 STOCK_DETAIL_URL = "https://myprofitweb.com/App/StockDetail.aspx"
@@ -117,11 +118,15 @@ class PlaywrightMyProfitConnector:
 
     def download_positions_csv(self, profile: Any) -> MyProfitCsvDownload:
         """Resolve a guarded profile, then return downloaded CSV bytes."""
-        if getattr(profile, "is_family_sentinel", False):
-            raise MyProfitConnectorError("credentials", "household_read_only")
+        recorder = current_recorder()
+        job_id = recorder.job_id if recorder is not None and recorder.job_id is not None else ""
+        with stage_span(job_id, domain="connector", stage="credentials"):
+            if getattr(profile, "is_family_sentinel", False):
+                raise MyProfitConnectorError("credentials", "household_read_only")
 
         try:
-            credentials = resolve_myprofit_profile_config(profile, self._config)
+            with stage_span(job_id, domain="connector", stage="credentials"):
+                credentials = resolve_myprofit_profile_config(profile, self._config)
         except MyProfitConfigurationError as error:
             raise MyProfitConnectorError("credentials", error.reason) from None
 
@@ -131,23 +136,25 @@ class PlaywrightMyProfitConnector:
         context: Any | None = None
         operation_error: MyProfitConnectorError | None = None
         try:
-            try:
-                context = self._launcher(
-                    str(profile_dir),
-                    headless=True,
-                    accept_downloads=True,
-                )
-            except PlaywrightTimeoutError:
-                raise MyProfitConnectorError("browser", "timeout") from None
-            except PlaywrightError:
-                raise MyProfitConnectorError("browser", "launch_failed") from None
-            except Exception:
-                raise MyProfitConnectorError("browser", "launch_failed") from None
+            with stage_span(job_id, domain="browser", stage="browser"):
+                try:
+                    context = self._launcher(
+                        str(profile_dir),
+                        headless=True,
+                        accept_downloads=True,
+                    )
+                except PlaywrightTimeoutError:
+                    raise MyProfitConnectorError("browser", "timeout") from None
+                except PlaywrightError:
+                    raise MyProfitConnectorError("browser", "launch_failed") from None
+                except Exception:
+                    raise MyProfitConnectorError("browser", "launch_failed") from None
 
-            try:
-                page = context.pages[0] if context.pages else context.new_page()
-            except Exception:
-                raise MyProfitConnectorError("browser", "page_failed") from None
+            with stage_span(job_id, domain="browser", stage="browser"):
+                try:
+                    page = context.pages[0] if context.pages else context.new_page()
+                except Exception:
+                    raise MyProfitConnectorError("browser", "page_failed") from None
 
             result = self._download_from_page(page, credentials, download_dir)
             return result
@@ -156,6 +163,7 @@ class PlaywrightMyProfitConnector:
             raise
         finally:
             cleanup_error: MyProfitConnectorError | None = None
+            cleanup_started = time.perf_counter()
             if context is not None:
                 try:
                     context.close()
@@ -165,6 +173,16 @@ class PlaywrightMyProfitConnector:
                 shutil.rmtree(root)
             except Exception:
                 cleanup_error = MyProfitConnectorError("cleanup", "temporary_files_failed")
+            if current_recorder() is not None:
+                recorder = current_recorder()
+                assert recorder is not None
+                recorder.stage(
+                    domain="browser",
+                    status="failed" if cleanup_error is not None else "succeeded",
+                    stage="cleanup",
+                    code=cleanup_error.code if cleanup_error is not None else "success",
+                    duration_ms=(time.perf_counter() - cleanup_started) * 1000,
+                )
             if cleanup_error is not None and operation_error is None:
                 raise cleanup_error
 
@@ -174,22 +192,28 @@ class PlaywrightMyProfitConnector:
         credentials: MyProfitProfileConfig,
         download_dir: Path,
     ) -> MyProfitCsvDownload:
+        recorder = current_recorder()
+        job_id = recorder.job_id if recorder is not None and recorder.job_id is not None else ""
         try:
-            page.goto(
-                LOGIN_URL, wait_until="domcontentloaded", timeout=self._timeouts.navigation_ms
-            )
-            email = _first_visible(page, _LOGIN_EMAIL_SELECTORS, self._timeouts.navigation_ms)
-            password = _first_visible(page, _LOGIN_PASSWORD_SELECTORS, self._timeouts.navigation_ms)
-            submit = _first_visible(page, _LOGIN_SUBMIT_SELECTORS, self._timeouts.navigation_ms)
-            if email is None or password is None or submit is None:
-                raise MyProfitConnectorError("login", "controls_not_found")
-            email.fill(credentials.email, timeout=self._timeouts.navigation_ms)
-            password.fill(
-                credentials.password.get_secret_value(),
-                timeout=self._timeouts.navigation_ms,
-            )
-            submit.click(timeout=self._timeouts.navigation_ms)
-            page.wait_for_timeout(self._timeouts.login_settle_ms)
+            with stage_span(job_id, domain="browser", stage="navigation"):
+                page.goto(
+                    LOGIN_URL, wait_until="domcontentloaded", timeout=self._timeouts.navigation_ms
+                )
+            with stage_span(job_id, domain="connector", stage="login"):
+                email = _first_visible(page, _LOGIN_EMAIL_SELECTORS, self._timeouts.navigation_ms)
+                password = _first_visible(
+                    page, _LOGIN_PASSWORD_SELECTORS, self._timeouts.navigation_ms
+                )
+                submit = _first_visible(page, _LOGIN_SUBMIT_SELECTORS, self._timeouts.navigation_ms)
+                if email is None or password is None or submit is None:
+                    raise MyProfitConnectorError("login", "controls_not_found")
+                email.fill(credentials.email, timeout=self._timeouts.navigation_ms)
+                password.fill(
+                    credentials.password.get_secret_value(),
+                    timeout=self._timeouts.navigation_ms,
+                )
+                submit.click(timeout=self._timeouts.navigation_ms)
+                page.wait_for_timeout(self._timeouts.login_settle_ms)
         except PlaywrightTimeoutError:
             raise MyProfitConnectorError("login", "timeout") from None
         except PlaywrightError:
@@ -198,13 +222,14 @@ class PlaywrightMyProfitConnector:
             raise MyProfitConnectorError("login", "failed") from None
 
         try:
-            defer_control = self._find_two_factor_defer(page)
-            if defer_control is not None:
-                defer_control.click(timeout=self._timeouts.two_factor_probe_ms)
-            if email.is_visible(timeout=self._timeouts.two_factor_probe_ms) or password.is_visible(
-                timeout=self._timeouts.two_factor_probe_ms
-            ):
-                raise MyProfitConnectorError("two_factor", "authentication_unconfirmed")
+            with stage_span(job_id, domain="connector", stage="two_factor"):
+                defer_control = self._find_two_factor_defer(page)
+                if defer_control is not None:
+                    defer_control.click(timeout=self._timeouts.two_factor_probe_ms)
+                if email.is_visible(timeout=self._timeouts.two_factor_probe_ms) or (
+                    password.is_visible(timeout=self._timeouts.two_factor_probe_ms)
+                ):
+                    raise MyProfitConnectorError("two_factor", "authentication_unconfirmed")
         except MyProfitConnectorError:
             raise
         except PlaywrightTimeoutError:
@@ -215,11 +240,12 @@ class PlaywrightMyProfitConnector:
             raise MyProfitConnectorError("two_factor", "failed") from None
 
         try:
-            page.goto(
-                STOCK_DETAIL_URL,
-                wait_until="domcontentloaded",
-                timeout=self._timeouts.navigation_ms,
-            )
+            with stage_span(job_id, domain="browser", stage="navigation"):
+                page.goto(
+                    STOCK_DETAIL_URL,
+                    wait_until="domcontentloaded",
+                    timeout=self._timeouts.navigation_ms,
+                )
         except PlaywrightTimeoutError:
             raise MyProfitConnectorError("navigation", "timeout") from None
         except PlaywrightError:
@@ -229,8 +255,9 @@ class PlaywrightMyProfitConnector:
 
         export_button = page.locator('button[aria-label="Export"]').first
         try:
-            export_button.wait_for(state="visible", timeout=self._timeouts.export_button_ms)
-            export_button.click(timeout=self._timeouts.export_button_ms)
+            with stage_span(job_id, domain="connector", stage="export"):
+                export_button.wait_for(state="visible", timeout=self._timeouts.export_button_ms)
+                export_button.click(timeout=self._timeouts.export_button_ms)
         except PlaywrightTimeoutError:
             raise MyProfitConnectorError("export", "timeout") from None
         except PlaywrightError:
@@ -240,7 +267,8 @@ class PlaywrightMyProfitConnector:
 
         csv_option = page.get_by_text("CSV", exact=True).last
         try:
-            csv_option.wait_for(state="visible", timeout=self._timeouts.csv_option_ms)
+            with stage_span(job_id, domain="connector", stage="export"):
+                csv_option.wait_for(state="visible", timeout=self._timeouts.csv_option_ms)
         except PlaywrightTimeoutError:
             raise MyProfitConnectorError("export", "timeout") from None
         except PlaywrightError:
@@ -249,9 +277,10 @@ class PlaywrightMyProfitConnector:
             raise MyProfitConnectorError("export", "failed") from None
 
         try:
-            download_dir.mkdir(parents=True, exist_ok=True)
-            with page.expect_download(timeout=self._timeouts.download_ms) as download_info:
-                csv_option.click(timeout=self._timeouts.csv_option_ms)
+            with stage_span(job_id, domain="connector", stage="download"):
+                download_dir.mkdir(parents=True, exist_ok=True)
+                with page.expect_download(timeout=self._timeouts.download_ms) as download_info:
+                    csv_option.click(timeout=self._timeouts.csv_option_ms)
         except PlaywrightTimeoutError:
             raise MyProfitConnectorError("download", "timeout") from None
         except PlaywrightError:
@@ -260,14 +289,15 @@ class PlaywrightMyProfitConnector:
             raise MyProfitConnectorError("download", "failed") from None
 
         try:
-            download = download_info.value
-            filename = Path(download.suggested_filename).name or "export.csv"
-            destination = download_dir / filename
-            download.save_as(str(destination))
-            content = destination.read_bytes()
-            if not content:
-                raise MyProfitConnectorError("download", "empty_file")
-            return MyProfitCsvDownload(filename=filename, content=content)
+            with stage_span(job_id, domain="connector", stage="download"):
+                download = download_info.value
+                filename = Path(download.suggested_filename).name or "export.csv"
+                destination = download_dir / filename
+                download.save_as(str(destination))
+                content = destination.read_bytes()
+                if not content:
+                    raise MyProfitConnectorError("download", "empty_file")
+                return MyProfitCsvDownload(filename=filename, content=content)
         except MyProfitConnectorError:
             raise
         except (OSError, ValueError):

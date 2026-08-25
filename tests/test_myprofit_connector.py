@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -365,6 +366,24 @@ def test_download_flow() -> None:
     assert ("get_by_text", "CSV", True) in page.calls
     assert ("click", "csv", 10) in page.calls
     assert not Path(launches[0][0]).exists()
+
+
+def test_download_flow_emits_bounded_stage_telemetry(caplog: pytest.LogCaptureFixture) -> None:
+    from omaha.myprofit.telemetry import telemetry_context
+
+    page = FakePage()
+    launches: list[tuple[str, dict[str, object]]] = []
+    logger = logging.getLogger("omaha")
+    logger.setLevel(logging.INFO)
+    with telemetry_context("12345678-1234-4234-8234-123456789012"):
+        _connector(page, launches).download_positions_csv(_profile())
+
+    messages = [record.getMessage() for record in caplog.records if record.name == "omaha"]
+    assert messages
+    assert {"navigation", "login", "two_factor", "export", "download", "cleanup"} <= {
+        dict(token.split("=", 1) for token in message.split()[1:])["stage"] for message in messages
+    }
+    assert all("connector-password-marker" not in message for message in messages)
 
 
 @pytest.mark.parametrize("prompt", ["Mais tarde", "Later"])

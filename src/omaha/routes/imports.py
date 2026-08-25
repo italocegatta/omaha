@@ -25,8 +25,10 @@ import re
 import shutil
 import tempfile
 import threading
+import time
 import unicodedata
 import uuid
+from collections import OrderedDict
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -71,6 +73,14 @@ from omaha.mutation_guards import (
     snapshot_counts,
 )
 from omaha.myprofit.connector import MyProfitConnector, MyProfitConnectorError, MyProfitCsvDownload
+from omaha.myprofit.telemetry import (
+    elapsed_ms,
+    emit_stage,
+    emit_terminal,
+    emit_transition,
+    emit_ui_limit,
+    telemetry_context,
+)
 from omaha.routes.pages import _CLASS_COLORS
 
 router = APIRouter(tags=["imports"])
@@ -90,6 +100,7 @@ PREVIEW_TTL = timedelta(seconds=settings.PREVIEW_TTL_SECONDS)
 NAME_MAX_LEN = 64
 
 SESSION_PREVIEW_KEY = "import_preview_id"
+TERMINAL_DEDUP_LIMIT = 4096
 
 SYNC_ERROR_MESSAGES = {
     "credentials": "Não foi possível acessar as credenciais do MyProfit.",
@@ -126,6 +137,12 @@ def _safe_error_message(stage: str | None) -> str:
 
 def _utcnow() -> datetime:
     return datetime.now(tz=UTC).replace(tzinfo=None)
+
+
+def _job_duration_ms(job: MyProfitSyncJob) -> int:
+    if job.created_at is None or job.finished_at is None:
+        return 0
+    return max(0, int((job.finished_at - job.created_at).total_seconds() * 1000))
 
 
 def _safe_filename(filename: str | None) -> str:
@@ -330,6 +347,11 @@ class MyProfitSyncService:
         self._active_workers = 0
         self._reservations: dict[int, str] = {}
         self._owned_dirs: dict[str, Path] = {}
+        self._ui_limit_observed: set[str] = set()
+        # Keep duplicate protection bounded while allowing every new terminal
+        # settlement to emit. Lifecycle guards prevent normal late
+        # worker/expiry races from settling the same job twice.
+        self._terminal_observed: OrderedDict[str, None] = OrderedDict()
         self._stopping = False
 
     def start(
@@ -341,6 +363,14 @@ class MyProfitSyncService:
                 self._stopping = False
             active_id = self._reservations.get(profile.id)
             if active_id is not None:
+                emit_stage(
+                    active_id,
+                    domain="concurrency",
+                    status="rejected",
+                    stage="concurrency",
+                    code="sync_in_progress",
+                    duration_ms=0,
+                )
                 raise SyncInProgress(active_id)
             existing = (
                 db.query(MyProfitSyncJob)
@@ -357,6 +387,14 @@ class MyProfitSyncService:
                 existing = None
             if existing is not None:
                 self._reservations[profile.id] = existing.job_id
+                emit_stage(
+                    existing.job_id,
+                    domain="concurrency",
+                    status="rejected",
+                    stage="concurrency",
+                    code="sync_in_progress",
+                    duration_ms=0,
+                )
                 raise SyncInProgress(existing.job_id)
 
             now = _utcnow()
@@ -370,6 +408,7 @@ class MyProfitSyncService:
             db.commit()
             db.refresh(job)
             self._reservations[profile.id] = job.job_id
+            emit_transition(job.job_id, status="queued", stage="queue", code="started")
             background_tasks.add_task(self.run_myprofit_sync_job, job.job_id, profile.id)
             return job
 
@@ -401,6 +440,7 @@ class MyProfitSyncService:
         *,
         stage: str,
         code: str,
+        telemetry_stage_recorded: bool = False,
     ) -> None:
         db.refresh(job)
         if job.status == "expired" or _utcnow() >= job.expires_at:
@@ -416,6 +456,18 @@ class MyProfitSyncService:
         job.finished_at = _utcnow()
         job.retention_until = job.finished_at + PREVIEW_TTL
         db.commit()
+        self._clear_ui_limit_observation(job.job_id)
+        if not telemetry_stage_recorded:
+            emit_stage(
+                job.job_id,
+                domain="preview_handoff" if stage == "preview" else "connector",
+                status="failed",
+                stage=stage,
+                code=code,
+                duration_ms=0,
+            )
+        emit_transition(job.job_id, status="failed", stage=stage, code="transitioned")
+        self._emit_terminal_once(job, status="failed", code=MyProfitSyncJob.safe_error_code(code))
 
     @property
     def active_worker_count(self) -> int:
@@ -464,10 +516,21 @@ class MyProfitSyncService:
             self.expire_myprofit_sync_job(job.job_id, db=db)
             return
 
+        stage_started = time.perf_counter()
         try:
             preview = preview_from_blob(db, profile, work_file.read_bytes())
         except PreviewBlobError as exc:
-            self._mark_failed(db, job, stage=exc.stage, code=exc.code)
+            emit_stage(
+                job.job_id,
+                domain="preview_handoff",
+                status="failed",
+                stage=exc.stage,
+                code="unknown",
+                duration_ms=elapsed_ms(stage_started),
+            )
+            self._mark_failed(
+                db, job, stage=exc.stage, code=exc.code, telemetry_stage_recorded=True
+            )
             return
 
         db.refresh(job)
@@ -483,6 +546,50 @@ class MyProfitSyncService:
         job.error_stage = None
         job.error_code = None
         db.commit()
+        emit_stage(
+            job.job_id,
+            domain="preview_handoff",
+            status="succeeded",
+            stage="handoff",
+            code="success",
+            duration_ms=elapsed_ms(stage_started),
+        )
+        emit_transition(job.job_id, status="succeeded", stage="handoff", code="transitioned")
+        self._clear_ui_limit_observation(job.job_id)
+        self._emit_terminal_once(job, status="succeeded", code="success")
+
+    def _clear_ui_limit_observation(self, job_id: str) -> None:
+        with self._lock:
+            self._ui_limit_observed.discard(job_id)
+
+    def _emit_terminal_once(self, job: MyProfitSyncJob, *, status: str, code: str) -> None:
+        with self._lock:
+            if job.job_id in self._terminal_observed:
+                return
+            self._terminal_observed[job.job_id] = None
+            self._terminal_observed.move_to_end(job.job_id)
+            if len(self._terminal_observed) > TERMINAL_DEDUP_LIMIT:
+                self._terminal_observed.popitem(last=False)
+        emit_terminal(
+            job.job_id,
+            status=status,
+            code=code,
+            total_duration_ms=_job_duration_ms(job),
+        )
+
+    def observe_ui_limit(self, db: Session, profile: Profile, job_id: str) -> bool:
+        """Record one owned browser-limit observation without changing DB state."""
+        with self._lock:
+            if job_id in self._ui_limit_observed:
+                return False
+            job = db.get(MyProfitSyncJob, job_id)
+            if job is None or job.profile_id != profile.id:
+                return False
+            if job.status not in MyProfitSyncJob.ACTIVE_STATUSES:
+                return False
+            self._ui_limit_observed.add(job_id)
+        emit_ui_limit(job_id, status=job.status)
+        return True
 
     def run_myprofit_sync_job(self, job_id: str, profile_id: int) -> None:
         """Execute one job using an independent DB session and owned path."""
@@ -507,30 +614,34 @@ class MyProfitSyncService:
             job.started_at = now
             db.commit()
 
-            if profile.is_family_sentinel:
-                self._mark_failed(db, job, stage="credentials", code="household_read_only")
-                return
+            emit_transition(job.job_id, status="running", stage="queue", code="transitioned")
+            with telemetry_context(job_id, started_at=time.perf_counter()):
+                if profile.is_family_sentinel:
+                    self._mark_failed(db, job, stage="credentials", code="household_read_only")
+                    return
 
-            connector = self.connector
-            if connector is None:
-                from omaha.myprofit.connector import PlaywrightMyProfitConnector
+                connector = self.connector
+                if connector is None:
+                    from omaha.myprofit.connector import PlaywrightMyProfitConnector
 
-                connector = PlaywrightMyProfitConnector()
-            try:
-                downloaded: MyProfitCsvDownload = connector.download_positions_csv(profile)
-                self._process_downloaded_csv(
-                    db,
-                    job,
-                    profile,
-                    filename=downloaded.filename,
-                    content=downloaded.content,
-                )
-            except MyProfitConnectorError as exc:
-                self._mark_failed(db, job, stage=exc.stage, code=exc.code)
-                return
-            except (OSError, ValueError, TypeError, AttributeError):
-                self._mark_failed(db, job, stage="download", code="file_failed")
-                return
+                    connector = PlaywrightMyProfitConnector()
+                try:
+                    downloaded: MyProfitCsvDownload = connector.download_positions_csv(profile)
+                    self._process_downloaded_csv(
+                        db,
+                        job,
+                        profile,
+                        filename=downloaded.filename,
+                        content=downloaded.content,
+                    )
+                except MyProfitConnectorError as exc:
+                    self._mark_failed(
+                        db, job, stage=exc.stage, code=exc.code, telemetry_stage_recorded=True
+                    )
+                    return
+                except (OSError, ValueError, TypeError, AttributeError):
+                    self._mark_failed(db, job, stage="download", code="file_failed")
+                    return
 
             return
         except Exception:
@@ -588,6 +699,9 @@ class MyProfitSyncService:
                 job.work_file = None if job.work_dir is None else job.work_file
                 session.commit()
                 self._clear_reservation(job.profile_id, job.job_id)
+                self._clear_ui_limit_observation(job.job_id)
+                emit_transition(job.job_id, status="expired", stage="terminal", code="transitioned")
+                self._emit_terminal_once(job, status="expired", code="unknown")
                 return True
         finally:
             if owns_db:
@@ -692,6 +806,9 @@ class MyProfitSyncService:
                     job.work_dir = None
                     job.work_file = None
                 db.commit()
+                self._clear_ui_limit_observation(job.job_id)
+                emit_transition(job.job_id, status="expired", stage="terminal", code="transitioned")
+                self._emit_terminal_once(job, status="expired", code="unknown")
             with self._lock:
                 self._reservations.clear()
             for job_id, path in owned:
@@ -941,6 +1058,24 @@ def get_myprofit_sync_status(
     if payload is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     return JSONResponse(payload, status_code=200)
+
+
+@router.post("/api/myprofit/sync/{job_id}/ui-limit", response_model=None)
+def observe_myprofit_sync_ui_limit(
+    job_id: str,
+    db: DbSession,
+    request: Request,
+    profile: Profile = Depends(_require_sync_profile),
+    _writable: None = Depends(require_profile_writable),
+) -> Response:
+    """Accept one fixed, owned browser local-limit observation."""
+    service = request.app.state.myprofit_sync_service
+    if service.observe_ui_limit(db, profile, job_id):
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    job = db.get(MyProfitSyncJob, job_id)
+    if job is None or job.profile_id != profile.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ---------------------------------------------------------------------------

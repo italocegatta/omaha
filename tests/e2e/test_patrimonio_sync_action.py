@@ -398,6 +398,55 @@ class TestPatrimonioSyncAction:
         assert page.locator(SELECTORS["patrimonio_notification"]).count() == 0
         assert page.evaluate("document.activeElement?.dataset.testid") == "dashboard-sync-btn"
 
+    def test_local_poll_limit_reports_once_without_commit(self, page: Page, live_url: str) -> None:
+        _login(page, live_url)
+        page.evaluate(
+            """
+            () => {
+              const sync = Alpine.store('patrimonioSync');
+              sync.init(null);
+              sync.pollDelay = 0;
+              sync.maxPolls = 1;
+              window.f60LimitRequests = [];
+              window.fetch = (url, options = {}) => {
+                window.f60LimitRequests.push({url, method: options.method || 'GET'});
+                if (options.method === 'POST') {
+                  return Promise.resolve({ok: true, json: () => Promise.resolve({
+                    job_id: 'local-limit-job', status: 'queued',
+                  })});
+                }
+                return Promise.resolve({ok: true, json: () => Promise.resolve({
+                  job_id: 'local-limit-job', status: 'running', preview: null, error: null,
+                })});
+              };
+              sync.start();
+            }
+            """
+        )
+        page.wait_for_function(
+            "() => Alpine.store('patrimonioSync').state === 'error'", timeout=3_000
+        )
+        page.evaluate(
+            """
+            () => {
+              const sync = Alpine.store('patrimonioSync');
+              sync.reportUiLimit();
+              sync.reportUiLimit();
+            }
+            """
+        )
+        page.wait_for_timeout(50)
+        requests = page.evaluate("window.f60LimitRequests")
+        assert sum(item["method"] == "POST" for item in requests) == 2
+        assert sum("/ui-limit" in item["url"] for item in requests) == 1
+        assert page.evaluate("Alpine.store('patrimonioSync').pollCount") == 1
+        assert (
+            page.evaluate(
+                "window.f60LimitRequests.some((item) => item.url.includes('/api/import/commit'))"
+            )
+            is False
+        )
+
     def test_notification_manual_close_and_focus_pause(self, page: Page, live_url: str) -> None:
         _login(page, live_url)
         page.evaluate(
