@@ -81,6 +81,7 @@ from tests.support.constants import (
 )
 from tests.support.db import (
     emit_db_receipt,
+    recreate_e2e_database,
     wipe_profile_in_sqlite,
 )
 from tests.support.db import (
@@ -136,9 +137,7 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]):
 @pytest.fixture(scope="session")
 def live_url() -> str:
     """Start a real uvicorn process for the e2e suite; yield the base URL."""
-    # Reset test DB so alembic starts from a clean slate.
-    if TEST_DB_PATH.exists():
-        TEST_DB_PATH.unlink()
+    recreate_e2e_database(TEST_DB_PATH, repo_root=REPO_ROOT, server_port=TEST_PORT)
 
     with run_test_server(
         TEST_DB_PATH,
@@ -153,8 +152,11 @@ def live_url() -> str:
 @pytest.fixture(scope="session")
 def live_url_short_ttl() -> str:
     """Start a uvicorn process with a 1-second preview TTL."""
-    if TEST_DB_PATH_SHORT_TTL.exists():
-        TEST_DB_PATH_SHORT_TTL.unlink()
+    recreate_e2e_database(
+        TEST_DB_PATH_SHORT_TTL,
+        repo_root=REPO_ROOT,
+        server_port=TEST_PORT_SHORT_TTL,
+    )
 
     with run_test_server(
         TEST_DB_PATH_SHORT_TTL,

@@ -184,3 +184,15 @@ out-of-bound paths are preserved/non-target. Helpers SHALL NOT discover
 
 - **WHEN** observed pytest path is outside every declared boundary
 - **THEN** support records preserved/non-target without cleanup or adoption
+
+### Requirement: Shared DB support guards ephemeral E2E recreation
+
+Shared DB support SHALL expose one helper for recreating exact fixed E2E test DBs. It SHALL accept only explicitly registered E2E paths, reject `data/portfolio.db`, symlinks, directories, and paths outside repository `data/`, and emit a run/lane-linked disposition with `adopted: false`.
+
+#### Scenario: E2E fixture receives fresh exact DB
+- **WHEN** caller requests recreation of an exact registered E2E DB before server launch
+- **THEN** helper removes only an exact regular file if present and records disposition without adopting old rows
+
+#### Scenario: Production DB cannot be recreated
+- **WHEN** caller requests `data/portfolio.db` or an unresolved path
+- **THEN** helper fails before removal and leaves protected files untouched

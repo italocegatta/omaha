@@ -96,6 +96,13 @@ LANE_DATABASES = {
     "bdd": (REPO_ROOT / "data" / "test_bdd.db",),
     "visual": (REPO_ROOT / "data" / "test_visual.db",),
 }
+E2E_DATABASE_PATHS = frozenset(
+    {
+        str(REPO_ROOT / "data" / "test_e2e.db"),
+        str(REPO_ROOT / "data" / "test_e2e_short_ttl.db"),
+    }
+)
+PROTECTED_DATABASE_PATH = str(REPO_ROOT / "data" / "portfolio.db")
 KNOWN_DATABASES = {
     str(path.resolve())
     for targets in LANE_DATABASES.values()
@@ -120,6 +127,7 @@ TEMP_ROOT_RE = re.compile(r"^T29_TEMP_ROOT=(.+)$", re.MULTILINE)
 TEMP_ROOT_RUN_RE = re.compile(r"^T29_TEMP_ROOT_RUN_ID=(.+)$", re.MULTILINE)
 TEMP_ROOT_LANE_RE = re.compile(r"^T29_TEMP_ROOT_LANE=(.+)$", re.MULTILINE)
 SERVER_EVENT_RE = re.compile(r"^T29_SERVER_EVENT (?P<event>\{.*\})$", re.MULTILINE)
+DB_RECREATE_RE = re.compile(r"^T29_DB_RECREATE=(?P<receipt>\{.*\})$", re.MULTILINE)
 TEST_FAILURE_RE = re.compile(r"^T29_TEST_FAILURE (?P<failure>\{.*\})$", re.MULTILINE)
 SUMMARY_RE = re.compile(
     r"(?P<passed>\d+) passed|(?P<failed>\d+) failed|"
@@ -277,27 +285,39 @@ def _canonical_resource_inventory(
                 "owner": run_id,
                 "evidence": "canonical port declared; no host-wide scan",
                 "cleanup_target": False,
+                "adopted": False,
             }
         )
     for path in sorted(CANONICAL_DATABASE_PATHS):
         path_obj = Path(path)
         present = path_obj.exists()
+        ephemeral = path in E2E_DATABASE_PATHS and present
         canonical.append(
             {
                 "resource_kind": "test DB",
                 "resource_id": path,
                 "relevant": True,
-                "classification": "pre-existing" if present else "absent",
+                "classification": (
+                    "ephemeral-preexisting"
+                    if ephemeral
+                    else ("pre-existing" if present else "absent")
+                ),
                 "owner": run_id,
                 "evidence": (
-                    "exact canonical fixed test DB exists before run; no adoption"
+                    "exact disposable E2E DB exists before run; recreate disposition required"
+                    if ephemeral
+                    else "exact canonical fixed test DB exists before run; no adoption"
                     if present
                     else "canonical fixed test DB declared absent by exact preflight stat"
                 ),
                 "cleanup_target": False,
+                "adopted": False,
+                "disposition": "recreate-before-launch" if ephemeral else "preserve-unless-owned",
             }
         )
-    canonical.extend(owned_resources)
+    canonical.extend(
+        {**resource, "adopted": False} for resource in owned_resources if isinstance(resource, dict)
+    )
 
     def is_canonical(observation: dict[str, object]) -> bool:
         kind = str(observation.get("resource_kind", observation.get("kind", "")))
@@ -337,6 +357,22 @@ def _canonical_resource_inventory(
         }
         if not relevant:
             resource["classification"] = "pre-existing"
+        elif raw.get("classification") in {
+            "absent",
+            "owned-current-run",
+            "owned-cleaned",
+            "ephemeral-preexisting",
+            "pre-existing",
+            "foreign",
+            "unknown",
+        }:
+            resource["classification"] = raw["classification"]
+        elif (
+            isinstance(raw.get("evidence"), dict)
+            and isinstance(raw["evidence"].get("listener"), dict)
+            and raw["evidence"]["listener"].get("classification") == "foreign"
+        ):
+            resource["classification"] = "foreign"
         elif raw.get("owner") == run_id and run_id is not None:
             resource["classification"] = "owned-current-run"
         elif raw.get("owner"):
@@ -347,7 +383,8 @@ def _canonical_resource_inventory(
 
     relevant_observations = [item for item in resources if item["relevant"]]
     trusted = all(
-        item["classification"] in {"absent", "owned-current-run", "owned-cleaned"}
+        item["classification"]
+        in {"absent", "owned-current-run", "owned-cleaned", "ephemeral-preexisting"}
         for item in relevant_observations
     )
     return {
@@ -363,16 +400,56 @@ def _canonical_resource_inventory(
         "untrusted_resources": [
             item
             for item in relevant_observations
-            if item["classification"] not in {"absent", "owned-current-run", "owned-cleaned"}
+            if item["classification"]
+            not in {"absent", "owned-current-run", "owned-cleaned", "ephemeral-preexisting"}
         ],
     }
+
+
+def _canonical_port_identity(port: int) -> dict[str, object]:
+    """Collect bounded identity for one declared port, never a host-wide scan."""
+    evidence: dict[str, object] = {
+        "port": port,
+        "source": "exact ss sport filter",
+        "classification": "unknown",
+    }
+    try:
+        result = subprocess.run(
+            ["ss", "-ltnp", f"sport = :{port}"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=1.0,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        evidence["error"] = f"{exc.__class__.__name__}: {exc}"
+        return evidence
+    output = result.stdout or result.stderr
+    evidence["raw"] = output.strip()
+    match = re.search(r"pid=(?P<pid>\d+)", output)
+    if match is None:
+        evidence["error"] = "listener identity unavailable"
+        return evidence
+    pid = int(match["pid"])
+    evidence["pid"] = pid
+    try:
+        evidence["command"] = (
+            Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ").decode()
+        )
+        evidence["cwd"] = os.readlink(f"/proc/{pid}/cwd")
+        evidence["pgid"] = os.getpgid(pid)
+    except (OSError, UnicodeError) as exc:
+        evidence["error"] = f"partial listener identity: {exc.__class__.__name__}: {exc}"
+        return evidence
+    evidence["classification"] = "foreign"
+    return evidence
 
 
 def _preflight(observations: tuple[dict[str, object], ...] = ()) -> dict[str, object]:
     """Probe canonical ports and return bounded, ownership-aware inventory."""
     inventory = _canonical_resource_inventory(observations)
     database_url = os.environ.get("DATABASE_URL", "")
-    if "data/portfolio.db" in database_url or database_url.endswith("/data/portfolio.db"):
+    if PROTECTED_DATABASE_PATH in database_url or database_url.endswith("/data/portfolio.db"):
         raise RuntimeError("refusing full test run with production DATABASE_URL")
     for port in PORTS:
         with socket.socket() as probe:
@@ -384,7 +461,10 @@ def _preflight(observations: tuple[dict[str, object], ...] = ()) -> dict[str, ob
                     "resource_kind": "port",
                     "resource_id": port,
                     "owner": None,
-                    "evidence": f"canonical bind failed: {exc.__class__.__name__}: {exc}",
+                    "evidence": {
+                        "bind_error": f"{exc.__class__.__name__}: {exc}",
+                        "listener": _canonical_port_identity(port),
+                    },
                 }
                 inventory = _canonical_resource_inventory((*observations, collision))
                 raise PreflightError(f"test lane port {port} is unavailable", inventory) from exc
@@ -508,6 +588,7 @@ def _lane_metadata(
         "run_id": run_id,
         "task": task,
         "command": _runtime_child_command(task),
+        "repo_cwd": str(REPO_ROOT),
         "parent_pid": owner_evidence["runner_pid"],
         "pid": None,
         "pgid": None,
@@ -536,6 +617,28 @@ def _lane_metadata(
         "ports": list(LANE_PORTS[name]),
         "owned_resource_mapping": resources,
         "owner_evidence": owner_evidence,
+        "process_identity": {
+            "run_id": run_id,
+            "lane": name,
+            "parent_pid": owner_evidence["runner_pid"],
+            "child_pid": None,
+            "pgid": None,
+            "command": _runtime_child_command(task),
+            "cwd": str(REPO_ROOT),
+            "ports": list(LANE_PORTS[name]),
+            "db_paths": [str(target) for target in LANE_DATABASES[name]],
+            "verdict": "registered; awaiting Popen identity",
+        },
+        "database_disposition": {
+            "paths": [str(target) for target in LANE_DATABASES[name]],
+            "classification": "absent",
+            "disposition": "recreate-before-launch" if name == "e2e" else "preserve-unless-owned",
+            "adopted": False,
+            "receipt": None,
+        },
+        "adopted": False,
+        "restart": {"phases": [], "signals": [], "diagnosis": None},
+        "receipt_errors": [],
         "registered_at": owner_evidence["recorded_at"],
         "started_at": None,
         "ended_at": None,
@@ -576,6 +679,19 @@ def _record_lifecycle(entry: dict[str, object] | None, phase: str, **details: ob
         "recorded_at": time.time(),
     }
     events.append(event)
+    if entry.get("restart") is not None and phase in {
+        "teardown-start",
+        "graceful-stop",
+        "signal",
+        "poll-after-grace",
+        "wait",
+        "exit",
+        "port-free",
+        "residue",
+    }:
+        restart = entry["restart"]
+        if isinstance(restart, dict):
+            restart.setdefault("phases", []).append(event)
 
 
 def _record_lane_timing(
@@ -649,6 +765,7 @@ def _record_receipt_error(
             for entry in lanes:
                 if isinstance(entry, dict) and entry.get("lane") == lane:
                     entry["receipt_error"] = f"{stage}: {exc}"
+                    entry.setdefault("receipt_errors", []).append(error)
                     break
 
 
@@ -791,7 +908,8 @@ def _resource_is_untrusted(resource: object) -> bool:
     return (
         isinstance(resource, dict)
         and resource.get("relevant", True)
-        and resource.get("classification") in {"foreign", "unknown", "pre-existing"}
+        and resource.get("classification")
+        in {"foreign", "unknown", "pre-existing", "untrusted", "contradictory"}
     )
 
 
@@ -900,7 +1018,58 @@ def _owned_process_group(entry: dict[str, object] | None, process: object) -> bo
     resource_id = resource.get("resource_id")
     if not isinstance(recorded_pgid, int) or not isinstance(resource_id, int):
         return False
-    return recorded_pgid == resource_id
+    if recorded_pgid != resource_id:
+        return False
+    recorded_pid = entry.get("pid")
+    process_pid = getattr(process, "pid", None)
+    if (
+        isinstance(recorded_pid, int)
+        and isinstance(process_pid, int)
+        and recorded_pid != process_pid
+    ):
+        return False
+    identity = entry.get("process_identity")
+    if isinstance(identity, dict):
+        expected_command = identity.get("command")
+        expected_cwd = identity.get("cwd")
+        if expected_command is not None and entry.get("command") != expected_command:
+            return False
+        if expected_cwd is not None and expected_cwd != str(REPO_ROOT):
+            return False
+    return True
+
+
+def _mark_untrusted_process(entry: dict[str, object] | None, process: object) -> None:
+    if entry is None:
+        return
+    resources = entry.get("owned_resource_mapping", {})
+    resource = resources.get("process_group", {}) if isinstance(resources, dict) else {}
+    if isinstance(resource, dict):
+        resource.update(
+            {
+                "classification": "untrusted",
+                "evidence": {
+                    "recorded_pid": entry.get("pid"),
+                    "observed_pid": getattr(process, "pid", None),
+                    "recorded_pgid": entry.get("pgid"),
+                    "resource_pgid": resource.get("resource_id"),
+                    "command": entry.get("command"),
+                    "cwd": entry.get("repo_cwd"),
+                },
+            }
+        )
+    entry["residue_classification"] = "untrusted"
+    entry.setdefault("residue", []).append(
+        {
+            "resource": "process_group",
+            "classification": "untrusted",
+            "evidence": "recorded process identity did not match signal target",
+        }
+    )
+    entry["cleanup_result"] = "untrusted-resource"
+    restart = entry.get("restart")
+    if isinstance(restart, dict):
+        restart["diagnosis"] = "process identity mismatch"
 
 
 def _recorded_pgid(entry: dict[str, object] | None) -> int | None:
@@ -922,8 +1091,7 @@ def _stop(
         entry = _entry_for(metadata, name)
         if _entry_has_untrusted_resource(entry) or not _owned_process_group(entry, process):
             if entry is not None:
-                entry["cleanup_result"] = "untrusted-resource"
-                entry["residue_classification"] = "foreign"
+                _mark_untrusted_process(entry, process)
                 entry.setdefault("residue", []).append(
                     {
                         "phase": "signal",
@@ -932,6 +1100,13 @@ def _stop(
                         "resource_id": getattr(process, "pid", None),
                         "evidence": "process group is not current-run-owned",
                     }
+                )
+                _record_lifecycle(
+                    entry,
+                    "residue",
+                    child_pid=getattr(process, "pid", None),
+                    pgid=_recorded_pgid(entry),
+                    classification=entry.get("residue_classification", "untrusted"),
                 )
             clean = False
             continue
@@ -970,6 +1145,14 @@ def _stop(
             assert isinstance(signals, list)
             signals.append({"signal": signal.Signals(sig).name, "reason": reason})
             entry["sibling_stop_reason"] = reason
+            _record_lifecycle(
+                entry,
+                "graceful-stop" if sig == signal.SIGTERM else "signal-requested",
+                child_pid=getattr(process, "pid", None),
+                pgid=_recorded_pgid(entry),
+                signal=signal.Signals(sig).name,
+                reason=reason,
+            )
         try:
             pgid = _recorded_pgid(entry)
             if pgid is None:
@@ -1040,7 +1223,7 @@ def _reap(
         if _entry_has_untrusted_resource(entry) or not _owned_process_group(entry, process):
             if entry is not None:
                 entry["cleanup_result"] = "untrusted-resource"
-                entry["residue_classification"] = "foreign"
+                _mark_untrusted_process(entry, process)
             clean = False
             continue
         try:
@@ -1073,6 +1256,14 @@ def _reap(
                 *entry.get("signals", []),
                 {"signal": signal.Signals(signal.SIGKILL).name, "reason": reason},
             ]
+            _record_lifecycle(
+                entry,
+                "escalation",
+                child_pid=getattr(process, "pid", None),
+                pgid=_recorded_pgid(entry),
+                signal=signal.Signals(signal.SIGKILL).name,
+                reason=reason,
+            )
         try:
             pgid = _recorded_pgid(entry)
             if pgid is None:
@@ -1200,6 +1391,19 @@ def _server_events(output: str) -> list[dict[str, object]]:
         if isinstance(event, dict):
             events.append(event)
     return events
+
+
+def _db_recreate_receipts(output: str) -> list[dict[str, object]]:
+    """Parse exact E2E recreate receipts; malformed receipts remain absent."""
+    receipts: list[dict[str, object]] = []
+    for match in DB_RECREATE_RE.finditer(output):
+        try:
+            receipt = json.loads(match["receipt"])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(receipt, dict):
+            receipts.append(receipt)
+    return receipts
 
 
 def _test_failures(output: str) -> list[dict[str, object]]:
@@ -1434,7 +1638,7 @@ def _reconcile_temp_root(entry: dict[str, object], output: str) -> bool:
 
 
 def _reconcile_fixed_db_targets(entry: dict[str, object], db_targets: list[str]) -> bool:
-    """Reconcile exact fixed test DBs only when preflight proved absence."""
+    """Reconcile exact fixed DBs, with an explicit disposable E2E exception."""
     resource = entry["owned_resource_mapping"]["database"]
     assert isinstance(resource, dict)
     expected = {
@@ -1443,11 +1647,23 @@ def _reconcile_fixed_db_targets(entry: dict[str, object], db_targets: list[str])
     fixed_targets = [target for target in db_targets if target in expected]
     if not fixed_targets:
         return True
-    if resource.get("preflight_classification") != "absent":
+    preflight_classification = resource.get("preflight_classification")
+    is_e2e = str(entry["lane"]) == "e2e"
+    allowed_preflight = {"absent", "ephemeral-preexisting"} if is_e2e else {"absent"}
+    if preflight_classification not in allowed_preflight:
         resource.update(
             {
-                "classification": resource.get("preflight_classification", "unknown"),
+                "classification": preflight_classification or "unknown",
                 "cleanup_result": "preserved; preflight ownership not absent",
+            }
+        )
+        return False
+
+    if is_e2e and any(target not in E2E_DATABASE_PATHS for target in fixed_targets):
+        resource.update(
+            {
+                "classification": "contradictory",
+                "cleanup_result": "preserved; E2E target outside disposable allowlist",
             }
         )
         return False
@@ -1477,7 +1693,12 @@ def _reconcile_fixed_db_targets(entry: dict[str, object], db_targets: list[str])
                 "classification": classification,
                 "cleanup_result": cleanup_result,
                 "resource_id": fixed_targets,
-                "evidence": "exact fixed DB path was absent at current-run preflight",
+                "evidence": (
+                    "exact disposable E2E path recreated without adoption"
+                    if is_e2e
+                    else "exact fixed DB path was absent at current-run preflight"
+                ),
+                "adopted": False,
             }
         )
     return True
@@ -1557,7 +1778,11 @@ def _fixed_db_preflight_classification(preflight: dict[str, object], lane: str) 
     if len(states) != len(fixed_paths):
         return "unknown"
     classifications = set(states.values())
-    return next(iter(classifications)) if len(classifications) == 1 else "unknown"
+    if len(classifications) == 1:
+        return next(iter(classifications))
+    # A split E2E state is contradictory: it cannot be safely recreated as one
+    # lane disposition and must block before launch.
+    return "unknown"
 
 
 def main() -> int:
@@ -1754,13 +1979,15 @@ def main() -> int:
         timing_path = Path(str(entry["timings"]))
         log = None
         temp_root = Path(str(entry["temp_root_boundary"]))
+        command = _runtime_child_command(task, selected_by_lane.get(name, ()))
         child_env = _lane_environment(name, run_id=run_id, temp_root=temp_root)
         child_env["PYTHONPATH"] = os.pathsep.join(
             filter(None, [str(REPO_ROOT / "scripts"), child_env.get("PYTHONPATH", "")])
         )
         child_env["T29_PROFILE_PATH"] = str(timing_path)
         child_env["T29_DB_RECEIPT_LANE"] = name
-        command = _runtime_child_command(task, selected_by_lane.get(name, ()))
+        child_env["T29_RUN_COMMAND"] = json.dumps(command)
+        child_env["T29_RUN_CWD"] = str(REPO_ROOT)
         entry["command"] = command
         entry["launch_status"] = "starting"
         _record_lifecycle(
@@ -1799,6 +2026,9 @@ def main() -> int:
                 log.close()
         processes[name] = process
         entry["pid"] = process.pid
+        process_identity = entry["process_identity"]
+        assert isinstance(process_identity, dict)
+        process_identity["child_pid"] = process.pid
         try:
             actual_pgid = os.getpgid(process.pid)
         except Exception as exc:
@@ -1823,6 +2053,8 @@ def main() -> int:
             persist(f"launch-pgid:{name}", name)
             return False
         entry["pgid"] = actual_pgid
+        process_identity["pgid"] = actual_pgid
+        process_identity["verdict"] = "owned-current-run"
         entry["started_at"] = time.time()
         entry["status"] = "launched"
         entry["launch_status"] = "launched"
@@ -2097,6 +2329,7 @@ def main() -> int:
         timing_output = ""
         collection: dict[str, object] = dict(empty_collection)
         db_targets: list[str] = []
+        db_recreate_receipts: list[dict[str, object]] = []
         try:
             try:
                 output = Path(str(entry["log"])).read_text(encoding="utf-8", errors="replace")
@@ -2126,6 +2359,20 @@ def main() -> int:
             collection = _collection(output, timing_output)
             entry["server_lifecycle"] = _server_events(output)
             entry["test_failures"] = _test_failures(output)
+            db_recreate_receipts = _db_recreate_receipts(output)
+            entry["database_disposition"]["receipts"] = db_recreate_receipts
+            matching_recreate = [
+                receipt
+                for receipt in db_recreate_receipts
+                if receipt.get("run_id") == entry.get("run_id")
+                and receipt.get("lane") == lane
+                and receipt.get("adopted") is False
+            ]
+            if matching_recreate:
+                entry["database_disposition"]["receipt"] = matching_recreate[-1]
+                entry["database_disposition"]["classification"] = matching_recreate[-1].get(
+                    "classification", "unknown"
+                )
             db_targets = [str(Path(value).resolve()) for value in DB_RE.findall(output)]
             if process is not None:
                 temp_trusted = _reconcile_temp_root(entry, output)
@@ -2148,11 +2395,35 @@ def main() -> int:
                             "evidence": "lane emitted matching T29_DB_TARGET receipt",
                         }
                     )
+                    entry["database_disposition"].update(
+                        {
+                            "classification": database_resource["classification"],
+                            "cleanup_result": database_resource.get("cleanup_result"),
+                            "adopted": False,
+                        }
+                    )
                     if lane in {"unit", "integration", "audit"}:
                         if not _reconcile_dynamic_db_targets(entry, db_targets):
                             raise RuntimeError("dynamic test DB ownership or cleanup untrusted")
                     elif not _reconcile_fixed_db_targets(entry, db_targets):
                         raise RuntimeError("fixed test DB ownership or cleanup untrusted")
+                    entry["database_disposition"].update(
+                        {
+                            "classification": database_resource.get("classification"),
+                            "cleanup_result": database_resource.get("cleanup_result"),
+                            "adopted": False,
+                        }
+                    )
+                    if lane == "e2e":
+                        if not matching_recreate:
+                            raise RuntimeError("E2E DB recreate receipt missing or adopted")
+                        receipt_paths = {
+                            str(Path(str(item.get("path"))).resolve())
+                            for item in matching_recreate
+                            if item.get("path") is not None
+                        }
+                        if not receipt_paths.issubset(E2E_DATABASE_PATHS):
+                            raise RuntimeError("E2E DB recreate receipt targets unregistered path")
                 except RuntimeError as exc:
                     entry["residue_classification"] = "unknown"
                     entry["cleanup_result"] = "untrusted-receipt"

@@ -2,23 +2,120 @@
 
 from __future__ import annotations
 
+import json
 import os
+import socket
 import sqlite3
 import subprocess
 import sys
 import tempfile
+import time
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
 TEST_SECRET_KEY = "test-secret-do-not-use"
 TEST_ADMIN_PASSWORD = "test-password"
+E2E_DATABASE_FILENAMES = frozenset({"test_e2e.db", "test_e2e_short_ttl.db"})
+PROTECTED_DATABASE_FILENAME = "portfolio.db"
 
 
 @dataclass(frozen=True)
 class SafeTestDatabase:
     path: Path
     snapshot_dir: Path
+
+
+class E2EDatabaseRefusal(RuntimeError):
+    """Requested E2E target failed exact-path or ownership checks."""
+
+
+def _e2e_receipt_scope(run_id: str | None, lane: str | None) -> tuple[str, str]:
+    return (
+        run_id or os.environ.get("T29_RUN_ID") or "unscoped",
+        lane or os.environ.get("T29_DB_RECEIPT_LANE") or "e2e",
+    )
+
+
+def _emit_e2e_recreate_receipt(receipt: dict[str, object]) -> None:
+    """Publish exact E2E disposition without inspecting unrelated resources."""
+    print(f"T29_DB_RECREATE={json.dumps(receipt, sort_keys=True)}", flush=True)
+
+
+def recreate_e2e_database(
+    db_path: Path,
+    *,
+    repo_root: Path | None = None,
+    run_id: str | None = None,
+    lane: str | None = None,
+    active_server: dict[str, object] | None = None,
+    server_port: int | None = None,
+) -> dict[str, object]:
+    """Recreate one exact, disposable E2E database target.
+
+    This helper is deliberately narrower than generic test DB cleanup. It
+    accepts only the two registered E2E files below the repository's ``data``
+    directory. It never adopts old bytes or grants process ownership.
+    """
+    root = (repo_root or Path(__file__).resolve().parents[2]).resolve()
+    data_dir = root / "data"
+    requested = Path(db_path)
+    run_scope, lane_scope = _e2e_receipt_scope(run_id, lane)
+    owner_evidence = {
+        "run_id": run_scope,
+        "lane": lane_scope,
+        "recorded_at": time.time(),
+        "owner": "e2e-fixture-recreate",
+    }
+    if requested.is_symlink():
+        raise E2EDatabaseRefusal(f"refusing symlink E2E database target: {requested}")
+    resolved = requested.resolve(strict=False)
+    if resolved == root / "data" / PROTECTED_DATABASE_FILENAME:
+        raise E2EDatabaseRefusal(f"refusing protected production database: {resolved}")
+    if resolved.parent != data_dir or resolved.name not in E2E_DATABASE_FILENAMES:
+        raise E2EDatabaseRefusal(
+            f"refusing unregistered E2E database target: {requested} (resolved={resolved})"
+        )
+    if active_server:
+        classification = str(active_server.get("classification", "unknown"))
+        if classification not in {"absent", "owned-cleaned"}:
+            raise E2EDatabaseRefusal(
+                f"refusing E2E database in active {classification} server state: {active_server!r}"
+            )
+    if server_port is not None:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                probe.bind(("127.0.0.1", server_port))
+            except OSError as exc:
+                raise E2EDatabaseRefusal(
+                    f"refusing E2E recreation while exact server port {server_port} "
+                    f"is occupied; ownership is not proven ({exc})"
+                ) from exc
+    if resolved.exists() and (resolved.is_symlink() or not resolved.is_file()):
+        raise E2EDatabaseRefusal(f"refusing contradictory E2E database path type: {resolved}")
+
+    if resolved.exists():
+        resolved.unlink()
+        disposition = "ephemeral-recreated"
+        cleanup_result = "exact-regular-file-removed"
+    else:
+        disposition = "ephemeral-absent"
+        cleanup_result = "idempotent-no-op; exact-target-absent"
+    receipt = {
+        "run_id": run_scope,
+        "lane": lane_scope,
+        "path": str(resolved),
+        "disposition": disposition,
+        "classification": (
+            "ephemeral-preexisting" if disposition == "ephemeral-recreated" else "absent"
+        ),
+        "adopted": False,
+        "owner_evidence": owner_evidence,
+        "cleanup_result": cleanup_result,
+    }
+    _emit_e2e_recreate_receipt(receipt)
+    return receipt
 
 
 def emit_db_receipt(owner_lanes: str | Iterable[str], *targets: Path) -> None:

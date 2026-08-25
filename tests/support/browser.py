@@ -88,8 +88,13 @@ def shutdown_uvicorn(
     log_path: Path | None = None,
     pgid: int | None = None,
     parent_pgid: int | None = None,
+    lifecycle_callback=None,
 ) -> None:
     owned_group = pgid is not None and pgid != parent_pgid
+
+    def lifecycle(phase: str, **details: object) -> None:
+        if lifecycle_callback is not None:
+            lifecycle_callback(phase, **details)
 
     def signal_process(sig: int) -> None:
         try:
@@ -112,18 +117,24 @@ def shutdown_uvicorn(
 
     try:
         if proc.poll() is None:
+            lifecycle("term-requested", signal=signal.Signals(signal.SIGTERM).name, pgid=pgid)
             signal_process(signal.SIGTERM)
+            lifecycle("bounded-wait", timeout=3.0, pgid=pgid)
             with suppress(subprocess.TimeoutExpired, ChildProcessError):
                 proc.wait(timeout=3)
         if proc.poll() is None:
+            lifecycle("escalation", signal=signal.Signals(signal.SIGKILL).name, pgid=pgid)
             log_harness(f"{label}: terminate timeout on {host}:{port}; sending kill()")
             signal_process(signal.SIGKILL)
+            lifecycle("bounded-wait-after-escalation", timeout=2.0, pgid=pgid)
             with suppress(subprocess.TimeoutExpired, ChildProcessError):
                 proc.wait(timeout=2)
         if proc.poll() is None:
             log_harness(f"{label}: process still alive after kill() on {host}:{port}")
     finally:
         returncode = proc.poll()
+        lifecycle("exit", return_code=returncode, pgid=pgid)
+        lifecycle("port-free", port_free=port_is_free(host, port), port=port)
         if not port_is_free(host, port):
             log_harness(f"{label}: port {port} still bound after teardown")
         if log_handle is not None:

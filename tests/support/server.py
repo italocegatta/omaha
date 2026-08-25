@@ -72,19 +72,20 @@ def run_test_server(
     lane = os.environ.get("T29_DB_RECEIPT_LANE", label)
     parent_pid = os.getpid()
     parent_pgid = os.getpgrp()
+    command = [
+        sys.executable,
+        "-m",
+        "uvicorn",
+        "omaha.main:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        str(port),
+        "--log-level",
+        "warning",
+    ]
     proc = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "omaha.main:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            str(port),
-            "--log-level",
-            "warning",
-        ],
+        command,
         cwd=REPO_ROOT,
         env=env,
         stdout=log_handle,
@@ -107,6 +108,10 @@ def run_test_server(
             parent_pgid=parent_pgid,
             child_pid=child_pid,
             pgid=None,
+            command=command,
+            cwd=str(REPO_ROOT),
+            db_path=str(db_path.resolve()),
+            identity_verdict="unknown",
             error=f"{exc.__class__.__name__}: {exc}",
         )
     _server_event(
@@ -118,6 +123,11 @@ def run_test_server(
         parent_pgid=parent_pgid,
         child_pid=child_pid,
         pgid=pgid,
+        command=command,
+        cwd=str(REPO_ROOT),
+        db_path=str(db_path.resolve()),
+        identity_verdict=("owned-current-run-child" if pgid is not None else "unknown"),
+        adopted=False,
         host="127.0.0.1",
         port=port,
         log=str(log_path),
@@ -141,8 +151,13 @@ def run_test_server(
             parent_pid=parent_pid,
             child_pid=child_pid,
             pgid=pgid,
+            command=command,
+            cwd=str(REPO_ROOT),
+            db_path=str(db_path.resolve()),
+            identity_verdict=("owned-current-run-child" if pgid is not None else "unknown"),
             host="127.0.0.1",
             port=port,
+            adopted=False,
         )
     except Exception as exc:
         _server_event(
@@ -153,6 +168,10 @@ def run_test_server(
             parent_pid=parent_pid,
             child_pid=child_pid,
             pgid=pgid,
+            command=command,
+            cwd=str(REPO_ROOT),
+            db_path=str(db_path.resolve()),
+            identity_verdict=("owned-current-run-child" if pgid is not None else "unknown"),
             return_code=proc.poll(),
             error=f"{exc.__class__.__name__}: {exc}",
         )
@@ -165,6 +184,20 @@ def run_test_server(
             log_path=log_path,
             pgid=pgid,
             parent_pgid=parent_pgid,
+            lifecycle_callback=lambda phase, **details: _server_event(
+                log_handle,
+                run_id=run_id,
+                lane=lane,
+                phase=phase,
+                parent_pid=parent_pid,
+                child_pid=child_pid,
+                command=command,
+                cwd=str(REPO_ROOT),
+                db_path=str(db_path.resolve()),
+                identity_verdict=("owned-current-run-child" if pgid is not None else "unknown"),
+                adopted=False,
+                **details,
+            ),
         )
         with log_path.open("a", encoding="utf-8") as event_log:
             _server_event(
@@ -176,6 +209,10 @@ def run_test_server(
                 parent_pgid=parent_pgid,
                 child_pid=child_pid,
                 pgid=pgid,
+                command=command,
+                cwd=str(REPO_ROOT),
+                db_path=str(db_path.resolve()),
+                identity_verdict=("owned-current-run-child" if pgid is not None else "unknown"),
                 return_code=proc.poll(),
                 port_free=port_is_free("127.0.0.1", port),
             )
@@ -195,6 +232,10 @@ def run_test_server(
             parent_pid=parent_pid,
             child_pid=child_pid,
             pgid=pgid,
+            command=command,
+            cwd=str(REPO_ROOT),
+            db_path=str(db_path.resolve()),
+            identity_verdict=("owned-current-run-child" if pgid is not None else "unknown"),
             return_code=proc.poll(),
         )
         shutdown_uvicorn(
@@ -206,6 +247,20 @@ def run_test_server(
             log_path=log_path,
             pgid=pgid,
             parent_pgid=parent_pgid,
+            lifecycle_callback=lambda phase, **details: _server_event(
+                log_handle,
+                run_id=run_id,
+                lane=lane,
+                phase=phase,
+                parent_pid=parent_pid,
+                child_pid=child_pid,
+                command=command,
+                cwd=str(REPO_ROOT),
+                db_path=str(db_path.resolve()),
+                identity_verdict=("owned-current-run-child" if pgid is not None else "unknown"),
+                adopted=False,
+                **details,
+            ),
         )
         with log_path.open("a", encoding="utf-8") as event_log:
             _server_event(
@@ -217,6 +272,10 @@ def run_test_server(
                 parent_pgid=parent_pgid,
                 child_pid=child_pid,
                 pgid=pgid,
+                command=command,
+                cwd=str(REPO_ROOT),
+                db_path=str(db_path.resolve()),
+                identity_verdict=("owned-current-run-child" if pgid is not None else "unknown"),
                 return_code=proc.poll(),
                 port_free=port_is_free("127.0.0.1", port),
             )

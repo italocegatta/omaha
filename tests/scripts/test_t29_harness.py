@@ -109,6 +109,15 @@ def test_server_ready_receipt_binds_spawned_child_and_teardown(monkeypatch, tmp_
     assert '"phase": "launch"' in events
     assert '"phase": "ready"' in events
     assert '"phase": "teardown-start"' in events
+    launch_event = next(
+        json.loads(line.split(" ", 1)[1])
+        for line in events.splitlines()
+        if line.startswith("T29_SERVER_EVENT ") and '"phase": "launch"' in line
+    )
+    assert launch_event["command"][2:4] == ["uvicorn", "omaha.main:app"]
+    assert launch_event["db_path"] == str((tmp_path / "test.db").resolve())
+    assert launch_event["identity_verdict"] == "owned-current-run-child"
+    assert launch_event["adopted"] is False
 
 
 def test_server_event_writes_binary_log_handle(tmp_path) -> None:
@@ -155,6 +164,79 @@ def test_db_receipt_ownership_matrix(monkeypatch, capsys) -> None:
         )
         db_support.emit_db_receipt(owner, filename)
         assert filename in capsys.readouterr().out
+
+
+def test_e2e_database_recreate_is_exact_and_not_adopted(tmp_path, capsys) -> None:
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    target = data_dir / "test_e2e.db"
+    target.write_bytes(b"old-test-only-bytes")
+
+    receipt = db_support.recreate_e2e_database(
+        target,
+        repo_root=tmp_path,
+        run_id="controlled-run",
+        lane="e2e",
+    )
+
+    assert not target.exists()
+    assert receipt["path"] == str(target.resolve())
+    assert receipt["disposition"] == "ephemeral-recreated"
+    assert receipt["adopted"] is False
+    assert json.loads(capsys.readouterr().out.split("=", 1)[1])["run_id"] == "controlled-run"
+
+
+def test_e2e_database_recreate_absent_is_idempotent(tmp_path) -> None:
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+
+    receipt = db_support.recreate_e2e_database(
+        data_dir / "test_e2e_short_ttl.db",
+        repo_root=tmp_path,
+        run_id="controlled-run",
+        lane="e2e",
+    )
+
+    assert receipt["disposition"] == "ephemeral-absent"
+    assert receipt["cleanup_result"].startswith("idempotent-no-op")
+    assert receipt["adopted"] is False
+
+
+def test_e2e_database_recreate_preserves_protected_and_contradictory_targets(tmp_path) -> None:
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    portfolio = data_dir / "portfolio.db"
+    portfolio.write_bytes(b"production-bytes")
+    directory = data_dir / "test_e2e.db"
+    directory.mkdir()
+    outside = tmp_path / "outside.db"
+    outside.write_bytes(b"outside-bytes")
+    link = data_dir / "test_e2e_short_ttl.db"
+    link.symlink_to(outside)
+
+    for target in (portfolio, directory, outside, link):
+        with pytest.raises(db_support.E2EDatabaseRefusal):
+            db_support.recreate_e2e_database(target, repo_root=tmp_path)
+
+    assert portfolio.read_bytes() == b"production-bytes"
+    assert directory.is_dir()
+    assert outside.read_bytes() == b"outside-bytes"
+    assert link.is_symlink()
+
+
+def test_e2e_database_recreate_preserves_foreign_server_evidence(tmp_path) -> None:
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    target = data_dir / "test_e2e.db"
+    target.write_bytes(b"foreign-protected")
+
+    with pytest.raises(db_support.E2EDatabaseRefusal, match="foreign"):
+        db_support.recreate_e2e_database(
+            target,
+            repo_root=tmp_path,
+            active_server={"classification": "foreign", "pid": 41001},
+        )
+    assert target.read_bytes() == b"foreign-protected"
 
 
 def test_runner_collector_env_single_lane(monkeypatch) -> None:
@@ -864,6 +946,41 @@ def test_runner_preflight_inventory_records_canonical_port_collision() -> None:
     assert collision["classification"] == "foreign"
     assert inventory["ok"] is False
     assert collision["cleanup_target"] is False
+
+
+def test_runner_inventory_marks_disposable_e2e_and_never_production_target() -> None:
+    inventory = runner._canonical_resource_inventory()
+    db_resources = [item for item in inventory["resources"] if item["resource_kind"] == "test DB"]
+
+    assert all(item["adopted"] is False for item in db_resources)
+    assert all(item["cleanup_target"] is False for item in db_resources)
+    assert set(item["resource_id"] for item in db_resources) == runner.CANONICAL_DATABASE_PATHS
+    assert str(runner.REPO_ROOT / "data" / "portfolio.db") not in {
+        item["resource_id"] for item in db_resources
+    }
+
+
+def test_runner_rejects_process_identity_mismatch_without_signal(monkeypatch) -> None:
+    child = _ControlledChild(41020)
+    entry = _lane_entry()
+    _bind_child(entry, child)
+    entry["pid"] = 41021
+    calls: list[tuple[int, int]] = []
+    monkeypatch.setattr(runner.os, "killpg", lambda pgid, sig: calls.append((pgid, sig)))
+
+    assert runner._stop({"unit": child}, runner.signal.SIGTERM, {"unit": entry}) is False
+    assert calls == []
+    assert entry["residue_classification"] == "untrusted"
+    assert entry["owned_resource_mapping"]["process_group"]["classification"] == "untrusted"
+
+
+def test_runner_parses_e2e_recreate_receipts_without_adoption() -> None:
+    output = (
+        'T29_DB_RECREATE={"adopted": false, "disposition": '
+        '"ephemeral-recreated", "lane": "e2e", "run_id": "controlled-run", '
+        '"path": "/tmp/data/test_e2e.db"}\n'
+    )
+    assert runner._db_recreate_receipts(output)[0]["adopted"] is False
 
 
 def test_runner_preflight_inventory_records_preexisting_pytest_root_as_irrelevant() -> None:

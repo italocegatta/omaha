@@ -84,6 +84,19 @@ from fastapi.testclient import TestClient  # noqa: E402
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
+def _runner_command() -> list[str] | None:
+    raw = os.environ.get("T29_RUN_COMMAND")
+    if not raw:
+        return None
+    try:
+        command = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    if isinstance(command, list) and all(isinstance(item, str) for item in command):
+        return command
+    return None
+
+
 def pytest_runtest_logreport(report: pytest.TestReport) -> None:
     """Keep per-test failure tracebacks in canonical lane output."""
     if not report.failed:
@@ -92,6 +105,16 @@ def pytest_runtest_logreport(report: pytest.TestReport) -> None:
         process_pgid = os.getpgid(os.getpid())
     except OSError:
         process_pgid = None
+    runner_identity = {
+        "run_id": os.environ.get("T29_RUN_ID", "unscoped"),
+        "lane": os.environ.get("T29_DB_RECEIPT_LANE", "unscoped"),
+        "parent_pid": os.getppid(),
+        "child_pid": os.getpid(),
+        "pgid": process_pgid,
+        "command": _runner_command(),
+        "cwd": os.environ.get("T29_RUN_CWD"),
+        "adopted": False,
+    }
     print(
         "\nT29_TEST_FAILURE "
         + json.dumps(
@@ -103,6 +126,7 @@ def pytest_runtest_logreport(report: pytest.TestReport) -> None:
                 "pid": os.getpid(),
                 "pgid": process_pgid,
                 "traceback": getattr(report, "longreprtext", str(report.longrepr)),
+                "runner_identity": runner_identity,
             }
         ),
         flush=True,

@@ -82,33 +82,20 @@ preservam rastreabilidade sem manter blocos de execução no roadmap.
 
 ### T37 - Governança prática do DB E2E e processos Omaha
 
-Status: `Ready` — deferred; fora da ordem ativa imediata.
-Goal: tornar preflight, ownership, cleanup/recreate e restart do único ambiente
-Omaha mais práticos sem adotar recursos estrangeiros nem proteger
-incorretamente dados efêmeros.
-Candidate OpenSpec change id: `t37-governanca-pratica-do-db-e2e-e-processos-omaha`
-Spec link: `openspec/changes/t37-governanca-pratica-do-db-e2e-e-processos-omaha/`
-Files to inspect: `scripts/run_full_suite.py`, `tests/conftest.py`,
-`tests/support/db.py`, `tests/support/server.py`,
-`tests/scripts/test_t29_harness.py`
-Notes: `data/test_e2e.db` é efêmero e recriável; `data/portfolio.db` permanece
-protegido. Avaliar ownership/preflight, cleanup seguro, identificação de
-processos Omaha, restart gracioso, receipts e recuperação de stale processes.
-Não alterar T36, F67, D06, T38, D08 ou produto. Owner retoma quando
-priorizar governança do ambiente.
-Progress log: pending — deferred após T36 archived.
+Status: `Archived` — 2026-08-24
+Goal: tornar governança do DB E2E e processos Omaha segura e prática.
+Archive: `openspec/changes/archive/2026-08-24-t37-governanca-pratica-do-db-e2e-e-processos-omaha/`
 
 ## Recommended Execution Order
 
-**Active queue:** nenhuma slice imediata. T37 é a próxima candidata quando o
-owner retomar governança do ambiente.
+**Active queue:** nenhuma slice imediata.
 
 Order note: T38 e D08 foram finalizadas antes da compactação. Slices arquivadas
 foram removidas da fila, não reabertas.
 
 ## Dependencies
 
-- T37 depende de T36 archived e permanece deferred.
+- T37 dependeu de T36 archived e foi finalizada após autorização do owner.
 - T36 encerrou investigação de timeout; decisão de timeout foi descartada e não
   permanece como slice ativa.
 - T38 dependia de T36 e foi finalizada com D08 como runbook complementar.
@@ -125,7 +112,6 @@ operacionais:
 - T38 coleta telemetria bounded por 4–8 semanas/execuções reais antes de novo
   diagnóstico de causa principal; qualquer futura mudança de timeout exige nova
   demanda e nova slice.
-- T37 só retorna à fila por decisão explícita do owner.
 - Compactação preserva rastreabilidade por slice e archive, sem duplicar
   `proposal.md`, `design.md` ou `tasks.md`.
 

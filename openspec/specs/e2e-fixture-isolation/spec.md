@@ -118,3 +118,15 @@ while preserving BDD port and DB isolation.
 - **WHEN** session-scoped BDD fixture exits normally or after scenario error
 - **THEN** child is reaped, abnormal return codes remain observable, and port 8766 is checked
 - **AND** e2e ports 8765/8767 and lane-owned DB files remain unaffected
+
+### Requirement: E2E fixed databases are explicitly ephemeral and recreatable
+
+The E2E session fixtures SHALL recreate only exact registered test DB paths, emit `adopted: false`, preserve one shared path/inode after launch, and never target `data/portfolio.db`.
+
+#### Scenario: Existing E2E DB is safely recreated
+- **WHEN** session fixture starts with an existing regular `data/test_e2e.db`
+- **THEN** it removes only that exact E2E file and starts uvicorn with same path
+
+#### Scenario: E2E DB path is protected by type and identity checks
+- **WHEN** configured path is a symlink, directory, outside `data/`, production DB, or foreign-owned
+- **THEN** fixture fails before removal or URL yield and preserves resource

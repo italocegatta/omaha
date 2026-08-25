@@ -240,6 +240,22 @@ scan/delete broad `/tmp`, or infer parent cleanup targets.
 - **THEN** runner records it as preserved/non-target without cleanup
 - **AND** runner does not adopt, delete, allowlist, or infer broad cleanup
 
+### Requirement: Canonical runner emits actionable governance receipts
+
+The canonical `uv run task test` runner SHALL retain one complete run receipt with one entry for each of six lanes when preflight, launch, cleanup, reconciliation, or receipt persistence fails. Missing or contradictory evidence SHALL remain non-zero.
+
+#### Scenario: Preflight block still explains all lanes
+- **WHEN** canonical preflight finds a foreign listener or untrusted resource
+- **THEN** runner emits six explicit lane placeholders and a non-zero blocked result
+
+### Requirement: Canonical runner preserves lane and duration contracts during recovery
+
+Governance recovery SHALL not change six canonical lanes, taskipy entrypoints, fail-fast behavior, coverage, retained tests/skips, or absolute 300-second ceiling.
+
+#### Scenario: Foreign residue preserves canonical gate
+- **WHEN** postflight observes foreign or unknown residue
+- **THEN** runner preserves it, records untrusted cleanup, and returns non-zero
+
 ### Requirement: Lockfile update
 The system SHALL provide a taskipy shortcut for upgrading all dependencies within existing version constraints.
 
