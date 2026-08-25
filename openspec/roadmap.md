@@ -73,7 +73,7 @@ preservam rastreabilidade sem manter blocos de execução no roadmap.
 - **I11** — archived 2026-08-23; bloqueio de push diagnosticado sem enfraquecer enforcement.
 - **D06** — archived 2026-08-24; superfícies de atualização/importação inventariadas; PUSH-01 resolvido.
 - **F67** — archived 2026-08-24; grupos de revisão ordenados; owner autorizou archive.
-- **T36** — archived 2026-08-24; evidência não justificou aumento de timeout; F68 permanece deprecated.
+- **T36** — archived 2026-08-24; evidência não justificou mudança de timeout.
 - **D07** — archived 2026-08-24; escopo mobile documentado sem mascarar testes.
 - **D08** — archived 2026-08-24; runbook MyProfit concluído e sincronizado.
 - **T38** — archived conforme registro em 2026-08-25; telemetria bounded + runbook, focused integration/unit/lint/spec verdes, commit `a31f77c`.
@@ -94,7 +94,7 @@ Files to inspect: `scripts/run_full_suite.py`, `tests/conftest.py`,
 Notes: `data/test_e2e.db` é efêmero e recriável; `data/portfolio.db` permanece
 protegido. Avaliar ownership/preflight, cleanup seguro, identificação de
 processos Omaha, restart gracioso, receipts e recuperação de stale processes.
-Não alterar T36, F67, D06, F68, T38, D08 ou produto. Owner retoma quando
+Não alterar T36, F67, D06, T38, D08 ou produto. Owner retoma quando
 priorizar governança do ambiente.
 Progress log: pending — deferred após T36 archived.
 
