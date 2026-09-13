@@ -66,6 +66,7 @@ preservam rastreabilidade sem manter blocos de execução no roadmap.
 | 2026-07-25–07-29 | T27–T30, F48–F56, I07, D03–D04 | Correções de suite, harness, profile OpenCode, POC MyProfit, waterfall ECharts, ordenação visual e contratos de rebalance. Archived. F49 superseded by F52; F50/F51 deprecated. |
 | 2026-08-20–08-22 | F57–F61, R42, T32–T35, I08–I10 | Credenciais e automação MyProfit, jobs/preview/ação de atualização, logger, runner/harness, ownership de temporários e boundary canônico. Archived. F62, T35 e I09 deprecated/absorvidos. |
 | 2026-08-23 | F64–F65, I11 | Favicon, triagem do preview de posição e diagnóstico do push. Archived; receipts e owner validation registrados nas changes. |
+| 2026-08-24 | T37 | Governança prática do DB E2E e processos Omaha; specs sincronizadas, 596 focused tests verdes, archive e push concluídos no commit `84c4a41`. |
 
 ### Recent closure receipts
 
@@ -77,14 +78,11 @@ preservam rastreabilidade sem manter blocos de execução no roadmap.
 - **D07** — archived 2026-08-24; escopo mobile documentado sem mascarar testes.
 - **D08** — archived 2026-08-24; runbook MyProfit concluído e sincronizado.
 - **T38** — archived conforme registro em 2026-08-25; telemetria bounded + runbook, focused integration/unit/lint/spec verdes, commit `a31f77c`.
+- **T37** — archived 2026-08-24; owner autorizou finalização, specs sincronizadas, 596 focused tests verdes, commit `84c4a41`, push para `main` concluído.
 
 ## Active slices
 
-### T37 - Governança prática do DB E2E e processos Omaha
-
-Status: `Archived` — 2026-08-24
-Goal: tornar governança do DB E2E e processos Omaha segura e prática.
-Archive: `openspec/changes/archive/2026-08-24-t37-governanca-pratica-do-db-e2e-e-processos-omaha/`
+Nenhuma slice ativa.
 
 ## Recommended Execution Order
 
