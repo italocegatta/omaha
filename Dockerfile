@@ -58,6 +58,34 @@ RUN uv sync --frozen
 # --- runtime stage ----------------------------------------------------------
 FROM python:3.12-slim AS runtime
 
+# CloakBrowser's bundled Chromium needs these shared libraries at runtime.
+# Keep them in the runtime stage (not only the builder) so MyProfit sync can
+# launch its browser inside both dev and production containers.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libasound2t64 \
+        libatk-bridge2.0-0t64 \
+        libatk1.0-0t64 \
+        libatspi2.0-0t64 \
+        libcairo2 \
+        libcups2t64 \
+        libdbus-1-3 \
+        libexpat1 \
+        libgbm1 \
+        libglib2.0-0t64 \
+        libnspr4 \
+        libnss3 \
+        libpango-1.0-0 \
+        libx11-6 \
+        libxcb1 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxext6 \
+        libxfixes3 \
+        libxkbcommon0 \
+        libxrandr2 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy the venv, source, and alembic assets from the builder. We
 # intentionally do NOT copy pyproject.toml or uv.lock into the
 # runtime image \u2014 the operator does not need them to run the app,
