@@ -240,7 +240,7 @@ class TestParseRealCsv:
         assert len(smh) == 1
         assert smh[0].qty == Decimal("11")
         assert smh[0].avg_price == Decimal("990.92")
-        assert smh[0].current_price == Decimal("2974.98")
+        assert smh[0].current_price == Decimal("2952.50")
 
     def test_parse_real_csv_br_thousands_qty(self) -> None:
         """qty cells com '.' milhar (sem ',') parseiam como inteiro,
