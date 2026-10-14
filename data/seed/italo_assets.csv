@@ -6,33 +6,35 @@ RF Pós,AUPO11,100.000000,8,true,true,BRL
 RF Dinâmica,"CDB Pós  CDI+1,3% 05/04/2027 AGIBANK",0.000000,0,false,false,BRL
 RF Dinâmica,Tesouro IPCA+ 2035,0.000000,2,false,false,BRL
 RF Dinâmica,Tesouro IPCA+ 2045,0.000000,3,false,false,BRL
-RF Dinâmica,FIXA11,25.000000,4,true,true,BRL
+RF Dinâmica,FIXA11,0.000000,4,false,false,BRL
 RF Dinâmica,JURO11,12.500000,5,true,true,BRL
 RF Dinâmica,KDIF11,12.500000,6,true,true,BRL
 RF Dinâmica,Tesouro IPCA+ 2050,18.750000,7,true,true,BRL
 RF Dinâmica,Tesouro Renda+ Aposentadoria Extra 2065,18.750000,8,true,true,BRL
 RF Dinâmica,CPTI11,12.500000,9,true,true,BRL
+RF Dinâmica,IRFM11,25.000000,10,true,true,BRL
 FII,BRCR11,5.000000,0,true,true,BRL
 FII,CPTS11,15.000000,1,true,true,BRL
-FII,LVBI11,3.330000,2,true,true,BRL
+FII,LVBI11,0.000000,2,true,true,BRL
 FII,PSEC11,10.000000,3,true,true,BRL
 FII,PVBI11,10.000000,4,true,true,BRL
 FII,RBRX11,8.330000,5,true,true,BRL
 FII,RBVA11,6.670000,6,true,true,BRL
-FII,TRXF11,10.000000,7,true,true,BRL
+FII,TRXF11,13.330000,7,true,true,BRL
 FII,VILG11,8.330000,8,true,true,BRL
 FII,VISC11,6.670000,9,true,true,BRL
 FII,XPCI11,10.000000,10,true,true,BRL
 FII,XPML11,6.670000,11,true,true,BRL
 Ações,RDB Pós 100% CDI 01/06/2035,0.000000,0,false,false,BRL
 Ações,RDB Pós 100% CDI 01/08/2033,0.000000,1,false,false,BRL
-Ações,PRIO3,23.330000,2,true,true,BRL
-Ações,GMAT3,16.670000,3,true,true,BRL
-Ações,KEPL3,13.340000,4,true,true,BRL
+Ações,PRIO3,20.000000,2,true,true,BRL
+Ações,GMAT3,13.330000,3,true,true,BRL
+Ações,KEPL3,10.000000,4,true,true,BRL
 Ações,SLCE3,13.330000,5,true,true,BRL
-Ações,VAMO3,13.330000,6,true,true,BRL
+Ações,VAMO3,10.000000,6,true,true,BRL
 Ações,WIZC3,13.330000,7,true,true,BRL
 Ações,BRBI11,6.670000,8,true,true,BRL
+Ações,VALE3,13.340000,9,true,true,BRL
 Internacional,IVVB11,0.000000,0,false,false,BRL
 Internacional,IAU,9.000000,1,true,true,USD
 Internacional,IVV,25.000000,2,true,true,USD
@@ -44,4 +46,5 @@ Internacional,VT,25.000000,7,true,true,USD
 Internacional,NUCL11,3.000000,8,true,true,BRL
 Internacional,HTEK11,3.000000,9,true,true,BRL
 Internacional,Conta corrente em dólar Avenue,0.000000,10,false,false,USD
-Cripto,BTC,100.000000,0,true,true,BRL
+Cripto,BTC,90.000000,0,true,true,BRL
+Cripto,OBTC3,10.000000,1,true,true,BRL
